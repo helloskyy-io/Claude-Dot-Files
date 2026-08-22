@@ -2,7 +2,7 @@
 
 ```
 Topic:          Does flat-rate, edge-held subscription billing actually make long-running autonomous agent loops economically accessible — and what erodes that?
-Feeds:          problem-statement.md § "Affordability is not a footnote — it is the enabler"
+Feeds:          docs/standards/architecture/problem-statement.md § "Affordability is the enabler"
 Last validated: 2026-08-03
 Revalidate:     high — 2 weeks
 Confidence:     Definitive on published per-token prices, plan reset-window mechanics, and the documented existence of session/weekly caps (all from first-party raw-markdown docs). Directional on the status of the paused Agent SDK billing split. Unverified on absolute per-plan allowance quantities — Anthropic does not publish them. Derived on every cost-band and subsidy-ratio estimate, on the cross-element inference in §5.1(a) that underwrites this paper's proposed correction to problem-statement.md, and on the policy-change base rate in §4.11 — each marked at the point of use.

@@ -215,7 +215,21 @@ BUDGETS: dict[str, int] = {
     # is -4 and the agreement fix "are" -> "is" is -1. The count now derives
     # from the enumeration beside it instead of being remembered, which is the
     # class this repo paid four correction passes for on PR #101.
-    "plan/plan_feature/prompts/plan_feature.md": 23826,  # +${FILING_A_CANDIDATE_ROW}
+    # +656 on 2026-08-20, and NEITHER SIDE OF THE REBASE HAD THE RIGHT NUMBER.
+    # This branch pinned 24211 against a base that has since moved and main
+    # pinned 23826 without this branch's bullet; the figure below is the file
+    # MEASURED after the rebase, not either remembered value. It buys the
+    # `git ls-files` half of the ignore check — `git status` showing a file as
+    # untracked proves it is unstaged, not that it is unignored, and the two
+    # answers diverge exactly when a `.gitignore` rule matches something the
+    # run just created.
+    #   -1045 on 2026-08-22, MEASURED DOWNWARD RATHER THAN LEFT STALE. Both
+    #   halves of that check are now the shared `gitignore_collision_check`
+    #   fragment and this file renders the placeholder, so the text left the
+    #   prompt without leaving the run. A budget that keeps the old ceiling
+    #   after a promotion silently re-grants the space the promotion freed,
+    #   which is how a prompt gets back to its old size with nobody deciding it.
+    "plan/plan_feature/prompts/plan_feature.md": 23_437,
     # 15_510 -> 13_204: the `research-analyst` re-dispatch is gone. The verify
     # child holds Write/Edit and applies the critic's findings itself, so the
     # rules that existed only to coordinate a second writing agent went with it

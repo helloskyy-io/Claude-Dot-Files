@@ -3,12 +3,13 @@
 ```
 Topic:          Does a domain-agnostic orchestration backbone with swappable domain edges hold up —
                 and does each new edge really cost less to stand up than the last?
-Feeds:          problem-statement.md § "Where this repo sits" (the "backbone does not change; only
-                the edge does" claim and the named future edges), § "Why coding is the first edge,
-                and not merely the earliest" (the economies-of-scope and compounding claims), and
-                § "What this means for anything built here" → "Nothing may assume the coding edge"
-                (the binding design constraint on work happening today). Also system-overview.md
-                § "What is not built".
+Feeds:          docs/standards/architecture/problem-statement.md
+                § "Where this sits: read this first" (the "backbone does not change; only the edge
+                does" claim and the named future edges), § "Where we actually differ" claim #3
+                ("The first edge builds the others, then operates inside them" — the
+                economies-of-scope and compounding claims), and § "What this means for anything
+                built here" → "Nothing may assume the coding edge" (the binding design constraint
+                on work happening today). Also system-overview.md § "What is not built".
 Last validated: 2026-08-03
 Revalidate:     high — 6 weeks
 Confidence:     DEFINITIVE on what each surveyed platform shipped, extracted, or refused, and on the

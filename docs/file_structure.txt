@@ -810,6 +810,12 @@ claude-dot-files/
 │   │       │                                        #   Its one exemption channel is scoped to the FILE, the PROSE and
 │   │       │                                        #   the COUNT that earn it. It was global: a full regression of the
 │   │       │                                        #   very prompt this guard exists for read CLEAN.
+│   │       ├── test_a_research_papers_FEEDS_target_resolves.py # A paper's Feeds: line names where
+│   │       │                                        #   its evidence goes; a dead one reads as a real destination.
+│   │       │                                        #   15 of 35 were dead when this shipped; six were repointed and
+│   │       │                                        #   nine are frozen, ratcheting down. The ratchet separates a
+│   │       │                                        #   REPAIRED pointer from a DELETED one — both leave the baseline,
+│   │       │                                        #   and only one of them is progress
 │   │       ├── test_no_live_surface_advertises_a_superseded_contract.py # A guide row, a CLI string or a
 │   │       │                                        #   prompt still describing a contract the code replaced. The largest
 │   │       │                                        #   finding class measured — 33 across 12 PRs. PR #105 changed what

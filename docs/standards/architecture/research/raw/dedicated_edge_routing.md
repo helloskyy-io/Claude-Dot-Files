@@ -4,8 +4,9 @@
 Topic:          Dedicated, non-fungible edges versus the industry's central-queue role-advertisement
                 model — does the claim hold up, and what does building it on Temporal actually
                 require?
-Feeds:          problem-statement.md § "Where we actually differ" claim #2 ("Edges are dedicated and
-                non-fungible") — the claim's wording, its evidence marking, and the theory-of-a-worker
+Feeds:          docs/standards/architecture/problem-statement.md § "Where we actually differ"
+                claim #2 ("Work is bound to a machine by identity, and no scheduling label can move
+                it") — the claim's wording, its evidence marking, and the theory-of-a-worker
                 argument underneath it. And roadmap.md § "Phase: Temporal Integration" — worker
                 placement, the "machine-axis queue naming" and "topology profiles" addendum items,
                 and the migration-order checkbox.

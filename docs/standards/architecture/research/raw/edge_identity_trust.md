@@ -6,7 +6,7 @@ Topic:          How is work authorised across trust boundaries when the worker i
                 across those boundaries, what breaks when the edge is a laptop, and has anyone
                 published a design where a federated layer dispatches work it cannot itself
                 authenticate to perform?
-Feeds:          standards/architecture/problem-statement.md § "Where we actually differ" #1
+Feeds:          docs/standards/architecture/problem-statement.md § "Where we actually differ" #1
                 (the three-tier trust model) and § "The edges";
                 Phase: Temporal Integration — worker identity and credential locality.
 Last validated: 2026-08-06

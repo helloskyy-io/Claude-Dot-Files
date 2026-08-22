@@ -7,7 +7,7 @@ Topic:          Which parts of an orchestrator's routing decision can be taken f
                 from a verdict the model asserted about its own work? What prior art exists for
                 routing on such observables ACROSS PROCESS BOUNDARIES, what taxonomy does it
                 support, and where does the approach fail?
-Feeds:          `docs/development/memory-management-framework/memory-management-framework.md` (the phase doc, not yet written) — specifically its **"Design it"** milestone (the closed-vocabulary verdict, the payload the bare token cannot carry, and the fail-safe contract) and its **"Read the result envelope; gate on `is_error`"** milestone, which is exactly one such observable.
+Feeds:          `docs/development/memory-management-framework/roadmap.md` — specifically § **"Phase 3 — The typed exit record: schema, fail-safe contract, one pair proven"**, which is where the sprint's **"Design it"** milestone landed (the closed-vocabulary verdict, the payload the bare token cannot carry, and the fail-safe contract), and § **"Phase 4 — Migrate the fleet"**, which routes `is_error` — exactly one such observable.
 Last validated: 2026-08-06
 Revalidate:     high — 6 weeks
 Confidence:     DEFINITIVE on what each cited system documents as its own branching inputs.

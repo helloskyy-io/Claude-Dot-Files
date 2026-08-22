@@ -842,7 +842,12 @@ _FRAGMENT_FLOOR = {
     # MEASURED 2026-08-19, when the frozen duplication baseline was ruled on and
     # emptied. Each was a block duplicated between two children until this change.
     "agents_have_no_shell": 8,
-    "gitignore_collision_check": 1,
+    # 1 -> 2 on 2026-08-22. The `git ls-files` half of the check joined it: it
+    # lived inline in `plan_feature.md` alone, so the three tiers that render
+    # this fragment were told to prove a new file is not IGNORED and never to
+    # prove it is COMMITTED. Both halves are one paragraph each, so the floor
+    # is again the whole fragment and a shrink here is a deletion.
+    "gitignore_collision_check": 2,
     "orchestrator_executes_agents_read": 3,
     "research_stage_1_verify_and_discover": 1,
     "resolve_apply_the_remedy_you_wrote": 4,

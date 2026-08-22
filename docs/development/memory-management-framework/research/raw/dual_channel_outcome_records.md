@@ -5,9 +5,9 @@ Topic:          When one unit of work must leave BOTH a durable human-readable r
                 machine-readable record, how do production systems relate the two — is the machine
                 channel derived from the human record, is the human record rendered from the machine
                 channel, or are they authored independently — and what goes wrong in each arrangement?
-Feeds:          docs/development/memory-management-framework/memory-management-framework.md (the phase
-                doc, not yet written) — specifically its Kind 1 / Kind 2 relationship decision, and its
-                "Document Kind 1 as a framework" milestone.
+Feeds:          docs/development/memory-management-framework/roadmap.md — specifically
+                § "What this component is", which holds the Kind 1 / Kind 2 relationship decision,
+                and § "Phase 2 — Document Kind 1 as a framework".
 Last validated: 2026-08-06
 Revalidate:     medium — 3 months
 Confidence:     Definitive on the arrangement inventory and on every quoted first-party span (all

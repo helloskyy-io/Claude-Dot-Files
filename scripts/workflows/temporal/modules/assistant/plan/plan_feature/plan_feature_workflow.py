@@ -206,6 +206,16 @@ def prompt_values(rel_component: Path, rel_candidates: Path, tree: Path,
         # says which pool is THIS run's, which the shared block cannot know.
         "EVIDENCE_BLOCK": act.evidence_block(tree),
         "FILING_A_CANDIDATE_ROW": act.shared_prompt("filing_a_candidate_row"),
+        # THIS PROMPT HELD THE ONLY COMPLETE COPY OF THE CHECK, which is the
+        # wrong way round for a file-creating tier. `git status` answers the
+        # IGNORE question; `git ls-files` answers whether the file is in the
+        # commit, and several guards here read TRACKED files rather than the
+        # working tree. The second half lived inline here and NOT in the pool
+        # fragment the three draft tiers render, so `build-draft`,
+        # `build-draft-minor` and `plan-revision` each got the incomplete check.
+        # It was left inline because the promotion was waiting on PR #124; #124
+        # merged as a078c41, so the premise expired and the block moved.
+        "GITIGNORE_COLLISION_CHECK": act.shared_prompt("gitignore_collision_check"),
         "SUBMIT_PROMPT": act.submit_prompt(
             pr_number, f"plan-feature: plan {rel_component.name}"),
         # OPAQUE, and rendered verbatim. Before this existed `--pr` could push to

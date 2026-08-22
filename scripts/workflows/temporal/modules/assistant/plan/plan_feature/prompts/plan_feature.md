@@ -188,7 +188,7 @@ Detail is expected here; this is the long one.
 - **Deferred work does not live in a roadmap or a phase doc.** An open question that is an INPUT to a phase belongs at that phase with its box unchecked; anything else goes where the finding-routing rules put it.
 - **Follow the four-bucket convention** — architecture is WHY, development is WHAT, standards are HOW, guide is USER-FACING. You are writing in development.
 
-**.gitignore-collision check (before your checkpoint commit):** run `git status` and confirm every file you created appears as untracked. If one does NOT, `.gitignore` is silently hiding it — grep for the matching pattern and add an explicit `!path/` override. A silently-ignored new file is work invisible to the PR.
+${GITIGNORE_COLLISION_CHECK}
 
 Checkpoint commit once the plan is written, and do not push it yet:
 
