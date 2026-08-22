@@ -103,7 +103,12 @@ from __future__ import annotations
 
 import re
 import subprocess
+from functools import lru_cache
 from pathlib import Path
+from typing import NamedTuple
+
+from vendored_standards import EXPECTED as _VENDORED_EXPECTED
+from vendored_standards import VENDOR_SCRIPT, vendored_paths
 
 _REPO = Path(__file__).resolve().parents[4]
 
@@ -155,59 +160,134 @@ def _line_is_offence(line: str, *, in_carrier: bool) -> bool:
     return in_carrier and bool(_ORDINAL.search(line))
 
 
-def _offences() -> list[str]:
-    out = []
+def _is_research_prose(path: Path) -> bool:
+    """Is this file part of a RESEARCH POOL, at either altitude?
+
+    Research papers quote fetched sources, and the Research Standard says a
+    span *"may be labelled or presented as a quotation only if its exact
+    character sequence was returned by a fetch ... a paraphrase presented as a
+    quote is a fabrication."* Editing digits inside such a quote to satisfy this
+    gate manufactures exactly that, so the remedy for these files differs.
+
+    KEYED ON THE CLASS, NOT ON ONE PATH, and that is the correction rather than
+    a preference. The first version of this partition matched the literal
+    `docs/standards/architecture/research/raw` and nothing else — which is the
+    SAME "one literal directory instead of the class" mistake this PR had
+    already found and fixed one bucket over, in the vendored set that was
+    modelled as four directory names. The repo has research pools at TWO
+    altitudes (CLAUDE.md; Research Standard § *Two locations, by altitude*):
+    `docs/standards/architecture/research/` for findings that change WHAT we
+    build, and `docs/development/<component>/research/` for the ~98% that decide
+    HOW. The second altitude holds 27 tracked files and every one of them was
+    routed into the "reword it locally" bucket.
+
+    `synthesis.md` is included and not just `raw/`: the standard extends the
+    same verbatim burden to it, because a synthesis quotes the pool papers it
+    cites.
+    """
+    return "research" in path.relative_to(_REPO).parts
+
+
+def _offences() -> list[tuple[Path, int]]:
+    out: list[tuple[Path, int]] = []
     for path in _markdown():
         text = path.read_text()
         in_carrier = bool(_CARRIER_HEADING.search(text))
         for n, line in enumerate(text.splitlines(), 1):
             if _line_is_offence(line, in_carrier=in_carrier):
-                out.append(f"{path.relative_to(_REPO)}:{n}")
+                out.append((path, n))
     return out
 
 
+# THE PROVENANCE OF A FIXTURE IS ITSELF A CHECKABLE CLAIM, AND IT IS CHECKED.
+# Both corpora below used to carry their source as a free-text label — a bare
+# filename, sometimes without a line. That is unresolvable by anything except a
+# human, and `review-pr` pass 9 found the consequence: one `_LEGITIMATE_CORPUS`
+# entry sitting under the comment *"Quoted from the live tree, not invented"*
+# existed nowhere but this file. So each entry now carries the coordinates that
+# let a machine go and look — a git rev (or `None` for the live tree), a
+# repo-relative path, and the `carrier` flag — and
+# `test_every_FIXTURE_IS_QUOTED_FROM_THE_SOURCE_IT_NAMES` resolves every one of
+# them. An invented fixture now fails here rather than surviving to be found by
+# the next review pass.
+#
+# `carrier` is checked too, not just the quote. It records whether the source
+# document carries a `# ... migration path` heading, which is what branch 3 keys
+# on — a fixture that claims the wrong side of that flag exercises a branch the
+# real line never took, and the corpus would certify a predicate the tree does
+# not run.
+
+class _Fixture(NamedTuple):
+    """One corpus line plus the coordinates that let a machine go and check it.
+
+    `rev` is a git rev, or None meaning the LIVE tree. `carrier` records whether
+    the source document carries a `# ... migration path` heading, which is what
+    branch 3 keys on.
+    """
+
+    rev: str | None
+    path: str
+    carrier: bool
+    line: str
+
+
 # The eight instances that ACTUALLY happened, quoted from the pre-fix blobs in
-# git rather than invented. `carrier` records whether the line lived inside the
-# document that carries the migration path, because four of them are bare
-# ordinals that only branch 3 can see.
+# git. Four of them are bare ordinals that only branch 3 can see, which is why
+# the carrier flag matters.
+_TI = "docs/development/temporal-integration/temporal-integration.md"
 _HISTORICAL_CORPUS = [
-    ("temporal-integration.md@bb4a3ae:11", True,
+    _Fixture("bb4a3ae", _TI, True,
      "That is step 2 of the migration path below."),
-    ("temporal-integration.md@bb4a3ae:54", True,
-     "This comes before anything is wrapped — before Stage B, which begins "
-     "once step 3 stands Temporal up — because under Temporal's default "
-     "retry policy"),
-    ("temporal-integration.md@bb4a3ae:54", True,
-     "And the addendum is otherwise produced at **step 5**, which is after the "
-     "deadline this step exists to meet"),
-    ("temporal-integration.md@bb4a3ae:54", True,
-     "so the identity entry is authored here, at step 2, and the rest of the "
+    _Fixture("bb4a3ae", _TI, True,
+     "once step 3 stands Temporal up"),
+    _Fixture("bb4a3ae", _TI, True,
+     "produced at **step 5**, which is after the deadline this step exists to meet"),
+    _Fixture("bb4a3ae", _TI, True,
+     "the identity entry is authored here, at step 2, and the rest of the "
      "addendum stays at step 5.**"),
-    ("temporal-integration.md@bb4a3ae:77", True,
+    _Fixture("bb4a3ae", _TI, True,
      "and the identity half of it is step 2 of the migration path above."),
-    ("phase6_the_rest_of_the_fleet.md@2af48df:46", False,
-     "- [`temporal-integration.md`](temporal-integration.md)'s migration path, "
+    _Fixture("2af48df", "docs/development/temporal-integration/phase6_the_rest_of_the_fleet.md", False,
+     "[`temporal-integration.md`](temporal-integration.md)'s migration path, "
      "step 3: the Temporal file layout, and why `children/` dissolves."),
-    ("candidates.md@e844280^", False,
-     "[`temporal-integration.md`](../../../development/temporal-integration/"
-     "temporal-integration.md) migration step 2 names §A3 as the artifact"),
-    ("candidates.md@e844280^", False,
-     "**Evidence:** `claude-dot-files-addendum.md:33`; `temporal-integration.md` "
+    _Fixture("e844280^", "docs/standards/architecture/research/candidates.md", False,
+     "migration step 2 names §A3 as the artifact"),
+    _Fixture("e844280^", "docs/standards/architecture/research/candidates.md", False,
      "migration step 2, which already flags the mismatch in-line"),
 ]
 
 # Lines that legitimately carry an ordinal and MUST stay green: another
-# document's own numbered steps. Quoted from the live tree, not invented.
+# document's own numbered steps. `rev=None` means the LIVE tree.
+#
+# The third entry replaces one that was invented. It is deliberately keyed on
+# `Step 3` — the same ordinal as the phase6 offence above — so the pair
+# discriminates on the citation's SUBJECT rather than on which digit it uses.
 _LEGITIMATE_CORPUS = [
-    ("exit-protocol.md:74", False,
+    _Fixture(None, "docs/standards/exit-protocol.md", False,
      "**The parent's run-identity check** — [Phase 3 § step 3]"
      "(../development/memory-management-framework/phase3_typed_exit_record.md)."),
-    ("phase6_read_what_it_writes.md:301", False,
+    _Fixture(None, "docs/development/memory-management-framework/phase6_read_what_it_writes.md", False,
      "[Phase 4](phase4_fleet_migration.md) step 2 may move "
      "`modules/assistant/convergence.py` into `review_pr/`."),
-    ("cpi-cycle.md-shape", False,
-     "Run the review, then follow step 1 of the cycle below."),
+    _Fixture(None, "docs/guide/cpi-cycle.md", False,
+     "### Step 3 — Read the report together"),
 ]
+
+
+@lru_cache(maxsize=None)
+def _source_text(rev: str | None, path: str) -> str:
+    """The fixture's source, read from git history or from the live tree.
+
+    `check=True`: a fixture whose source cannot be read is a fixture whose
+    provenance is unverified, and that is the whole failure this corpus exists
+    to make impossible. It must raise rather than resolve to an empty string,
+    which would make every `in` test below fail with a misleading message.
+    """
+    if rev is None:
+        return (_REPO / path).read_text(encoding="utf-8")
+    return subprocess.run(
+        ["git", "-C", str(_REPO), "show", f"{rev}:{path}"],
+        capture_output=True, text=True, check=True).stdout
 
 
 def test_the_scan_reaches_THE_WHOLE_TRACKED_TREE() -> None:
@@ -250,8 +330,8 @@ def test_the_PREDICATE_catches_every_instance_that_HAPPENED() -> None:
     was available for free and never replayed. Narrowing the predicate back to
     anything that misses one of them turns this red.
     """
-    missed = [(where, line) for where, carrier, line in _HISTORICAL_CORPUS
-              if not _line_is_offence(line, in_carrier=carrier)]
+    missed = [(f"{f.rev}:{f.path}", f.line) for f in _HISTORICAL_CORPUS
+              if not _line_is_offence(f.line, in_carrier=f.carrier)]
     assert not missed, (
         f"the predicate misses {len(missed)} of {len(_HISTORICAL_CORPUS)} "
         f"instances that actually happened: {[w for w, _ in missed]}. A guard "
@@ -268,8 +348,8 @@ def test_the_predicate_leaves_ANOTHER_DOCUMENTS_OWN_STEPS_alone() -> None:
     legitimately. None contains the phrase 'migration path', which is why
     branch 1 keys on the phrase and not on the word.
     """
-    false_positives = [where for where, carrier, line in _LEGITIMATE_CORPUS
-                       if _line_is_offence(line, in_carrier=carrier)]
+    false_positives = [f.path for f in _LEGITIMATE_CORPUS
+                       if _line_is_offence(f.line, in_carrier=f.carrier)]
     assert not false_positives, (
         f"the predicate fires on another document's own numbered steps: "
         f"{false_positives}. Those ordinals are legitimate — they name internal "
@@ -277,17 +357,204 @@ def test_the_predicate_leaves_ANOTHER_DOCUMENTS_OWN_STEPS_alone() -> None:
         f"Temporal migration path.")
 
 
+def test_every_FIXTURE_IS_QUOTED_FROM_THE_SOURCE_IT_NAMES() -> None:
+    """The corpora's own provenance claim, enforced instead of asserted in prose.
+
+    `review-pr` pass 9 found a `_LEGITIMATE_CORPUS` entry that existed nowhere
+    but this file, sitting under the comment *"Quoted from the live tree, not
+    invented"* — in the one module whose entire stated root cause is *"the
+    mutation corpus was author-invented while git held the real one for free"*.
+    Two `git grep`s found it. Nothing in the suite would have.
+
+    This is the class-check rather than the instance fix: it resolves EVERY
+    fixture in BOTH corpora against the source it names, so the next invented
+    one goes red here instead of surviving to the next review pass. Sweeping the
+    two corpora when this was written found 8 of 8 historical entries genuine
+    and 2 of 3 legitimate entries genuine — the predicate below would have
+    caught the third on the commit that introduced it.
+
+    The `carrier` flag is checked against the same source, because it is the
+    second claim each fixture makes: it decides whether branch 3 is exercised,
+    so a wrong flag replays the line down a path the real document never took.
+    """
+    wrong_quote: list[str] = []
+    wrong_carrier: list[str] = []
+    for fixture in _HISTORICAL_CORPUS + _LEGITIMATE_CORPUS:
+        where = (f"{fixture.rev}:{fixture.path}" if fixture.rev
+                 else f"(live tree) {fixture.path}")
+        text = _source_text(fixture.rev, fixture.path)
+
+        # Matched against PHYSICAL LINES, not the file blob. `_line_is_offence`
+        # is fed one line at a time by `_offences`, so a fixture that only
+        # exists as a substring spanning a line break would be replayed through
+        # the predicate in a form the scan can never actually hand it.
+        if not any(fixture.line in physical for physical in text.splitlines()):
+            wrong_quote.append(f"{where} :: {fixture.line[:60]!r}")
+            continue
+        actual = bool(_CARRIER_HEADING.search(text))
+        if actual != fixture.carrier:
+            wrong_carrier.append(
+                f"{where} claims carrier={fixture.carrier}, is {actual}")
+
+    assert not wrong_quote, (
+        f"{len(wrong_quote)} fixture(s) are not present as a SINGLE LINE of "
+        f"the source they name: "
+        + "; ".join(wrong_quote) + ". A fixture that quotes nothing real "
+        "certifies nothing real. Quote an actual line — git holds every "
+        "pre-fix blob, and the live tree holds the legitimate ones — or delete "
+        "the entry. Do NOT resolve this by relaxing the check.")
+
+    assert not wrong_carrier, (
+        "a fixture's carrier flag disagrees with its source document: "
+        + "; ".join(wrong_carrier) + ". The flag decides whether branch 3 is "
+        "exercised, so a wrong one replays the line down a branch the real "
+        "document never took.")
+
+
+def test_THE_VENDORED_SET_the_remedy_names_is_READ_OFF_the_script() -> None:
+    """The remedy below routes vendored files upstream; this holds that set.
+
+    The failure message partitions offences into files this repo may fix in
+    place and files it may not. That partition is only as good as the set, and
+    a hand-kept list would be exactly the stale declaration this repo's gates
+    exist to catch — so `vendored_standards.vendored_paths` derives it from
+    `vendor-standards.sh`, and this is the vacuity guard FOR THIS GATE: a parse
+    that silently stopped matching would return an empty set, and the remedy
+    would go back to prescribing a forbidden local edit on all six mirrors.
+
+    IT IS SIX FILES, NOT FOUR DIRECTORIES, and the distinction is load-bearing
+    here. The four `README.md` applicability notes and `temporal/claude-dot-
+    files-addendum.md` sit in those same directories and ARE local and editable.
+    `review-pr` pass 9 wrote this finding as *"four vendored MIRROR standard
+    sets"*. Telling a contributor their local fix must go upstream stalls it
+    against a source that has no counterpart for it.
+    """
+    vendored = vendored_paths()
+    assert sorted(p.name for p in vendored) == sorted(_VENDORED_EXPECTED), (
+        f"the vendored set derived from {VENDOR_SCRIPT.name} is "
+        f"{sorted(p.name for p in vendored)}. Either the set genuinely changed "
+        f"— update `vendored_standards.EXPECTED` and the remedy paragraph in "
+        f"this module's docstring — or the parse broke, in which case the "
+        f"remedy below is silently telling contributors to edit mirrors they "
+        f"may not edit.")
+
+    missing = [p for p in vendored if not p.is_file()]
+    assert not missing, (
+        f"the script declares vendored files that are not in the tree: "
+        f"{[str(p.relative_to(_REPO)) for p in missing]}. The remedy partition "
+        f"below matches on these paths, so a wrong path means a vendored "
+        f"offence is routed as a local fix.")
+
+
+def test_THE_RESEARCH_BUCKET_reaches_BOTH_ALTITUDES() -> None:
+    """The bucket predicate, held against the tree rather than against itself.
+
+    `_is_research_prose` replaced a literal `docs/standards/architecture/
+    research/raw` match that missed the component-altitude pools entirely. This
+    asserts both altitudes are actually reached and non-empty, so the predicate
+    cannot silently narrow back to one of them — which is the regression that
+    produced the finding, one bucket over, on this same PR.
+    """
+    pools = [p for p in _markdown() if _is_research_prose(p)]
+    architecture = [p for p in pools
+                    if p.is_relative_to(_REPO / "docs/standards/architecture/research")]
+    component = [p for p in pools
+                 if p.is_relative_to(_REPO / "docs/development")]
+
+    assert architecture, (
+        "no architecture-altitude research file is in the research bucket — "
+        "`docs/standards/architecture/research/` holds the pool whose papers "
+        "quote fetched sources, and its offences would now be routed as local "
+        "rewords.")
+    assert component, (
+        "no component-altitude research file is in the research bucket. The "
+        "repo has research pools at TWO altitudes and this predicate has "
+        "narrowed back to one, which is exactly the finding it was written to "
+        "close: `docs/development/<component>/research/` papers carry the same "
+        "verbatim-quote burden.")
+
+    # The bucket must not swallow the whole tree; it is a carve-out, not a mode.
+    assert len(pools) < len(_markdown()) // 2, (
+        f"{len(pools)} of {len(_markdown())} tracked markdown files landed in "
+        f"the research bucket. `_is_research_prose` matches any path with a "
+        f"'research' component; if that is now most of the tree, the remedy "
+        f"text is telling nearly every contributor not to edit their own prose.")
+
+
 def test_no_document_cites_a_MIGRATION_PATH_STEP_BY_NUMBER() -> None:
-    """The requirement. A number points at a different step after the next insert."""
+    """The requirement. A number points at a different step after the next insert.
+
+    THE REMEDY IS NOT THE SAME EVERYWHERE, WHICH IS WHY THIS MESSAGE PARTITIONS.
+    The scan is `git ls-files -- '*.md'` — the whole tracked tree — and a third
+    of it is prose this repo is NOT free to reword. The single remedy this
+    message used to give (*"cite the step by content"*) is forbidden on two of
+    those groups, and following it there breaks a different gate:
+
+      * A VENDORED MIRROR — the six files `vendor-standards.sh` copies. `CLAUDE.md`:
+        *"Vendored standards are verbatim copies and MUST NOT be edited here."*
+        Rewording one is local drift and `vendor-standards.sh --check` fails on
+        it; reverting the re-vendor instead leaves the standard stale. Both
+        gates then block each other with the only exit in another repository.
+        The fix goes UPSTREAM, then re-vendor. NOT by excluding the trees from
+        this scan — that would drop 58 files (6 vendored, 25 architecture-
+        altitude research, 27 component-altitude research) from a check whose
+        own history is about a predicate certifying the subset already fixed.
+      * A RESEARCH POOL PAPER, at EITHER altitude — `docs/standards/architecture/
+        research/` and `docs/development/<component>/research/` — whose papers
+        quote fetched sources. The Research Standard: *"A span may be labelled
+        or presented as a quotation only if its exact character sequence was
+        returned by a fetch ... a paraphrase presented as a quote is a
+        fabrication."* Editing the digits inside the quote to satisfy this gate
+        manufactures exactly that. Fix the SURROUNDING prose instead — the quote
+        stays, and the citation around it names the step by content.
+
+    Not live when this was written: the three tracked lines carrying *"migration
+    path"* under `docs/standards/` carry no ordinal, so the population is green.
+    A re-vendor is a routine scripted operation and a new research paper is a
+    weekly one, so the message says this now rather than after the deadlock.
+    """
     offences = _offences()
-    assert not offences, (
-        f"these lines cite a migration-path step by ordinal: "
-        f"{', '.join(offences)}. Inserting a step renumbers everything after it, "
-        f"so the citation keeps resolving and starts naming the WRONG step — it "
-        f"never fails loudly. Cite the step by CONTENT instead: 'the "
-        f"dispatch-identity step', 'the Temporal file layout step'. The rule and "
-        f"its reason are stated in the blockquote under the migration path's own "
-        f"heading in docs/development/temporal-integration/temporal-integration.md.\n"
-        f"IF THE OFFENDING LINE IS THE RULE'S OWN STATEMENT, reword the rule "
-        f"rather than exempting it — see this file's docstring for why there is "
-        f"no exemption.")
+    if not offences:
+        return
+
+    vendored = vendored_paths()
+    mirror, quoted, local = [], [], []
+    for p, n in offences:
+        where = f"{p.relative_to(_REPO)}:{n}"
+        if p.resolve() in vendored:
+            mirror.append(where)
+        elif _is_research_prose(p):
+            quoted.append(where)
+        else:
+            local.append(where)
+
+    parts = [
+        "these lines cite a migration-path step by ordinal. Inserting a step "
+        "renumbers everything after it, so the citation keeps resolving and "
+        "starts naming the WRONG step — it never fails loudly."]
+    if local:
+        parts.append(
+            "FIX IN PLACE — cite the step by CONTENT: 'the dispatch-identity "
+            "step', 'the Temporal file layout step'. The rule and its reason "
+            "are in the blockquote under the migration path's own heading in "
+            "docs/development/temporal-integration/temporal-integration.md. IF "
+            "THE OFFENDING LINE IS THE RULE'S OWN STATEMENT, reword the rule "
+            "rather than exempting it — see this module's docstring for why "
+            "there is no exemption: " + ", ".join(local))
+    if mirror:
+        parts.append(
+            "VENDORED MIRROR — DO NOT reword locally and DO NOT exclude it "
+            "from the scan. `vendor-standards.sh --check` fails on local "
+            "drift. Fix it upstream in MDC-Master-Planning, then re-vendor "
+            "with scripts/helpers/vendor-standards.sh: " + ", ".join(mirror))
+    if quoted:
+        parts.append(
+            "RESEARCH POOL PAPER (either altitude) — if the ordinal sits "
+            "inside a VERBATIM quotation, do not edit the quote; the Research "
+            "Standard makes a reworded quote a fabrication. Cite the step by "
+            "content in the surrounding prose and leave the quoted characters "
+            "alone. If it is the paper's own prose rather than a quote, fix it "
+            "in place: "
+            + ", ".join(quoted))
+
+    raise AssertionError("\n\n".join(parts))

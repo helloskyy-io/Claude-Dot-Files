@@ -26,6 +26,8 @@ from pathlib import Path
 
 import pytest
 
+from vendored_standards import EXPECTED, VENDOR_SCRIPT, vendored_paths
+
 REPO_ROOT = Path(__file__).resolve().parents[4]
 
 # A markdown link whose target is neither a URL nor a bare in-page anchor.
@@ -61,12 +63,29 @@ SKIP_PARTS = {".git", "__pycache__", "worktrees", "node_modules", ".claude"}
 SKIP_DIRS = (REPO_ROOT / "config" / "skills",)
 
 # VENDORED STANDARDS REFERENCE THE UPSTREAM TREE, NOT OURS, AND MUST NOT BE
-# EDITED. `docs/standards/{documentation,research,testing,temporal}/` are
-# verbatim MIRRORs; their links point at files that exist in MDC-Master-Planning
-# and do not exist here. That is correct, not drift — 109 of the 129 links this
-# check first flagged were exactly that. Fixing them would be local drift and
+# EDITED. Their links point at files that exist in MDC-Master-Planning and do
+# not exist here. That is correct, not drift — 109 of the 129 links this check
+# first flagged were exactly that. Fixing them would be local drift and
 # `vendor-standards.sh --check` would fail on it.
-VENDORED = {"documentation", "research", "testing", "temporal"}
+#
+# IT IS SIX FILES, NOT FOUR DIRECTORIES. This exemption was spelled
+# `{"documentation", "research", "testing", "temporal"}` and matched on the
+# DIRECTORY, which exempted 11 files where 6 are vendored. The other five —
+# the four `README.md` applicability notes and `temporal/claude-dot-files-
+# addendum.md` — are LOCAL, editable here, and say so of themselves; their
+# links were silently unchecked. Measured when this was narrowed: all five
+# already resolve, so the widening costs nothing and closes the hole.
+#
+# `test_markdown_tables_render_whole.py` records the same over-broad claim
+# being made and corrected in its own docstring, and
+# `test_no_doc_cites_a_migration_step_by_ORDINAL.py` derives the same set for
+# its remedy text. The set is read off the script that DECLARES it rather than
+# restated, because a hand-kept copy in a third module is exactly the stale
+# declaration these gates exist to catch.
+# The set is DERIVED, not listed, and it lives in `vendored_standards.py`
+# because three gates need the same answer. See that module for why it is six
+# files rather than four directory names, and what the four-directory spelling
+# this exemption used to carry silently got wrong.
 
 # `research/raw/` holds papers whose links are CITATION targets — fragments of
 # fetched URLs like `/docs/en/hooks`. They were never repo paths.
@@ -74,10 +93,8 @@ def _owned(rel: Path) -> bool:
     parts = rel.parts
     if "raw" in parts:
         return False
-    if "standards" in parts:
-        i = parts.index("standards")
-        if len(parts) > i + 1 and parts[i + 1] in VENDORED:
-            return False
+    if (REPO_ROOT / rel).resolve() in vendored_paths():
+        return False
     # A TEST'S STRING LITERALS ARE FIXTURES, NOT LINKS. `test_measurement_
     # figures_are_cited.py` holds `"see [Phase 5 § Measurement](phase5_...md)"`
     # as a SAMPLE citation it then parses. Resolving it against the test's own
@@ -137,6 +154,30 @@ def _broken(path: Path) -> list[tuple[str, str]]:
         if not (path.parent / target).resolve().exists():
             bad.append((target, str(path.relative_to(REPO_ROOT))))
     return bad
+
+
+def test_the_VENDORED_EXEMPTION_names_the_SIX_FILES_the_script_declares() -> None:
+    """Vacuity guard on the exemption above, which is derived rather than listed.
+
+    If the regex stopped matching, `VENDORED` would be empty and this gate would
+    start flagging the six mirrors' upstream-relative links — 109 of them —
+    sending a contributor to "fix" files that must not be edited here. If it
+    over-matched, local files would go unchecked, which is the hole this
+    exemption was narrowed to close.
+    """
+    names = sorted(p.name for p in vendored_paths())
+    assert names == sorted(EXPECTED), (
+        f"the vendored set derived from {VENDOR_SCRIPT.name} is {names}. Either "
+        f"it genuinely changed — update this assertion and the comment above — "
+        f"or the parse broke, in which case this gate's exemption is wrong in "
+        f"one of the two directions the comment describes.")
+
+    missing = sorted(str(p.relative_to(REPO_ROOT)) for p in vendored_paths()
+                     if not p.is_file())
+    assert not missing, (
+        f"the script declares vendored files not in the tree: {missing}. The "
+        f"exemption matches on resolved paths, so a wrong path means a mirror "
+        f"is checked as if it were local.")
 
 
 def test_every_relative_link_resolves() -> None:
