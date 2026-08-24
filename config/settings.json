@@ -239,6 +239,11 @@
             "type": "command",
             "command": "$HOME/.claude/hooks/block-dangerous.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/block-detached-dispatch.sh",
+            "timeout": 10
           }
         ]
       }

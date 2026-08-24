@@ -63,6 +63,10 @@ claude-dot-files/
 │   │
 │   └── hooks/                                       # Hook scripts referenced by settings.json
 │       ├── block-dangerous.sh                       # PreToolUse: deny destructive bash commands (threat model in header)
+│       ├── block-detached-dispatch.sh               # PreToolUse: deny `nohup` in COMMAND POSITION — it detaches a dispatch
+│       │                                            #   from the harness, so nothing tracks or reports it. SEPARATE from
+│       │                                            #   block-dangerous.sh: that hook's admission test is *is it
+│       │                                            #   UNRECOVERABLE*, and this is not. Fails OPEN, for the same reason
 │       └── notify-done.sh                           # Stop: desktop notification via notify-send
 │
 ├── docs/
@@ -833,6 +837,8 @@ claude-dot-files/
 │   │   ├── README.md                                # The placement rationale, and why the runner was not changed to accommodate it
 │   │   └── tests/unit/
 │   │       ├── test_block_dangerous.py              # SPECIFICATION suite for the PreToolUse safety hook (issues #52, #61 — was
+│   │       ├── test_block_detached_dispatch.py      # Drives the hook's own MUST BLOCK / MUST ALLOW claims. The ALLOW half
+│   │       │                                        #   carries the higher floor: this repo TALKS about nohup constantly
 │   │                                                #   characterization until the operator ruled on the four defects it found). Attack corpus +
 │   │                                                #   safe-lookalike corpus + the threat model's own gaps encoded as accepted behaviour.
 │   │                                                #   Executes the MUST BLOCK / MUST ALLOW claims written beside each pattern IN THE HOOK, and
