@@ -232,7 +232,7 @@ For scripts that take a positional task description, all examples in usage text 
 
 ```bash
 # Preferred — flags visible at the start, positional at the end
-./build.sh --verbose --pr 22 --task-file /tmp/task.md
+./build.sh --verbose --pr 22 --task-file /tmp/claude-<name>.md
 ./build.sh --pr 5 "address all findings from PR #5"
 
 # Avoid — positional in the middle gets stepped on by terminal line-wrap

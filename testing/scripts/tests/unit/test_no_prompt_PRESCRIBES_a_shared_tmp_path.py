@@ -252,21 +252,19 @@ class Residue(NamedTuple):
 # every run.
 #
 # EACH ENTRY SAYS WHICH KIND IT IS, because "add `docs/` to SURFACES" is NOT a
-# one-line remedy: only one of these is still fix-class, and the mechanical
-# predicate cannot tell the other five from a defect.
+# one-line remedy: NONE of these is fix-class any more — the last one,
+# `workflow-scripts.md`'s `--task-file /tmp/task.md`, was fixed under human
+# review on 2026-08-24 and its entry dropped, which closed #137. What is left
+# is five entries the mechanical predicate cannot tell from a defect: records
+# of the past, a quote of a third party's docs, an illustration of a REJECTED
+# approach, and a vendored mirror this repo may not edit. They are INVENTORIED
+# so a NEW one is visible, and deliberately NOT enforced — enforcement here
+# would need five exemptions for prose, which is how an exemption list grows
+# until the guard means nothing.
 #
 # DO NOT RETYPE THE `paths` SETS. They are the output of `_fixed_paths` over
 # `git ls-files docs`, and the test below is what reconciles them.
 DOCS_RESIDUE: dict[str, Residue] = {
-    "docs/standards/workflow-scripts.md": Residue(
-        frozenset({"/tmp/task.md"}),
-        "FIX-CLASS. `--task-file /tmp/task.md` in a worked example, in a live "
-        "binding standard — the strongest prescription shape in the repo. Needs "
-        "a human-reviewed edit under `standards-governance.md`, whose scope "
-        "(that rule's own line: `docs/standards/`, `docs/standards/architecture/`) "
-        "does reach this file, which is why it is recorded rather than fixed. "
-        "Tracked in #137.",
-    ),
     "docs/standards/temporal/worker_deployment_standard.md": Residue(
         frozenset({"/tmp/claude-deploy-new-workers.sh"}),
         "NOT FIX-CLASS, and this is the entry that makes the remedy non-mechanical. "
