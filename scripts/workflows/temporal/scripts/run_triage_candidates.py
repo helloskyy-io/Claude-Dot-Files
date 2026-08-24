@@ -38,6 +38,25 @@ def main(argv=None) -> int:
         counts = act.candidate_counts(cands)
         if a.dry_run:
             print(f"{BANNER}\n  DRY RUN — nothing invoked, nothing posted\n{BANNER}")
+            # THE TREE THE COUNTS CAME FROM, NAMED RATHER THAN LEFT TO BE
+            # ASSUMED. No worktree exists on a dry run, so every figure below is
+            # read off THIS checkout — while a `--pr` run cuts its worktree from
+            # `origin/<the PR's branch>` and reads nothing else. Two trees, and
+            # on the correction pass a `--pr` dry run exists for, they routinely
+            # differ: the work being corrected is on the branch and need not be
+            # in this checkout at all. In that state the figures below read `0`
+            # for artifacts that are fully written.
+            #
+            # THIS IS THE MINIMUM AND IT IS KNOWN TO BE. Issue #134 offered two
+            # remedies and the operator ruled the smaller one on 2026-08-24, on
+            # measured evidence: `--dry-run` appears ZERO times in the operator's
+            # shell history and is documented in no guide, skill or command —
+            # all 32 uses in the run logs are dispatches verifying these runners
+            # while building them. The stronger remedy — read `origin/<branch>`
+            # so the preview is an actual preview — needs the count helpers to
+            # take a tree rather than a path, and earns itself when real use
+            # appears. Same line as `run_plan_verify.py`, which shipped it first.
+            print(f"  Counted in : this checkout ({repo_root}) — a dry run cuts no worktree")
             print(f"  Candidates : {counts['total']} total · {counts['untriaged']} UNTRIAGED · {counts['triaged']} ruled")
             print(f"  Max turns  : {wf.MAX_TURNS} (estimate — nothing has measured this workflow)")
             # THE SAME ASSEMBLY THE LIVE RUN USES, called rather than copied — a

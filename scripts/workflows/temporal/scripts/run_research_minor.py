@@ -58,6 +58,19 @@ def main(argv=None) -> int:
         if a.dry_run:
             table, due = act.paper_currency(research_dir)
             print(f"{BANNER}\n  DRY RUN — nothing invoked, nothing posted\n{BANNER}")
+            # THE TREE THE COUNTS CAME FROM, NAMED RATHER THAN LEFT TO BE
+            # ASSUMED. No worktree exists on a dry run, so every figure below is
+            # read off THIS checkout — while a `--pr` run cuts its worktree from
+            # `origin/<the PR's branch>` and reads nothing else. Two trees, and
+            # on the correction pass a `--pr` dry run exists for, they routinely
+            # differ: the work being corrected is on the branch and need not be
+            # in this checkout at all.
+            #
+            # THIS IS THE MINIMUM AND IT IS KNOWN TO BE — issue #134, operator
+            # ruling 2026-08-24, on measured evidence. The stronger remedy reads
+            # `origin/<branch>` so the preview is an actual preview, and earns
+            # itself when real operator use appears.
+            print(f"  Counted in : this checkout ({repo_root}) — a dry run cuts no worktree")
             print("  Mode      : research-minor (ONE topic -> ONE paper + synthesis)")
             print(f"  Pool      : {research_dir}")
             print(f"  Existing  : {len(due)} of the papers present are past their window")
