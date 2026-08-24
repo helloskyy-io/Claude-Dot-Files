@@ -78,7 +78,13 @@ What belongs here is the part `workflows.md` does not cover: how you run them.
 
 ### Check before you spend: `--dry-run`
 
-**Every entrypoint takes `--dry-run`.** It renders the prompt and exits: no model call, no comment, no spend. Use it when you are about to commit budget to a long run and want to see what it will actually be handed.
+**Seven of the eleven entrypoints take `--dry-run`.** It renders the prompt and exits: no model call, no comment, no spend. Use it when you are about to commit budget to a long run and want to see what it will actually be handed.
+
+| Takes `--dry-run` | Does not |
+|---|---|
+| `plan_feature.sh` · `plan_sprint.sh` · `plan_verify.sh` · `research.sh` · `research_minor.sh` · `review_pr.sh` · `triage_candidates.sh` | `build.sh` · `build_minor.sh` · `plan_project.sh` · `plan_revision.sh` |
+
+**The gap is on the expensive side, and it is worth knowing before you plan around it.** The build tier is the longest and costliest run in the fleet and cannot be previewed; `plan_project.sh` composes five children and cannot either. This sentence used to read *"every entrypoint"*, which was wrong and was caught by a `build.sh --dry-run` that errored out.
 
 ```bash
 scripts/workflows/temporal/scripts/triage_candidates.sh --dry-run
