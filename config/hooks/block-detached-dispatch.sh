@@ -54,8 +54,18 @@
 # The key is "runs nohup"; the class a substring match expresses is "contains
 # the letters nohup", and those differ on every mention of the rule itself. So
 # the pattern anchors to command position: line start, or immediately after a
-# separator (`;` `&` `|` `(` or a backtick), allowing whitespace. `&&` and `||`
-# are covered because their final character is in that set.
+# separator (`;` `&` `|` `(`), allowing whitespace. `&&` and `||` are covered
+# because their final character is in that set.
+#
+# A BACKTICK IS NOT IN THAT SET, AND THIS HOOK'S FIRST REAL ACTION IS WHY. It
+# was, for one commit's lifetime, on the reasoning that a backtick opens legacy
+# command substitution. The hook then DENIED THE COMMIT THAT INTRODUCED IT: the
+# message quoted the command in inline code, and backtick-word-space is how this
+# repository writes about a command every single time. Legacy backtick
+# substitution is real but vanishingly rare here, `$(...)` is the form actually
+# in use, and `(` already covers it. Trading a rare true positive for a
+# guaranteed false one is the wrong side of the only boundary this hook has.
+# Measured immediately, by the hook, on itself.
 #
 # MUST BLOCK: nohup ./build.sh &
 # MUST BLOCK: cd /repo && nohup scripts/workflows/temporal/scripts/build.sh --pr 1 &
@@ -67,6 +77,8 @@
 # MUST ALLOW: git commit -m "block nohup in a hook"
 # MUST ALLOW: ./nohuppy --run
 # MUST ALLOW: ls -la
+# MUST ALLOW: echo 'the pattern denies `nohup ./x` in command position'
+# MUST ALLOW: git commit -m 'a message quoting `nohup ./build.sh &` inline'
 #
 # Tests: `testing/config-hooks/tests/unit/test_block_detached_dispatch.py`,
 # which parses the claims above and asserts each against this hook as it runs.
@@ -88,7 +100,7 @@ CMD=$(printf '%s' "$INPUT" | jq -r 'if (.tool_input | type) == "object"
 
 # `grep -E` reads line by line, so `^` anchors every line of a multi-line
 # command, which is where a second command most often sits.
-if printf '%s' "$CMD" | grep -qE '(^|[;&|(`])[[:space:]]*nohup([[:space:]]|$)'; then
+if printf '%s' "$CMD" | grep -qE '(^|[;&|(])[[:space:]]*nohup([[:space:]]|$)'; then
   jq -n --arg reason \
 "nohup is blocked in this workspace. Use the Bash tool's \`run_in_background: true\` instead.
 

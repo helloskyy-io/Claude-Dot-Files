@@ -133,7 +133,6 @@ def test_every_MUST_ALLOW_claim_is_actually_ALLOWED(command: str) -> None:
     "true | nohup ./x",
     "true ; nohup ./x",
     "$(nohup ./x)",
-    "`nohup ./x`",
     "  nohup ./x",
     "true\nnohup ./x",          # second LINE of a multi-line command
 ])
@@ -144,12 +143,38 @@ def test_COMMAND_POSITION_is_reached_through_every_separator(command: str) -> No
     assert run_hook(command).decision == "deny", f"reached command position undetected: {command!r}"
 
 
+def test_a_BACKTICK_IS_NOT_A_SEPARATOR_and_this_hook_proved_it_on_itself() -> None:
+    """THE REGRESSION. A backtick WAS in the separator class for one commit.
+
+    The reasoning was that a backtick opens legacy command substitution, which is
+    true and almost never how anyone writes it. What a backtick actually opens in
+    this repository is inline code, and backtick-word-space is how every
+    document, commit message and comment here refers to a command.
+
+    So the hook denied THE COMMIT THAT INTRODUCED IT — the message quoted the
+    command inline — and the thirty-five tests written alongside it all passed,
+    because every ALLOW case had the word preceded by a SPACE. The corpus was
+    real and the shape was missing, which is the failure this whole module is
+    shaped against.
+
+    `$(...)` is the substitution form in use and `(` still covers it, so the
+    true positive traded away costs nothing measurable and the false positive
+    removed was guaranteed.
+    """
+    assert run_hook(f"echo 'see {chr(96)}nohup ./x{chr(96)} above'").decision == "allow", (
+        "backtick-quoted inline code is a MENTION; it was denied for one commit")
+    assert run_hook(f"$(nohup ./x)").decision == "deny", (
+        "`$(...)` is the substitution form actually in use and must still deny")
+
+
 @pytest.mark.parametrize("command", [
     "echo nohup",
     "cat notes-about-nohup.md",
     "python -c \"print('nohup')\"",
     "sed -i 's/nohup/run_in_background/' README.md",
     "rg --files-with-matches nohup",
+    "echo 'the pattern denies `nohup ./x` in command position'",
+    "git commit -m 'quoting `nohup ./build.sh &` inline'",
 ])
 def test_a_MENTION_of_nohup_is_not_a_USE_of_it(command: str) -> None:
     """The failure mode that narrowed the neighbouring hook from 59 patterns to 5.
