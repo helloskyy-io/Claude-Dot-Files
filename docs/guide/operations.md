@@ -70,118 +70,32 @@ As more long-running workflows get split into parent + children, `children/` is 
 
 ## Workflows
 
-**Naming is `<family>-<qualifier>`, and it is now uniform across the fleet.** The family is what the script *is*; the qualifier narrows it. `review-runs` and `review-sprint` are both reviews, of run logs and of a sprint. `build-draft` and `build-refine` are both build steps, authoring and correcting. `plan-new` and `plan-revision` are both planning.
+**The roster lives in [`workflows.md`](workflows.md) and is not restated here.** It carries all eleven entrypoints, what each one composes, and which children it dispatches.
 
-Read backwards it is wrong — a PR is not a *type of thing that gets reviewed*, review is the family. Two scripts violated this (`pr-review`, `sprint-review`) and both were renamed; the value is that families now group in `ls`, and a new script's name is a decision you make once rather than a coin flip.
+This section used to hold its own copy, and the copy rotted: it documented `children/review-pr.sh`, `build-phase.sh`, `plan-new.sh`, `review-runs.sh` and `review-sprint.sh` — names from the frozen tree — while eight live entrypoints appeared nowhere. A second list of the same population is a list that goes stale, and this one did.
 
-Bash scripts that run Claude headless in an isolated git worktree and deliver a PR. Every run writes a JSONL log to `.claude/logs/<workflow>-<timestamp>.jsonl`. All accept `--verbose` (stream output live), `--repo <path>` (explicit target, never derived from cwd), and `--task-file <path>` where a task is taken.
+What belongs here is the part `workflows.md` does not cover: how you run them.
 
-> **Any MEASURED number in a brief carries the commit it was measured at.** A dispatch cannot verify *"baseline on `main`: 5101 passed"* — it can only believe it or spend turns disproving it, and briefs go stale between writing and firing. Write `5101 passed at 417162f`; the run then checks in one command. **Measured: that exact figure was 5112 at the actual branch point**, and the run had to discover it. This is the same class as a drift check reading a stale clone — a comparison is only as good as the freshness of what it compares to, and a bare number names no baseline at all.
+### Check before you spend: `--dry-run`
 
-> **Flags FIRST, positional LAST.** Terminals line-wrap long commands; a trailing positional stays visible and editable when the front wraps. For anything multi-paragraph or containing quotes, write it to `/tmp/claude-<name>.md` and use `--task-file` — it bypasses command-line parsing entirely.
+**Every entrypoint takes `--dry-run`.** It renders the prompt and exits: no model call, no comment, no spend. Use it when you are about to commit budget to a long run and want to see what it will actually be handed.
 
-### `build.sh` — significant code rework (PARENT)
-The flagship, and the assembly template. **draft → refine → review-pr**, with one bounded correction loop. Pure bash — it calls no model itself; every stage is a child run. Full rationale in [workflows.md](workflows.md#the-build-split--why-authoring-and-judging-are-separate-runs).
-
-On `review-pr`'s verdict the parent routes itself:
-
-| Verdict | Parent does |
-|---|---|
-| `MERGE` | finishes — ready to merge |
-| `HOLD - redispatch` | loops back **once** (refine → review-pr), then stops regardless |
-| `HOLD - needs-assistance` | stops **immediately** — more passes cannot produce a human ruling |
-
-**Exactly one loop-back, and it is not configurable.** Self-correction plateaus at roughly 3–5 passes; past it the same model justifies rather than corrects. Counting across the pipeline — refine 1, review-pr 2, loop refine 3, review-pr 4 — one loop-back lands inside the band and two would clear it. The number comes from the research, so there is no knob to tune past it.
 ```bash
-./scripts/workflows/build.sh "restructure the auth flow to use sessions"
-./scripts/workflows/build.sh --repo /opt/skyy-net/skyy-command --pr 42 --task-file /tmp/claude-<name>.md
+scripts/workflows/temporal/scripts/triage_candidates.sh --dry-run
+scripts/workflows/temporal/scripts/plan_verify.sh docs/development/<component> --dry-run
 ```
 
-### `children/review-pr.sh` — the disposition engine (120 turns, DECIDE-ONLY)
-Called automatically by every parent that produces a PR. Mines the place a run told on itself — decision log, deferred work, reflection — forces every surfaced item to a terminal ruling, and ends in `MERGE` or `HOLD` with a runway. Takes no actions except filing GitHub issues for qualifying deferred work. Run it by hand only for a PR whose producer is not yet a parent, or a human-authored PR.
-```bash
-./scripts/workflows/children/review-pr.sh --pr 42
-```
+It prints the rendered prompt size with placeholders resolved, the turn ceiling, the write grants the run will hold, and whatever counts that workflow reads off the tree.
 
-### `children/build-draft-minor.sh` · `children/build-refine-minor.sh` — children of `build-minor.sh`
-Same roles as the pair below, one tier lighter. `build-refine-minor` reviews with `code-reviewer` alone: at this scope the dominant risk is a change that is simply **wrong** (inverted condition, off-by-one, a missed case), not a design that will not scale — and correctness is the lens that catches that class.
+**One thing it cannot tell you, and it says so in its own output.** A dry run cuts no worktree, so every count comes from **this checkout** — while a `--pr` run reads a worktree cut from `origin/<the PR's branch>`. On a correction pass those differ, and a plan that is fully written on the branch previews as `0`. The line `Counted in : this checkout (...)` is the run telling you which tree the numbers describe. Issue #134 records the ruling and what a stronger version would cost.
 
-### `children/build-draft.sh` · `children/build-refine.sh` — children of `build.sh`
-**Not dispatched directly** in normal use. `build-refine.sh --pr <N> "<the same task>"` is the recovery path when the review half fails and the draft PR is sitting unreviewed — pass the *same* task, or refine loses its fidelity check.
-```bash
-./scripts/workflows/children/build-refine.sh --pr 42 "the original task text"
-```
+### Correcting work already on a PR
 
-### `build-minor.sh` — small scoped fixes (PARENT)
-The light tier, and **deliberately the same three-child shape as `build.sh`** so there is one mental model rather than two: draft → refine → review-pr, with the same single bounded loop-back. The difference is entirely in the middle child — `build-refine-minor` runs **one** review lens (`code-reviewer`) instead of four, on a cheaper model with half the turn budget. Roughly **$7 against $25–50**.
+`--pr <n>` turns any entrypoint into a correction pass against an existing PR rather than opening a new one. The run cuts its worktree from that PR's branch.
 
-The draft child's Stage 1 still stops and escalates to `build.sh` if the task turns out bigger than it looked. And if the review keeps surfacing *structural or standards* problems rather than correctness ones, that is a routing signal — the task was mis-sized for this tier.
-```bash
-./scripts/workflows/build-minor.sh "fix the null check in login()"
-./scripts/workflows/build-minor.sh --pr 42 "add error handling to the webhook handler"
-```
+### Long tasks
 
-### `build-phase.sh` — implement from a written plan doc (300 turns)
-The heavy engineer. Takes a phase document as its input rather than a prose task, so the plan is the contract. Reach for this when `build.sh` would run out of turns.
-```bash
-./scripts/workflows/build-phase.sh docs/development/phase-1.md "follow all standards" --verbose
-```
-
-### `plan-new.sh` — define a new project from scratch (500 turns)
-14-stage planning pipeline (architect + planner + security-auditor). Produces the docs a `build-phase.sh` run later consumes. Pair with `scripts/helpers/init-project.sh` for the non-AI scaffolding.
-```bash
-~/Repos/claude-dot-files/scripts/helpers/init-project.sh "my-project" --org helloskyy-io
-~/Repos/claude-dot-files/scripts/workflows/plan-new.sh "my-project" "description of the project" --verbose
-```
-
-### `plan-revision.sh` — revise existing planning docs (300 turns)
-Roadmaps, phase docs, requirements, epics. Four review agents including `standards-architect` for corpus-level implications. **Not for code** — the agents are wrong for it, and a bulk rename dispatched here once burned 301 turns and $37.
-```bash
-./scripts/workflows/plan-revision.sh "add a detailed phase doc for the Harbor integration" --verbose
-```
-
-### `research.sh` — build a source-verified evidence pool (250 turns)
-`research-analyst` gathers sources and writes mini-papers; `research-critic` fetches every citation to confirm it exists and says what it is claimed to say. Use before a decision that rests on external ground truth.
-```bash
-./scripts/workflows/research.sh "durable execution engines for multi-language workers" --verbose
-```
-
-### `research-refresh.sh` — revalidate papers that have come due (200 turns)
-Bash-side gate: exits cleanly with no model call when nothing is due. `research-currency` diffs a fresh sweep against each paper — what changed, what is now wrong, what is missing — and re-establishes the interval.
-```bash
-./scripts/workflows/research-refresh.sh
-./scripts/workflows/research-refresh.sh --pr 18   # gate on one PR's pool
-```
-
-### `review-runs.sh` — the CPI analysis pass (100 turns)
-Reads `.claude/logs/` **from inside the repo whose runs you want analyzed** and produces an improvement report. Cross-references `cpi-decisions.md` so findings matching a prior watch-criterion are flagged as recurrences.
-```bash
-cd /opt/skyy-net/skyy-command && ~/Repos/claude-dot-files/scripts/workflows/review-runs.sh --days 21
-```
-
-### `review-sprint.sh` — end-of-sprint whole-repo review (600 turns)
-A different trio (`security-auditor` + `refactoring-evaluator` + `test-writer`) because the lens is whole-repo rather than per-PR: security and test coverage dominate.
-```bash
-./scripts/workflows/review-sprint.sh --sprint "Sprint 1" --verbose
-```
-
-### Sizing: which workflow?
-
-| The work | Use | Why |
-|---|---|---|
-| Known fix to known lines | `build-minor.sh` | A review cycle would cost more than it finds |
-| Multi-file, new seam, architecture touched, or "review it before I see it" | `build.sh` | Two independent runs; the second has no stake in the first's choices |
-| Won't fit in `build.sh` | write a phase doc → `build-phase.sh` | Turn-cap pressure is a **routing** signal, not a budget one |
-| Planning docs | `plan-revision.sh` (existing) / `plan-new.sh` (from scratch) | Different agents entirely |
-| A returned PR | `review-pr.sh` | Always, before merging |
-
-**A cap is a RUNAWAY GUARD, not a budget.** An unused turn costs nothing — spend is driven by turns actually consumed, so raising a ceiling from 200 to 250 costs zero on every run that never reaches it, and only changes when the guard fires.
-
-This corrects an earlier framing that called caps "reliability controls." That conflated two separate things. A cap **cannot buy reliability** — it can only truncate. Reliability comes from scope discipline: the workflow-fit checks, the routing decision, the size of the task you hand a child. All a low ceiling does to a mis-scoped run is kill it partway and strand the work.
-
-The routing signal survives, but it now reads off **consumption, not termination**: a child that routinely *uses* most of its budget was probably mis-sized and wants the next workflow up. Watch the number it spends, not whether it hit the wall.
-
----
+Use `--task-file /tmp/claude-<name>.md` rather than a positional argument for anything multi-paragraph — it bypasses shell parsing entirely, so quotes, newlines and backticks pass through literally. Flags first, positional last.
 
 ## Slash commands
 
