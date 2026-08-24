@@ -110,7 +110,7 @@ def _append_shadow_pair(log_file, *, invocation_id: str, pr: str, expected_ref) 
     """
     try:
         record = exit_record.route(
-            _shared.result_event(log_file), expected_run_id=invocation_id,
+            _shared.result_event(log_file), expected_invocation_id=invocation_id,
             expected_ref=expected_ref,
         )
         verdict = helper.verdict_from_record(record)
@@ -225,7 +225,7 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
     # way to choose another. Re-asserting it after the fact would compare the
     # parent's own value against itself.
     record = exit_record.route(
-        _shared.result_event(log_file), expected_run_id=invocation_id,
+        _shared.result_event(log_file), expected_invocation_id=invocation_id,
         expected_ref=expected_ref,
     )
     verdict = helper.verdict_from_record(record)

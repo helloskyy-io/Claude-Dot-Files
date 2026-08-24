@@ -68,7 +68,9 @@ sys.path.insert(0, str(REPO_ROOT / "scripts" / "workflows" / "temporal"))
 
 from modules.journal.bag import (BAG_INFO_FILE, BagError,  # noqa: E402
                                  LABEL_INCOMPLETE, RUN_ID_MAX_LENGTH,
-                                 RUN_ID_PERMITTED, folds_a_tag_line, open_bag,
+                                 RUN_ID_PERMITTED,
+                                 RUN_ID_PERMITTED_DESCRIPTION,
+                                 folds_a_tag_line, open_bag,
                                  read_tag_file, validated_run_id)
 
 # Every interpolated expression that reaches a tag-line composer in this package
@@ -566,3 +568,70 @@ def test_an_EMPTY_value_is_legal_and_folds_nothing() -> None:
     """
     assert not folds_a_tag_line("")
     assert not folds_a_tag_line("an ordinary value with spaces inside it")
+
+
+# --- the anchor, and the POSITION a breaker sits in ----------------------------------
+#
+# ⚠ EVERY CASE ABOVE PUTS ITS CHARACTER IN THE MIDDLE — `f"run{outside}id"`,
+# `f"run{breaker}{LABEL_INCOMPLETE}: true"`. That tests WHICH characters the
+# guard refuses and never WHERE, and the guard's own comment spends a paragraph
+# on the difference: `_RUN_ID_RE` is anchored `\A`/`\Z` because `$` matches
+# immediately before a trailing newline, so `^[A-Za-z0-9._-]+$` ACCEPTS
+# `"abc\n"`. MEASURED on this branch: swapping the anchors for `^`/`$` left the
+# entire unit suite green while `validated_run_id("abc\n")` started returning
+# its argument — the single character this requirement was written to refuse,
+# admitted, with nothing red. A battery derived from the declaration still has
+# to be driven at both ends of the string.
+
+@pytest.mark.parametrize("breaker", LINE_BREAKERS)
+def test_a_run_id_ENDING_in_a_line_breaker_is_refused(breaker: str) -> None:
+    """The trailing position, which is the one an anchor bug admits.
+
+    A trailing terminator is not a cosmetic variant of an embedded one: the id
+    is composed as `f"External-Identifier: {run_id}"` and written into
+    `bag-info.txt`, so `"run\\n"` puts the NEXT tag line's label at the start of
+    a line the reader attributes to nothing — and `str.splitlines()` on the file
+    yields a record boundary the writer never wrote.
+    """
+    with pytest.raises(BagError):
+        validated_run_id(f"run{breaker}")
+
+
+@pytest.mark.parametrize("breaker", LINE_BREAKERS)
+def test_a_run_id_BEGINNING_with_a_line_breaker_is_refused(breaker: str) -> None:
+    """The leading position, tested for the reason the trailing one is.
+
+    `\\A` is the other half of the anchor pair, and `^` without `re.MULTILINE`
+    happens to hold here — which is exactly why it is asserted rather than
+    assumed. An assertion that only covers the end of the string leaves half the
+    anchor unpinned, and the next author tightening this regex has no signal.
+    """
+    with pytest.raises(BagError):
+        validated_run_id(f"{breaker}run")
+
+
+def test_the_PROSE_description_of_the_permitted_set_matches_the_SET() -> None:
+    """The permitted set is stated in characters AND in words. Both, pinned.
+
+    `RUN_ID_PERMITTED_DESCRIPTION` is what the refusal message prints and what
+    `dispatch_identity`'s `--run-id` help text shows an operator. It used to be
+    typed out by hand in both places, which is two unpinned copies of the rule
+    r6 says is expressed in ONE place — the same shape as the deny-list this
+    whole requirement replaced, one altitude up. Expanding the prose and
+    comparing it to the set is what stops a widened allowlist from leaving an
+    operator reading the old alphabet.
+    """
+    expanded: set[str] = set()
+    for token in RUN_ID_PERMITTED_DESCRIPTION.split(" "):
+        if len(token) == 3 and token[1] == "-":
+            expanded.update(chr(c) for c in range(ord(token[0]), ord(token[2]) + 1))
+        else:
+            assert len(token) == 1, (
+                f"{token!r} is neither a single character nor an `X-Y` range; the "
+                f"description's grammar is what this test can expand, so a new "
+                f"shape has to teach it rather than slip through")
+            expanded.add(token)
+    assert expanded == set(RUN_ID_PERMITTED), (
+        f"the prose says {RUN_ID_PERMITTED_DESCRIPTION!r} and the set does not "
+        f"agree — only in prose: {sorted(expanded - set(RUN_ID_PERMITTED))!r}, "
+        f"only in the set: {sorted(set(RUN_ID_PERMITTED) - expanded)!r}")

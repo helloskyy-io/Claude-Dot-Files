@@ -672,12 +672,15 @@ claude-dot-files/
 │                   │                                #   Phase 9 r5 widened it past the run_*.py glob: NON_STARTING_FILES declares why each
 │                   │                                #   non-kickoff cannot begin a run, and shim_target proves each .sh execs a SWEPT runner
 │                   ├── test_the_run_id_ARRIVES_from_outside.py # Phase 9 r1 and r2 — the property the bag sweep structurally cannot hold,
-│                   │                                #   because it pins the CALLEE and asserts nothing about arguments. Three checks: no
+│                   │                                #   because it pins the CALLEE and asserts nothing about arguments. Five checks: no
 │                   │                                #   run_*.py may NAME mint_run_id, run_id= may not be a call (uuid4().hex parses as an
-│                   │                                #   Attribute, which the first version admitted), and every entrypoint must DECLARE the
-│                   │                                #   argument a name arrives on. MEASURED: reverting a converted entrypoint leaves the
-│                   │                                #   bag sweep fully green and turns three checks here red — that gap is the whole reason
-│                   │                                #   this is a separate file
+│                   │                                #   Attribute, which the first version admitted), every entrypoint must DECLARE the
+│                   │                                #   argument a name arrives on, every entrypoint must CALL resolve_identity (declaring
+│                   │                                #   the flags and reading args.run_id directly passes all three of the above and loses
+│                   │                                #   r4's enforcement), and no --dry-run entrypoint may resolve before its early return.
+│                   │                                #   MEASURED: reverting a converted entrypoint leaves the bag sweep fully green (17
+│                   │                                #   passed) and turns four checks here red — that gap is the whole reason this is a
+│                   │                                #   separate file
 │                   ├── test_journal_tag_lines.py    # The TAG-LINE spelling of test_journal_containment.py's class, and the count here is
 │                   │                                #   five: a redaction reason, the creation loop, the LABEL parameter, the run id (which
 │                   │                                #   reached no check at all — it goes into open_bag's module-owned entries dict, and the

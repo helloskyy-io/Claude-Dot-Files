@@ -935,9 +935,9 @@ def run_claude(prompt: str, *, model_key: str, workflow_key: str,
     # BEFORE the failure branch below, deliberately. A run that died is the one
     # whose resource numbers are most worth having, and an early `raise` would
     # throw them away at exactly the moment they became evidence.
-    # `run_id=run_id`, NOT `log_file.stem` — the run log's join key carries one
-    # value across all three of its member events, and the stem is a filename
-    # that merely ends with it. See this function's docstring.
+    # `invocation_id=invocation_id`, NOT `log_file.stem` — the run log's join
+    # key carries one value across all three of its member events, and the stem
+    # is a filename that merely ends with it. See this function's docstring.
     report = resource_telemetry.finish(
         sampler, limits=limits, unmeasured_reason=None if scoped else scope_reason,
         invocation_id=invocation_id, model_key=model_key, workflow_key=workflow_key)

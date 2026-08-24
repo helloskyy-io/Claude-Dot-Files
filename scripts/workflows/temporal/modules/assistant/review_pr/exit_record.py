@@ -370,7 +370,7 @@ def _ref_matches(actual: dict, expected: dict) -> bool:
         return False
 
 
-def route(result_event: dict | None, *, expected_run_id: str,
+def route(result_event: dict | None, *, expected_invocation_id: str,
           expected_ref: dict | None) -> ExitRecord:
     """The fail-safe contract. Ordered rules, first match wins, R9 is the default.
 
@@ -469,8 +469,8 @@ def route(result_event: dict | None, *, expected_run_id: str,
                           permission_denials=published_denials)
 
     # R4 — unknown schema_version, BEFORE identity. A record whose version is
-    # unknown has no guaranteed typing, so its run_id is not yet a value one may
-    # compare. Never ignored and never guessed at.
+    # unknown has no guaranteed typing, so its invocation id is not yet a value
+    # one may compare. Never ignored and never guessed at.
     version = record["schema_version"]
     if version not in SUPPORTED_SCHEMA_VERSIONS:
         return ExitRecord(RoutedOutcome.UNDETERMINED, UndeterminedReason.SCHEMA_VERSION_UNKNOWN,
@@ -480,7 +480,13 @@ def route(result_event: dict | None, *, expected_run_id: str,
     # invocation. Freshness by path allocation and identity in the payload are
     # two independent checks; this is the one that catches a record arriving on
     # a CORRECT path from a DIFFERENT invocation.
-    if record["run_id"] != expected_run_id:
+    # `record["run_id"]` IS THE WIRE SPELLING AND STAYS — the parameter beside it
+    # does not. Phase 9 r1 puts every Python identifier holding the per-model
+    # nonce on `invocation_id`; the JSONL key keeps `run_id` because records
+    # already written carry it, and the roadmap schedules that field's meaning
+    # change for Phase 3's cut-over. The seam is here, on one line, rather than
+    # smeared across a parameter name that reads like the run's own id.
+    if record["run_id"] != expected_invocation_id:
         return ExitRecord(RoutedOutcome.UNDETERMINED, UndeterminedReason.RECORD_STALE,
                           schema_version=version, permission_denials=published_denials)
 

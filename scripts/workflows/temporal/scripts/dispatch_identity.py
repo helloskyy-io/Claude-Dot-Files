@@ -103,7 +103,8 @@ import argparse
 import sys
 from dataclasses import dataclass
 
-from modules.journal.bag import BagError, validated_run_id
+from modules.journal.bag import (BagError, RUN_ID_PERMITTED_DESCRIPTION,
+                                 validated_run_id)
 from modules.journal.journal_activities import mint_run_id
 
 __all__ = ["RunIdentity", "add_identity_arguments", "resolve_identity"]
@@ -145,7 +146,11 @@ def add_identity_arguments(parser: argparse.ArgumentParser) -> None:
         help="name of the run this invocation belongs to. Supplied by the "
              "orchestrator, or by a parent dispatching this child, or by you to "
              "retry into an existing bag. Minted and announced if omitted. "
-             "Permitted characters: A-Z a-z 0-9 . _ -")
+             # FROM THE CONSTANT, not typed out again. The set is stated in
+             # `bag.py` and this is the second READER of that statement, the
+             # refusal message being the first — which is what r6's "one place"
+             # means for a rule that has to appear in operator-facing text.
+             f"Permitted characters: {RUN_ID_PERMITTED_DESCRIPTION}")
     parser.add_argument(
         "--writer", dest="writer", default=None,
         help="this invocation is PART of the run named by --run-id, not the run "

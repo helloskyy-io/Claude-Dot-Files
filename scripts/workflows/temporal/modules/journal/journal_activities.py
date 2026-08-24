@@ -75,11 +75,11 @@ def mint_run_id() -> str:
     ⚠ AND THE ENTRYPOINTS NO LONGER CALL IT. Phase 9 r2: a name generated inside
     the work is a fresh name on every retry and a different name on a replayed
     second pass, so the name arrives from OUTSIDE the process — as `--run-id`.
-    Its one caller is `scripts/dispatch_identity.resolve`, which is the client
-    side of the dispatch and is not replayed code; at port time that is the
-    Temporal client, and the call moves with it rather than being removed. Read
-    that module's docstring for where a caller gets a name when there is no
-    orchestrator, and what supplies it once there is.
+    Its one caller is `scripts/dispatch_identity.resolve_identity`, which is
+    the client side of the dispatch and is not replayed code; at port time
+    that is the Temporal client, and the call moves with it rather than being
+    removed. Read that module's docstring for where a caller gets a name when
+    there is no orchestrator, and what supplies it once there is.
 
     NOT the per-model-invocation nonce `run_claude` mints, WHICH IS NOW SPELLED
     `invocation_id` (Phase 9 r1). A parent and its three children carry four of

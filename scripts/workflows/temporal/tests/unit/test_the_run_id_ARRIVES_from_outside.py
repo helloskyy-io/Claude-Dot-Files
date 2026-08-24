@@ -58,6 +58,12 @@ IDENTITY_ARGUMENTS = "add_identity_arguments"
 
 BAG_OPEN = "open_run_bag"
 
+# The dispatch boundary every entrypoint has to route THROUGH, and the flag
+# whose early return it must sit after. Declaring the arguments is not the same
+# property as using them — see the two predicates below.
+IDENTITY_BOUNDARY = "resolve_identity"
+DRY_RUN_FLAG = '"--dry-run"'
+
 # The dispatch boundary that is ALLOWED to mint — the client side of a dispatch,
 # which runs once per invocation and is not replayed code. Pinned as a set of one
 # so that a second minting site anywhere in the live tree fails this file rather
@@ -145,6 +151,82 @@ def _run_id_minted_inline(directory: pathlib.Path) -> list[str]:
     return offenders
 
 
+def _bypassing_the_identity_boundary(directory: pathlib.Path) -> list[str]:
+    """Entrypoints that never NAME `resolve_identity`.
+
+    ⚠ THIS IS THE PROPERTY r4's WORD "ENFORCED" RESTS ON, and it had no guard.
+    MEASURED on this branch: rewriting one entrypoint to declare the flags and
+    then hand `args.run_id` straight to `open_run_bag` left the ENTIRE unit suite
+    green — 2278 passed. Every other check in this file is satisfied by that
+    shape, because the id still arrives from outside and nothing mints.
+
+    ⚠ IT ASKS FOR A CALL, NOT FOR THE NAME, and the difference was measured the
+    same way. A first version used `_names_used`, which collects imported names —
+    so `from dispatch_identity import resolve_identity` satisfied it, and the
+    bypass mutation above stayed GREEN because the half-migrated file kept its
+    import. That is the realistic shape of a half-migration: an author rewrites
+    the call and leaves the import line alone.
+
+    What is lost is everything the boundary alone does: `--writer` with no
+    `--run-id` stops being refused, and an invocation passing BOTH is recorded as
+    the run rather than as a member of one — which is `A standalone child is the
+    case the bag was never designed for`'s first wrong answer, reached silently,
+    by an entrypoint that looks migrated. Declaring the arguments proves a name
+    can arrive; only calling the boundary proves it is READ.
+    """
+    offenders = []
+    for path in _entrypoints(directory):
+        tree = ast.parse(path.read_text(), filename=str(path))
+        called = any(isinstance(node, ast.Call)
+                     and (getattr(node.func, "id", None) == IDENTITY_BOUNDARY
+                          or getattr(node.func, "attr", None) == IDENTITY_BOUNDARY)
+                     for node in ast.walk(tree))
+        if not called:
+            offenders.append(path.name)
+    return offenders
+
+
+def _resolving_before_the_dry_run_return(directory: pathlib.Path) -> list[str]:
+    """Entrypoints declaring `--dry-run` whose boundary call is not after it.
+
+    A dry run states *nothing invoked, nothing posted*, and `resolve_identity`
+    mints a name and PRINTS it when none was supplied — so a preview that reaches
+    it announces a run id for a run that will never exist, and an operator
+    retrying with that name creates the bag the dry run promised not to.
+
+    It is the same exemption that keeps a dry run from opening a bag, and it was
+    stated only in `resolve_identity`'s docstring. This package's own thesis is
+    that a rule kept as prose gets violated by the next edit; all seven
+    `--dry-run` entrypoints conform today, which is exactly when the guard is
+    cheap to add.
+
+    LINE ORDER, NOT DATA FLOW, and the limit is named rather than implied: this
+    compares the first `--dry-run`-guarded early return against the first
+    `resolve_identity` call. A file that reached the boundary through a helper
+    called before the return would pass. That shape does not exist here — the
+    boundary is called inline in all eleven — and the check for THAT is
+    `_bypassing_the_identity_boundary` above.
+    """
+    offenders = []
+    for path in _entrypoints(directory):
+        source = path.read_text()
+        if DRY_RUN_FLAG not in source:
+            continue
+        lines = source.splitlines()
+        returns = [i for i, line in enumerate(lines)
+                   if "dry" in line and line.lstrip().startswith(("if ", "return "))]
+        calls = [i for i, line in enumerate(lines) if f"{IDENTITY_BOUNDARY}(" in line
+                 and not line.lstrip().startswith(("#", "*"))]
+        if not returns or not calls:
+            offenders.append(f"{path.name} (dry-run branch or boundary call not "
+                             f"located: returns={len(returns)} calls={len(calls)})")
+            continue
+        if min(calls) < min(returns):
+            offenders.append(f"{path.name} (resolve_identity at line {min(calls) + 1}, "
+                             f"dry-run branch at line {min(returns) + 1})")
+    return offenders
+
+
 def _missing_identity_arguments(directory: pathlib.Path) -> list[str]:
     """Entrypoints that declare no way for a name to arrive."""
     return [p.name for p in _entrypoints(directory)
@@ -208,6 +290,43 @@ def test_every_entrypoint_DECLARES_the_argument_a_name_arrives_on() -> None:
         f"be minted here, which is what Phase 9 r2 forbids — and the failure is "
         f"SILENT, because minting is also the correct behaviour when nothing "
         f"supplies a name.")
+
+
+def test_every_entrypoint_ROUTES_THROUGH_the_identity_boundary() -> None:
+    """r4: the discriminator is not merely declared, it is READ.
+
+    The test above proves a name CAN arrive. This proves the entrypoint looks at
+    it — which is where `--writer` with no `--run-id` is refused, and where a
+    member of a run is distinguished from the run itself. An entrypoint that
+    declares the flags and reads `args.run_id` directly passes every other check
+    in this file and loses both.
+    """
+    bypassing = _bypassing_the_identity_boundary(ENTRYPOINTS_DIR)
+    assert not bypassing, (
+        f"these entrypoints never call `{IDENTITY_BOUNDARY}`: {bypassing}. "
+        f"Declaring `--run-id`/`--writer` and then reading the parsed values "
+        f"directly is NOT the migration: the boundary is what validates the "
+        f"name, what refuses a `--writer` with no run to join, and what mints "
+        f"and announces when nothing supplied a name.\n"
+        f"  write: `identity = resolve_identity(argv)` and pass "
+        f"`run_id=identity.run_id, writer=identity.writer`.")
+
+
+def test_no_DRY_RUN_entrypoint_resolves_an_identity_before_its_early_return() -> None:
+    """The `--dry-run` exemption, held by a check rather than by a docstring.
+
+    A dry run that reaches `resolve_identity` announces a minted run id for a run
+    that never happens. The rule was written in one docstring; this is the sweep
+    that keeps the next edit from moving the call two lines up.
+    """
+    offenders = _resolving_before_the_dry_run_return(ENTRYPOINTS_DIR)
+    assert not offenders, (
+        f"these `--dry-run` entrypoints resolve an identity too early: "
+        f"{offenders}. A dry run states 'nothing invoked, nothing posted', and "
+        f"`resolve_identity` mints and PRINTS a name when none was supplied — so "
+        f"a preview would announce a run id an operator can then retry into a "
+        f"real bag. Move the call below the dry-run early return, which is the "
+        f"same exemption that keeps a dry run from opening a bag.")
 
 
 def test_the_minting_authority_has_exactly_ONE_caller_in_the_live_tree() -> None:
@@ -415,3 +534,82 @@ def test_every_SPELLING_of_reaching_the_authority_is_seen(
     assert _mints_its_own_name(scripts) == ["run_x.py"], (
         f"the {spelling} spelling of reaching the minting authority was not "
         f"seen; a guard that catches three of four spellings catches none")
+
+
+# --- controls for the two boundary predicates -----------------------------------
+#
+# Each of the two predicates added above gets a fixture it is KNOWN to split, for
+# the reason every other control in this file exists: the live tree conforms, so a
+# predicate that has silently stopped discriminating passes the sweep, the
+# staleness check and the vacuity floor from the same empty result.
+
+def _fixture(tmp_path: pathlib.Path, files: dict[str, str]) -> pathlib.Path:
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    for name, body in files.items():
+        (scripts / name).write_text(body)
+    return scripts
+
+
+def test_the_BOUNDARY_check_catches_an_entrypoint_that_reads_argv_directly(
+        tmp_path: pathlib.Path) -> None:
+    """The exact half-migration that left the whole suite green before this check.
+
+    `run_bypass.py` is not a strawman — it declares the arguments, takes the name
+    from outside, and mints nothing, so `_mints_its_own_name`,
+    `_run_id_minted_inline` and `_missing_identity_arguments` ALL pass it. Only
+    this predicate separates it from `run_ok.py`.
+    """
+    scripts = _fixture(tmp_path, {
+        "run_ok.py":
+            "from dispatch_identity import add_identity_arguments, resolve_identity\n"
+            "def main(argv=None):\n"
+            "    add_identity_arguments(parser)\n"
+            "    identity = resolve_identity(argv)\n"
+            "    journal.open_run_bag(run_id=identity.run_id, writer=identity.writer)\n",
+        "run_bypass.py":
+            # THE IMPORT IS LEFT IN ON PURPOSE — it is what a real half-migration
+            # looks like, and a name-based predicate is green on exactly this file.
+            "from dispatch_identity import add_identity_arguments, resolve_identity\n"
+            "def main(argv=None):\n"
+            "    add_identity_arguments(parser)\n"
+            "    args = parser.parse_args(argv)\n"
+            "    journal.open_run_bag(run_id=args.run_id, writer=None)\n",
+    })
+    assert _bypassing_the_identity_boundary(scripts) == ["run_bypass.py"]
+    assert _missing_identity_arguments(scripts) == [], (
+        "the control's premise: the bypassing file passes the DECLARATION check, "
+        "which is why declaring the arguments is not the same property as using "
+        "them")
+    assert _mints_its_own_name(scripts) == [] and _run_id_minted_inline(scripts) == [], (
+        "the control's second premise: it passes both minting checks too")
+
+
+def test_the_DRY_RUN_ORDER_check_catches_a_boundary_call_moved_too_early(
+        tmp_path: pathlib.Path) -> None:
+    """Three files, three answers — the two that must not fire, and the one that must.
+
+    `run_none.py` is the row that keeps the predicate from degenerating into "any
+    entrypoint whose boundary call is near the top": four of eleven entrypoints
+    declare no `--dry-run` at all and must never be reported.
+    """
+    scripts = _fixture(tmp_path, {
+        "run_after.py":
+            'p.add_argument("--dry-run", action="store_true")\n'
+            "def main(argv=None):\n"
+            "    if dry:\n"
+            "        return _dry_run(task)\n"
+            "    identity = resolve_identity(argv)\n",
+        "run_before.py":
+            'p.add_argument("--dry-run", action="store_true")\n'
+            "def main(argv=None):\n"
+            "    identity = resolve_identity(argv)\n"
+            "    if dry:\n"
+            "        return _dry_run(task)\n",
+        "run_none.py":
+            "def main(argv=None):\n"
+            "    identity = resolve_identity(argv)\n",
+    })
+    offenders = _resolving_before_the_dry_run_return(scripts)
+    assert len(offenders) == 1 and offenders[0].startswith("run_before.py"), (
+        f"expected exactly `run_before.py` to be reported, got {offenders}")

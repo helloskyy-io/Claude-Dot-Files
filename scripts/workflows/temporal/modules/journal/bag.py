@@ -64,8 +64,8 @@ __all__ = ["JOURNAL_SCHEMA_VERSION", "BAGIT_VERSION", "TAG_FILE_ENCODING",
            "DIR_MODE", "FILE_MODE", "REDACTION_MARKER", "BagError", "Bag",
            "open_bag", "read_tag_file", "utc_now", "payload_files",
            "payload_symlinks", "sha256_of", "contained_relpath",
-           "RUN_ID_PERMITTED", "RUN_ID_MAX_LENGTH", "validated_run_id",
-           "folds_a_tag_line",
+           "RUN_ID_PERMITTED", "RUN_ID_PERMITTED_DESCRIPTION",
+           "RUN_ID_MAX_LENGTH", "validated_run_id", "folds_a_tag_line",
            "LABEL_SCHEMA_VERSION", "LABEL_REDACTION", "LABEL_INCOMPLETE",
            "LABEL_GAP", "LABEL_SEALED_AT", "BagState", "bag_state",
            "lifecycle_of"]
@@ -188,6 +188,15 @@ def contained_relpath(relpath: str, *, subdir: str = PAYLOAD_DIR) -> str:
 RUN_ID_PERMITTED = frozenset(
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ" "abcdefghijklmnopqrstuvwxyz" "0123456789" "._-")
 
+# THE ONE PROSE SPELLING OF THE SET ABOVE, and the reason it is a constant rather
+# than a sentence is that it was written out twice — once in this module's
+# refusal message and once in `dispatch_identity`'s `--run-id` help text — while
+# r6 says the permitted set is expressed in ONE place. Two hand-written copies of
+# a rule is the shape this whole requirement exists to end, one altitude up.
+# `test_journal_tag_lines.py` expands this string and asserts it is exactly
+# `RUN_ID_PERMITTED`, so the prose cannot drift from the set it describes.
+RUN_ID_PERMITTED_DESCRIPTION = "A-Z a-z 0-9 . _ -"
+
 # 128 is a bound, not a measurement, and it is stated as one. Today's ids are 32
 # hex characters; the ceiling exists so a pathological name cannot become a path
 # component that a filesystem, an object key or an operator report has to
@@ -288,7 +297,7 @@ def validated_run_id(run_id: str) -> str:
         raise BagError(
             f"run_id {run_id!r} contains {len(refused)} character(s) outside the "
             f"permitted set: {[repr(c) for c in refused]}.\n"
-            f"  permitted: A-Z a-z 0-9 and the three punctuation marks . _ -\n"
+            f"  permitted: {RUN_ID_PERMITTED_DESCRIPTION}\n"
             f"  failing property: a run id is a directory name, a bag-info.txt "
             f"tag value, an input to the tag-file reader, a string in the "
             f"operator's validator report AND an object key. This is an "
@@ -830,8 +839,17 @@ class Bag:
                 f"and those need different answers.")
 
         _write_tag_file(target, [REDACTION_MARKER.rstrip("\n")])
+        # `reason` IS STRIPPED, AND ONLY `reason` — the composed line still goes
+        # through `_refuse_folded_value`, which refuses anything `str.splitlines()`
+        # breaks on. Surrounding whitespace on a free-text reason carries no
+        # meaning, and `read_tag_file` strips it back off on the way out, so
+        # refusing the whole redaction over a trailing space would fail the ONE
+        # sanctioned way to scrub a leaked credential — at the moment it is most
+        # urgent — over a difference nobody could observe in the record. A run id
+        # and a label are the opposite case and are refused rather than trimmed:
+        # there the surrounding space is part of a name somebody chose.
         _append_tag_line(self.info_path, LABEL_REDACTION,
-                         f"{utc_now()} {payload_relpath} — {reason}")
+                         f"{utc_now()} {payload_relpath} — {reason.strip()}")
         if self.lifecycle == "sealed":
             self.seal()
 
@@ -854,7 +872,13 @@ class Bag:
         """
         if not self.incomplete:
             _append_tag_line(self.info_path, LABEL_INCOMPLETE, "true")
-        _append_tag_line(self.info_path, LABEL_GAP, f"{utc_now()} {what} — {why}")
+        # Stripped for the reason `redact` strips its `reason` — and it matters
+        # more here. This is the path that records a write having been LOST, so a
+        # `BagError` raised out of it over a trailing space would destroy the gap
+        # record while the run was already handling a failure, which is the exact
+        # silent loss this component exists to prevent.
+        _append_tag_line(self.info_path, LABEL_GAP,
+                         f"{utc_now()} {what.strip()} — {why.strip()}")
         if self.lifecycle == "sealed":
             self.seal()
 
