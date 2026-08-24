@@ -1338,6 +1338,90 @@ Four things survived the PMP replan's verification. **One was unfinished and I h
 
 ---
 
+## 2026-08-24 — PM3's `skyy-command#272` cost set, scrutinised against this fleet
+
+**Source:** a CPI finding set from PM3 on `helloskyy-io/Skyy-Command#272` — $111 across 5 dispatches / 11 workflow invocations, and *"still slam full of holes"*. Six findings, F-1 to F-6, ranked by their expected saving.
+
+**Scrutinised rather than adopted, and the ranking changed.** Two findings do not reproduce here, one is better-evidenced here than in their data, and one is already solved by a mechanism their fleet appears to lack. Everything below was measured on this repo's own logs before being ruled.
+
+### SHIPPED — F-6, cumulative cost across a loop-back chain
+
+**It validated itself on a live run while being assessed.** A `build.sh --phase` chain started that morning reached **$82.13 across 5 runs within two hours** — `build-draft` alone at **$37.75 for 224 turns** — with the operator away studying and no signal anywhere. That is PM3's exact complaint (*"discovered the $111 only by adding it up afterwards"*) occurring here, unprompted, during the assessment of it.
+
+The two figures an operator could already see are *this one leg* (`cost=$X` per run) and *everything since the 1st* (`run-claude.sh`'s calendar-month rollup). The number that decides whether to keep going was neither.
+
+`act.chain_cost_usd()` sums `total_cost_usd` from every run logged since the parent started; both build parents append it to all three decision-point notes. Clock read via `act.clock_now()`, an activity, because a wall-clock read in workflow code diverges on replay.
+
+**Reporting only. No threshold, no gate** — see F-3 below for why that is a separate ruling.
+
+**Known limit, stated in the code:** it sums by wall clock, so a concurrent dispatch is counted too. Over-reporting is the safe direction for a spend figure and the note says *"since this run started"* rather than *"this chain"*. Threading a chain id is the correct fix and is larger.
+
+### NOT SHIPPED — F-1, refine input scoping. Already solved here, differently.
+
+PM3 measured `build-refine` growing **2.17 → 3.43 → 4.15 → 4.21 MB** and proposed scoping its input to the diff since its own last commit.
+
+**Measured here on PR #123's chain: 0.87, 0.72, 0.77, 0.80, 0.62, 1.15, 0.79, 0.97, 0.90 MB. Flat.** Because `build_workflow.py` **downgrades to `build_refine_minor` on every loop-back** — one review agent and 100 turns instead of two and 250 — which its own comment calls *"the whole saving"*. Their fleet appears to re-run the full child each pass.
+
+**Action is outward, not inward:** tell PM3 the answer is the child downgrade, not input scoping, before they build the harder fix.
+
+### DEFERRED — F-3, gate the loop on convergence trend
+
+**Watch-criteria: a chain that reaches the loop-back cap with its blocking-finding count flat or rising across two consecutive passes, TWICE more.**
+
+This fleet already computes the signal and deliberately does not route it. `review_pr_workflow.py:581` emits the convergence line and then says **"THIS SIGNAL ROUTES NOTHING — the loop-back bound is still the only stopping authority."**
+
+The reason it is unwired is recorded and was correct: at `MAX_LOOPS = 1` the measurement was unfalsifiable — *"4 fires, 0 scorable"* — and the cap was raised to 3 specifically to generate scorable data.
+
+**That data has now started arriving.** PR #123 ran ten passes reporting `not_converged` then `indeterminate (prior_findings_dropped)`, findings going 1 → 2 → 2 → 2. A trend gate would have stopped it three loop-backs earlier, and those three loop-backs were spent building and repairing a guard nobody asked for.
+
+**Why deferred rather than shipped:** one PR is one data point, and the failure direction is asymmetric. Wiring it wrong stops a run that would have converged — PR #135 converged at pass 6 *after* three loop-backs and would be the case a naive trend gate kills. Ship on the second and third instances, not the first.
+
+### DEFERRED — F-4, a planning gate for a defined class
+
+**Watch-criteria: a second dispatch here where a design question surfaces after implementation and costs a rebuild.**
+
+PM3 ranks this first and their evidence is strong — half the spend on `#272` went to re-doing work because *"is the address the enrollment is keyed under trustworthy?"* was asked at review pass 2 rather than before any code existed.
+
+**The machinery already exists here** — `build.sh --phase`, `plan_feature`, `plan_verify` — and the PMP run that day used it. **What does not exist is a rule saying which class must.** We do it by habit.
+
+**Deferred because the evidence is theirs, not ours.** A routing rule that gates dispatches is operator-facing and changes what is allowed; it should rest on a failure measured in this fleet. If one occurs, this is a Tier-1 ship candidate with confirmed evidence.
+
+### DEFERRED — F-5, a scale sanity line in review
+
+**Watch-criteria: a second PR here where the review passes find defects inside sprawl without ever flagging the sprawl.**
+
+PM3 ranks this last and hedges it. **It is better-evidenced here than in their data.** PR #123: a one-line fix — *cite a migration step by content rather than by ordinal* — became a **604-line guard across four repair passes**, and every finding holding that PR at pass 10 was in work nobody asked for. The review lenses caught defects *inside* the sprawl and never the sprawl itself. No stage asks *"is this the size of the task?"*
+
+**Deferred because the metric has no threshold.** *Lines changed against the task as briefed* is a ratio with no defensible cut-off, and a review line that fires on every large-but-correct PR is noise that trains people to skip it. What is needed first is what a wrong size looks like, and #123 is one example.
+
+### REJECTED as stated — F-2, delta-only review comments
+
+**The mechanism does not reproduce here.** PM3 measured monotonic growth — 43k → 54k → 64k → 68k chars — and attributed it to each pass re-narrating prior passes.
+
+**Ours oscillate:** 35k, 56k, 29k, 46k, 40k, 72k, 41k, 56k, **11k**, 60k, 40k, 44k across PR #123's twelve passes. They track how much work a pass found, which is the correct behaviour and is not what their proposal fixes.
+
+**But the underlying cost is WORSE here, and that is a different finding.** PR #123 carries **~530,000 characters of review prose across twelve passes**, against their 231,000. Right about the expense, wrong about the cause. Filing a delta-only rule against a non-existent growth mechanism would change nothing; the real question is why a single pass is 40–70k characters, and that has not been investigated.
+
+**Not re-filed as an issue.** Recorded here so a future pass reading PM3's report does not adopt F-2's remedy on the strength of evidence that is not ours.
+
+### NOTED — a guard that MANDATES prose cannot evaluate it, and nothing checks the prose
+
+Surfaced by PR #138's own review, not by PM3. `test_a_refused_bag_mutation_CHANGES_NOTHING.py` enforces that every `TOTAL` mutator carries a written reason, and never checks whether any reason is TRUE. **A test that mandates prose and structurally cannot evaluate it.** All three reasons happened to be correct there, which is why it is noted rather than filed.
+
+**It is the same shape this repo keeps meeting from other directions** — a check that cannot see something reporting "fine" instead of "I could not look". The guard is not wrong; it is doing the half it can do, and the other half silently has no owner.
+
+**Where the other half lives, when it exists at all: the review.** `review-pr` can read a justification and judge it; a predicate cannot. So the general rule is *where a guard requires a human-written justification, the justifications are claims and the reviewer verifies them, because the guard structurally cannot.*
+
+**Watch-criteria: a second guard found mandating prose it cannot check, OR one instance where a mandated reason turns out to be false.** The second is the one that converts this from a shape into a defect. Until then a clause in the test-efficacy axis is the proposed remedy, and it is not worth the prompt bytes on one occurrence.
+
+### One thing PM3 got right that is worth quoting
+
+> *"The failure was where the question got asked, not whether it was asked honestly."*
+
+That is the same shape as PR #123 here: eleven review passes, every one rigorous, all of them applied to a scope that should not have existed. **Rigour on the wrong scope is the expensive failure mode, and no lens in either fleet is pointed at scope.** F-4 and F-5 are both instances of it, which is why they are deferred together rather than separately.
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.
