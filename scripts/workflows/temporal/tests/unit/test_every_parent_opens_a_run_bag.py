@@ -83,11 +83,14 @@ import pytest
 # private spellings this file already uses, so the assertions below read
 # unchanged.
 from journal_entrypoint_facts import (BAG_OPEN, ENTRYPOINTS_DIR,  # noqa: E402
+                                      NON_STARTING_FILES,
                                       ORDERING_UNCOVERED as _ORDERING_UNCOVERED,
                                       REPO_ROOT,
                                       SIDE_EFFECT_ATTRS as _SIDE_EFFECT_ATTRS,
                                       entrypoints as _entrypoints,
-                                      side_effect_lines as _side_effect_lines)
+                                      shim_target,
+                                      side_effect_lines as _side_effect_lines,
+                                      unclassified)
 
 
 def _modules_imported_by(paths: list[Path]) -> set[str]:
@@ -148,9 +151,19 @@ def test_every_entrypoint_actually_opens_a_run_bag() -> None:
     assert not missing, (
         f"these entrypoints start a run with no journal bag: {missing}. Every run "
         f"opens one as its first step (Persistent Memory Protocol Phase 1 r11) — "
-        f"call `journal.open_run_bag(run_id=journal.mint_run_id(), "
-        f"repo_root=repo_root, workflow_key=...)` inside the try block that "
-        f"prints RuntimeError, before the first side effect.\n"
+        f"inside the try block that prints RuntimeError, before the first side "
+        f"effect:\n"
+        f"    identity = resolve_identity(argv)\n"
+        f"    journal.open_run_bag(run_id=identity.run_id, "
+        f"writer=identity.writer,\n"
+        f"                         repo_root=repo_root, workflow_key=...)\n"
+        f"⚠ THIS MESSAGE USED TO SAY `run_id=journal.mint_run_id()`, which Phase "
+        f"9 r2 forbids: a name minted inside the process that is supposed to have "
+        f"RECEIVED it is a fresh name on every retry. A guard teaching the shape "
+        f"its own phase forbids is an instruction, read at the one moment "
+        f"somebody is looking for one — `test_the_run_id_ARRIVES_from_outside.py` "
+        f"is what holds the corrected shape, because this sweep asserts nothing "
+        f"about arguments and never could.\n"
         f"SCOPE OF THIS SWEEP: {ENTRYPOINTS_DIR.relative_to(REPO_ROOT)}/run_*.py "
         f"and nothing else. A run initiated from anywhere else is INVISIBLE here.")
 
@@ -166,6 +179,65 @@ def test_the_sweep_is_not_vacuous() -> None:
     assert len(discovered) >= 10, (
         f"only {len(discovered)} entrypoints discovered under {ENTRYPOINTS_DIR}; "
         f"this fleet has eleven. The predicate has drifted from the tree.")
+
+
+# --- r5: the population covers every shape that can START a run -------------------
+
+def test_every_file_beside_the_entrypoints_is_SWEPT_or_DECLARED() -> None:
+    """Phase 9 r5. A new run-starting shape cannot land here invisibly.
+
+    THE GLOB WAS THE WHOLE PREDICATE, and it was enough for exactly as long as
+    `run_*.py` was the only shape a run could start from. Two things end that:
+    Workflow Decomposition Phase 3 puts NINE new runners in this directory, and
+    the Temporal port turns an entrypoint into a client. Nine landing as
+    `run_*.py` are swept and go red until each opens a bag — which pushes
+    whoever lands them, under time pressure and with a failing test as the
+    argument, toward *every invocation opens its own bag*: four bags for one
+    piece of work. Nine landing under any other name are invisible, which is
+    the opposite failure. The sweep was about to make that decision for us.
+
+    SO EVERY FILE IS CLASSIFIED AND THE DEFAULT IS TO FAIL. Swept, or a thin
+    shim whose exec target is swept, or declared non-starting WITH the reason.
+    A file nobody classified is a claim nobody made.
+    """
+    loose = unclassified(ENTRYPOINTS_DIR)
+    assert not loose, (
+        f"these files sit beside the entrypoints and nothing says what they "
+        f"are: {loose}.\n"
+        f"THE THREE SHAPES THIS SWEEP KNOWS, and every file must be one:\n"
+        f"  * a kickoff entrypoint — `run_*.py`, swept by this file, which must "
+        f"open a bag before its first side effect;\n"
+        f"  * a thin shim — `<workflow>.sh` that execs a swept `run_*.py` and "
+        f"passes every argument through untouched. It starts nothing itself;\n"
+        f"  * a declared non-starter — add a row to `NON_STARTING_FILES` in "
+        f"`journal_entrypoint_facts.py` stating WHY it cannot begin a run.\n"
+        f"EXCLUDED SHAPES ARE NAMED, NOT ASSUMED: "
+        f"{sorted(NON_STARTING_FILES)} are declared non-starting, and a run "
+        f"initiated from outside "
+        f"{ENTRYPOINTS_DIR.relative_to(REPO_ROOT)}/ altogether is invisible to "
+        f"every check in this file.")
+
+
+def test_every_shim_hands_off_to_an_entrypoint_this_sweep_COVERS() -> None:
+    """A shim pointed somewhere else is a run-starting shape with no guard.
+
+    The shim contract is that it resolves the interpreter and passes arguments
+    through, so the runner owns the CLI and there is one place it is defined.
+    That contract is what makes a shim safe to leave unswept — and it is checked
+    here rather than trusted, because a shim that execs an unswept file starts a
+    run this sweep cannot see, which is r5's second silent half.
+    """
+    swept = {p.name for p in _entrypoints(ENTRYPOINTS_DIR)}
+    shims = sorted(ENTRYPOINTS_DIR.glob("*.sh"))
+    assert shims, f"no shims discovered under {ENTRYPOINTS_DIR} — the check is inert"
+
+    stray = {p.name: shim_target(p) for p in shims
+             if shim_target(p) not in swept}
+    assert not stray, (
+        f"these shims hand off to something this sweep does not cover: {stray}. "
+        f"A shim's whole safety argument is that it can only start the "
+        f"`run_*.py` beside it — one that execs anything else is a run-starting "
+        f"shape with no bag guard on it.")
 
 
 # --- the negative control ---------------------------------------------------------
@@ -199,6 +271,70 @@ def test_the_sweep_FAILS_on_a_deliberately_non_conforming_parent(tmp_path: Path)
     assert _missing_bag_open(scripts) == ["run_forgot.py"], (
         "the sweep must name exactly the non-conforming file — flagging all "
         "three would pass a red/green control while being useless")
+
+
+def test_the_POPULATION_check_FAILS_on_an_unclassified_shape(tmp_path: Path) -> None:
+    """r5's widening, demonstrated — and it must DISCRIMINATE, not merely go red.
+
+    Four files, three of them legitimate: a swept runner, a conforming shim, and
+    a declared non-starter. The fourth is a `.py` nobody classified — the shape
+    that used to be invisible. The assertion names exactly that one, so a
+    predicate that flagged everything would not pass.
+
+    THE FIXTURE IS SELF-CONTAINED. `NON_STARTING_FILES` is the real declaration
+    map and is read here, which is deliberate: the control drives the SHIPPED
+    predicate rather than a local copy of it, so widening the predicate cannot
+    leave this control silently testing the old one.
+    """
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    (scripts / "run_swept.py").write_text("def main():\n    return 0\n")
+    (scripts / "swept.sh").write_text(
+        '#!/usr/bin/env bash\nSCRIPT_DIR="x"\n'
+        'exec python3 "${SCRIPT_DIR}/run_swept.py" "$@"\n')
+    declared = sorted(NON_STARTING_FILES)[0]
+    (scripts / declared).write_text("# a declared non-starter\n")
+    (scripts / "kickoff_something.py").write_text(
+        "def main():\n    return start_a_run()\n")
+
+    assert unclassified(scripts) == ["kickoff_something.py"], (
+        "the population check must name exactly the unclassified file — the "
+        "swept runner, its shim and the declared non-starter are all accounted "
+        "for, and flagging them too would pass a red/green control uselessly")
+
+
+def test_a_shim_pointed_at_an_UNSWEPT_file_is_caught(tmp_path: Path) -> None:
+    """The second silent half: a shim that starts something nobody sweeps.
+
+    Two shims, identical but for their exec target. If the check were keyed on
+    "is it a `.sh`" rather than on where it points, both would pass — which is
+    the version of this that would have shipped without a control.
+    """
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    (scripts / "run_real.py").write_text("def main():\n    return 0\n")
+    # The file the stray shim actually starts — a real run-starter under a name
+    # the glob does not match, which is the whole shape being ruled out.
+    (scripts / "kickoff_other.py").write_text("def main():\n    return 0\n")
+    (scripts / "good.sh").write_text(
+        'exec python3 "${SCRIPT_DIR}/run_real.py" "$@"\n')
+    (scripts / "sideways.sh").write_text(
+        'exec python3 "${SCRIPT_DIR}/kickoff_other.py" "$@"\n')
+    (scripts / "opaque.sh").write_text(
+        '#!/usr/bin/env bash\npython3 -c "import x; x.go()"\n')
+
+    assert shim_target(scripts / "good.sh") == "run_real.py"
+    assert shim_target(scripts / "sideways.sh") == "kickoff_other.py"
+    assert shim_target(scripts / "opaque.sh") is None, (
+        "a `.sh` that does not match the thin-shim shape must report None "
+        "rather than being assumed harmless — it is doing something the shim "
+        "contract does not describe")
+
+    assert sorted(unclassified(scripts)) == ["kickoff_other.py", "opaque.sh",
+                                             "sideways.sh"], (
+        "a shim pointing outside the swept population, and the file it points "
+        "at, must BOTH surface; and a `.sh` whose behaviour cannot be read must "
+        "surface too. `good.sh` must not, or the check flags every shim")
 
 
 def test_a_MENTION_of_the_call_does_not_satisfy_the_sweep(tmp_path: Path) -> None:

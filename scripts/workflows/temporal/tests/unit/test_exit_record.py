@@ -619,15 +619,19 @@ def test_the_log_is_NAMED_with_the_nonce_the_parent_issued(monkeypatch, tmp_path
 
     seen: dict = {}
 
-    def _alloc(repo_root, model_key, *, run_id):
-        seen.update(repo_root=repo_root, model_key=model_key, run_id=run_id)
+    def _alloc(repo_root, model_key, *, invocation_id):
+        seen.update(repo_root=repo_root, model_key=model_key, invocation_id=invocation_id)
         return tmp_path / "run.jsonl"
 
     monkeypatch.setattr(wf._shared, "claude_log_path", _alloc)
     wf.run_review(ReviewInput(pr_number="67"), tmp_path)
 
-    assert seen.get("run_id"), "the allocation got no run identity — the name is shared again"
-    assert seen["run_id"] == fake.run_id, (
+    # A LOCAL SPY DICT, NOT A WIRE RECORD, so its key follows the parameter name
+    # rather than the archived field: `claude_log_path` takes `invocation_id`
+    # since Phase 9 r1, and this asserts what the workflow actually passed.
+    assert seen.get("invocation_id"), (
+        "the allocation got no invocation identity — the name is shared again")
+    assert seen["invocation_id"] == fake.invocation_id, (
         "the log's nonce and the nonce in the prompt differ, so the filename no "
         "longer locates the record it carries"
     )
@@ -2052,7 +2056,7 @@ def test_the_prompt_asks_for_the_run_nonce_the_parent_matches_blocks_BY() -> Non
     # example of what it might look like.
     rendered = helper.render_prompt(
         prompt, pr_number="67", pr_branch="b", this_pass=1, prior_pass=0,
-        headless_guard="g", run_id="0123456789abcdef0123456789abcdef",
+        headless_guard="g", invocation_id="0123456789abcdef0123456789abcdef",
     )
     assert helper.run_id_in_block(rendered) == "0123456789abcdef0123456789abcdef", (
         "the prompt's rendered `run_id:` line is not what RUN_ID_IN_BLOCK reads"
@@ -2340,7 +2344,7 @@ def test_the_pair_is_RECORDED_when_the_completion_gate_kills_the_run(monkeypatch
                         lambda _log, row: rows.append(row))
 
     def _gate_fails(prompt, *a, **k):
-        fake.run_id = _nonce_in(prompt)
+        fake.invocation_id = _nonce_in(prompt)
         raise RuntimeError("review-pr FAILED (exit 1). completion pattern not found")
 
     monkeypatch.setattr(act, "run_disposition", _gate_fails)
@@ -2359,7 +2363,7 @@ def test_the_pair_is_RECORDED_when_the_completion_gate_kills_the_run(monkeypatch
         f"prose channel produced no verdict at all — an absent prose verdict is "
         f"a DISAGREEMENT, not an agreement"
     )
-    assert row["run_id"] == fake.run_id, "the row is not joinable to the run that produced it"
+    assert row["run_id"] == fake.invocation_id, "the row is not joinable to the run that produced it"
 
 
 def test_the_completion_gate_still_FAILS_the_run(monkeypatch, tmp_path):
@@ -2377,7 +2381,7 @@ def test_the_completion_gate_still_FAILS_the_run(monkeypatch, tmp_path):
     monkeypatch.setattr(wf._shared, "append_parent_route", lambda *a, **k: None)
 
     def _boom(prompt, *a, **k):
-        fake.run_id = _nonce_in(prompt)
+        fake.invocation_id = _nonce_in(prompt)
         raise RuntimeError("the original failure, verbatim")
 
     monkeypatch.setattr(act, "run_disposition", _boom)
@@ -2404,7 +2408,7 @@ def test_an_UNREADABLE_log_does_not_stack_a_second_failure(monkeypatch, tmp_path
     monkeypatch.setattr(wf._shared, "result_event", _unreadable)
 
     def _boom(prompt, *a, **k):
-        fake.run_id = _nonce_in(prompt)
+        fake.invocation_id = _nonce_in(prompt)
         raise RuntimeError("the original failure")
 
     monkeypatch.setattr(act, "run_disposition", _boom)

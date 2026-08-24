@@ -63,15 +63,38 @@ CONFIG_PATH = _FLEET_ROOT / "config.yaml"
 
 
 def mint_run_id() -> str:
-    """The identity of ONE dispatch, minted once, at the top.
+    """THE FLEET'S ONE NAMING AUTHORITY FOR A RUN. Phase 9 r1.
 
-    NOT the per-child `run_id` the run log mints inside `run_claude` — that one is
-    per model invocation, so a parent and its three children carry four different
-    values and no single one addresses the run. A bag is one run's folder, so its
-    key is minted where the run begins and nowhere else.
+    There is exactly one function in this fleet that names a run and this is it.
+    Nothing else — no entrypoint, no workflow module, no child — may generate a
+    run id, and `tests/unit/test_the_run_id_ARRIVES_from_outside.py` is what
+    holds that rather than this sentence: it fails when a `run_*.py` so much as
+    NAMES this function, and it pins the caller set to the single dispatch
+    boundary below.
+
+    ⚠ AND THE ENTRYPOINTS NO LONGER CALL IT. Phase 9 r2: a name generated inside
+    the work is a fresh name on every retry and a different name on a replayed
+    second pass, so the name arrives from OUTSIDE the process — as `--run-id`.
+    Its one caller is `scripts/dispatch_identity.resolve`, which is the client
+    side of the dispatch and is not replayed code; at port time that is the
+    Temporal client, and the call moves with it rather than being removed. Read
+    that module's docstring for where a caller gets a name when there is no
+    orchestrator, and what supplies it once there is.
+
+    NOT the per-model-invocation nonce `run_claude` mints, WHICH IS NOW SPELLED
+    `invocation_id` (Phase 9 r1). A parent and its three children carry four of
+    those and none addresses the run; they used to share this one's name, so
+    "the run id" resolved to two different things depending on which file you
+    were reading. The name `run_id` now belongs to the run, fleet-wide, in every
+    Python identifier. **One spelling is deliberately unchanged**: the run log's
+    JSONL field and the `run_id:` line in posted `pr_review:` blocks, because
+    those are written records — the roadmap's standards-amendment 4 already
+    schedules that field's meaning change for Phase 3's cut-over, and renaming
+    it here would break the readers of every block already on a PR. It is
+    declared once, as `run_log.JOIN_KEY`, rather than restated.
 
     Threading this value down to the children is Phase 3's job, because that is
-    the phase that emits. Phase 1 opens the folder.
+    the phase that emits. Phase 1 opens the folder; Phase 9 says who names it.
     """
     return uuid.uuid4().hex
 
@@ -205,11 +228,40 @@ def _git(repo_root: Path, *args: str) -> str:
     return probe.stdout.strip()
 
 
-def open_run_bag(*, run_id: str, repo_root: Path, workflow_key: str,
-                 worktree_name: str | None,
+def open_run_bag(*, run_id: str, writer: str | None, repo_root: Path,
+                 workflow_key: str, worktree_name: str | None,
                  config_path: Path | None = None,
                  env: Mapping[str, str] | None = None) -> Bag:
     """Resolve the journal root and open this run's bag. Raises to stop the run.
+
+    `writer` IS PHASE 9 r4's DISCRIMINATOR, AND IT HAS NO DEFAULT FOR THE REASON
+    `worktree_name` HAS NONE. It answers the one question the bag was never
+    designed for: is this invocation THE RUN, or is it PART of one?
+
+      * `writer=None` — this invocation IS the run. The bag is its own.
+      * `writer="research_verify"` — this invocation is a MEMBER of the run named
+        by `run_id`. The bag is adopted and a writer subfolder is allocated
+        inside it, so a parent and its three children file ONE bag with one
+        subfolder each rather than four bags for one piece of work.
+
+    ⚠ IT IS PASSED, NEVER INFERRED, AND THAT IS THE WHOLE REQUIREMENT. A child
+    can be started by a parent, by a person, or by a person reproducing what a
+    parent did, and those three are INDISTINGUISHABLE from inside the process —
+    same environment, same working directory, same argv but for this. Inferring
+    the answer from an environment variable or a cwd is exactly how a child
+    silently becomes its own run, which is one of the two wrong answers Phase 9
+    § *A standalone child is the case the bag was never designed for* rejects.
+    The other wrong answer is "only parents open bags", which leaves a child a
+    person started with no record at all. A default here would pick one of them
+    for every caller that forgets, so there is no default.
+
+    ⚠ AND A SECOND MEMBER OF ONE RUN CAN RACE THE FIRST. Two children dispatched
+    concurrently under one `run_id`, with no parent having opened the bag, both
+    reach `open_bag` and one loses the `mkdir`. That is Phase 9 r7, it is
+    deliberately not closed here, and `open_bag`'s docstring states what it
+    costs. It does not arise when a PARENT opens the bag first — Phase 1 r11
+    makes bag-open the parent's first step, so by the time children run the
+    directory exists and every one of them adopts.
 
     `worktree_name` HAS NO DEFAULT, AND THAT IS THE POINT. It was optional, and
     nine of eleven entrypoints omitted it — so nine of eleven runs would have
@@ -254,7 +306,8 @@ def open_run_bag(*, run_id: str, repo_root: Path, workflow_key: str,
     commit = _git(repo_root, "rev-parse", "HEAD")
 
     try:
-        return _open(root, run_id, repo_root, workflow_key, worktree_name, remote, commit)
+        return _open(root, run_id, writer, repo_root, workflow_key,
+                     worktree_name, remote, commit)
     except OSError as exc:
         raise JournalRootError(
             f"journal root unusable: {root}\n"
@@ -268,8 +321,9 @@ def open_run_bag(*, run_id: str, repo_root: Path, workflow_key: str,
         ) from exc
 
 
-def _open(root: Path, run_id: str, repo_root: Path, workflow_key: str,
-          worktree_name: str | None, remote: str, commit: str) -> Bag:
+def _open(root: Path, run_id: str, writer: str | None, repo_root: Path,
+          workflow_key: str, worktree_name: str | None, remote: str,
+          commit: str) -> Bag:
     """The bag-creating half of `open_run_bag`, split out only so the `OSError`
     boundary above wraps every filesystem call that WRITES the bag rather than
     the subset that happened to be on one line.
@@ -284,10 +338,28 @@ def _open(root: Path, run_id: str, repo_root: Path, workflow_key: str,
     `repo_root` has already been refused there. `_git` cannot be the first to
     discover either.
     """
-    return open_bag(root, run_id, info={
+    bag = open_bag(root, run_id, info={
         "Journal-Workflow": workflow_key,
         "Journal-Origin-Repo": str(repo_root),
         "Journal-Origin-Remote": remote or "-",
         "Journal-Origin-Commit": commit or "-",
         "Journal-Worktree": worktree_name or "-",
     })
+
+    # THE SUBFOLDER IS ALLOCATED HERE AND NOTHING IS WRITTEN INTO IT, which is
+    # the phase boundary rather than an omission. Phase 1 and Phase 9 own WHERE a
+    # run's record goes; Phase 3 owns WHAT gets written there. Allocating at
+    # bag-open is what makes "one run, one bag, one subfolder per writer"
+    # observable before any emitter exists — and `writer_dir`'s allocation is by
+    # `os.mkdir` winning or losing, so two members asking for the same name get
+    # different directories rather than sharing a file.
+    #
+    # ⚠ A RETRY OF ONE MEMBER GETS A NEW SUBFOLDER (`w`, then `w-2`), because
+    # `writer_dir` allocates rather than adopts. That is Phase 1's ruled
+    # behaviour and it is left alone: its whole purpose is that no two writers
+    # ever share a file, and making it adopt would hand a retry the directory a
+    # concurrent sibling is writing into. The cost is a subfolder per attempt,
+    # which is visible in the bag rather than silent.
+    if writer is not None:
+        bag.writer_dir(writer)
+    return bag

@@ -105,7 +105,7 @@ class _FakeWorkflow:
         # comment and the parent's read is not a pass, and positional selection
         # cannot tell the difference.
         self.after_blocks = after_blocks
-        self.run_id: str | None = None
+        self.invocation_id: str | None = None
         # THE THREAD IS STATEFUL, and modelling that is the point. The invariant
         # asks whether THIS pass posted a block, so a fake returning one constant
         # count could not express "pass 2 ran and posted nothing" — which is the
@@ -135,7 +135,7 @@ class _FakeWorkflow:
             # real child reads it on. `prompt` is the REAL disposition.md
             # rendered, so this also proves `${RUN_ID}` is in the shipped prompt
             # and gets substituted — not just that the helper accepts a kwarg.
-            self.run_id = _nonce_in(prompt)
+            self.invocation_id = _nonce_in(prompt)
             self.ran = True
             return ""
 
@@ -168,8 +168,8 @@ class _FakeWorkflow:
         if self.block is None:
             return list(self.after_blocks)
         block = self.block
-        if self.block_carries_nonce and self.run_id:
-            block = block.replace("pr_review:\n", f"pr_review:\n  run_id: {self.run_id}\n", 1)
+        if self.block_carries_nonce and self.invocation_id:
+            block = block.replace("pr_review:\n", f"pr_review:\n  run_id: {self.invocation_id}\n", 1)
         return [block] + list(self.after_blocks)
 
     def _envelope(self) -> dict:
@@ -178,7 +178,7 @@ class _FakeWorkflow:
         if self.record is not None:
             record = dict(self.record)
             if record.get("run_id") == "@ISSUED@":
-                record["run_id"] = self.run_id
+                record["run_id"] = self.invocation_id
             event["structured_output"] = record
         return event
 

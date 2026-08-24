@@ -72,8 +72,16 @@ from modules.journal.validate import validate_bag   # noqa: E402
 # is the sentence that was missing all four times.
 _TRUSTED_JOINS = {
     ("bag.py", "run_id"):
-        "open_bag refuses a run_id containing a separator or a relative segment "
-        "immediately above this line, before the join.",
+        "open_bag rebinds run_id through `bag.validated_run_id` immediately "
+        "above this line, which is the ONE place the permitted character set is "
+        "expressed — an ALLOWLIST of [A-Za-z0-9._-] plus an explicit refusal of "
+        "`.` and `..`, so no separator, no line terminator and no character "
+        "nobody enumerated survives the join. ⚠ THIS ROW USED TO READ 'refuses "
+        "a run_id containing a separator or a relative segment', which was true "
+        "of the deny-list Phase 9 r6 replaced and would have gone on licensing "
+        "the next author with a reason that no longer described the guard. That "
+        "deny-list refused `a/b` and admitted a newline; the run id is also a "
+        "tag VALUE, and `test_journal_tag_lines.py` is the sweep for that half.",
     ("bag.py", "slug if ordinal == 1 else f'{slug}-{ordinal}'"):
         "writer_dir slugifies through _SAFE_SEGMENT_RE, which maps every "
         "character outside [A-Za-z0-9._-] to '-', so no separator survives and "

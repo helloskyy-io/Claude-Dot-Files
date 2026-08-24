@@ -64,6 +64,8 @@ __all__ = ["JOURNAL_SCHEMA_VERSION", "BAGIT_VERSION", "TAG_FILE_ENCODING",
            "DIR_MODE", "FILE_MODE", "REDACTION_MARKER", "BagError", "Bag",
            "open_bag", "read_tag_file", "utc_now", "payload_files",
            "payload_symlinks", "sha256_of", "contained_relpath",
+           "RUN_ID_PERMITTED", "RUN_ID_MAX_LENGTH", "validated_run_id",
+           "folds_a_tag_line",
            "LABEL_SCHEMA_VERSION", "LABEL_REDACTION", "LABEL_INCOMPLETE",
            "LABEL_GAP", "LABEL_SEALED_AT", "BagState", "bag_state",
            "lifecycle_of"]
@@ -174,6 +176,131 @@ def contained_relpath(relpath: str, *, subdir: str = PAYLOAD_DIR) -> str:
     return normalised
 
 
+# --- run identity: ONE statement of what a run id may be -------------------------
+#
+# THE PERMITTED SET, STATED AS WHAT IS ALLOWED. Phase 9 r6. Every other guard in
+# this module that predates it is a DENY-list, and § *And the rule stayed prose*
+# of the Phase 1 doc is the measurement that says why that shape keeps failing
+# here: four instances of one forging defect, three fixed correctly against the
+# operand that had been exploited, and the fourth arriving through the operand
+# nobody had enumerated. An allowlist inverts the default — a character nobody
+# thought of is refused rather than admitted by omission.
+RUN_ID_PERMITTED = frozenset(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ" "abcdefghijklmnopqrstuvwxyz" "0123456789" "._-")
+
+# 128 is a bound, not a measurement, and it is stated as one. Today's ids are 32
+# hex characters; the ceiling exists so a pathological name cannot become a path
+# component that a filesystem, an object key or an operator report has to
+# truncate — truncation is how two ids become one name.
+RUN_ID_MAX_LENGTH = 128
+
+# `\A` and `\Z`, NEVER `^` and `$`. `$` matches immediately before a trailing
+# newline, so `re.match(r"^[A-Za-z0-9._-]+$", "abc\n")` SUCCEEDS — an anchor that
+# admits the exact character this requirement exists to refuse. Named here
+# because it is the same class of hole as the deny-list it replaces, one layer
+# down, and a reader tightening this regex later needs to know why it is spelled
+# this way.
+_RUN_ID_RE = re.compile(r"\A[A-Za-z0-9._-]+\Z")
+
+
+def validated_run_id(run_id: str) -> str:
+    """A caller-supplied run id, proven to be usable by ALL FIVE of its consumers.
+
+    THE ONE PLACE THE PERMITTED SET IS EXPRESSED (Phase 9 r6), on the model of
+    `contained_relpath` — and for the same measured reason. The rule this
+    replaces was `if not run_id or "/" in run_id or os.sep in run_id or run_id in
+    (".", "..")`, which is a list of the separators an author happened to think
+    of. It refuses `a/b` and admits `a\\nJournal-Incomplete: true`.
+
+    WHY THE FORGING CASE IS REAL RATHER THAN THEORETICAL. The id is written into
+    a tag-line composer as `f"{label}: {value}"`, and `open_bag` places
+    `External-Identifier` straight into its module-owned `entries` dict — the
+    `_refuse_folded_value` loop iterates `info`, the CALLER-supplied half, so the
+    run id never reached that check at all. Before Phase 9 r2 the id was minted
+    inside this package from a fixed alphabet, so nothing could exploit it. r2 is
+    what makes the value external, and this is the check that lands with it.
+
+    THE SET IS RULED AGAINST FIVE CONSUMERS, NOT AGAINST THE FOLDER NAME ALONE.
+    A character admitted into v1 bag names cannot be withdrawn afterwards, so
+    each consumer's constraint is written down rather than assumed:
+
+      * a DIRECTORY NAME under the journal root — so no `/`, no `\\0`, and
+        neither `.` nor `..`, which are refused below by name because they pass
+        the character check;
+      * a `bag-info.txt` TAG VALUE — so nothing `_LABEL_RE` reads as a label
+        (`:`), nothing that can start a continuation line (leading whitespace),
+        and no character `read_tag_file`'s parser treats as a line break;
+      * an input to that same tag-file READER — the round trip is the property,
+        and `test_journal_tag_lines.py` asserts it rather than reasoning about it;
+      * a string rendered into the OPERATOR-FACING validator report — so no
+        control characters and no ANSI introducer, both of which would let a run
+        id rewrite a report about itself;
+      * a PHASE 7 OBJECT KEY — `[A-Za-z0-9._-]` is a
+        strict subset of the S3 "safe characters" set, so a bag name never needs
+        percent-encoding on the way to object storage. `%` is deliberately OUT
+        for the same reason: a key that is already encoded and a key that needs
+        encoding are indistinguishable once written.
+
+    AND IT ADMITS THE FLEET'S FUTURE NAMES, which is why it is not `[0-9a-f]`.
+    Phase 9 § *The identity is a joint design* leaves open that the run id may
+    become whatever the orchestrator calls a dispatch. A set ruled against
+    today's `uuid4().hex` would be trivially hex and would refuse
+    `build-2026-08-24-a1b2c3`, a Temporal workflow id, or a slug — every shape
+    the joint design is likely to produce. This set is also EXACTLY the alphabet
+    `_SAFE_SEGMENT_RE` already slugifies writer subfolder names to, so one bag's
+    directory and its subdirectories share one alphabet rather than two.
+
+    ⚠ THIS IS A CONVENTION AMONG COOPERATING CALLERS, NOT AN ATTESTATION
+    (Phase 9 r1). Nothing here verifies that the caller supplying an id is the
+    fleet's naming authority — this module's own docstring already says the
+    manifest "proves nothing against a party with write access". A later phase
+    must not read `External-Identifier` as attested rather than declared.
+
+    Returns the id unchanged. It never rewrites: a caller handing over a name
+    that needs fixing has a different bug from one handing over a valid name, and
+    a rewrite would file the run's record under a name the caller does not know.
+    """
+    if not isinstance(run_id, str):
+        raise BagError(
+            f"run_id must be a string, not {type(run_id).__name__}: {run_id!r}. "
+            f"It is the bag's folder name and a tag value; anything else is "
+            f"stringified by accident somewhere downstream, under a name nobody "
+            f"chose.")
+    if not run_id:
+        raise BagError(
+            "run_id is empty. It is the bag's identity and its only address; an "
+            "empty name would file the run's record under the journal root "
+            "itself.")
+    if len(run_id) > RUN_ID_MAX_LENGTH:
+        raise BagError(
+            f"run_id is {len(run_id)} characters, over the {RUN_ID_MAX_LENGTH} "
+            f"ceiling: {run_id[:64]!r}…. A name long enough to be truncated by a "
+            f"filesystem, an object key or a report is a name that can collide "
+            f"with another run's after truncation.")
+    if run_id in (".", ".."):
+        raise BagError(
+            f"run_id {run_id!r} is a relative path segment. Every character in "
+            f"it is permitted, which is exactly why this is checked by name — "
+            f"joined onto the journal root it addresses the root or its parent "
+            f"rather than a bag inside it.")
+    if not _RUN_ID_RE.match(run_id):
+        refused = sorted({c for c in run_id if c not in RUN_ID_PERMITTED})
+        raise BagError(
+            f"run_id {run_id!r} contains {len(refused)} character(s) outside the "
+            f"permitted set: {[repr(c) for c in refused]}.\n"
+            f"  permitted: A-Z a-z 0-9 and the three punctuation marks . _ -\n"
+            f"  failing property: a run id is a directory name, a bag-info.txt "
+            f"tag value, an input to the tag-file reader, a string in the "
+            f"operator's validator report AND an object key. This is an "
+            f"ALLOWLIST rather than a list of forbidden separators, so a "
+            f"character nobody enumerated is refused by default — which is the "
+            f"failure the deny-list it replaced had four times.\n"
+            f"  remedy: name the run with the permitted set. Every shape the "
+            f"fleet uses fits it — a hex nonce, a dated slug, an orchestrator's "
+            f"workflow id.")
+    return run_id
+
+
 def utc_now() -> str:
     """One spelling of "now" for every tag record this module writes.
 
@@ -182,6 +309,39 @@ def utc_now() -> str:
     interpret is a tombstone nobody reads.
     """
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def folds_a_tag_line(text: str) -> bool:
+    """True when `read_tag_file` would see more than one line where one was written.
+
+    ASKED OF THE PARSER, NEVER OF A LIST OF LINE TERMINATORS. This replaced
+    `"\\n" in value or "\\r" in value`, which is an author's list — and it was
+    LEAKIER THAN IT READ. `read_tag_file` parses with `str.splitlines()`, which
+    also breaks on `\\v`, `\\f`, `\\x1c`, `\\x1d`, `\\x1e`, `\\x85`, `\\u2028` and
+    `\\u2029`. A value carrying any of those eight passed the deny-list, was
+    written as one physical line, and **read back as two entries** — the second
+    forging a lifecycle flag, which is the identical defect the newline check was
+    written to close. Eight spellings survived a check aimed at two.
+
+    So the question is put to `str.splitlines()` itself. Whatever that method
+    treats as a break, this refuses — including any break a future CPython adds,
+    without this function being edited. That is the whole reason it is a
+    derivation rather than a constant: enumerating the set is the move that has
+    already failed here.
+
+    THE TRAILING-WHITESPACE HALF IS THE SAME PROPERTY, not a tidiness rule.
+    `read_tag_file` returns `match.group(2).strip()`, so a value with surrounding
+    space reads back as a DIFFERENT STRING from the one written. The stated
+    property is that reading a tag file returns exactly the entries written, and
+    a silently-stripped value breaks it just as a folded one does — it simply
+    fails quietly instead of loudly.
+
+    An EMPTY value is legal and folds nothing: `f"{label}: "` reads back through
+    `_LABEL_RE` as `(label, "")`, which is the value that was written.
+    """
+    if text == "":
+        return False
+    return text.splitlines() != [text] or text.strip() != text
 
 
 def _refuse_forged_label(label: str) -> None:
@@ -203,10 +363,13 @@ def _refuse_forged_label(label: str) -> None:
             f"tag label {label!r} is empty or carries surrounding whitespace. A "
             f"line starting with whitespace is a CONTINUATION of the label above "
             f"it under RFC 8493, so this would append to a record it does not own.")
-    if "\n" in label or "\r" in label:
+    if folds_a_tag_line(label):
         raise BagError(
-            f"tag label {label!r} contains a newline. It is written onto the same "
-            f"line as its value, so a multi-line label forges a second record.")
+            f"tag label {label!r} does not survive a round trip through "
+            f"`read_tag_file`. It is written onto the same line as its value, so "
+            f"a label carrying anything `str.splitlines()` breaks on forges a "
+            f"second record. This asks the parser rather than listing newlines — "
+            f"see `folds_a_tag_line`, and the eight terminators the list missed.")
     if ":" in label:
         raise BagError(
             f"tag label {label!r} contains a colon, which separates a label from "
@@ -231,11 +394,18 @@ def _refuse_folded_value(label: str, value: str) -> None:
     when there were three and one of them did not call it.
     """
     _refuse_forged_label(label)
-    if "\n" in value or "\r" in value:
+    if folds_a_tag_line(value):
         raise BagError(
-            f"tag value for {label} contains a newline: {value!r}. A multi-line "
-            f"value would fold into what reads as a second label, so free text "
-            f"is refused here rather than sanitised.")
+            f"tag value for {label} does not survive a round trip through "
+            f"`read_tag_file`: {value!r}. A value carrying anything "
+            f"`str.splitlines()` breaks on folds into what reads as a second "
+            f"label, and one carrying surrounding whitespace reads back stripped "
+            f"— a different string from the one written. Free text is refused "
+            f"here rather than sanitised, so the caller's mistake is visible "
+            f"where it is made.\n"
+            f"  the check asks `str.splitlines()` rather than listing line "
+            f"terminators: the list this replaced named `\\n` and `\\r`, and "
+            f"EIGHT more characters that method breaks on went through it.")
 
 
 def _write_tag_file(path: Path, lines: list[str]) -> None:
@@ -744,12 +914,35 @@ def open_bag(root: Path, run_id: str, *, info: dict[str, str] | None = None) -> 
     simultaneous race is not, and closing it needs a lock or a
     create-then-rename, neither of which is worth building before anything writes
     into a bag. Named rather than papered over.
+
+    ⚠ AND PHASE 9 IS WHAT MAKES THAT RACE REACHABLE, so the paragraph above is a
+    LIVE gap rather than a historical note. Phase 9 r4 makes sharing one run id
+    across concurrent invocations the DESIGNED CONTRACT: a person may dispatch
+    two children with the same `--run-id` and no parent having opened the bag
+    first, at which point both openers race here. It does not need Temporal —
+    the nearer clock is Workflow Decomposition Phase 3, which has none in it.
+
+    THE WRITE CASE IS WORSE THAN THE READ CASE. The loser of the `mkdir` race
+    adopts, appends a tag line through `_append_tag_line` — mode `"a"`, which
+    CREATES the file — and the winner's `_write_tag_file` then runs with
+    `O_TRUNC`, destroying it. A `Journal-Redaction` or `Journal-Gap` record lost
+    that way is precisely the silent loss this component exists to prevent.
+
+    MUTUAL EXCLUSION IS PHASE 9 r7 AND IS DELIBERATELY NOT DELIVERED HERE. Its
+    mechanism — a lock, a create-then-rename, or a compare-and-swap — is ruled
+    with the identity design, in whichever carrier candidate `C-zhdm5gh1`
+    resolves to; that carrier does not exist yet, so r7 cannot close and nothing
+    in this module should read as though it had. What r3 delivers, and what
+    `test_journal_bag.py` demonstrates, is the SEQUENTIAL property only.
     """
-    if not run_id or "/" in run_id or os.sep in run_id or run_id in (".", ".."):
-        raise BagError(
-            f"run_id {run_id!r} is not usable as a folder name. It is the bag's "
-            f"identity and its only address; a separator or a relative segment "
-            f"would put the bag somewhere other than under the root.")
+    # VALIDATED AGAINST THE STATED PERMITTED SET, not against a list of
+    # separators (Phase 9 r6). What stood here refused `/`, `os.sep`, `.` and
+    # `..` — and admitted a newline, which forges a lifecycle flag in the tag
+    # file this function writes three lines below. `validated_run_id` is the one
+    # place the permitted set is expressed; the sweep in
+    # `tests/unit/test_journal_tag_lines.py` is what keeps a new caller-supplied
+    # string from reaching a tag-line composer around it.
+    run_id = validated_run_id(run_id)
 
     bag_path = root / run_id
 

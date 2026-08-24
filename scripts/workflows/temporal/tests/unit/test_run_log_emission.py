@@ -44,10 +44,10 @@ def _run_log():
     return module
 
 
-def _write_all_three(log_file: Path, *, run_id: str, resources_run_id: str) -> None:
-    act.append_parent_route(log_file, {"run_id": run_id, "pr": "99",
+def _write_all_three(log_file: Path, *, invocation_id: str, resources_run_id: str) -> None:
+    act.append_parent_route(log_file, {"run_id": invocation_id, "pr": "99",
                                        "routed_outcome": "hold"})
-    act.append_convergence(log_file, {"run_id": run_id, "pr": "99",
+    act.append_convergence(log_file, {"run_id": invocation_id, "pr": "99",
                                       "state": "not_converged"})
     report = rt.ResourceReport(run_id=resources_run_id, model_key="review-pr",
                               workflow_key="review-pr", measured=True)
@@ -68,10 +68,10 @@ def _joined(log_dir: Path) -> set[str]:
 
 def test_all_three_member_events_agree_on_run_id(tmp_path: Path) -> None:
     """The property requirement 1 needs before it can call this a surface."""
-    run_id = uuid.uuid4().hex
-    log_file = tmp_path / f"review-pr-20260811-120000-{run_id}.jsonl"
-    _write_all_three(log_file, run_id=run_id, resources_run_id=run_id)
-    assert _joined(tmp_path) == {run_id}
+    invocation_id = uuid.uuid4().hex
+    log_file = tmp_path / f"review-pr-20260811-120000-{invocation_id}.jsonl"
+    _write_all_three(log_file, invocation_id=invocation_id, resources_run_id=invocation_id)
+    assert _joined(tmp_path) == {invocation_id}
 
 
 def test_the_STEM_shaped_run_id_is_the_DEFECT_and_produces_an_EMPTY_join(
@@ -85,14 +85,14 @@ def test_the_STEM_shaped_run_id_is_the_DEFECT_and_produces_an_EMPTY_join(
     suffix-match "fix" is not one: the reader would have to know the filename
     convention to recover an identity the record claims to carry.
     """
-    run_id = uuid.uuid4().hex
-    log_file = tmp_path / f"review-pr-20260811-120000-{run_id}.jsonl"
-    _write_all_three(log_file, run_id=run_id, resources_run_id=log_file.stem)
+    invocation_id = uuid.uuid4().hex
+    log_file = tmp_path / f"review-pr-20260811-120000-{invocation_id}.jsonl"
+    _write_all_three(log_file, invocation_id=invocation_id, resources_run_id=log_file.stem)
     assert _joined(tmp_path) == set(), (
         "the stem-shaped run_id joined anyway, so this control is not "
         "discriminating and the join test above proves nothing"
     )
-    assert log_file.stem.endswith(run_id), (
+    assert log_file.stem.endswith(invocation_id), (
         "the fixture no longer reproduces the defect: the stem must END with the "
         "nonce, which is what made the wrong value look right"
     )
@@ -129,7 +129,7 @@ def test_run_claude_stamps_the_report_with_THE_RUN_S_OWN_run_id() -> None:
         f"reading"
     )
     keywords = {k.arg: k.value for k in calls[0].keywords}
-    for name in ("run_id", "workflow_key"):
+    for name in ("invocation_id", "workflow_key"):
         assert name in keywords, f"finish() is not given {name}"
         assert isinstance(keywords[name], ast.Name) and keywords[name].id == name, (
             f"finish(..., {name}=...) is given "
@@ -151,7 +151,7 @@ def test_the_resource_report_carries_a_workflow_key_distinct_from_model_key() ->
     by workflow.
     """
     report = rt.finish(None, limits={}, unmeasured_reason="no session bus",
-                       run_id="abc", model_key="research",
+                       invocation_id="abc", model_key="research",
                        workflow_key="research-verify")
     assert report.measured is False
     assert report.model_key == "research"
@@ -170,7 +170,7 @@ def test_run_claude_REFUSES_a_log_file_with_no_run_id(tmp_path: Path) -> None:
     # `repo_root=tmp_path`, not the real root: this suite runs from a worktree
     # and `run_claude` refuses a worktree repo_root FIRST, so the real root would
     # make this test pass on the wrong exception.
-    with pytest.raises(ValueError, match="no run_id"):
+    with pytest.raises(ValueError, match="no invocation_id"):
         act.run_claude(
             "prompt", model_key="review-pr", workflow_key="review-pr",
             completion_pattern="x", repo_root=tmp_path,

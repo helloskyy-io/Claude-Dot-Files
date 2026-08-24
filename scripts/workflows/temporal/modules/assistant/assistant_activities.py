@@ -500,7 +500,7 @@ def render(template: str, values: dict[str, str], *,
 extract_pr_url = routing.extract_pr_url
 
 
-def claude_log_path(repo_root: Path, model_key: str, *, run_id: str) -> Path:
+def claude_log_path(repo_root: Path, model_key: str, *, invocation_id: str) -> Path:
     """RESERVE a fresh log path for one invocation. Unique by construction.
 
     THE LOG IS THE CHANNEL, and that is not obvious from the transport ruling.
@@ -535,7 +535,7 @@ def claude_log_path(repo_root: Path, model_key: str, *, run_id: str) -> Path:
 
     1. **The name carries the run nonce, so it is unique BY CONSTRUCTION.** Not
        a wider timestamp — a finer clock only shrinks the window that a
-       check-then-create leaves open. `run_id` is the identity the parent
+       check-then-create leaves open. `invocation_id` is the nonce the parent
        already issues and the child already echoes into the record, so the log's
        filename now greps against the record inside it; truncating the nonce
        would break exactly that.
@@ -553,7 +553,7 @@ def claude_log_path(repo_root: Path, model_key: str, *, run_id: str) -> Path:
     log_dir = repo_root / ".claude" / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    path = log_dir / f"{model_key}-{stamp}-{run_id}.jsonl"
+    path = log_dir / f"{model_key}-{stamp}-{invocation_id}.jsonl"
     try:
         path.touch(exist_ok=False)
     except FileExistsError as exc:
@@ -754,7 +754,7 @@ def run_claude(prompt: str, *, model_key: str, workflow_key: str,
                repo_root: Path, worktree: Path | None = None,
                max_turns: int = 120, verbose: bool = False,
                exit_record_schema: str | None = None,
-               log_file: Path | None = None, run_id: str | None = None) -> str:
+               log_file: Path | None = None, invocation_id: str | None = None) -> str:
     """Invoke the model via the existing bash activity.
 
     Delegates rather than reimplementing model invocation, logging and the
@@ -774,11 +774,12 @@ def run_claude(prompt: str, *, model_key: str, workflow_key: str,
     `run_log.model_key_of`) read that shape, and changing it to fix a payload gap
     would move a published figure to add a field.
 
-    `run_id` IS OPTIONAL; A `log_file` WITHOUT ONE RAISES. The asymmetry is the
-    contract and it is stated this way round deliberately — this used to read
+    `invocation_id` IS OPTIONAL; A `log_file` WITHOUT ONE RAISES. The asymmetry
+    is the contract and it is stated this way round deliberately — this used to read
     "hand in both or neither", which promised an enforcement of the mirror case
-    that does not exist and is not wanted: a caller supplying only `run_id` gets
-    a path built FROM that nonce, so the filename and the record agree by
+    that does not exist and is not wanted: a caller supplying only
+    `invocation_id` gets a path built FROM that nonce, so the filename and the
+    record agree by
     construction and there is nothing to reject. The claim was corrected rather
     than the code, because the code was right and the sentence was not.
     The run log's join key has
@@ -829,16 +830,17 @@ def run_claude(prompt: str, *, model_key: str, workflow_key: str,
     # it means the path came from somewhere else, and stamping the report with a
     # nonce this function invented would attribute one run's resources to
     # another's identity.
-    if log_file is not None and run_id is None:
+    if log_file is not None and invocation_id is None:
         raise ValueError(
-            f"run_claude was given a log_file ({log_file.name}) with no run_id. "
-            f"The run log's three member events must agree on `run_id`, and a "
+            f"run_claude was given a log_file ({log_file.name}) with no "
+            f"invocation_id. The run log's three member events must agree on "
+            f"their `run_id` field, and a "
             f"caller that allocated the log path already holds the nonce that "
             f"named it. Pass both, or neither."
         )
     if log_file is None:
-        run_id = run_id or uuid.uuid4().hex
-        log_file = claude_log_path(repo_root, model_key, run_id=run_id)
+        invocation_id = invocation_id or uuid.uuid4().hex
+        log_file = claude_log_path(repo_root, model_key, invocation_id=invocation_id)
 
     env = {
         **os.environ,
@@ -938,7 +940,7 @@ def run_claude(prompt: str, *, model_key: str, workflow_key: str,
     # that merely ends with it. See this function's docstring.
     report = resource_telemetry.finish(
         sampler, limits=limits, unmeasured_reason=None if scoped else scope_reason,
-        run_id=run_id, model_key=model_key, workflow_key=workflow_key)
+        invocation_id=invocation_id, model_key=model_key, workflow_key=workflow_key)
     report.tool_result_bytes, report.subagents_spawned = resource_telemetry.from_log(log_file)
     append_run_resources(log_file, resource_telemetry.report_dict(report))
     print(f"→ {model_key}  {resource_telemetry.human(report)}", flush=True)

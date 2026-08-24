@@ -14,6 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from preflight import RepoPathParser  # noqa: E402
+from dispatch_identity import add_identity_arguments, resolve_identity  # noqa: E402
 
 from modules.journal import journal_activities as journal  # noqa: E402
 from modules.assistant import routing  # noqa: E402
@@ -51,6 +52,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--repo", dest="repo_target", help="target repo — a FILESYSTEM PATH, never a gh slug")
     p.add_argument("--verbose", "-v", action="store_true")
 
+    add_identity_arguments(p)
     try:
         a, repo_root, resolved = p.parse_with_preflight(argv)
     except RuntimeError as exc:
@@ -67,7 +69,13 @@ def main(argv: list[str] | None = None) -> int:
         # docstring and `tests/unit/test_every_parent_opens_a_run_bag.py`. Said
         # once there rather than eleven times here.
         worktree_name = f"plan-project-{int(time.time())}"
-        journal.open_run_bag(run_id=journal.mint_run_id(), repo_root=repo_root,
+        # PHASE 9 r2 and r4 — the run's NAME arrives from outside this
+        # process, and `writer` says whether this invocation IS the run or
+        # is part of one. Why both, and where a name comes from when no
+        # orchestrator supplies it: `dispatch_identity.py`. Said once there.
+        identity = resolve_identity(argv)
+        journal.open_run_bag(run_id=identity.run_id, writer=identity.writer,
+                             repo_root=repo_root,
                              workflow_key="plan-project",
                              worktree_name=worktree_name)
 

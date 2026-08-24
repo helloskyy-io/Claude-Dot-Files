@@ -1,6 +1,6 @@
 # Phase 9 — One run, one identity, one bag
 
-**Component:** [Persistent Memory Protocol](roadmap.md) · **Status:** not started · **Gate:** none. It depends on [Phase 1](phase1_the_run_bag.md), which is complete.
+**Component:** [Persistent Memory Protocol](roadmap.md) · **Status:** built 2026-08-24 — r1, r3, r4, r5, r6 met; **r2 and r7 remain open by design** (see § Where each requirement stands) · **Gate:** none. It depends on [Phase 1](phase1_the_run_bag.md), which is complete.
 
 ## What this phase does
 
@@ -65,7 +65,29 @@ This phase settles both with one rule: **the fleet has exactly one authority tha
 
     **⚠ And this requirement has a calendar trigger even though its ruling does not.** Requirement 2 is pinned to an external event — the port agreeing the name's shape. r7's ruling waits on an operator, which is not a date. **What IS a date is [WD Phase 3](../workflow-decomposition/phase3_dual_mode_children.md) landing**: that is when requirement 4's shared-run-id contract goes live across concurrent invocations and the race stops being theoretical, with or without Temporal. **Re-assess this requirement's urgency then**, rather than waiting for a Temporal ruling that may arrive after the property is already reachable.
 
+### Where each requirement stands after the build of 2026-08-24
+
+| # | State | Evidence |
+|---|---|---|
+| **1** | **MET** | `mint_run_id` is the fleet's one naming authority, with exactly one caller pinned by `test_the_run_id_ARRIVES_from_outside.py`. The second value is **renamed `invocation_id`** in every Python identifier — 134 sites across five modules and seven test modules. See § *What r1 was ruled to be* below for the one spelling deliberately left alone |
+| **2** | **BUILT AND DEMONSTRATED — STAYS UNCHECKED** | Zero of eleven entrypoints mint. The name arrives as `--run-id`, validated at the boundary; a retry supplying the same name adopts the same bag, demonstrated. **Built is not proven**: this does not close until the port's side of the name exists |
+| **3** | **MET (sequential)** | `test_dispatch_identity.py` drives `open_run_bag` twice under one id against a real root: one directory, `bag-info.txt` byte-identical, a first-attempt gap record intact. The simultaneous property is r7 and is untouched |
+| **4** | **MET** | `--writer` is the named, passed discriminator; `--writer` without `--run-id` is refused rather than guessed. Verified end to end: a parent, three children and a retry produced **one bag with three writer subfolders**, and a standalone child produced **one bag with an empty payload directory and no orphan** |
+| **5** | **MET** | Every file beside the entrypoints must be a swept `run_*.py`, a shim whose exec target is swept, or a declared non-starter with its reason. Excluded shapes are named in the failure text |
+| **6** | **MET** | `bag.validated_run_id` is the one statement of the permitted set; `test_journal_tag_lines.py` is the containment-family sweep. Both halves, per the Phase 1 precedent. The stale `("bag.py", "run_id")` declaration was rewritten rather than left blessing the deny-list |
+| **7** | **NOT DELIVERED, BY DESIGN** | Its carrier does not exist: [`C-zhdm5gh1`](../../standards/architecture/research/candidates.md) is still `open` and untriaged, and §A3 is still titled and scoped to machine-axis queue naming — **verified in the tree on 2026-08-24, not assumed.** No lock, no create-then-rename and no compare-and-swap was written, and the `_append_tag_line` mode gap it names was deliberately left alone: every path reachable today is correct |
+
 **Requirements 2 and 7 stay UNCHECKED, and that is deliberate.** Requirement 2's reasons follow; requirement 7's are stated in it.
+
+### What r1 was ruled to be, and the one spelling that did not move
+
+**The ruling: the name `run_id` belongs to the RUN, fleet-wide, in every Python identifier.** The per-model-invocation nonce is `invocation_id` — it is minted inside `run_claude`, a parent and its three children carry four of them, and none of them addresses a run.
+
+**One spelling is deliberately unchanged: the WIRE field.** `ResourceReport.run_id`, the `run_id` key in the run log's three member events, `run_log.JOIN_KEY`, and the `run_id:` line in `pr_review:` blocks already posted to GitHub PRs. Those are written records; renaming them breaks every reader of a record that already exists, and the roadmap's [standards-amendment 4](roadmap.md) already schedules that field's **meaning** change — per-invocation to per-run — for [Phase 3](phase3_the_emit_rule.md)'s cut-over. Renaming here would move it twice.
+
+> **⚠ This resolves a disagreement between two live documents, rather than picking one.** This phase's § *Notes and gotchas* says of that rename *"This phase is where that change becomes real"*; the roadmap's amendment 4 says *"**Trigger: Phase 3 landing**, which is when the cut-over actually happens."* They point at different phases because they are describing different things. **The DISAMBIGUATION — making `run_id` resolve to one thing in code — is r1's and landed here. The CUT-OVER — the field starting to carry the per-run value — is Phase 3's and did not.** A reader taking either sentence alone would conclude the other phase had failed to do its job.
+
+**The seam is declared in exactly one place per surface** rather than documented twice: `resource_telemetry.ResourceReport.run_id` carries the comment, and `mint_run_id`'s docstring carries the rule. A value that means two things is not fixed by documenting both meanings — so it was renamed, and what remains is one field whose name is a fact about an archive rather than a description of a value.
 
 **Requirement 2 stays UNCHECKED until its shape is agreed with the Temporal port, and that is deliberate.** The port has its own reasons to name a dispatch — workflow id, run id, and two orthogonal reuse policies — and this component lands first, so what is written here is a *constraint on a shared design* rather than a specification imposed on a component that has not been planned. See § *The identity is a joint design* below. **Built is not proven**: the mechanism can be built and demonstrated against a local retry, and the requirement still does not close until the port's side of the name exists.
 
@@ -84,15 +106,15 @@ This phase settles both with one rule: **the fleet has exactly one authority tha
 
 ### The measured starting position, stated so nobody re-derives it
 
-As of 2026-08-19, verified in the tree:
+As of 2026-08-19, verified in the tree — **and re-read against the tree on 2026-08-24, when this phase landed.** The starting position is kept verbatim rather than rewritten: it is the record of why the phase exists, and a row edited in place would leave the argument standing on facts nobody could check. The third column is what is true now.
 
-| Fact | Where |
-|---|---|
-| The run id is `uuid.uuid4().hex`, generated inside the journal package | `modules/journal/journal_activities.py` — `mint_run_id` |
-| Eleven entrypoints call it inline, as `open_run_bag(run_id=mint_run_id(), …)` | `scripts/workflows/temporal/scripts/run_*.py` |
-| The sweep pins the CALLEE ONLY, not the arguments — so that call shape is **not** pinned | `tests/unit/test_every_parent_opens_a_run_bag.py` — `_missing_bag_open` |
-| The swept population is one glob over one directory | `tests/unit/journal_entrypoint_facts.py` — `ENTRYPOINTS_DIR`, `run_*.py` |
-| A second, unrelated `run_id` exists, minted per model invocation | `mint_run_id`'s own docstring says so |
+| Fact, as measured 2026-08-19 | Where | Now (2026-08-24) |
+|---|---|---|
+| The run id is `uuid.uuid4().hex`, generated inside the journal package | `modules/journal/journal_activities.py` — `mint_run_id` | **Unchanged, and now stated as the rule.** It is the fleet's ONE naming authority, with exactly one caller — `scripts/dispatch_identity.resolve_identity`, the client side of a dispatch — pinned by `test_the_run_id_ARRIVES_from_outside.py` |
+| Eleven entrypoints call it inline, as `open_run_bag(run_id=mint_run_id(), …)` | `scripts/workflows/temporal/scripts/run_*.py` | **False.** Zero do. The name arrives as `--run-id`; no `run_*.py` may so much as NAME `mint_run_id`, and `run_id=` may not be a call |
+| The sweep pins the CALLEE ONLY, not the arguments — so that call shape is **not** pinned | `tests/unit/test_every_parent_opens_a_run_bag.py` — `_missing_bag_open` | **Still true of THAT sweep, and no longer the whole story.** It was left pinning the callee deliberately — that is its property. The arguments are pinned by `test_the_run_id_ARRIVES_from_outside.py`. **Measured:** reverting one of eleven entrypoints leaves the old sweep fully green and turns three checks in the new one red |
+| The swept population is one glob over one directory | `tests/unit/journal_entrypoint_facts.py` — `ENTRYPOINTS_DIR`, `run_*.py` | **Widened.** Every file beside the entrypoints must be a swept `run_*.py`, a thin shim whose exec target is swept, or a row in `NON_STARTING_FILES` stating why it cannot begin a run. An unclassified file fails |
+| A second, unrelated `run_id` exists, minted per model invocation | `mint_run_id`'s own docstring says so | **Renamed to `invocation_id`** in every Python identifier (134 sites). The WIRE spelling is unchanged and declared once — see r1's disposition below |
 
 **Nothing above is wrong for the world Phase 1 shipped into**, and the phase doc that built it says why the entrypoint is the right place for the call. What changed is the number of shapes an invocation can take.
 
@@ -133,21 +155,21 @@ The third is the one that decides whether this is cheap or a migration. If the p
 
 ## Implementation checklist
 
-- [ ] Enumerate every place a run id is generated or read today, from the tree rather than from this document, and record the command that enumerated it
-- [ ] Rule requirement 1: retire the second `run_id` or rename one of the two, and state which and why — a value that means two things is not fixed by documenting both meanings
-- [ ] Decide and write down where a caller gets the name when there is no orchestrator yet, and what supplies it once there is — **this comes BEFORE the guard is written**, because the permitted set has to admit the widest name shape § *The identity is a joint design* allows; a set ruled against today's `uuid4().hex` is trivially `[0-9a-f]` and refuses the fleet's own future names
-- [ ] Move generation OUT OF THE ENTRYPOINTS **and validate what the caller supplies, in the same change**: no `run_*.py` calls `mint_run_id` — the id arrives as an argument to the process — and the permitted-character set is stated and enforced on the way in. **The move and its guard land together**, because the change that makes the value external is the change that makes it untrusted. *(Bag-open already takes the id as a required parameter with no default; that half is done and is not what this item buys.)*
-- [ ] Demonstrate requirement 6 **from the declaration, not from a remembered character**: a test parametrized over the stated permitted-set constant asserting that every character outside it is refused, seeded with at least one character no existing deny-list mentions (`\x00`, `\u2028`, `%`, `:`) as well as a newline — a test naming only `\n` is passed by a one-line call to the existing deny-list, which is the thing requirement 6 forbids
-- [ ] Add the containment-family sweep for tag-line composers, and **update `test_journal_containment.py`'s `("bag.py", "run_id")` declaration** so it cites the named function rather than the separator refusal it will have replaced
-- [ ] **Make `test_every_parent_opens_a_run_bag` able to fail on a half-done migration, and correct the message it teaches from.** `_missing_bag_open` pins the callee only, so eight unconverted entrypoints stay green; and its assertion text instructs the next author to write `run_id=journal.mint_run_id(…)`, which requirement 2 forbids. Both land with the move — a migration whose guard cannot see it is a migration that half-lands twice. **Mutate it to prove the point: revert one entrypoint and confirm the sweep goes red**
-- [ ] Make opening a bag twice under one run id idempotent, and add the test that demonstrates it — the failure being silent is the reason it is a test and not a note
-- [ ] Rule requirement 4: name the input that distinguishes *this invocation is the run* from *this invocation is part of one*, and pass it explicitly
-- [ ] Wire the standalone-child case: a child with a run id writes to a writer subfolder of that bag; a child without one opens its own
-- [ ] Widen the sweep's population to every shape that can start a run, and state the excluded shapes in its failure text
-- [ ] Verify against a real parent-plus-children run that one run produces one bag with one subfolder per writer, and record what was observed
-- [ ] Verify a standalone child invocation produces exactly one bag and no orphan, and record what was observed
-- [ ] Re-read this document's § *The measured starting position* against the tree and correct any row that has moved
-- [ ] Run the full suite
+- [x] Enumerate every place a run id is generated or read today, from the tree rather than from this document, and record the command that enumerated it
+- [x] Rule requirement 1: retire the second `run_id` or rename one of the two, and state which and why — a value that means two things is not fixed by documenting both meanings
+- [x] Decide and write down where a caller gets the name when there is no orchestrator yet, and what supplies it once there is — **this comes BEFORE the guard is written**, because the permitted set has to admit the widest name shape § *The identity is a joint design* allows; a set ruled against today's `uuid4().hex` is trivially `[0-9a-f]` and refuses the fleet's own future names
+- [x] Move generation OUT OF THE ENTRYPOINTS **and validate what the caller supplies, in the same change**: no `run_*.py` calls `mint_run_id` — the id arrives as an argument to the process — and the permitted-character set is stated and enforced on the way in. **The move and its guard land together**, because the change that makes the value external is the change that makes it untrusted. *(Bag-open already takes the id as a required parameter with no default; that half is done and is not what this item buys.)*
+- [x] Demonstrate requirement 6 **from the declaration, not from a remembered character**: a test parametrized over the stated permitted-set constant asserting that every character outside it is refused, seeded with at least one character no existing deny-list mentions (`\x00`, `\u2028`, `%`, `:`) as well as a newline — a test naming only `\n` is passed by a one-line call to the existing deny-list, which is the thing requirement 6 forbids
+- [x] Add the containment-family sweep for tag-line composers, and **update `test_journal_containment.py`'s `("bag.py", "run_id")` declaration** so it cites the named function rather than the separator refusal it will have replaced
+- [x] **Make `test_every_parent_opens_a_run_bag` able to fail on a half-done migration, and correct the message it teaches from.** `_missing_bag_open` pins the callee only, so eight unconverted entrypoints stay green; and its assertion text instructs the next author to write `run_id=journal.mint_run_id(…)`, which requirement 2 forbids. Both land with the move — a migration whose guard cannot see it is a migration that half-lands twice. **Mutate it to prove the point: revert one entrypoint and confirm the sweep goes red**
+- [x] Make opening a bag twice under one run id idempotent, and add the test that demonstrates it — the failure being silent is the reason it is a test and not a note
+- [x] Rule requirement 4: name the input that distinguishes *this invocation is the run* from *this invocation is part of one*, and pass it explicitly
+- [x] Wire the standalone-child case: a child with a run id writes to a writer subfolder of that bag; a child without one opens its own
+- [x] Widen the sweep's population to every shape that can start a run, and state the excluded shapes in its failure text
+- [x] Verify against a real parent-plus-children run that one run produces one bag with one subfolder per writer, and record what was observed
+- [x] Verify a standalone child invocation produces exactly one bag and no orphan, and record what was observed
+- [x] Re-read this document's § *The measured starting position* against the tree and correct any row that has moved
+- [x] Run the full suite
 
 ---
 

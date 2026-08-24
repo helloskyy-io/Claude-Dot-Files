@@ -229,7 +229,7 @@ def test_review_pr_render_catches_a_digit_bearing_placeholder() -> None:
             this_pass=1,
             prior_pass=0,
             headless_guard="guard",
-            run_id="deadbeef",
+            invocation_id="deadbeef",
         )
 
 
@@ -242,7 +242,7 @@ def test_review_pr_render_catches_a_digit_bearing_placeholder() -> None:
                      lambda t: _review_helper.render_prompt(
                          t, pr_number="31", pr_branch="build/x",
                          this_pass=1, prior_pass=0, headless_guard="guard",
-                         run_id="deadbeef"),
+                         invocation_id="deadbeef"),
                      id="review-pr"),
     ],
 )

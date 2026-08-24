@@ -151,7 +151,7 @@ _HERE = Path(__file__).resolve().parent
 # routes through `read_text` and so proved nothing about a predicate that had
 # started answering unconditionally. The predicate is now split so a control
 # can drive it on a literal, which is what this rule has always asked for.
-_PINNED = (27, 16)
+_PINNED = (29, 18)
 
 
 # GRANDFATHERED — walks the tree, has no literal control, PREDATES this rule.

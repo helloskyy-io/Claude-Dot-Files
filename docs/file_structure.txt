@@ -340,10 +340,16 @@ claude-dot-files/
 │           │                                        #   the activity every entrypoint invokes before its first side effect. Nothing writes
 │           │                                        #   a run's CONTENT here — that is Phase 3. Imports no workflow module, so a
 │           │                                        #   measurement helper can load it without dragging in temporalio
-│           ├── scripts/                             # Kickoff entrypoints, until an SDK path replaces them — plus preflight.py and
-│           │                                        #   validate_bag.py, which are NOT kickoffs: they are the two things a run (or an
-│           │                                        #   operator) checks before or after, and both live here because they are launch
-│           │                                        #   concerns rather than workflow concerns
+│           ├── scripts/                             # Kickoff entrypoints, until an SDK path replaces them — plus preflight.py,
+│           │                                        #   validate_bag.py and dispatch_identity.py, which are NOT kickoffs: they are what a
+│           │                                        #   run checks before, what an operator checks after, and who NAMES the run. All three
+│           │                                        #   live here because they are launch concerns rather than workflow concerns
+│           │                                        #   dispatch_identity.py is Phase 9's answer to "who names a run": it declares --run-id
+│           │                                        #   and --writer once for every entrypoint, validates a supplied name, and mints one
+│           │                                        #   ONLY when nothing supplied it — then prints it, because a name nobody was told is a
+│           │                                        #   bag nobody can retry into. It is the client side of a dispatch and becomes the
+│           │                                        #   Temporal client at port time, which is why minting here is generation on the INPUT
+│           │                                        #   side rather than inside retried work
 │           │                                        #   research.sh / research_minor.sh are SIBLING entries, not one script with a flag —
 │           │                                        #   different parents, different model keys, separately-budgeted turn caps
 │           │                                        #   triage_candidates.sh / plan_feature.sh / plan_verify.sh / plan_sprint.sh are
@@ -659,10 +665,33 @@ claude-dot-files/
 │                   │                                #   declares why it cannot escape — so ADDING a join is what fails. The battery beside it
 │                   │                                #   catches the other half: reverting a guard leaves the declaration standing and true of
 │                   │                                #   nothing, which the sweep alone reads as covered
-│                   ├── journal_entrypoint_facts.py  # WHAT THE ENTRYPOINT POPULATION IS, discovered once for the two guards that ask —
-│                   │                                #   the bag-open sweep and the prose-figure guard. A helper and not a shared test
-│                   │                                #   module because test_test_tree_hygiene refuses test-imports-test; two copies of
-│                   │                                #   "which files are the parents" is the defect both guards exist to catch
+│                   ├── journal_entrypoint_facts.py  # WHAT THE ENTRYPOINT POPULATION IS, discovered once for the guards that ask — the
+│                   │                                #   bag-open sweep, the prose-figure guard and the run-id sweep. A helper and not a
+│                   │                                #   shared test module because test_test_tree_hygiene refuses test-imports-test; two
+│                   │                                #   copies of "which files are the parents" is the defect the guards exist to catch.
+│                   │                                #   Phase 9 r5 widened it past the run_*.py glob: NON_STARTING_FILES declares why each
+│                   │                                #   non-kickoff cannot begin a run, and shim_target proves each .sh execs a SWEPT runner
+│                   ├── test_the_run_id_ARRIVES_from_outside.py # Phase 9 r1 and r2 — the property the bag sweep structurally cannot hold,
+│                   │                                #   because it pins the CALLEE and asserts nothing about arguments. Three checks: no
+│                   │                                #   run_*.py may NAME mint_run_id, run_id= may not be a call (uuid4().hex parses as an
+│                   │                                #   Attribute, which the first version admitted), and every entrypoint must DECLARE the
+│                   │                                #   argument a name arrives on. MEASURED: reverting a converted entrypoint leaves the
+│                   │                                #   bag sweep fully green and turns three checks here red — that gap is the whole reason
+│                   │                                #   this is a separate file
+│                   ├── test_journal_tag_lines.py    # The TAG-LINE spelling of test_journal_containment.py's class, and the count here is
+│                   │                                #   five: a redaction reason, the creation loop, the LABEL parameter, the run id (which
+│                   │                                #   reached no check at all — it goes into open_bag's module-owned entries dict, and the
+│                   │                                #   guard iterates the caller-supplied one), and the guard itself, which refused \n and
+│                   │                                #   \r while read_tag_file parses with str.splitlines() — a method that breaks on EIGHT
+│                   │                                #   more. Sweeps every f"{label}: {value}" for an undeclared value; the battery beside it
+│                   │                                #   is DERIVED from splitlines() rather than from a remembered list, and the round trip
+│                   │                                #   is the property: for any accepted value, reading the file returns what was written
+│                   ├── test_dispatch_identity.py    # The BEHAVIOURAL half of Phase 9 r3 and r4, against a real journal root — the sweeps
+│                   │                                #   are source greps and both requirements fail in ways a grep cannot see. r3's failure
+│                   │                                #   is SILENT (two bags for one run reads as two runs forever); r4's is a child quietly
+│                   │                                #   becoming its own run. Drives open_run_bag, not open_bag, because that is the shape a
+│                   │                                #   retry actually takes. Delivers the SEQUENTIAL property only — simultaneous openers
+│                   │                                #   are r7 and are deliberately not closed
 │                   ├── conftest.py                  # The unit tier's shared `root` fixture — a journal root at DIR_MODE. Was pasted into
 │                   │                                #   three modules with a fourth copy already drifted to a bare 0o700 literal. Here and
 │                   │                                #   not in tests/conftest.py: the integration tier deliberately reads the REAL root
