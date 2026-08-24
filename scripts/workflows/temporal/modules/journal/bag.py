@@ -838,6 +838,18 @@ class Bag:
                 f"that does not is either a typo or a bag that already lost it, "
                 f"and those need different answers.")
 
+        # COMPOSED AND VALIDATED BEFORE THE PAYLOAD IS TOUCHED, because the
+        # refusal below is the one that fires on free text. Written the other way
+        # round — marker first, tag line second — a `reason` that does not survive
+        # `read_tag_file` left the payload REPLACED and no `Journal-Redaction`
+        # record naming it, on the one sanctioned path for scrubbing a leaked
+        # credential. The marker's own text asserts that such a record exists, so
+        # the bag did not merely lose the tombstone: it asserted a false one.
+        # `_refuse_folded_value` is idempotent and `_append_tag_line` calls it
+        # again below — the rule still lives in exactly one place.
+        tombstone = f"{utc_now()} {payload_relpath} — {reason.strip()}"
+        _refuse_folded_value(LABEL_REDACTION, tombstone)
+
         _write_tag_file(target, [REDACTION_MARKER.rstrip("\n")])
         # `reason` IS STRIPPED, AND ONLY `reason` — the composed line still goes
         # through `_refuse_folded_value`, which refuses anything `str.splitlines()`
@@ -848,8 +860,7 @@ class Bag:
         # urgent — over a difference nobody could observe in the record. A run id
         # and a label are the opposite case and are refused rather than trimmed:
         # there the surrounding space is part of a name somebody chose.
-        _append_tag_line(self.info_path, LABEL_REDACTION,
-                         f"{utc_now()} {payload_relpath} — {reason.strip()}")
+        _append_tag_line(self.info_path, LABEL_REDACTION, tombstone)
         if self.lifecycle == "sealed":
             self.seal()
 
@@ -870,15 +881,23 @@ class Bag:
         writes carries three gap records and one flag — the flag answers "is
         this bag missing something", the records answer "what".
         """
-        if not self.incomplete:
-            _append_tag_line(self.info_path, LABEL_INCOMPLETE, "true")
+        # COMPOSED AND VALIDATED BEFORE THE FLAG IS SET, for the reason `redact`
+        # validates before it overwrites. The flag says "this bag is missing
+        # something" and the gap record says WHAT; setting the flag first and then
+        # refusing the record leaves a bag that reports a loss it cannot describe
+        # — and the `BagError` propagates out of the handler that was recording a
+        # lost write, masking the original failure with a second one.
+        gap = f"{utc_now()} {what.strip()} — {why.strip()}"
+        _refuse_folded_value(LABEL_GAP, gap)
+
         # Stripped for the reason `redact` strips its `reason` — and it matters
         # more here. This is the path that records a write having been LOST, so a
         # `BagError` raised out of it over a trailing space would destroy the gap
         # record while the run was already handling a failure, which is the exact
         # silent loss this component exists to prevent.
-        _append_tag_line(self.info_path, LABEL_GAP,
-                         f"{utc_now()} {what.strip()} — {why.strip()}")
+        if not self.incomplete:
+            _append_tag_line(self.info_path, LABEL_INCOMPLETE, "true")
+        _append_tag_line(self.info_path, LABEL_GAP, gap)
         if self.lifecycle == "sealed":
             self.seal()
 
@@ -985,6 +1004,44 @@ def open_bag(root: Path, run_id: str, *, info: dict[str, str] | None = None) -> 
     if bag_path.exists():
         return _adopt()
 
+    # ⚠ CALLER METADATA IS VALIDATED BEFORE THE FIRST `mkdir`, AND THE ORDER IS
+    # THE POINT. Validated after it — which is how this was written — a refused
+    # `info` entry raised with `<root>/<run_id>/` and `bagit.txt` already on disk
+    # and `bag-info.txt` never written. That directory is not merely litter: the
+    # `bag_path.exists()` fast path above means every LATER open of the same
+    # run id ADOPTS it, and an adopted bag with no `bag-info.txt` raises
+    # `FileNotFoundError` from `.info()`, `.state`, `.redacted` and `.incomplete`
+    # — so one refused label poisons that run id permanently. Nothing is created
+    # until every caller-supplied value has been accepted.
+    #
+    # SAME SHAPE AS `redact` AND `mark_incomplete`, AND ALL THREE ARE SWEPT by
+    # `tests/unit/test_a_refused_bag_mutation_CHANGES_NOTHING.py`. The review that
+    # found this class named the other two; this one was found by asking the tree
+    # which OTHER functions here mutate before they validate.
+    entries = {
+        "External-Identifier": run_id,
+        LABEL_SCHEMA_VERSION: str(JOURNAL_SCHEMA_VERSION),
+        "Bag-Software-Agent": "claude-dot-files journal (Persistent Memory Protocol Phase 1)",
+    }
+
+    # CALLER METADATA IS UNTRUSTED INPUT, and it is the only untrusted input on
+    # this path. A caller cannot overwrite a label this module owns — the schema
+    # version in particular, since a bag claiming the wrong version is a bag an
+    # upcaster reads wrongly forever — and cannot set a LIFECYCLE label at
+    # creation, because `redacted` and `incomplete` are facts about what happened
+    # to a run and never something its opener declares.
+    reserved = set(entries) | {LABEL_REDACTION, LABEL_INCOMPLETE, LABEL_GAP,
+                               LABEL_SEALED_AT, "Payload-Oxum", "Bagging-Date"}
+    for label, value in (info or {}).items():
+        if label in reserved:
+            raise BagError(
+                f"cannot set {label!r} when opening a bag: it is written by this "
+                f"module and a caller-supplied value would either contradict the "
+                f"bag's own record or declare a lifecycle fact that has not "
+                f"happened. Reserved: {', '.join(sorted(reserved))}.")
+        _refuse_folded_value(label, str(value))
+        entries[label] = value
+
     # CREATE BY WINNING OR LOSING A `mkdir`, NEVER BY CHECK-THEN-CREATE. The
     # `exists()` above is a fast path, not the guard: two concurrent calls for one
     # `run_id` — precisely the duplicate delivery Temporal §7.1 idempotency exists
@@ -1009,30 +1066,6 @@ def open_bag(root: Path, run_id: str, *, info: dict[str, str] | None = None) -> 
         f"BagIt-Version: {BAGIT_VERSION}",
         f"Tag-File-Character-Encoding: {TAG_FILE_ENCODING}",
     ])
-
-    entries = {
-        "External-Identifier": run_id,
-        LABEL_SCHEMA_VERSION: str(JOURNAL_SCHEMA_VERSION),
-        "Bag-Software-Agent": "claude-dot-files journal (Persistent Memory Protocol Phase 1)",
-    }
-
-    # CALLER METADATA IS UNTRUSTED INPUT, and it is the only untrusted input on
-    # this path. A caller cannot overwrite a label this module owns — the schema
-    # version in particular, since a bag claiming the wrong version is a bag an
-    # upcaster reads wrongly forever — and cannot set a LIFECYCLE label at
-    # creation, because `redacted` and `incomplete` are facts about what happened
-    # to a run and never something its opener declares.
-    reserved = set(entries) | {LABEL_REDACTION, LABEL_INCOMPLETE, LABEL_GAP,
-                               LABEL_SEALED_AT, "Payload-Oxum", "Bagging-Date"}
-    for label, value in (info or {}).items():
-        if label in reserved:
-            raise BagError(
-                f"cannot set {label!r} when opening a bag: it is written by this "
-                f"module and a caller-supplied value would either contradict the "
-                f"bag's own record or declare a lifecycle fact that has not "
-                f"happened. Reserved: {', '.join(sorted(reserved))}.")
-        _refuse_folded_value(label, str(value))
-        entries[label] = value
 
     _write_tag_file(bag_path / BAG_INFO_FILE,
                     [f"{label}: {value}" for label, value in entries.items()])

@@ -428,6 +428,9 @@ claude-dot-files/
 │                   │                                                   #   and no upper bound; PR #124 ran eleven passes.
 │                   ├── test_a_census_guard_proves_its_own_predicate.py # A guard that walks the tree must exercise its PREDICATE on a
 │                   │                                #   literal too — a floored walk over an unconditional predicate is a permanent green
+│                   ├── test_a_refused_bag_mutation_CHANGES_NOTHING.py # Every mutator in bag.py is classified, and every refusal it
+│                   │                                #   declares is driven and must leave the bag byte-identical. Three members shipped
+│                   │                                #   mutate-then-validate; a review named two and the tree held a third (open_bag)
 │                   ├── test_a_bounded_reply_is_CHECKED_not_only_read.py # A launch reply's stdout may not be read as evidence unless
 │                   │                                #   its return code was; per-BINDING, so a name rebound and read later stays a finding
 │                   ├── test_a_PARENT_forwards_what_its_CHILD_reads.py # No child entrypoint declares a param its body never

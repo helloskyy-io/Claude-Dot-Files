@@ -151,7 +151,10 @@ _HERE = Path(__file__).resolve().parent
 # routes through `read_text` and so proved nothing about a predicate that had
 # started answering unconditionally. The predicate is now split so a control
 # can drive it on a literal, which is what this rule has always asked for.
-_PINNED = (29, 18)
+# 29 -> 30 and 18 -> 19 for `test_a_refused_bag_mutation_CHANGES_NOTHING`, which
+# arrived WITH its control because this census refused it without one. Both
+# numbers move together, which is the shape a correctly-built new guard makes.
+_PINNED = (30, 19)
 
 
 # GRANDFATHERED — walks the tree, has no literal control, PREDATES this rule.

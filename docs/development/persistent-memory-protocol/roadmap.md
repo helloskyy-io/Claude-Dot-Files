@@ -263,12 +263,12 @@ Settles who names a run. [Phase 1](phase1_the_run_bag.md) keyed the bag by a run
 
 **Gate: none.** It depends only on [Phase 1](phase1_the_run_bag.md), which is complete. It carries two *deadlines* rather than gates — before Workflow Decomposition ships nine new entrypoints, and before the Temporal port's Stage B wraps anything as an activity.
 
-- [ ] Exactly one authority in the fleet names a run; the second, per-model-invocation `run_id` is retired or explicitly distinguished in code and in prose
+- [x] Exactly one authority in the fleet names a run; the second, per-model-invocation `run_id` is retired or explicitly distinguished in code and in prose
 - [ ] The run id is an **input** to bag-open rather than minted inside it — **unchecked until its shape is agreed with the Temporal port**, which has its own reasons to name a dispatch
-- [ ] Opening a bag twice under one run id yields **one** bag, demonstrated — **sequential retry only**; the simultaneous-opener property is r7 below
-- [ ] A child started on its own is journaled, and the rule for which bag it writes into is stated and enforced, on an input that is **passed rather than inferred**
-- [ ] The enumerating sweep covers every shape that can start a run, and every shape it excludes is named in its failure text
-- [ ] The caller-supplied run id is validated against a **stated permitted-character set**, expressed in one named function and held by a sweep — the id reaches a tag-line composer today with no check at all
+- [x] Opening a bag twice under one run id yields **one** bag, demonstrated — **sequential retry only**; the simultaneous-opener property is r7 below
+- [x] A child started on its own is journaled, and the rule for which bag it writes into is stated and enforced, on an input that is **passed rather than inferred**
+- [x] The enumerating sweep covers every shape that can start a run, and every shape it excludes is named in its failure text
+- [x] The caller-supplied run id is validated against a **stated permitted-character set**, expressed in one named function and held by a sweep — the id reaches a tag-line composer today with no check at all
 - [ ] Mutual exclusion between two **simultaneous** openers of one bag — **unchecked, and its carrier does not exist yet**: the Temporal addendum has no identity section, tracked as [`C-zhdm5gh1`](../../standards/architecture/research/candidates.md)
 
 ### [Phase 2 — The content store and offline checksum verification](phase2_content_store.md)
