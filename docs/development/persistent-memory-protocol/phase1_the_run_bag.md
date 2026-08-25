@@ -181,7 +181,7 @@ Made structural that way, the failure mode inverts: a workflow that does not ope
 
 **What an activity *is* here is a boundary the [Temporal Integration](../temporal-integration/temporal-integration.md) component also owns.** This phase states what it needs — a step that runs before any child and whose failure stops the run — rather than specifying the mechanism, and it is explicit above about which half of that only a worker can supply. Where the two designs meet, the shape is settled once and the other cites it ([roadmap § *Constraints that run BOTH ways*](roadmap.md#constraints-that-run-both-ways-with-the-temporal-port)).
 
-**⚠ And making the journal mandatory has a cost that has to be named: a full disk becomes a fleet-wide stop.** Once Phase 3 lands, every run needs a resolvable, writable root — so a runaway transcript, or a budget an operator lowers, stops *every* run including the one you would use to diagnose it. It is reachable without an attacker. **Two things bound it, and both are stated rather than assumed:** [Phase 5](phase5_snapshots_then_retention.md)'s requirements 2–5 are labelled `(ungated)` and should land with or before Phase 3 rather than waiting for the server that only requirement 1 needs; and requirement 9's refusal message **names the resolved path and the exact failing property**, so the recovery path exists without a working journal.
+**⚠ And making the journal mandatory has a cost that has to be named: a full disk becomes a fleet-wide stop.** Once Phase 3 lands, every run needs a resolvable, writable root — so a runaway transcript, or a budget an operator lowers, stops *every* run including the one you would use to diagnose it. It is reachable without an attacker. **Two things bound it, and both are stated rather than assumed:** [Phase 5](phase5_snapshots_then_retention.md)'s requirements 2–9 are labelled `(ungated)` and should land with or before Phase 3 rather than waiting for the server that only requirement 1 needs; and requirement 9's refusal message **names the resolved path and the exact failing property**, so the recovery path exists without a working journal.
 
 ### Why the root is configurable, and where the defaults come from
 
@@ -346,7 +346,7 @@ $ du -sh /tmp/tmpixqez8jh/journal/0c4a0aa4*/
 
 **⚠ The last row is the only one here that is not measured, and it is labelled that way deliberately.** The first three are `du` against a bag that exists; the fourth multiplies a real denominator by a projected numerator. Phase 3 is where it becomes a measurement, and the figure it produces supersedes this row rather than joining it.
 
-**What the floor buys, stated because 496 bytes reads like nothing:** it is what makes a run's record *addressable* — an operator with a `run_id` has a folder, and a crashed run leaves an `open` bag rather than no evidence at all. The whole of [Phase 4](phase4_rebuild_is_a_test.md)'s rebuild stands on that folder existing.
+**What the floor buys, stated because 523 bytes reads like nothing:** it is what makes a run's record *addressable* — an operator with a `run_id` has a folder, and a crashed run leaves an `open` bag rather than no evidence at all. The whole of [Phase 4](phase4_rebuild_is_a_test.md)'s rebuild stands on that folder existing.
 
 ### The baselines this phase is measured against
 

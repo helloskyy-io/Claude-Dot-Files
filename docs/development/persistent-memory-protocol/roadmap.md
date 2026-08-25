@@ -1,6 +1,6 @@
 # Persistent Memory Protocol — Roadmap
 
-**Status: 🟡 IN PROGRESS.** [Phase 1](phase1_the_run_bag.md) is complete — the journal root, the run bag and its validator ship today. Nine phases have a phase doc. Four of them wait on something that does not exist yet; that is a scheduling fact recorded below, and it is not a reason any of them is planned less completely.
+**Status: 🟡 IN PROGRESS.** [Phase 1](phase1_the_run_bag.md) is complete — the journal root, the run bag and its validator ship today. The run-identity phase listed immediately below was **built on 2026-08-24** and is not complete: five of its seven requirements are met and two stay open by design, which its own doc states and this line records so the roadmap does not read as though nothing had happened since. Nine phases have a phase doc. Four of them wait on something that does not exist yet; that is a scheduling fact recorded below, and it is not a reason any of them is planned less completely.
 
 **Phases are listed in logical rollout order. Phase numbers are creation-order identifiers and do not reflect rollout sequence; execution order across components lives in [`sprint.md`](../sprint.md).** [Phase 9](phase9_one_run_one_identity.md) is listed second for that reason — it was created last and is built early.
 
@@ -174,7 +174,7 @@ As a library each workflow remembers to call, the protocol is optional — and o
 
 **What this does NOT cover, stated so the guard is not over-read.** It makes the journal *structurally present*; it does not make any individual write *complete*. A parent that opens a bag and then writes to a store through a path nobody wrapped still produces a gap, and neither the boundary nor the sweep can see that — **[Phase 4](phase4_rebuild_is_a_test.md)'s rebuild test is the guard for that class.** It does not reach model-issued writes at all, which are [Phase 3](phase3_the_emit_rule.md)'s post-exit harvest and are structurally outside any wrapper. And **an enumerating test is only as good as its discovery predicate** — a parent living outside the swept directory is invisible to it.
 
-**⚠ Making the journal mandatory has a cost, and it is named rather than discovered.** Once [Phase 3](phase3_the_emit_rule.md) lands, a full disk stops *every* run including the one you would use to diagnose it. Two things bound that, and both are stated: [Phase 5](phase5_snapshots_then_retention.md)'s requirements 2–6 are ungated and should land with or before Phase 3 rather than waiting for the server only its requirement 1 needs; and Phase 1 r9's refusal names the resolved path and the failing property, so recovery does not need a working journal.
+**⚠ Making the journal mandatory has a cost, and it is named rather than discovered.** Once [Phase 3](phase3_the_emit_rule.md) lands, a full disk stops *every* run including the one you would use to diagnose it. Two things bound that, and both are stated: [Phase 5](phase5_snapshots_then_retention.md)'s requirements 2–9 are ungated and should land with or before Phase 3 rather than waiting for the server only its requirement 1 needs; and Phase 1 r9's refusal names the resolved path and the failing property, so recovery does not need a working journal.
 
 **This is one of the constraints that runs both ways with the Temporal port** — see § *Dependencies*.
 
@@ -186,7 +186,7 @@ Everything above is planned. This section says only *when*, and every gate below
 
 **[Phase 1](phase1_the_run_bag.md) is built.** The journal root, the run bag, its BagIt manifest and its validator ship today, and eleven entrypoints open a bag before their first side effect.
 
-**Four phases have no EXTERNAL gate** and could start today: 9 (run identity), 2 (the content store), 3 (the emit rule), 4 (the rebuild test). They depend only on each other and on Phase 1 — 1 → 2, and 1 → 9 → 3 → 4, as each phase doc's own header says, so *ungated* means *waiting on nothing outside this component* rather than *runnable in parallel*. Together with Phase 1 they deliver commitments 1 through 5 — which is the component's whole thesis, standing on its own.
+**Four phases have no EXTERNAL gate**: 9 (run identity), 2 (the content store), 3 (the emit rule), 4 (the rebuild test). Three of them could start today; 9 was built on 2026-08-24 and its two open requirements are the residual described below. They depend only on each other and on Phase 1 — 1 → 2, and 1 → 9 → 3 → 4, as each phase doc's own header says, so *ungated* means *waiting on nothing outside this component* rather than *runnable in parallel*. Together with Phase 1 they deliver commitments 1 through 5 — which is the component's whole thesis, standing on its own.
 
 **⚠ Ungated is not the same as unpressed, and [Phase 9](phase9_one_run_one_identity.md) is the one that shows the difference.** It waits on nothing, and two other components have already set clocks on it: [Workflow Decomposition Phase 3](../workflow-decomposition/phase3_dual_mode_children.md) adds nine entrypoints into the directory this component's bag-open sweep enumerates, and the Temporal port's Stage B wraps the functions the run id is generated inside. **Neither is a gate on this component; both are deadlines, and a deadline nobody schedules against is missed by default.**
 
@@ -246,6 +246,8 @@ Everything above is planned. This section says only *when*, and every gate below
 
 ### [Phase 1 — The journal root and the run bag](phase1_the_run_bag.md) ✅ COMPLETE
 
+**~0 hrs remaining — COMPLETE, so there is no work left to forecast.** The figure is stated as zero rather than omitted so a reader adding the phases up is not left wondering whether it was forgotten; the cost this phase actually took is history, not a forecast, and it belongs to no total.
+
 Stands up the folder structure everything else writes into. One configurable root per machine, one folder per run keyed by run id, one subfolder per concurrent child, and a BagIt (RFC 8493) manifest so a reader can read a folder rather than guess at it. Delivers the payload spec — what goes in the journal and what stays out, with a reason for each exclusion — and records *no database* as a decision with a revisit trigger rather than as an omission. Nothing emits into it yet; the outcome is a folder that validates.
 
 - [x] The root is a config value with a documented default per deployment shape, and nothing in the implementation depends on a home directory existing
@@ -258,6 +260,8 @@ Stands up the folder structure everything else writes into. One configurable roo
 - [x] **Opening the bag is an activity a parent invokes as its first step, and a test enumerates every parent and fails when one does not** — the activity boundary alone does not make the call happen
 
 ### [Phase 9 — One run, one identity, one bag](phase9_one_run_one_identity.md)
+
+**~10 hrs, and it is a RESIDUAL rather than the whole phase** — this phase was built on 2026-08-24 with r1, r3, r4, r5 and r6 met. What is left is r2's reconciliation with whatever the orchestrator ends up calling a dispatch, and r7's mutual-exclusion mechanism. Basis: r2 is a parameter change if the orchestrator's workflow id can BE the run id and a migration if a second name has to be joined to it — that fork is the whole spread; r7 is a create-then-rename or a lock across the three tag-line composers, plus its battery. Gated on the port naming a dispatch, and on whichever carrier `C-zhdm5gh1` resolves to.
 
 Settles who names a run. [Phase 1](phase1_the_run_bag.md) keyed the bag by a run id and generated that id inside the journal package, which was right for the one invocation shape that then existed. Two decisions taken since end that: under the Temporal port an id generated inside retried or replayed code is a **different id on every attempt**, and [Workflow Decomposition Phase 3](../workflow-decomposition/phase3_dual_mode_children.md) gives nine children runners of their own, so an invocation that is not a parent can now begin. This phase makes the run id an input supplied by the caller, rules whether a standalone child opens its own bag or joins its parent's, and widens the enumerating sweep to every shape that can start a run.
 
@@ -273,6 +277,8 @@ Settles who names a run. [Phase 1](phase1_the_run_bag.md) keyed the bag by a run
 
 ### [Phase 2 — The content store and offline checksum verification](phase2_content_store.md)
 
+**~14 hrs.** Basis: one new package — the citation record, a content-addressed layout, a capture path, one re-hashing resolver and a three-exit-code `verify` — plus two activities and a unit-and-integration tier. Most of it is new mechanism rather than applying an existing one. The spread lives in r7(c): teeing an existing tool's output is the low end; a new fetcher carrying its own https-only, redirect-revalidation, private-address-refusal and size-cap policy is the high one, and that sub-decision is unmade.
+
 Stores the bytes behind every claim, named by checksum, and ships a `verify` that resolves every citation from that cache alone — re-checksumming to detect an altered source and confirming the quoted span still occurs. It works with the network off. Three payoffs from one mechanism: it mechanises what `research-critic` does by hand, it makes a shared multi-machine store checkable for corruption, and an evidence checksum equal to a prior stage's is a no-new-evidence stop condition computed rather than judged.
 
 - [ ] Every cited artifact is stored by content checksum under the journal root; nothing is copied in by value
@@ -283,6 +289,8 @@ Stores the bytes behind every claim, named by checksum, and ships a `verify` tha
 - [ ] **Capture and resolve are activities**, so storing a source's bytes is not something a caller can forget to do
 
 ### [Phase 3 — The emit rule: every write to any store also emits](phase3_the_emit_rule.md)
+
+**~45 hrs, and the size is itself a finding rather than just a number.** Basis: thirteen requirements; an inventory whose two halves need *different mechanisms* (a call-site wrapper, and a post-exit harvest that has no wrapper to be); write-ahead ordering carried as intent-plus-completion, which is two events per paired write and a store-side idempotency key; four write-failure cases each demonstrated against a real journal; six new event fields; a capture-time secret filter; the tag-namespace ruling; the run-log cut-over, where a join key changes meaning; and then wiring every inventoried path. That is roughly half again as large as the biggest phase sized anywhere else in this repo's sprint plan, and this component's own run-identity doc already observes that adding a fourth concern here "makes the phase a project" — it carries considerably more than four.
 
 The core rule, and it is absolute: if any store gets it, the journal gets it, verbatim. The destination is a field rather than a format, which is the property cross-machine work later depends on. Every emitted item records which input produced it and carries a stable machine id. **And this phase answers what happens when the journal cannot be written** — the question that decides whether Phase 4's guarantee means anything.
 
@@ -300,6 +308,8 @@ The core rule, and it is absolute: if any store gets it, the journal gets it, ve
 
 ### [Phase 4 — Rebuildability is a test](phase4_rebuild_is_a_test.md)
 
+**~28 hrs.** Basis: a replay engine written as a pure event→tree function with a path-containment contract that binds every replay target rather than a directory name; a versioned two-section snapshot; a stated and justified normalisation set; a separately-contained restore resolving its destination through an allowlist, with a dry-run; a committed synthetic fixture; and two CI arms, neither of which may skip when its input is absent. Roughly a third of it is verification work rather than mechanism, which is the point of the phase.
+
 Replays the journal into a scratch directory and diffs the result against the live store. This is what makes Phase 3 enforceable: without it, completeness decays silently the first time a write path is added and its emit is forgotten. The test belongs on the merge path, so a missing emit goes red rather than unnoticed.
 
 - [ ] Replay of the journal reproduces `candidates.md` and `direction.md`, either byte-identical or under a normalisation that is stated and justified, from a starting snapshot forward
@@ -311,6 +321,8 @@ Replays the journal into a scratch directory and diffs the result against the li
 - [ ] **A rebuilt store carries the journal's provenance forward**, so every consumer of one is bound by the rules that govern reading the journal
 
 ### [Phase 5 — Snapshots, then retention](phase5_snapshots_then_retention.md)
+
+**~22 hrs.** Basis: a five-step pass with a terminal state; carry-with-compaction that preserves event class and originating run id; the sealed-only and whole-folder rules; a demonstration of the pass running concurrently with a live run; a dry-run refusal proven against a real journal; and a conditional content-store reachability pass whose existence depends on a ruling another phase has not made. Only the recurrence needs the gate below — the bulk of this is a policy and a command and can land first.
 
 Records what every store held at a point in time into the journal, and only then deletes anything. Deletion removes whole run folders oldest-first until the journal is under its budget, and never past the last snapshot — that ordering is the whole phase, because after Phase 4 the journal is the only thing that can regenerate a store. **One budget governs the whole journal and nothing is exempt from it**; deletion is all-or-nothing per run, because a half-readable run reads as coverage.
 
@@ -327,6 +339,8 @@ Records what every store held at a point in time into the journal, and only then
 
 ### [Phase 6 — CPI reads the journal](phase6_cpi_reads_the_journal.md)
 
+**~18 hrs, and this figure EXCLUDES the port it is gated on** — that work is sized inside the component that owns it, and adding it here would count it twice. Basis: a storage interface, repointing the sweep, and the producer/consumer table with every blank cell resolved. The expensive part is r2's dual run over one overlapping window with every disagreement explained rather than averaged away, because that is bounded by how much the two sweeps actually disagree and nobody has looked.
+
 Moves the continuous-improvement evidence sweep onto the journal, so it reads one store instead of walking a per-repo pile of JSONL. **This is the consumer for everything Phases 1–4 produce**, and it needs no scheduler and no server. The discipline it enforces is the synthesis's: pair every producer with its consumer. A producer with no consumer is how 262 MB accumulated unread.
 
 **Gate:** the Python port of `review-runs`. Not the Temporal server.
@@ -340,6 +354,8 @@ Moves the continuous-improvement evidence sweep onto the journal, so it reads on
 
 ### [Phase 7 — Cross-machine aggregation, writing locally first](phase7_s3_aggregation.md)
 
+**~34 hrs, and the size confirms what the synthesis already said** — it called this "a couple of phases or its own sprint", and the number agrees. Basis: an asynchronous shipper with a bounded, observable backlog and retries; post-transfer manifest validation plus a demonstrated corrupted transfer; prefix-scoped storage credentials and origin derivation with disagreement reporting; the bucket's own posture; and a real bucket to test all of it against, which is infrastructure work this component has not done before. The three seams this phase names are where it splits, and splitting it is a mechanical act rather than a fresh planning exercise.
+
 Folders sync to object storage under machine id and run id. The local file is the truth at write time and ships asynchronously, so a machine keeps working when the bucket is unreachable. CPI then reads the bucket instead of one local journal — same reader, different input, which is why Phase 6 must not be built as throwaway.
 
 **Gate — one:** a second machine that actually produces runs.
@@ -352,6 +368,8 @@ Folders sync to object storage under machine id and run id. The local file is th
 - [ ] The bucket blocks public access, encrypts at rest and is reached over TLS, and its credential lives outside the repo and outside the journal
 
 ### [Phase 8 — The poller](phase8_the_poller.md)
+
+**~16 hrs.** Basis: a scheduled workflow, a fixed cue→dispatch table, an origin filter built and tested against a synthetic non-local origin even while it is a live no-op, and a failure path with a named escalation surface. Little of it is bulk; the cost concentrates in r3, where a dispatch identity has to be derived from named fields with a stated reason why an edit to the others does not re-fire, and the already-fired marker has to live somewhere that outlives both Temporal's retention and the journal's.
 
 No new to-do surface is needed — `candidates.md`'s `status: open` already is one, and a to-do bit is a required property of every working record. What is missing is the thing that reads it: a scheduled workflow that queries state and starts children with no human trigger.
 

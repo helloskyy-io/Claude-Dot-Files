@@ -131,9 +131,9 @@ A run whose transcript was rotated away but whose authored output remained would
 
 **This matters more under whole-folder deletion than it did under a transcript trim**, because one invocation is now strictly more destructive than the operation this bound was originally written against. It does **not** defend against a genuinely compromised run — [Phase 1](phase1_the_run_bag.md) § *The manifest is BagIt* already concedes that the record is writable by the very processes it is a record of, and that concession stands. What it buys is the difference between *a model tidied up* and *a model cannot reach the delete path at all*.
 
-### The record of a deletion has to outlive what it deleted — requirement 6
+### The record of a deletion has to outlive what it deleted — requirement 8
 
-Requirement 6's retention events, [Phase 3](phase3_the_emit_rule.md)'s gap events and [Phase 1](phase1_the_run_bag.md)'s redaction events all live in bags that a later oldest-first pass would remove — which would delete the explanation of a deletion, and the historical fact that the record ever had holes.
+Requirement 8's retention events, [Phase 3](phase3_the_emit_rule.md)'s gap events and [Phase 1](phase1_the_run_bag.md)'s redaction events all live in bags that a later oldest-first pass would remove — which would delete the explanation of a deletion, and the historical fact that the record ever had holes.
 
 **They are carried into the snapshot.** Exempting them was the other available answer and it is not available any more: **nothing is exempt from the budget**, and an exemption list is a floor by another name. Carrying them into the snapshot is strictly better anyway — the snapshot is the thing a rebuild starts from, so a deletion's explanation ends up in the one artifact every later read already consults.
 
@@ -145,7 +145,7 @@ Requirement 6's retention events, [Phase 3](phase3_the_emit_rule.md)'s gap event
 
 **This is not bookkeeping.** Without it, the answer to *"why can I not find run X"* is indistinguishable from *"run X never happened"*, and those are very different facts. And [Phase 3](phase3_the_emit_rule.md)'s rule has no exception for the fleet's own maintenance: a retention pass changes what the record contains, which is the single most consequential kind of change anything makes to it, so it emits.
 
-### Retention meets a gapped bag — requirement 7
+### Retention meets a gapped bag — requirement 9
 
 [Phase 3](phase3_the_emit_rule.md) rules that a failed journal write is never silent: where nothing can be withheld, the failure appends a typed **gap event** and the bag is marked `incomplete`. That state has to survive this phase.
 
