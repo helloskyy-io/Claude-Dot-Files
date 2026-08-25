@@ -1424,7 +1424,9 @@ Surfaced by PR #138's own review, not by PM3. `test_a_refused_bag_mutation_CHANG
 
 **What was actually wrong is worth more than the finding:** the claim had been made three times and never once tested. **A report that recurs is not thereby verified** — recurrence is evidence that something LOOKS true, and the third telling is exactly when it stops being questioned.
 
-**Watch-criteria: one occurrence where the shim demonstrably returns a WRONG answer** — a search whose result differs from `command grep` on the same arguments, with both recorded. Near-misses do not count, however many. If it fires, the remedy is the shim or the environment, not a prompt clause.
+**Watch-criteria: one run where the shim demonstrably returns a WRONG answer** — a search whose result differs from `command grep` on the same arguments, with both recorded. If it fires, the remedy is the shim or the environment, not a prompt clause.
+
+**This deliberately overrides the normal three-instance bar, and the override is the point.** Instances are counted by RUNS that surface a finding, and three runs did — which is ordinarily enough to ship. It is not enough here because all three reported a NEAR-MISS and none reported a wrong answer, and a measurement then found the behaviour correct. **Three runs agreeing about a hazard is three runs agreeing; it is not three observations of harm.** The bar that was met is "worth investigating", and the investigation is what this entry records.
 
 ### DEFERRED — a fix whose content is ORDERING cannot be verified by reading its diff
 
