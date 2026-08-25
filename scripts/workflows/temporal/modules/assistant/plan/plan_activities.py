@@ -1183,11 +1183,32 @@ def plan_boxes(component: Path) -> Counter:
 
 
 
+# WHAT MARKS A PHASE COMPLETE IN A ROADMAP HEADING. Measured across every
+# roadmap in the tree on 2026-08-25: the vocabulary is exactly two tokens, `⬜`
+# and `✅ COMPLETE`, ten and three occurrences. Keyed on the EMOJI rather than
+# the word, because a phase legitimately named for completeness — "Nothing a run
+# relies on is invisible" is one heading away from it — would match a word test
+# and silently subtract itself from the remaining work.
+#
+# THE FAILURE DIRECTION IS CHOSEN. A roadmap that one day marks completion some
+# other way makes this read that phase as OUTSTANDING, so the to-do figure comes
+# out too HIGH. Over-reporting remaining work is the safe error: it costs a
+# second look, where under-reporting quietly shortens a plan.
+_COMPLETE_MARK = "✅"
+
+
 class PhaseSizing(NamedTuple):
-    """One component's phases, each with the estimate `plan-verify` wrote."""
+    """One component's phases, each with the estimate `plan-verify` wrote.
+
+    `total` is every estimate summed. `todo` is that less every phase the
+    roadmap marks COMPLETE — the figure the sprint header shows beside it,
+    and the one that answers *how much of this is left*. Both are derived
+    here because a figure restated where nothing derives it goes stale.
+    """
 
     rows: tuple[tuple[str, float | None], ...]   # (phase heading, hours or None)
     total: float
+    todo: float                                  # total, less what is COMPLETE
     unsized: tuple[str, ...]
 
 
@@ -1215,7 +1236,7 @@ def phase_sizing(component: Path) -> PhaseSizing:
     """
     roadmap = component / "roadmap.md"
     if not roadmap.is_file():
-        return PhaseSizing((), 0.0, ())
+        return PhaseSizing((), 0.0, 0.0, ())
 
     rows: list[tuple[str, float | None]] = []
     for line in roadmap.read_text().splitlines():
@@ -1249,7 +1270,9 @@ def phase_sizing(component: Path) -> PhaseSizing:
 
     total = sum(h for _, h in rows if h is not None)
     unsized = tuple(head for head, h in rows if h is None)
-    return PhaseSizing(tuple(rows), total, unsized)
+    todo = sum(h for head, h in rows
+               if h is not None and _COMPLETE_MARK not in head)
+    return PhaseSizing(tuple(rows), total, todo, unsized)
 
 
 def sizing_block(sizing: "PhaseSizing", component_rel: Path) -> str:
@@ -1280,7 +1303,12 @@ def sizing_block(sizing: "PhaseSizing", component_rel: Path) -> str:
         "\n\n**Every phase carries an estimate.**")
     return (f"**Counted in code, authoritative — do not recount, re-derive or "
             f"adjust:**\n\n| Phase | Estimate |\n|---|---|\n{lines}\n"
-            f"| **TOTAL** | **{sizing.total:g} h** |{unsized}")
+            f"| **TOTAL** | **{sizing.total:g} h** |\n"
+            f"| **TO-DO** | **{sizing.todo:g} h** |{unsized}\n\n"
+            f"**The sprint header carries BOTH**, in the shape the neighbouring "
+            f"sections use: `(~{sizing.total:g}h total · ~{sizing.todo:g}h to-do)`. "
+            f"TO-DO is the total less every phase the roadmap marks complete — "
+            f"derived here so nothing subtracts it by hand.")
 
 
 def sprint_state(sprint: Path, component_rel: Path) -> str:

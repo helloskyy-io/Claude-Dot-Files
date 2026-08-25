@@ -81,10 +81,14 @@ If after reading the dependencies you still cannot tell, **place it where the de
 
 The sprint file has one shape and it is the operator's. **Read the neighbouring sections and copy their form**: the heading shape and its status marker, whether bullets are checkboxes, how a phase bullet is worded, where the planning link sits.
 
-**The shapes, stated so you match them rather than infer them:**
+**COPY THE NEIGHBOURS — the file is the specification and this prompt is not.** Heading, marker line, bullet form and links: read a neighbouring section and match it. Restating a format here is how it goes stale and then contradicts the file you are looking at.
 
-- **A section is** an `## Sprint: <name> — <status marker>` heading, a `**Planning:**` line pointing at the roadmap, one or two short paragraphs of *what this is and why it is worth doing*, then the phase bullets.
-- **A phase bullet is one line naming a thing that will exist.** Bold the thing, then at most one clause of context.
+**Stated here because reading a neighbour cannot tell you:**
+
+- **The status marker is DERIVED, never chosen** — it follows from the items below it, and one disagreeing with its own items is a defect. The four and their derivations are in the legend at the top of the file.
+- **Both hour figures are DERIVED too** — the total from the roadmap's own estimates, the to-do figure net of what is checked. **An absent figure means NEVER SIZED**, which is actionable; a fabricated one is not.
+- **Phases are cited by NAME, never by number.** The number is identity and lives in the filename. The roadmap lists in BUILD order, which is not numeric order.
+- **Every sprint ends with a close-out item.** It is a verification gate, not a work phase.
 
 **Two things this file does not carry, and you must not introduce:**
 - **No reasoning, no history and no counter-arguments.** The sprint says what is being built and in what order. *"This used to be under X but that did not work"* is a history lesson and it belongs in a commit message. This has been written into this file four times and removed four times.

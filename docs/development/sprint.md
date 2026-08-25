@@ -184,7 +184,7 @@ All of memory in this fleet — the framework and the protocol. Every run writes
 
 ## Sprint: Temporal Integration
 
-🟡 IN PROGRESS · (~159h total · ~159h to-do)
+🟠 PLANNED · (~193h total · ~193h to-do)
 
 The port to durable execution. Phases are listed in BUILD order, which is not their numeric order — `review-runs` was split out late and lands between the retry boundary and the `claude_cli` domain.
 

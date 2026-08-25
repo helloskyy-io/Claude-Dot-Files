@@ -159,7 +159,20 @@ BUDGETS: dict[str, int] = {
     # outright — 400 bytes buying the removal of a re-dispatch. Nothing was cut to
     # fund it: this file is a fifth the size of the outlier above and the ratchet
     # it guards against is growth without a reason, not growth.
-    "plan/plan_sprint/prompts/plan_sprint.md": 9230,
+    # +610 ON 2026-08-25, and it REPLACES a restatement that had gone false.
+    # The House-style section stated the shapes — `## Sprint: <name> — <marker>`
+    # heading, a `**Planning:**` line, a one-line bullet — and all three were
+    # wrong within a fortnight of the 2026-08-19 format change: the marker moved
+    # to its own line and gained derived hours, the `Planning:` line was deleted
+    # outright, and bullets gained a component prefix and two links. The prompt
+    # would have told this workflow to write a format the file no longer uses.
+    #
+    # What replaces it is SHORTER per shape and does not rot: copy the
+    # neighbours, plus the four rules a neighbour cannot show you — marker
+    # derived not chosen, hours derived, phases cited by name not number, and
+    # every sprint ends with a close-out. Changes what the model DOES, which is
+    # the test `workflow-scripts.md` § Prompt economy sets.
+    "plan/plan_sprint/prompts/plan_sprint.md": 9840,
     # RATCHETED DOWN 16_060 -> 9_919: the mutation discipline moved to the shared
     # prompts/mutation_discipline.md, budgeted below. Content did not shrink, it
     # MOVED — so both lines exist and neither absorbs growth silently.

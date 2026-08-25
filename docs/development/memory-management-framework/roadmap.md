@@ -35,7 +35,7 @@ The test this plan applies: **a phase ends where something works end-to-end, and
 
 ## Phases
 
-### [Phase 1 — Measure the channel before designing it](phase1_measure_the_channel.md)
+### [Phase 1 — Measure the channel before designing it](phase1_measure_the_channel.md) ✅ COMPLETE
 
 **Est: ~18 hours** *(sized retrospectively 2026-08-20 from this phase's own requirement list — the component shipped before `plan-verify` existed, and no actual-hours figure was ever recorded for it)* — six experiments against a pinned CLI plus 13 rulings, 39 requirements — the largest of the six and mostly measurement rather than build.
 
@@ -48,7 +48,7 @@ Establishes, by experiment against the pinned `claude` CLI and the archived run 
 - [x] The union of values every branch point in the bash and Python parents reads is enumerated — the envelope's field list is derived from it, not from a guess
 - [x] Each experiment ends in an explicit ruling recorded in the phase doc: *changes the design / confirms the design / no-op*
 
-### [Phase 2 — Document Kind 1 as a framework](phase2_kind1_framework.md)
+### [Phase 2 — Document Kind 1 as a framework](phase2_kind1_framework.md) ✅ COMPLETE
 
 **Est: ~8 hours** *(sized retrospectively 2026-08-20 from this phase's own requirement list — the component shipped before `plan-verify` existed, and no actual-hours figure was ever recorded for it)* — one guide document from work already done; 22 requirements, no new mechanism.
 
@@ -64,7 +64,7 @@ Turns the memory model from prose that describes behaviour into a stated interfa
 
 > **The count reached five in two steps, and the second step is the one worth remembering.** The build pass measured `direction.md` and reported *four, not three* — against [`operations.md`](../../guide/operations.md), a guide doc. The binding [Architecture Standard](../../standards/architecture/architectural_standard.md) § 4 had said **four** all along, with a **different** fourth member, and no pass had opened it. A count is decided by the binding artifact, not by the nearest one already in context; checking the sibling file and not the standard is how a corrected number stayed wrong for four commits. Candidate **8** carries the remaining half of the disagreement.
 
-### [Phase 3 — The typed exit record: schema, fail-safe contract, one pair proven](phase3_typed_exit_record.md)
+### [Phase 3 — The typed exit record: schema, fail-safe contract, one pair proven](phase3_typed_exit_record.md) ✅ COMPLETE
 
 **Est: ~20 hours** *(sized retrospectively 2026-08-20 from this phase's own requirement list — the component shipped before `plan-verify` existed, and no actual-hours figure was ever recorded for it)* — a schema, a fail-safe contract and one parent/child pair proven end to end; 49 requirements, the most of any phase.
 
@@ -79,7 +79,7 @@ Adopts arrangement A — the child writes a small typed record at exit to a chan
 
 **✅ COMPLETE 2026-08-10 — BUILT AND PROVEN ON ONE PAIR.** All eight of the phase doc's completion requirements are met and verifiable from the artifacts; the last closed on the run set cited by the requirement-6 line above, and the counts are not repeated here. *(This paragraph read "🔨 BUILT 2026-08-09, NOT YET PROVEN … seven of eight" for the length of the pass that flipped the two lines above it — a third copy of the phase's status, four lines below the checkbox that falsified it, and precisely the mechanism [C-523klr8n](../../standards/architecture/research/candidates.md) is open to collect.)* **The measurement that changed the build:** `--json-schema` replaces `.result` with the serialised structured output, so adding the transport without moving `run-claude.sh`'s completion read would have silently deleted the fleet's only write-time gate — the one Phase 1 E5 established and candidate 1 / `D-007` both turn on. Two roadmap candidates (**6** and **7**) were applied to the draft protocol; the protocol remains **unratified**.
 
-### [Phase 4 — Migrate the fleet](phase4_fleet_migration.md)
+### [Phase 4 — Migrate the fleet](phase4_fleet_migration.md) ✅ COMPLETE
 
 **Est: ~16 hours** *(sized retrospectively 2026-08-20 from this phase's own requirement list — the component shipped before `plan-verify` existed, and no actual-hours figure was ever recorded for it)* — every V2 child emits the record and no parent parses prose — mechanical breadth across the fleet, 31 requirements.
 
@@ -95,7 +95,7 @@ Rolls the proven record out across every child **in the V2 Python tree** and ret
 - [x] `is_error` and `num_turns`-against-cap are routed per the Phase 3 rule, or closed as a no-op against their own measurement; **`permission_denials[]` is recorded and surfaced on every run regardless** — it is safety observability, not a routing option. **All three done 2026-08-10, each on its own evidence and each re-verified against the tree rather than cited.** `is_error`: no-op on E1(a) — **zero readers** in the tree, every occurrence a comment. `num_turns`: no-op on E1(b) — every reader is telemetry and the branch is on `subtype`; the cap binds a **unit**, not an aggregate. `permission_denials[]`: surfaced in `activities/run-claude.sh`, which **both fleets source**, so V1 gains the observability rather than losing it — printing the count, tool name and `tool_use_id`, never `tool_input`, and asserted structurally to contain no `return`/`exit`/`&&`/`||` so it routes nothing. *(The hit COUNTS behind the two no-ops are deliberately not restated here. The copy this line used to carry said "three hits" and was **already wrong when it shipped** — the same PR's own diff added a fourth comment — which is C-523klr8n's mechanism in a spelled-out form the restated-figure gate cannot see. They live, with their commands and their date, at [Phase 4 step 3](phase4_fleet_migration.md).)*
 - [x] A `§Capability Parity` audit maps every behaviour of the prose channel to ported or consciously-dropped, with no silent drops. **Recorded 2026-08-10 and extended 2026-08-11, at [Phase 4 § Capability Parity](phase4_fleet_migration.md#capability-parity) — every row with a floor and, where meaningful, a measured ceiling. Nothing is dropped; ONE row needs operator sign-off** (the PR-URL pattern narrows to two explicit path segments, which is what makes owner/repo readable and therefore makes the identity check possible; the real URL shapes measured to survive are enumerated there). *(Row count and shape count not restated here — they moved between the two passes, which is the drift C-523klr8n names.)* The gate itself is byte-unchanged, both branches, and V1's command line is still byte-identical when `EXIT_RECORD_SCHEMA` is unset — **including `activities/run-claude.sh`'s completion gate**, which is V2 infrastructure and the write-time gate `D-007` turns on
 
-### [Phase 5 — Convergence-based stopping](phase5_convergence_stopping.md)
+### [Phase 5 — Convergence-based stopping](phase5_convergence_stopping.md) ✅ COMPLETE
 
 **Est: ~14 hours** *(sized retrospectively 2026-08-20 from this phase's own requirement list — the component shipped before `plan-verify` existed, and no actual-hours figure was ever recorded for it)* — a predicate over the open finding set plus the readers it needs; 29 requirements, built but not gating.
 
@@ -108,7 +108,7 @@ Replaces a model-asserted convergence flag with a computed one. `review-pr` alre
 - [x] Each documented false-convergence mode is named with its check, and each check has a test proven able to fail — **five modes, four checks, and mutation evidence in both directions for each; the counts and what survived are in [Phase 5 step 4](phase5_convergence_stopping.md).** Successive passes found survivors the earlier ones did not, so a count quoted here would be a count of the last pass to look. One mode is named as having NO check: a reviewer marking `fixed` what is not fixed, which a second review is the only thing that separates
 - [x] The rule is measured before it gates anything live, and the bound stays in force — **it gates NOTHING, and `MAX_LOOPS` is byte-unchanged and test-enforced.** Replayed over the whole archive; the firing count, the denominators and the early-fire figure are in [Phase 5 § Measurement](phase5_convergence_stopping.md) with the date each was taken. **The early-fire rate in particular is UNMEASURED rather than zero** — the self-reported counter is circular and the observed one has an empty denominator — and it is the figure requirement 5 would need to license replacing the bound. Two positives is not a rate and the phase refuses to quote one
 
-### [Phase 6 — Read what the component writes](phase6_read_what_it_writes.md)
+### [Phase 6 — Read what the component writes](phase6_read_what_it_writes.md) ✅ COMPLETE
 
 **Est: ~10 hours** *(sized retrospectively 2026-08-20 from this phase's own requirement list — the component shipped before `plan-verify` existed, and no actual-hours figure was ever recorded for it)* — three readers over observables the parents already write; 25 requirements.
 
