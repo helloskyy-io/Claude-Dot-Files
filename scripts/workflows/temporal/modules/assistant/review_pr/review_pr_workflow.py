@@ -72,7 +72,7 @@ def assemble_prompt(review_type: ReviewType) -> str:
     )
 
 
-def _append_shadow_pair(log_file, *, run_id: str, pr: str, expected_ref) -> None:
+def _append_shadow_pair(log_file, *, invocation_id: str, pr: str, expected_ref) -> None:
     """Write the `parent_route` row comparing the typed channel against the prose one.
 
     CALLED ON BOTH PATHS, AND THE FAILURE PATH IS THE POINT (`C-45bhs5cm`).
@@ -110,13 +110,13 @@ def _append_shadow_pair(log_file, *, run_id: str, pr: str, expected_ref) -> None
     """
     try:
         record = exit_record.route(
-            _shared.result_event(log_file), expected_run_id=run_id,
+            _shared.result_event(log_file), expected_invocation_id=invocation_id,
             expected_ref=expected_ref,
         )
         verdict = helper.verdict_from_record(record)
         shadow, parseable = helper.parse_verdict(_shared.assistant_text(log_file))
         _shared.append_parent_route(log_file, {
-            "run_id": run_id,
+            "run_id": invocation_id,
             "pr": pr,
             "routed_outcome": record.routed_outcome.value,
             "undetermined_reason": (
@@ -168,7 +168,7 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
     # rule R5 compares them. Freshness by path allocation (below) and identity
     # in the payload are two independent checks, and the second is the one that
     # catches a record arriving on a CORRECT path from a DIFFERENT invocation.
-    run_id = uuid.uuid4().hex
+    invocation_id = uuid.uuid4().hex
 
     prompt = helper.render_prompt(
         assembled,
@@ -177,7 +177,7 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
         this_pass=this_pass,
         prior_pass=prior_pass,
         headless_guard=act.load_shared_block("HEADLESS_EXECUTION_GUARD", SHARED_PROMPTS),
-        run_id=run_id,
+        invocation_id=invocation_id,
     )
 
     # The reviewer must read the PR's branch, not the repo's checkout.
@@ -189,7 +189,7 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
     # workflow is the concurrent-dispatch case `claude_log_path`'s docstring
     # describes, so passing the run_id is what makes the name unique here and
     # makes the filename greppable against the record it carries.
-    log_file = _shared.claude_log_path(worktree, helper.MODEL_KEY, run_id=run_id)
+    log_file = _shared.claude_log_path(worktree, helper.MODEL_KEY, invocation_id=invocation_id)
     # WRAPPED SO THE PAIR IS RECORDED ON BOTH OUTCOMES (`C-45bhs5cm`). The
     # completion gate fires on the PROSE channel's PR URL, so a prose failure
     # killed this parent before it could record that the TYPED channel had
@@ -204,10 +204,10 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
             # The SAME nonce that named the log and that the child echoes into
             # the record, so all three of the run log's member events agree on
             # it. `run_claude` refuses a log_file with no run_id for that reason.
-            run_id=run_id,
+            invocation_id=invocation_id,
         )
     except Exception:
-        _append_shadow_pair(log_file, run_id=run_id, pr=task.pr_number,
+        _append_shadow_pair(log_file, invocation_id=invocation_id, pr=task.pr_number,
                             expected_ref=expected_ref)
         raise
 
@@ -225,7 +225,7 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
     # way to choose another. Re-asserting it after the fact would compare the
     # parent's own value against itself.
     record = exit_record.route(
-        _shared.result_event(log_file), expected_run_id=run_id,
+        _shared.result_event(log_file), expected_invocation_id=invocation_id,
         expected_ref=expected_ref,
     )
     verdict = helper.verdict_from_record(record)
@@ -268,7 +268,7 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
     # and re-parsing there would give the two paths different code, and the
     # path that runs rarely is the one that would drift. Identical code on both
     # is worth one extra read of a local file that is already in page cache.
-    _append_shadow_pair(log_file, run_id=run_id, pr=task.pr_number,
+    _append_shadow_pair(log_file, invocation_id=invocation_id, pr=task.pr_number,
                         expected_ref=expected_ref)
 
     # BUILT BEFORE THE RAISE, NOT AFTER IT, AND THAT ORDERING IS A FIX RATHER
@@ -403,7 +403,7 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
             # write-time gate. This is that gate. THE TYPED REGION WINS; the
             # block is its rendering.
             _assert_block_matches_record(
-                task.pr_number, record, prior_pass, posted, blocks, run_id
+                task.pr_number, record, prior_pass, posted, blocks, invocation_id
             )
             # THE DEGRADATION IS REPORTED, because a selection that fell back to
             # position looks exactly like one that matched on the nonce. The
@@ -418,7 +418,7 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
             # record-to-string site the docstring's count does not name.
             notes.extend(
                 n for n in
-                [helper.positional_fallback_note(task.pr_number, blocks, run_id)]
+                [helper.positional_fallback_note(task.pr_number, blocks, invocation_id)]
                 if n is not None
             )
 
@@ -441,16 +441,16 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
     # rate limit as a degraded review, and the computed arm's whole instrument
     # is the state GROUPED BY its reason — the same defect this component
     # recorded at R2 and again at R1a.
-    this_block = helper.this_pass_block(blocks, run_id) if blocks is not None else None
+    this_block = helper.this_pass_block(blocks, invocation_id) if blocks is not None else None
     assessment = convergence.assess(
-        helper.convergence_history(blocks, record, run_id) if blocks is not None else (),
+        helper.convergence_history(blocks, record, invocation_id) if blocks is not None else (),
         pass_evaluable=evaluable,
     )
     asserted = (helper.asserted_converged_in_block(this_block)
                 if this_block is not None else None)
     agrees = helper.shadow_agreement(assessment, asserted)
     _shared.append_convergence(log_file, _convergence_event(
-        run_id=run_id, pr_number=task.pr_number, assessment=assessment,
+        invocation_id=invocation_id, pr_number=task.pr_number, assessment=assessment,
         asserted=asserted, agrees=agrees,
     ))
     # `extend`, not an `if`: the routing function must contain NO conditional
@@ -474,7 +474,7 @@ CONVERGENCE_ENVELOPE_KEYS = frozenset(
 )
 
 
-def _convergence_event(*, run_id: str, pr_number: str,
+def _convergence_event(*, invocation_id: str, pr_number: str,
                        assessment: convergence.ConvergenceAssessment,
                        asserted: bool | None, agrees: bool | None) -> dict:
     """The `{"type": "convergence"}` payload — envelope keys plus the assessment.
@@ -509,7 +509,7 @@ def _convergence_event(*, run_id: str, pr_number: str,
             f"CONVERGENCE_ENVELOPE_KEYS with the reason."
         )
     return {
-        "run_id": run_id,
+        "run_id": invocation_id,
         "pr": pr_number,
         # DERIVED from the assessment, never retyped here — a field added to
         # `ConvergenceAssessment` for a later gating decision must not be able to
@@ -688,7 +688,7 @@ def _thread_unreadable_note(pr_number: str, record: exit_record.ExitRecord,
 def _assert_block_matches_record(pr_number: str,
                                  record: exit_record.ExitRecord,
                                  prior_pass: int, posted: int,
-                                 blocks: list[str], run_id: str) -> None:
+                                 blocks: list[str], invocation_id: str) -> None:
     """Fail loud when the durable render and the typed record disagree on findings.
 
     RAISES OR RETURNS. The could-not-check third outcome lives in
@@ -730,7 +730,7 @@ def _assert_block_matches_record(pr_number: str,
     # its two siblings. Since Phase 4 that accessor matches on the RUN NONCE
     # where the thread carries it, so this check and the convergence history are
     # both addressed by identity or both by position — never one of each.
-    block = helper.this_pass_block(blocks, run_id)
+    block = helper.this_pass_block(blocks, invocation_id)
     if posted <= prior_pass:
         raise RuntimeError(
             f"PR #{pr_number}: the run produced a typed exit record but posted no new "

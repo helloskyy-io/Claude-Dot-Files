@@ -201,7 +201,12 @@ def test_every_record_carries_identity_and_time() -> None:
     makes every AGGREGATE reading unsound, which is the only reading this data
     exists for.
     """
-    r = rt.finish(None, limits={}, unmeasured_reason="x", run_id="abc", model_key="review-pr")
+    r = rt.finish(None, limits={}, unmeasured_reason="x", invocation_id="abc", model_key="review-pr")
+    # THE PARAMETER IS `invocation_id`, THE FIELD IS `run_id`, AND THAT SEAM IS
+    # DELIBERATE (Phase 9 r1): the field name is written straight into
+    # `.claude/logs/*.jsonl` by `asdict`, where three replay readers read it
+    # out of records that already exist. Asserting across the seam is what
+    # keeps both halves honest.
     assert r.run_id == "abc" and r.model_key == "review-pr"
     assert r.started_at and r.ended_at, "a record with no time cannot be ordered"
     from datetime import datetime

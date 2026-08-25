@@ -151,7 +151,18 @@ _HERE = Path(__file__).resolve().parent
 # routes through `read_text` and so proved nothing about a predicate that had
 # started answering unconditionally. The predicate is now split so a control
 # can drive it on a literal, which is what this rule has always asked for.
-_PINNED = (28, 17)
+# 29 -> 30 and 18 -> 19 for `test_a_refused_bag_mutation_CHANGES_NOTHING`, which
+# arrived WITH its control because this census refused it without one. Both
+# numbers move together, which is the shape a correctly-built new guard makes.
+#
+# 30 -> 31 AND 19 -> 20 AT THIS MERGE, and the number is DERIVED rather than
+# picked. `main` and this branch each added one controlled guard while the other
+# was open, so both sides raised the pin and neither side's figure is right for
+# the merged tree: this branch wrote (30, 19), `main` wrote (28, 17), and the
+# tree holds 31 and 20. Resolved by running the census and reading what it found,
+# because a pin is a COUNT OF THE TREE and a conflict here has exactly one
+# correct answer that neither parent knows.
+_PINNED = (31, 20)
 
 
 # GRANDFATHERED — walks the tree, has no literal control, PREDATES this rule.

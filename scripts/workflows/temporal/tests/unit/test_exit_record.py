@@ -80,7 +80,7 @@ def test_a_valid_record_routes_as_the_record_says() -> None:
     Without this, a router that returned `undetermined` unconditionally would
     satisfy every other test in this file.
     """
-    routed = er.route(_envelope(), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+    routed = er.route(_envelope(), expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.routed_outcome is er.RoutedOutcome.MERGE
     assert routed.undetermined_reason is None
     assert routed.outcome is er.Outcome.MERGE
@@ -93,7 +93,7 @@ def test_a_hold_routes_on_its_sub_kind_not_on_hold_alone() -> None:
                            ("needs_ruling", routing.Verdict.HOLD_NEEDS_ASSISTANCE)):
         routed = er.route(
             _envelope(_record(outcome="hold", hold_kind=kind)),
-            expected_run_id=RUN_ID, expected_ref=EXPECTED_REF,
+            expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF,
         )
         assert routed.routed_outcome is er.RoutedOutcome.HOLD
         assert routed.hold_kind is er.HoldKind(kind)
@@ -137,14 +137,14 @@ def test_every_outcome_by_hold_kind_cell_routes_deliberately(
         "the cell must be REACHABLE — a record the schema rejects would be "
         "caught at R3 and would prove nothing about R6-R9"
     )
-    routed = er.route(_envelope(record), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+    routed = er.route(_envelope(record), expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.routed_outcome is expected_route
     assert routed.undetermined_reason is expected_reason
 
 
 def test_record_absent_routes_to_the_human_arm() -> None:
     """R2 — and the run it fires on did not necessarily die."""
-    routed = er.route(_envelope(record=None), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+    routed = er.route(_envelope(record=None), expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.routed_outcome is er.RoutedOutcome.UNDETERMINED
     assert routed.undetermined_reason is er.UndeterminedReason.RECORD_ABSENT
 
@@ -160,7 +160,7 @@ def test_record_absent_fires_on_a_clean_success_run() -> None:
     clean = {"type": "result", "subtype": "success", "is_error": False,
              "result": "I can't call the tool with that value — could you clarify?",
              "permission_denials": []}
-    routed = er.route(clean, expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+    routed = er.route(clean, expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.undetermined_reason is er.UndeterminedReason.RECORD_ABSENT
 
 
@@ -177,7 +177,7 @@ def test_record_unparseable_routes_to_the_human_arm(mutation: dict) -> None:
     CHILD_SCHEMA and each keyword it implements is a separate branch: one
     passing case would leave three unexercised.
     """
-    routed = er.route(_envelope(_record(**mutation)), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+    routed = er.route(_envelope(_record(**mutation)), expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.routed_outcome is er.RoutedOutcome.UNDETERMINED
     assert routed.undetermined_reason is er.UndeterminedReason.RECORD_UNPARSEABLE
 
@@ -185,7 +185,7 @@ def test_record_unparseable_routes_to_the_human_arm(mutation: dict) -> None:
 def test_a_missing_required_top_level_field_is_unparseable() -> None:
     record = _record()
     del record["run_id"]
-    routed = er.route(_envelope(record), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+    routed = er.route(_envelope(record), expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.undetermined_reason is er.UndeterminedReason.RECORD_UNPARSEABLE
 
 
@@ -198,14 +198,14 @@ def test_record_stale_routes_to_the_human_arm() -> None:
     nonce rather than reading one out of the record.
     """
     routed = er.route(_envelope(_record(run_id="a-previous-invocation")),
-                      expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+                      expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.routed_outcome is er.RoutedOutcome.UNDETERMINED
     assert routed.undetermined_reason is er.UndeterminedReason.RECORD_STALE
 
 
 def test_unknown_schema_version_routes_to_the_human_arm() -> None:
     """R4 — parses cleanly, means something else."""
-    routed = er.route(_envelope(_record(schema_version="99")), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+    routed = er.route(_envelope(_record(schema_version="99")), expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.routed_outcome is er.RoutedOutcome.UNDETERMINED
     assert routed.undetermined_reason is er.UndeterminedReason.SCHEMA_VERSION_UNKNOWN
 
@@ -218,7 +218,7 @@ def test_an_unknown_version_is_ruled_before_identity() -> None:
     value one may compare. Swap the two rules and this goes red.
     """
     routed = er.route(_envelope(_record(schema_version="99", run_id="other")),
-                      expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+                      expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.undetermined_reason is er.UndeterminedReason.SCHEMA_VERSION_UNKNOWN
 
 
@@ -236,7 +236,7 @@ def test_a_permission_denial_routes_to_the_human_arm_and_never_to_redispatch() -
     """
     denial = {"tool_name": "Bash", "tool_use_id": "toolu_01CsEb",
               "tool_input": {"command": "sudo ls /root"}}
-    routed = er.route(_envelope(denials=[denial]), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+    routed = er.route(_envelope(denials=[denial]), expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.routed_outcome is er.RoutedOutcome.UNDETERMINED
     assert routed.undetermined_reason is er.UndeterminedReason.PERMISSION_DENIED
 
@@ -250,7 +250,7 @@ def test_a_denial_is_ruled_before_an_absent_record() -> None:
     """
     envelope = _envelope(record=None, denials=[{"tool_name": "Bash",
                                                 "tool_use_id": "toolu_01CsEb"}])
-    routed = er.route(envelope, expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+    routed = er.route(envelope, expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.undetermined_reason is er.UndeterminedReason.PERMISSION_DENIED
 
 
@@ -263,7 +263,7 @@ def test_an_absent_denials_key_is_not_read_as_an_empty_list() -> None:
     """
     envelope = _envelope()
     del envelope["permission_denials"]
-    routed = er.route(envelope, expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+    routed = er.route(envelope, expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.routed_outcome is er.RoutedOutcome.UNDETERMINED
     assert routed.undetermined_reason is er.UndeterminedReason.DENIALS_UNREADABLE
 
@@ -276,7 +276,7 @@ def test_a_denials_key_that_is_not_a_list_is_unreadable_rather_than_a_denial() -
     not check, and saying it fired would be an assertion about a control that
     was never read.
     """
-    routed = er.route(_envelope(denials={"count": 0}), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+    routed = er.route(_envelope(denials={"count": 0}), expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.routed_outcome is er.RoutedOutcome.UNDETERMINED
     assert routed.undetermined_reason is er.UndeterminedReason.DENIALS_UNREADABLE
 
@@ -299,8 +299,8 @@ def test_R1s_two_branches_report_DIFFERENT_reasons() -> None:
     del unreadable["permission_denials"]
     fired = _envelope(denials=[{"tool_name": "Bash", "tool_use_id": "toolu_01CsEb"}])
 
-    a = er.route(unreadable, expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
-    b = er.route(fired, expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+    a = er.route(unreadable, expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF)
+    b = er.route(fired, expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF)
 
     assert a.routed_outcome is b.routed_outcome is er.RoutedOutcome.UNDETERMINED, (
         "the SPLIT MUST NOT MOVE THE ROUTING — safety still dominates, and both "
@@ -320,7 +320,7 @@ def test_a_denial_entry_that_is_not_an_object_does_not_crash_the_contract() -> N
     inside the routing contract — and the caller's handler does not catch it, so
     the operator would get a traceback instead of a routed record.
     """
-    routed = er.route(_envelope(denials=["Bash"]), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+    routed = er.route(_envelope(denials=["Bash"]), expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.undetermined_reason is er.UndeterminedReason.PERMISSION_DENIED
     assert len(routed.permission_denials) == 1, "an unreadable entry is still an entry"
 
@@ -357,7 +357,7 @@ NON_CONFORMING = ([], "x", 5, True, 0.5, (), set(), object())
 TOTALITY_PROBES = {
     # `route`'s own parameter. The annotation says `dict | None`; the values
     # below are what actually arrives when a CLI changes the envelope's shape.
-    "route": lambda v: er.route(v, expected_run_id=RUN_ID, expected_ref=EXPECTED_REF),
+    "route": lambda v: er.route(v, expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF),
     # `_redact`'s parameter is a `list` (R1 guarantees that much), so its own
     # inputs are the ENTRIES — which R1 cannot check. Probing it with a non-list
     # would test a contract it does not make.
@@ -395,13 +395,13 @@ def test_route_bins_an_UNREADABLE_ENVELOPE_apart_from_an_absent_record() -> None
     machinery failure there is (a run killed mid-stream), so a CLI that stopped
     emitting an object would report as a fleet dying mid-stream on 100% of runs.
     """
-    routed = er.route([], expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+    routed = er.route([], expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.routed_outcome is er.RoutedOutcome.UNDETERMINED
     assert routed.undetermined_reason is er.UndeterminedReason.ENVELOPE_UNREADABLE, (
         "an unreadable envelope shares a bin with another condition again — the "
         "computed arm's per-reason rate cannot separate them"
     )
-    assert er.route(None, expected_run_id=RUN_ID, expected_ref=EXPECTED_REF).undetermined_reason \
+    assert er.route(None, expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF).undetermined_reason \
         is er.UndeterminedReason.RECORD_ABSENT, (
         "negative control: a genuinely absent event must NOT have moved bins"
     )
@@ -456,7 +456,7 @@ def test_no_result_event_at_all_is_an_ABSENT_record_not_a_denial() -> None:
     hunting a denied tool call that never happened and mis-bins every one of
     them in step 4's per-reason rate.
     """
-    routed = er.route(None, expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+    routed = er.route(None, expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.routed_outcome is er.RoutedOutcome.UNDETERMINED
     assert routed.undetermined_reason is er.UndeterminedReason.RECORD_ABSENT
 
@@ -481,7 +481,7 @@ def test_the_residual_arm_is_reachable_and_named() -> None:
     conditionally required by prose, not by the schema, precisely so the child
     can always fill the schema) and matches none of R6-R8.
     """
-    routed = er.route(_envelope(_record(outcome="hold")), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+    routed = er.route(_envelope(_record(outcome="hold")), expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.routed_outcome is er.RoutedOutcome.UNDETERMINED
     assert routed.undetermined_reason is er.UndeterminedReason.UNMATCHED
 
@@ -503,7 +503,7 @@ def test_tool_input_is_dropped_at_read_time_and_has_no_copy_to_leak() -> None:
     """
     denial = {"tool_name": "Bash", "tool_use_id": "toolu_01CsEb",
               "tool_input": {"command": "sudo ls /root/.ssh"}}
-    routed = er.route(_envelope(denials=[denial]), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+    routed = er.route(_envelope(denials=[denial]), expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.permission_denials == (
         {"tool_name": "Bash", "tool_use_id": "toolu_01CsEb"},)
     assert "sudo ls /root/.ssh" not in json.dumps(routed.permission_denials)
@@ -522,7 +522,7 @@ def test_a_denial_field_that_is_not_a_string_does_not_crash_the_CONSUMER() -> No
     """
     routed = er.route(
         _envelope(denials=[{"tool_name": {"nested": "dict"}, "tool_use_id": 7}]),
-        expected_run_id=RUN_ID, expected_ref=EXPECTED_REF,
+        expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF,
     )
     assert all(isinstance(v, str) for d in routed.permission_denials for v in d.values())
     # The two operations the consumer actually performs, run here rather than described.
@@ -619,15 +619,19 @@ def test_the_log_is_NAMED_with_the_nonce_the_parent_issued(monkeypatch, tmp_path
 
     seen: dict = {}
 
-    def _alloc(repo_root, model_key, *, run_id):
-        seen.update(repo_root=repo_root, model_key=model_key, run_id=run_id)
+    def _alloc(repo_root, model_key, *, invocation_id):
+        seen.update(repo_root=repo_root, model_key=model_key, invocation_id=invocation_id)
         return tmp_path / "run.jsonl"
 
     monkeypatch.setattr(wf._shared, "claude_log_path", _alloc)
     wf.run_review(ReviewInput(pr_number="67"), tmp_path)
 
-    assert seen.get("run_id"), "the allocation got no run identity — the name is shared again"
-    assert seen["run_id"] == fake.run_id, (
+    # A LOCAL SPY DICT, NOT A WIRE RECORD, so its key follows the parameter name
+    # rather than the archived field: `claude_log_path` takes `invocation_id`
+    # since Phase 9 r1, and this asserts what the workflow actually passed.
+    assert seen.get("invocation_id"), (
+        "the allocation got no invocation identity — the name is shared again")
+    assert seen["invocation_id"] == fake.invocation_id, (
         "the log's nonce and the nonce in the prompt differ, so the filename no "
         "longer locates the record it carries"
     )
@@ -1721,7 +1725,7 @@ def test_a_record_naming_another_REPOSITORY_routes_to_the_human_arm() -> None:
         "substrate": "github", "kind": "pull", "id": "67",
         "uri": "https://github.com/someone-else/other-repo/pull/67",
     })
-    routed = er.route(_envelope(elsewhere), expected_run_id=RUN_ID,
+    routed = er.route(_envelope(elsewhere), expected_invocation_id=RUN_ID,
                       expected_ref=EXPECTED_REF)
     assert routed.routed_outcome is er.RoutedOutcome.UNDETERMINED
     assert routed.undetermined_reason is er.UndeterminedReason.COMPLETION_REF_MISMATCH
@@ -1738,7 +1742,7 @@ def test_a_record_naming_another_PR_IN_THIS_REPO_routes_to_the_human_arm() -> No
         "substrate": "github", "kind": "pull", "id": "99",
         "uri": "https://github.com/owner/repo/pull/99",
     })
-    routed = er.route(_envelope(other_pr), expected_run_id=RUN_ID,
+    routed = er.route(_envelope(other_pr), expected_invocation_id=RUN_ID,
                       expected_ref=EXPECTED_REF)
     assert routed.undetermined_reason is er.UndeterminedReason.COMPLETION_REF_MISMATCH
 
@@ -1769,7 +1773,7 @@ def test_EACH_reference_field_is_compared_on_its_own(field: str, wrong: str) -> 
     ref = dict(EXPECTED_REF)
     ref[field] = wrong
     routed = er.route(_envelope(_record(completion_ref=ref)),
-                      expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+                      expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.undetermined_reason is er.UndeterminedReason.COMPLETION_REF_MISMATCH, (
         f"a record whose completion_ref.{field} is {wrong!r} while every other "
         f"field matches routed as though it were the record this run is about"
@@ -1779,7 +1783,7 @@ def test_EACH_reference_field_is_compared_on_its_own(field: str, wrong: str) -> 
 def test_a_matching_reference_routes_NORMALLY() -> None:
     """The control. Without it a router that returned UNDETERMINED on every
     record would pass both tests above."""
-    routed = er.route(_envelope(), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+    routed = er.route(_envelope(), expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.routed_outcome is er.RoutedOutcome.MERGE
     assert routed.undetermined_reason is None
 
@@ -1799,7 +1803,7 @@ def test_the_uri_compares_by_IDENTITY_and_not_byte_for_byte(uri: str) -> None:
     """
     routed = er.route(_envelope(_record(completion_ref={
         "substrate": "github", "kind": "pull", "id": "67", "uri": uri,
-    })), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+    })), expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.routed_outcome is er.RoutedOutcome.MERGE, (
         f"{uri!r} names the PR under review and was rejected on formatting"
     )
@@ -1810,7 +1814,7 @@ def test_a_uri_that_is_not_a_pr_url_at_all_routes_to_the_human_arm() -> None:
     everywhere else. An unparseable reference is not a matching one."""
     routed = er.route(_envelope(_record(completion_ref={
         "substrate": "github", "kind": "pull", "id": "67", "uri": "not a url",
-    })), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+    })), expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.undetermined_reason is er.UndeterminedReason.COMPLETION_REF_MISMATCH
 
 
@@ -1829,7 +1833,7 @@ def test_staleness_is_ruled_BEFORE_reference_identity() -> None:
         "substrate": "github", "kind": "pull", "id": "99",
         "uri": "https://github.com/someone-else/other-repo/pull/99",
     })
-    routed = er.route(_envelope(both_wrong), expected_run_id=RUN_ID,
+    routed = er.route(_envelope(both_wrong), expected_invocation_id=RUN_ID,
                       expected_ref=EXPECTED_REF)
     assert routed.undetermined_reason is er.UndeterminedReason.RECORD_STALE, (
         "a record whose identity is unknown has no reference worth comparing"
@@ -1843,12 +1847,12 @@ def test_the_mismatch_carries_the_ref_the_child_NAMED() -> None:
     elsewhere = {"substrate": "github", "kind": "pull", "id": "67",
                  "uri": "https://github.com/someone-else/other-repo/pull/67"}
     routed = er.route(_envelope(_record(completion_ref=elsewhere)),
-                      expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+                      expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.completion_ref == elsewhere
     note = helper.completion_ref_mismatch_note(routed, EXPECTED_REF)
     assert note is not None and "someone-else/other-repo" in note
     assert helper.completion_ref_mismatch_note(
-        er.route(_envelope(), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF),
+        er.route(_envelope(), expected_invocation_id=RUN_ID, expected_ref=EXPECTED_REF),
         EXPECTED_REF,
     ) is None, "the note must be silent when R5b did not fire"
 
@@ -1962,7 +1966,7 @@ def test_expected_ref_None_states_that_the_caller_CANNOT_check() -> None:
         "substrate": "github", "kind": "pull", "id": "99",
         "uri": "https://github.com/someone-else/other-repo/pull/99",
     })
-    routed = er.route(_envelope(elsewhere), expected_run_id=RUN_ID, expected_ref=None)
+    routed = er.route(_envelope(elsewhere), expected_invocation_id=RUN_ID, expected_ref=None)
     assert routed.routed_outcome is er.RoutedOutcome.MERGE
 
 
@@ -1982,7 +1986,7 @@ def test_route_cannot_be_called_without_STATING_an_expected_ref() -> None:
         "gate below meaningful"
     )
     with pytest.raises(TypeError):
-        er.route(_envelope(), expected_run_id=RUN_ID)
+        er.route(_envelope(), expected_invocation_id=RUN_ID)
 
 
 def test_every_production_caller_of_route_states_its_expected_ref() -> None:
@@ -2052,7 +2056,7 @@ def test_the_prompt_asks_for_the_run_nonce_the_parent_matches_blocks_BY() -> Non
     # example of what it might look like.
     rendered = helper.render_prompt(
         prompt, pr_number="67", pr_branch="b", this_pass=1, prior_pass=0,
-        headless_guard="g", run_id="0123456789abcdef0123456789abcdef",
+        headless_guard="g", invocation_id="0123456789abcdef0123456789abcdef",
     )
     assert helper.run_id_in_block(rendered) == "0123456789abcdef0123456789abcdef", (
         "the prompt's rendered `run_id:` line is not what RUN_ID_IN_BLOCK reads"
@@ -2340,7 +2344,7 @@ def test_the_pair_is_RECORDED_when_the_completion_gate_kills_the_run(monkeypatch
                         lambda _log, row: rows.append(row))
 
     def _gate_fails(prompt, *a, **k):
-        fake.run_id = _nonce_in(prompt)
+        fake.invocation_id = _nonce_in(prompt)
         raise RuntimeError("review-pr FAILED (exit 1). completion pattern not found")
 
     monkeypatch.setattr(act, "run_disposition", _gate_fails)
@@ -2359,7 +2363,7 @@ def test_the_pair_is_RECORDED_when_the_completion_gate_kills_the_run(monkeypatch
         f"prose channel produced no verdict at all — an absent prose verdict is "
         f"a DISAGREEMENT, not an agreement"
     )
-    assert row["run_id"] == fake.run_id, "the row is not joinable to the run that produced it"
+    assert row["run_id"] == fake.invocation_id, "the row is not joinable to the run that produced it"
 
 
 def test_the_completion_gate_still_FAILS_the_run(monkeypatch, tmp_path):
@@ -2377,7 +2381,7 @@ def test_the_completion_gate_still_FAILS_the_run(monkeypatch, tmp_path):
     monkeypatch.setattr(wf._shared, "append_parent_route", lambda *a, **k: None)
 
     def _boom(prompt, *a, **k):
-        fake.run_id = _nonce_in(prompt)
+        fake.invocation_id = _nonce_in(prompt)
         raise RuntimeError("the original failure, verbatim")
 
     monkeypatch.setattr(act, "run_disposition", _boom)
@@ -2404,7 +2408,7 @@ def test_an_UNREADABLE_log_does_not_stack_a_second_failure(monkeypatch, tmp_path
     monkeypatch.setattr(wf._shared, "result_event", _unreadable)
 
     def _boom(prompt, *a, **k):
-        fake.run_id = _nonce_in(prompt)
+        fake.invocation_id = _nonce_in(prompt)
         raise RuntimeError("the original failure")
 
     monkeypatch.setattr(act, "run_disposition", _boom)

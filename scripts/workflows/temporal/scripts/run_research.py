@@ -5,6 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from preflight import RepoPathParser  # noqa: E402
+from dispatch_identity import add_identity_arguments, resolve_identity  # noqa: E402
 from modules.assistant import assistant_activities as act_shared  # noqa: E402
 from modules.journal import journal_activities as journal  # noqa: E402
 from modules.assistant.research.research import research_workflow as rw  # noqa: E402
@@ -41,6 +42,7 @@ def main(argv=None) -> int:
     p.add_argument("--verbose", "-v", action="store_true")
     p.add_argument("--dry-run", action="store_true", help="compute the gate and render; no model, no spend")
 
+    add_identity_arguments(p)
     try:
         a, repo_root, resolved = p.parse_with_preflight(argv)
         # READ HERE, INSIDE THIS try, so a bad `--task-file` prints the same
@@ -84,7 +86,13 @@ def main(argv=None) -> int:
         # that enforces it can and cannot see: `journal_activities.py`'s module
         # docstring and `tests/unit/test_every_parent_opens_a_run_bag.py`. Said
         # once there rather than eleven times here.
-        journal.open_run_bag(run_id=journal.mint_run_id(), repo_root=repo_root,
+        # PHASE 9 r2 and r4 — the run's NAME arrives from outside this
+        # process, and `writer` says whether this invocation IS the run or
+        # is part of one. Why both, and where a name comes from when no
+        # orchestrator supplies it: `dispatch_identity.py`. Said once there.
+        identity = resolve_identity(argv)
+        journal.open_run_bag(run_id=identity.run_id, writer=identity.writer,
+                             repo_root=repo_root,
                              workflow_key="research", worktree_name=wt)
 
         result = rr.run_research_refresh(research_dir=research_dir, repo_root=repo_root,

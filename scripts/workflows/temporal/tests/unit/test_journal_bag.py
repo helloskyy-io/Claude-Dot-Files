@@ -255,7 +255,13 @@ def test_a_redaction_reason_carrying_a_NEWLINE_is_refused(root: Path) -> None:
     (bag.writer_dir("child") / "a").write_text("x")
     with pytest.raises(BagError) as exc:
         bag.redact("data/child/a", "reason\nJournal-Incomplete: true")
-    assert "newline" in str(exc.value)
+    # THE MESSAGE NO LONGER SAYS "newline", AND THAT IS THE CHANGE RATHER THAN A
+    # REGRESSION. Phase 9 r6 redefined the guard against `read_tag_file`'s own
+    # parser instead of a list of newline characters: `str.splitlines()` breaks
+    # on EIGHT more than `\n` and `\r`, and every one of them passed the check
+    # that shipped and forged a second entry. The property asserted here is the
+    # round trip; the full derived battery is `test_journal_tag_lines.py`.
+    assert "round trip" in str(exc.value)
     assert not bag.incomplete, "the forged flag must not have landed"
 
 
@@ -408,7 +414,13 @@ def test_a_NEWLINE_in_bag_info_metadata_is_refused_at_CREATION_too(root: Path) -
     """
     with pytest.raises(BagError) as exc:
         open_bag(root, "r", info={"Journal-Worktree": "wt\nJournal-Incomplete: true"})
-    assert "newline" in str(exc.value)
+    # THE MESSAGE NO LONGER SAYS "newline", AND THAT IS THE CHANGE RATHER THAN A
+    # REGRESSION. Phase 9 r6 redefined the guard against `read_tag_file`'s own
+    # parser instead of a list of newline characters: `str.splitlines()` breaks
+    # on EIGHT more than `\n` and `\r`, and every one of them passed the check
+    # that shipped and forged a second entry. The property asserted here is the
+    # round trip; the full derived battery is `test_journal_tag_lines.py`.
+    assert "round trip" in str(exc.value)
 
 
 @pytest.mark.parametrize("label", ["Event-Schema-Version", "External-Identifier",

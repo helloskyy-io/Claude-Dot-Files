@@ -310,7 +310,7 @@ def run_id_in_block(block: str) -> str | None:
     return match.group(1) if match else None
 
 
-def _this_pass_index(window: Sequence[str], run_id: str) -> tuple[int | None, bool]:
+def _this_pass_index(window: Sequence[str], invocation_id: str) -> tuple[int | None, bool]:
     """WHICH block in the thread's window is this pass's, and HOW it was decided.
 
     Returns `(index, by_identity)`. `by_identity` is True when the block was
@@ -364,11 +364,11 @@ def _this_pass_index(window: Sequence[str], run_id: str) -> tuple[int | None, bo
     """
     if not window:
         return None, False
-    matches = [i for i, block in enumerate(window) if run_id_in_block(block) == run_id]
+    matches = [i for i, block in enumerate(window) if run_id_in_block(block) == invocation_id]
     if len({window[i] for i in matches}) > 1:
         raise RuntimeError(
             f"{len(matches)} DIFFERING `pr_review:` blocks on this thread claim "
-            f"run_id {run_id!r} (window positions {matches}). One run has one "
+            f"run_id {invocation_id!r} (window positions {matches}). One run has one "
             f"rendering; choosing between conflicting ones by position would be "
             f"the positional inference this nonce replaced, wearing its name. "
             f"Byte-identical duplicates are resolved silently — these are not. "
@@ -379,13 +379,13 @@ def _this_pass_index(window: Sequence[str], run_id: str) -> tuple[int | None, bo
     return len(window) - 1, False
 
 
-def this_pass_block(window: Sequence[str], run_id: str) -> str | None:
+def this_pass_block(window: Sequence[str], invocation_id: str) -> str | None:
     """The block THIS pass posted, out of the thread's window. None if empty."""
-    index, _ = _this_pass_index(window, run_id)
+    index, _ = _this_pass_index(window, invocation_id)
     return window[index] if index is not None else None
 
 
-def this_pass_selected_by_identity(window: Sequence[str], run_id: str) -> bool:
+def this_pass_selected_by_identity(window: Sequence[str], invocation_id: str) -> bool:
     """Did the nonce decide which block is this pass's, or did position?
 
     THE THIRD DERIVATION OF THE SAME ANSWER, and it reads the same call rather
@@ -399,23 +399,23 @@ def this_pass_selected_by_identity(window: Sequence[str], run_id: str) -> bool:
     instance of exactly the re-derivation the docstring two functions up says
     must be unwritable, in the accessor a fourth consumer would copy.
     """
-    return _this_pass_index(window, run_id)[1]
+    return _this_pass_index(window, invocation_id)[1]
 
 
-def prior_pass_blocks(window: Sequence[str], run_id: str) -> tuple[str, ...]:
+def prior_pass_blocks(window: Sequence[str], invocation_id: str) -> tuple[str, ...]:
     """Every block in the window EXCEPT this pass's. The typed record replaces it.
 
     The complement of `this_pass_block`, derived from the SAME index rather than
     from its own slice — see `_this_pass_index` for why that is the property and
     not a tidiness preference.
     """
-    index, _ = _this_pass_index(window, run_id)
+    index, _ = _this_pass_index(window, invocation_id)
     return tuple(window[:index]) if index is not None else ()
 
 
 def convergence_history(window: Sequence[str],
                         record: exit_record.ExitRecord,
-                        run_id: str,
+                        invocation_id: str,
                         ) -> tuple[tuple[tuple[str, str], ...], ...]:
     """This PR's passes oldest-first, as `(id, disposition)` pairs per pass.
 
@@ -450,7 +450,7 @@ def convergence_history(window: Sequence[str],
     """
     return tuple(
         [tuple(sorted(finding_dispositions_in_block(b)))
-         for b in prior_pass_blocks(window, run_id)]
+         for b in prior_pass_blocks(window, invocation_id)]
         + [tuple(sorted((f["id"], f["disposition"]) for f in record.findings))]
     )
 
@@ -565,7 +565,7 @@ def completion_ref_mismatch_note(record: exit_record.ExitRecord,
 
 
 def positional_fallback_note(pr_number: str, window: Sequence[str],
-                             run_id: str) -> str | None:
+                             invocation_id: str) -> str | None:
     """The operator line for a block selection that degraded to position, or None.
 
     A FUNCTION AND NOT AN INLINE `if` IN THE WORKFLOW, for the reason its two
@@ -576,12 +576,12 @@ def positional_fallback_note(pr_number: str, window: Sequence[str],
     name — so the extraction that count exists to make atomic would have moved
     five and left one.
     """
-    if this_pass_selected_by_identity(window, run_id):
+    if this_pass_selected_by_identity(window, invocation_id):
         return None
     return (
         f"PR #{pr_number}: this pass's `pr_review:` block was selected BY "
         f"POSITION, not by the run nonce — no block on the thread carries "
-        f"`run_id: {run_id}`. The render↔record invariant and the convergence "
+        f"`run_id: {invocation_id}`. The render↔record invariant and the convergence "
         f"history still ran, on the last block of the window. Expected on a "
         f"thread whose passes predate the field; on a fresh pass it means the "
         f"child did not echo the nonce into its durable block, OR that its own "
@@ -610,7 +610,7 @@ def verdict_from_record(record: exit_record.ExitRecord) -> Verdict:
 
 def render_prompt(template: str, *, pr_number: str, pr_branch: str,
                   this_pass: int, prior_pass: int, headless_guard: str,
-                  run_id: str) -> str:
+                  invocation_id: str) -> str:
     """Substitute the prompt's six placeholders.
 
     Deliberately NOT str.format() or an f-string: the prompt is 283 lines of
@@ -629,7 +629,7 @@ def render_prompt(template: str, *, pr_number: str, pr_branch: str,
         # typed record and be compared against what this invocation issued —
         # rule R5. A record that echoes a different nonce is well-formed and
         # belongs to a different invocation.
-        "RUN_ID": run_id,
+        "RUN_ID": invocation_id,
     }
     rendered = template
     for name, value in values.items():

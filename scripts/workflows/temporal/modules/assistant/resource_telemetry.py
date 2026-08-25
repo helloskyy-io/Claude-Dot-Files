@@ -102,6 +102,15 @@ class ResourceReport:
     # them on 2026-08-10 and caught in review the same day; the omission would
     # have made every aggregate reading of this field unsound while looking
     # perfectly well-formed at the single-record level.
+    # ⚠ THE WIRE SPELLING OF THE PER-MODEL-INVOCATION NONCE, AND IT IS NOT THE
+    # JOURNAL'S RUN ID. `asdict` writes this field name straight into
+    # `.claude/logs/*.jsonl`, where `run_log.JOIN_KEY` and three `replay_*`
+    # readers read it out of records that already exist — so it keeps the name
+    # while every Python identifier holding the same value is now
+    # `invocation_id` (Phase 9 r1). The roadmap's standards-amendment 4
+    # schedules this field's MEANING change — per-invocation to per-run — for
+    # Persistent Memory Protocol Phase 3's cut-over. Until then: four of these
+    # per parent-plus-three-children run, and none of them addresses the run.
     run_id: str | None = None
     model_key: str | None = None
     # THE WORKFLOW KEY IS NOT THE MODEL KEY, and this field exists because the
@@ -336,14 +345,26 @@ def measure(proc: subprocess.Popen, *, unit: str) -> _Sampler | None:
 
 def finish(sampler: _Sampler | None, *, limits: dict,
            unmeasured_reason: str | None = None,
-           run_id: str | None = None, model_key: str | None = None,
+           invocation_id: str | None = None, model_key: str | None = None,
            workflow_key: str | None = None) -> ResourceReport:
     """Close out a measurement. Identity is stamped even when nothing was measured —
     an unmeasured run has to be countable AND attributable, or the size of the
-    blind spot cannot be broken down by which workflow it happened in."""
+    blind spot cannot be broken down by which workflow it happened in.
+
+    THE PARAMETER IS `invocation_id` AND THE FIELD IT FILLS IS `run_id`, WHICH IS
+    A SEAM RATHER THAN AN INCONSISTENCY (Phase 9 r1). The value is the
+    per-MODEL-INVOCATION nonce: a parent and its three children carry four of
+    them and none addresses the run, so calling it `run_id` in Python made it
+    indistinguishable from the journal's run id — the one value that DOES
+    address a run. The FIELD keeps its name because `asdict` writes it straight
+    into `.claude/logs/*.jsonl`, which `run_log.JOIN_KEY` and three `replay_*`
+    readers read out of records that already exist. The roadmap's
+    standards-amendment 4 schedules that field's meaning change for Persistent
+    Memory Protocol Phase 3's cut-over; renaming it here would break every
+    archived record twice."""
     if sampler is None:
         return ResourceReport(
-            run_id=run_id, model_key=model_key, workflow_key=workflow_key,
+            run_id=invocation_id, model_key=model_key, workflow_key=workflow_key,
             started_at=_now(), ended_at=_now(),
             measured=False,
             unmeasured_reason=unmeasured_reason or "cgroup could not be resolved for the child",
@@ -352,7 +373,7 @@ def finish(sampler: _Sampler | None, *, limits: dict,
     sampler.stop_flag.set()
     sampler.join(timeout=SAMPLE_INTERVAL_S * 2)
     return ResourceReport(
-        run_id=run_id, model_key=model_key, workflow_key=workflow_key,
+        run_id=invocation_id, model_key=model_key, workflow_key=workflow_key,
         started_at=sampler.started_at, ended_at=_now(),
         measured=sampler.samples > 0,
         unmeasured_reason=None if sampler.samples else "cgroup vanished before the first sample",

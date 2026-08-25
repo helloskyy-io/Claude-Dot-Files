@@ -19,6 +19,7 @@ two readers.
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
@@ -88,3 +89,67 @@ def entrypoints(directory: Path) -> list[Path]:
     in this repo when the isolation list covered 3 of 10 children.
     """
     return sorted(p for p in directory.glob("run_*.py") if "__pycache__" not in p.parts)
+
+
+# --- Phase 9 r5: the population covers every shape that can START a run ----------
+#
+# THE PREDICATE ABOVE IS ONE GLOB OVER ONE DIRECTORY, AND THAT WAS ENOUGH FOR
+# EXACTLY AS LONG AS `run_*.py` WAS THE ONLY SHAPE. Workflow Decomposition Phase 3
+# adds nine runners; the Temporal port turns an entrypoint into a client. A sweep
+# that silently covers a new shape and one that silently misses it are equally
+# useless, and the difference between them is invisible until something goes
+# wrong — so what a shape IS gets declared, and an unclassified file fails.
+#
+# Each row states WHY the file cannot start a run. An entry here is a claim
+# somebody made and can be checked; a file nobody classified is a claim nobody
+# made, which is the state this exists to end.
+NON_STARTING_FILES = {
+    "preflight.py":
+        "a helper, not an entrypoint. It computes paths and validates arguments "
+        "and touches the filesystem only to LOOK — nothing it does can begin a "
+        "run, which is the property that lets bag-open be ordered after it.",
+    "dispatch_identity.py":
+        "the client-side identity boundary the entrypoints call. It parses two "
+        "flags and mints a name; it starts nothing and opens no bag.",
+    "validate_bag.py":
+        "an operator tool that READS a finished bag and prints a report. It is "
+        "the one file here that addresses the journal without being a run, and "
+        "opening a bag to validate one would be the tool recording itself.",
+}
+
+# A shim is `<workflow>.sh` beside its runner: thin by design, it resolves the
+# interpreter and passes every argument through untouched. It cannot start a run
+# on its own — it can only start the `run_*.py` it execs, which the sweep already
+# covers. `shim_target` is what makes that claim checkable rather than assumed: a
+# shim pointed at something outside the swept population is a run-starting shape
+# the sweep cannot see, which is the exact failure r5 names.
+_SHIM_EXEC_RE = re.compile(
+    r'exec\s+python3\s+"\$\{SCRIPT_DIR\}/([\w.]+)"\s+"\$@"', re.M)
+
+
+def shim_target(path: Path) -> str | None:
+    """The `run_*.py` a shim hands control to, or None when it execs nothing.
+
+    None is the answer that matters: a `.sh` in this directory that does not
+    match the one thin-shim shape is doing something the shim contract does not
+    describe, and the sweep must fail on it rather than assume it is harmless.
+    """
+    match = _SHIM_EXEC_RE.search(path.read_text(encoding="utf-8"))
+    return match.group(1) if match else None
+
+
+def unclassified(directory: Path) -> list[str]:
+    """Files in `directory` that are neither swept, nor a shim, nor declared.
+
+    THE RETURN IS THE FAILURE. Anything here is a shape nobody has said is safe
+    and nobody is checking — the two silent halves of r5 in one list.
+    """
+    swept = {p.name for p in entrypoints(directory)}
+    loose = []
+    for path in sorted(directory.iterdir()):
+        if path.is_dir() or path.name in swept or path.name in NON_STARTING_FILES:
+            continue
+        if path.suffix == ".sh" and shim_target(path) in swept:
+            continue
+        loose.append(path.name)
+    return loose

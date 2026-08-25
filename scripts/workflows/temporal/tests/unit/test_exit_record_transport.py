@@ -144,8 +144,8 @@ def test_two_dispatches_in_the_SAME_SECOND_get_different_paths(
     clock is frozen here to reproduce that second exactly.
     """
     monkeypatch.setattr(act, "datetime", _FrozenClock())
-    first = act.claude_log_path(tmp_path, "review-pr", run_id="a" * 32)
-    second = act.claude_log_path(tmp_path, "review-pr", run_id="b" * 32)
+    first = act.claude_log_path(tmp_path, "review-pr", invocation_id="a" * 32)
+    second = act.claude_log_path(tmp_path, "review-pr", invocation_id="b" * 32)
 
     assert first != second, (
         "two same-second dispatches of one model key landed on one path — the "
@@ -162,7 +162,7 @@ def test_the_path_is_RESERVED_not_merely_checked(tmp_path: Path) -> None:
     leaves the whole gap between allocation and that redirect open, whatever the
     name looks like. This asserts the claim exists on disk when the call returns.
     """
-    path = act.claude_log_path(tmp_path, "review-pr", run_id="c" * 32)
+    path = act.claude_log_path(tmp_path, "review-pr", invocation_id="c" * 32)
     assert path.exists(), (
         "the allocation returned a name it did not reserve — the TOCTOU window "
         "between this call and run-claude.sh's O_TRUNC redirect is still open"
@@ -181,14 +181,14 @@ def test_a_reused_nonce_is_refused_rather_than_truncated(
     residual one.
     """
     monkeypatch.setattr(act, "datetime", _FrozenClock())
-    act.claude_log_path(tmp_path, "review-pr", run_id="d" * 32)
+    act.claude_log_path(tmp_path, "review-pr", invocation_id="d" * 32)
     with pytest.raises(FileExistsError, match="refusing to reuse"):
-        act.claude_log_path(tmp_path, "review-pr", run_id="d" * 32)
+        act.claude_log_path(tmp_path, "review-pr", invocation_id="d" * 32)
 
 
 def test_a_fresh_path_is_allocated_when_nothing_is_there(tmp_path: Path) -> None:
     """Negative control: the guard must not refuse every allocation."""
-    path = act.claude_log_path(tmp_path, "review-pr", run_id="e" * 32)
+    path = act.claude_log_path(tmp_path, "review-pr", invocation_id="e" * 32)
     assert path.parent == tmp_path / ".claude" / "logs"
     assert path.suffix == ".jsonl"
 
@@ -204,7 +204,7 @@ def test_an_empty_reservation_reads_as_an_ABSENT_record_not_a_crash(
     — if the empty case raised or yielded garbage, the fix would have moved the
     failure rather than removed it.
     """
-    path = act.claude_log_path(tmp_path, "review-pr", run_id="f" * 32)
+    path = act.claude_log_path(tmp_path, "review-pr", invocation_id="f" * 32)
     assert list(act._log_events(path)) == []
     assert act.result_event(path) is None
     assert act.assistant_text(path) == ""
@@ -528,7 +528,7 @@ def test_an_ABSENT_denials_key_prints_nothing_HERE_and_routes_in_the_ROUTER(
     log = _clean_run_that_tripped_the_hook(tmp_path, denials=None)
     assert _run_shipped(_shipped_denial_surface(), log).strip() == ""
     envelope = json.loads(log.read_text())
-    assert er.route(envelope, expected_run_id="x", expected_ref=None) \
+    assert er.route(envelope, expected_invocation_id="x", expected_ref=None) \
         .undetermined_reason is er.UndeterminedReason.DENIALS_UNREADABLE
 
 

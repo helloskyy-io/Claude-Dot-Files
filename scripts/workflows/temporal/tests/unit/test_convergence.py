@@ -646,9 +646,9 @@ def test_the_two_window_accessors_agree_on_which_block_is_this_passs() -> None:
         ([stamped, "a later third-party comment"], NONCE),
         (["a", stamped, "b"], NONCE),
     ]
-    for window, run_id in cases:
-        prior = helper.prior_pass_blocks(window, run_id)
-        this = helper.this_pass_block(window, run_id)
+    for window, invocation_id in cases:
+        prior = helper.prior_pass_blocks(window, invocation_id)
+        this = helper.this_pass_block(window, invocation_id)
         # BY POSITION, NOT BY VALUE. `["x", "x"]` is in the case list precisely
         # because a membership test (`this not in prior`) reads a duplicate
         # block as a partition failure and a genuinely leaked block as fine
@@ -903,7 +903,7 @@ def test_the_convergence_event_is_written_and_carries_its_evidence(
     events = [e for e in _log_events(tmp_path) if e.get("type") == "convergence"]
     assert len(events) == 1, "the convergence observable was not persisted"
     event = events[0]
-    assert event["run_id"] == fake.run_id, "the event cannot be joined to its run"
+    assert event["run_id"] == fake.invocation_id, "the event cannot be joined to its run"
     # Pass 1 on this fake: one block on the thread, so no prior pass.
     assert event["state"] == "indeterminate"
     assert event["reason"] == "no_prior_pass"
@@ -983,7 +983,7 @@ def test_a_new_assessment_field_cannot_silently_take_an_ENVELOPE_key(
     from modules.assistant.review_pr import review_pr_workflow as wf
 
     good = cv.ConvergenceAssessment(State.CONVERGED, passes=2)
-    event = wf._convergence_event(run_id="r", pr_number="75", assessment=good,
+    event = wf._convergence_event(invocation_id="r", pr_number="75", assessment=good,
                                   asserted=True, agrees=True)
     assert event["run_id"] == "r" and event["agrees"] is True
 
@@ -998,7 +998,7 @@ def test_a_new_assessment_field_cannot_silently_take_an_ENVELOPE_key(
 
     for stolen in sorted(wf.CONVERGENCE_ENVELOPE_KEYS):
         with pytest.raises(ValueError, match="convergence run-log event"):
-            wf._convergence_event(run_id="r", pr_number="75",
+            wf._convergence_event(invocation_id="r", pr_number="75",
                                   assessment=_NextField(stolen),
                                   asserted=True, agrees=True)
 

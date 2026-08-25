@@ -16,6 +16,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from preflight import preflight  # noqa: E402
+from dispatch_identity import add_identity_arguments, resolve_identity  # noqa: E402
 
 from modules.journal import journal_activities as journal  # noqa: E402
 from modules.assistant.review_pr import review_pr_activities as act  # noqa: E402
@@ -40,6 +41,7 @@ def parse_args(argv: list[str] | None = None) -> tuple[ReviewInput, bool]:
     parser.add_argument("--verbose", "-v", action="store_true")
     parser.add_argument("--dry-run", action="store_true",
                         help="render the prompt and exit — no model call, no comment, no spend")
+    add_identity_arguments(parser)
     args = parser.parse_args(argv)
 
     try:
@@ -62,8 +64,9 @@ def _dry_run(task: ReviewInput, repo_root: Path) -> int:
 
     EVERY ARGUMENT THE REAL PATH PASSES, THIS PATH PASSES TOO. `run_review`'s own
     docstring records the dry-run and real paths diverging once before; adding
-    `run_id` to `render_prompt` recreated it, and because the divergence is a
-    TypeError rather than a wrong result, the only zero-spend way to check the
+    `invocation_id` (then spelled `run_id`) to `render_prompt` recreated it, and
+    because the divergence is a TypeError rather than a wrong result, the only
+    zero-spend way to check the
     plumbing died with a traceback instead of a message. The nonce is real
     (`uuid4`) rather than a placeholder so the rendered byte count is what a live
     run would produce.
@@ -79,7 +82,7 @@ def _dry_run(task: ReviewInput, repo_root: Path) -> int:
         this_pass=this_pass,
         prior_pass=prior_pass,
         headless_guard=act.load_shared_block("HEADLESS_EXECUTION_GUARD", wf.SHARED_PROMPTS),
-        run_id=uuid.uuid4().hex,
+        invocation_id=uuid.uuid4().hex,
     )
     print(f"{BANNER}\n  DRY RUN — nothing was invoked, nothing was posted\n{BANNER}")
     print(f"  PR       : #{task.pr_number} ({pr['headRefName']}) — {pr['state']}")
@@ -112,7 +115,13 @@ def main(argv: list[str] | None = None) -> int:
         # that enforces it can and cannot see: `journal_activities.py`'s module
         # docstring and `tests/unit/test_every_parent_opens_a_run_bag.py`. Said
         # once there rather than eleven times here.
-        journal.open_run_bag(run_id=journal.mint_run_id(), repo_root=repo_root,
+        # PHASE 9 r2 and r4 — the run's NAME arrives from outside this
+        # process, and `writer` says whether this invocation IS the run or
+        # is part of one. Why both, and where a name comes from when no
+        # orchestrator supplies it: `dispatch_identity.py`. Said once there.
+        identity = resolve_identity(argv)
+        journal.open_run_bag(run_id=identity.run_id, writer=identity.writer,
+                             repo_root=repo_root,
                              workflow_key="review-pr",
                              # The ONE workflow that cuts no worktree — it
                              # reviews a PR in place. Stated rather than
