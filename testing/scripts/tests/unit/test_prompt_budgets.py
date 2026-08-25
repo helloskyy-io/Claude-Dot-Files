@@ -86,7 +86,16 @@ BUDGETS: dict[str, int] = {
     # emit. The residue is two sizing rows read from the modules, the two shim
     # names, and one type-matching line; ~1.5 KB of rationale for them was cut
     # before this number moved, which is the mechanism working.
-    "review_pr/prompts/disposition.md": 78_926,
+    # +120 ON 2026-08-24, and it buys a WIDER POPULATION rather than more prose.
+    # The asymmetric-presence sweep said "run it on every artifact this PR
+    # TOUCHED that has a sibling". Measured across three passes on PR #138:
+    # all three hits were on artifacts the PR never opened, one of them in a
+    # different component. The sibling that matters is usually the one nobody
+    # edited — which is exactly why it went stale — so a population keyed on
+    # the diff cannot reach it. Now keyed on "makes a claim about what this PR
+    # changed, touched or not". Changes what the model DOES, which is the test
+    # `workflow-scripts.md` § Prompt economy sets for an addition.
+    "review_pr/prompts/disposition.md": 79_046,
     "plan/plan_revision/prompts/stages_1_to_5.md": 22_506,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-f0lfdhmm's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the

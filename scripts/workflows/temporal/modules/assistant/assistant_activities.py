@@ -603,6 +603,70 @@ def result_event(log_file: Path) -> dict | None:
     return found
 
 
+def clock_now() -> float:
+    """Epoch seconds, read in an ACTIVITY because a workflow may not read a clock.
+
+    `temporal_standard.md` §3 puts every non-deterministic read behind an
+    activity, and wall clock is the textbook member: replayed workflow code that
+    calls `time.time()` gets a different answer than it did on the first pass and
+    the history diverges. Nothing in this fleet runs under a worker yet, so this
+    is discipline ahead of need — which is the cheap direction, because the
+    alternative is finding every such call during the port.
+    """
+    return time.time()
+
+
+def chain_cost_usd(repo_root: Path, since: float) -> tuple[float, int]:
+    """`(dollars, runs)` spent by every run logged since `since`, as an epoch time.
+
+    THE COST OF A LOOP-BACK CHAIN IS NOT REPORTED ANYWHERE, and that is the whole
+    reason this exists. Each run prints its own `cost=$X` as it finishes, and
+    `run-claude.sh` prints a calendar-MONTH rollup beside it — so the two figures
+    an operator can see are "this one leg" and "everything since the 1st". The
+    number that decides whether to keep going is neither.
+
+    MEASURED, on the run that motivated this: a single `build.sh --phase` chain
+    reached **$82.13 across 5 runs** within two hours, with `build-draft` alone at
+    $37.75 for 224 turns, while the operator was away. The sibling report from
+    MDC records the same shape at $111 across 11 invocations, discovered *"only
+    by adding it up afterwards — after the spend"*.
+
+    TIME, NOT A CHAIN ID, AND THAT IS A DELIBERATE LIMIT. There is no chain
+    identifier threaded through the logs today, so this sums by wall clock from
+    the moment the parent started. A CONCURRENT dispatch's runs are therefore
+    counted too. That over-reports rather than under-reports, which is the safe
+    direction for a spend figure, and the note this feeds says "since this run
+    started" rather than "this chain" so the number is not read as narrower than
+    it is. Threading a chain id is the correct fix and is a larger change.
+
+    Returns `(0.0, 0)` when the log directory is absent or unreadable rather than
+    raising: a cost figure is an OBSERVATION, and a parent must not fail a run
+    that succeeded because it could not price it.
+    """
+    log_dir = repo_root / ".claude" / "logs"
+    if not log_dir.is_dir():
+        return (0.0, 0)
+    total, runs = 0.0, 0
+    try:
+        candidates = sorted(log_dir.glob("*.jsonl"))
+    except OSError:
+        return (0.0, 0)
+    for log in candidates:
+        try:
+            if log.stat().st_mtime < since:
+                continue
+        except OSError:
+            continue
+        event = result_event(log)
+        if event is None:
+            continue
+        cost = event.get("total_cost_usd")
+        if isinstance(cost, (int, float)):
+            total += float(cost)
+            runs += 1
+    return (round(total, 2), runs)
+
+
 def assistant_text(log_file: Path) -> str:
     """This run's own assistant text blocks, in order, newline-joined.
 

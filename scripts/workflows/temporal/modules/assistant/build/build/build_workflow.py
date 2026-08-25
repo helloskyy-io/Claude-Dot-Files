@@ -42,9 +42,23 @@ from ..build_refine import build_refine_workflow as refine
 from ..build_refine_minor import build_refine_minor_workflow as refine_minor
 
 
+def _spend(repo_root, started) -> str:
+    """What this run has cost so far, for a note at a decision point.
+
+    NOT "this chain" — see `chain_cost_usd`. It sums every run logged since this
+    parent started, so a concurrent dispatch is counted too. Over-reporting is
+    the safe direction for a spend figure and the wording says so.
+    """
+    dollars, runs = act.chain_cost_usd(repo_root, started)
+    if not runs:
+        return ""
+    return f" Spent since this run started: ${dollars:.2f} across {runs} run(s)."
+
+
 def run_build(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildResult:
     """Draft, refine, disposition, and route on the verdict."""
     notes: list[str] = []
+    started = act.clock_now()
     description = task_text(task, repo_root)
 
     # ISOLATION IS ESTABLISHED ONCE, HERE. Children receive the path and never
@@ -102,7 +116,7 @@ def run_build(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildRes
         # automated pass" while `helper.MAX_LOOPS` is `routing.MAX_LOOPS` = 3, so
         # it was false on two passes of three and told the operator the runway had
         # closed when it had not.
-        notes.append(f"HOLD (redispatch): the runway closes with a scoped fix. "
+        notes.append(_spend(repo_root, started) + f"HOLD (redispatch): the runway closes with a scoped fix. "
                      f"Loop-back {loops} of {helper.MAX_LOOPS}."
                      + (" This is the last automated pass."
                         if loops == helper.MAX_LOOPS else ""))
@@ -129,10 +143,10 @@ def run_build(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildRes
         # note written elsewhere in this file. That is the same defect wearing a
         # remedy: a claim resting on prose that can be reworded. The layer that
         # detects a condition reports it, and this layer detects neither.
-        notes.append("No loop-back was attempted: more passes cannot produce a "
+        notes.append(_spend(repo_root, started) + "No loop-back was attempted: more passes cannot produce a "
                      "human decision. The cause is in the note above.")
     elif verdict is Verdict.HOLD_REDISPATCH:
-        notes.append(f"The automated loop is SPENT — {helper.MAX_LOOPS} loop-back(s) "
+        notes.append(_spend(repo_root, started) + f"The automated loop is SPENT — {helper.MAX_LOOPS} loop-back(s) "
                      f"is the cap, because passes beyond it produce justification "
                      f"rather than correction.")
 

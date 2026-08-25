@@ -441,6 +441,9 @@ claude-dot-files/
 │                   ├── test_a_prose_COUNT_of_a_collection_is_DERIVED.py # Prose here that counts a collection the same module defines
 │                   │                                #   must match it — the fourth corpus to gate the figure-nobody-derives class
 │                   ├── test_a_named_observer_is_actually_WIRED.py # A MAY_NOT_OBSERVERS entry naming a `*_this_run_had_no_right_to`
+│                   ├── test_a_loop_back_chain_REPORTS_WHAT_IT_HAS_SPENT.py # A loop-back chain reports what it has SPENT, at every
+│                                                                           #   decision point. Measured: one chain reached $82.13 in two
+│                                                                           #   hours with nothing surfacing it. Reporting, not a gate
 │                   │                                #   comparator must name one the workflow CALLS — resolving is not wiring, and both
 │                   │                                #   plan-feature and plan-verify claimed the `size` guard without having one
 │                   ├── test_prompt_completeness.py  # Every ${VAR} in a shipped prompt has a supplier (data-driven over prompts/*.md)
