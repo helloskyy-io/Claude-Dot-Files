@@ -1414,6 +1414,28 @@ Surfaced by PR #138's own review, not by PM3. `test_a_refused_bag_mutation_CHANG
 
 **Watch-criteria: a second guard found mandating prose it cannot check, OR one instance where a mandated reason turns out to be false.** The second is the one that converts this from a shape into a defect. Until then a clause in the test-efficacy axis is the proposed remedy, and it is not worth the prompt bytes on one occurrence.
 
+### MEASURED AND NOT REPRODUCED — the `grep` shim "silently ignoring `--include`", reported three times
+
+**Reported on PR #135, on PR #138 pass 1, and again in #138's final reflection** — three consecutive runs, each describing the shim as ignoring `--include` and each adding that **it cost nothing that time**. The ask was a prompt clause warning that *"the tool answering the question may not be the tool whose flags you wrote."*
+
+**Tested on 2026-08-24, seven invocation forms, and it scopes correctly in every one:** `-r`, `-rn`, `-rl`, `-R`, `--include` with `=` and with a space, and `--exclude`. `command grep` agrees with the shim on all of them. The shim is Claude Code's own shell integration, which routes through the CLI's search unless certain flags appear; `--include` is not one of them.
+
+**Not shipped, and the reason is the shape of the evidence rather than its quantity.** Three reports with three near-misses and zero demonstrated wrong answers, against a measurement showing correct behaviour. A prompt clause costs bytes on every turn of every run to warn about a hazard that did not occur and cannot currently be reproduced.
+
+**What was actually wrong is worth more than the finding:** the claim had been made three times and never once tested. **A report that recurs is not thereby verified** — recurrence is evidence that something LOOKS true, and the third telling is exactly when it stops being questioned.
+
+**Watch-criteria: one occurrence where the shim demonstrably returns a WRONG answer** — a search whose result differs from `command grep` on the same arguments, with both recorded. Near-misses do not count, however many. If it fires, the remedy is the shim or the environment, not a prompt clause.
+
+### DEFERRED — a fix whose content is ORDERING cannot be verified by reading its diff
+
+**Watch-criteria: a second pass that verifies an ordering fix by reading and gets it wrong, or reports being unable to tell.**
+
+From #138's reflection, first occurrence: *"The diff for the class fix reads as three hoists and is entirely persuasive; running the three refusals against a real journal root is what turned 'the reorder looks right' into 'the payload is byte-unchanged and the directory does not exist'."*
+
+**The general shape is sharp and is not currently anywhere in the prompt.** `review-pr` tells a later pass to check that prescribed fixes landed; it does not say HOW. For most fixes reading suffices. **For a fix whose entire content is which line runs first, the defect and the fix look identical in a diff** — the same statements in a different order — and reading cannot separate them.
+
+**Deferred rather than shipped on one occurrence**, and because the remedy is not obvious: *"verify by execution"* as a blanket rule is expensive and often impossible, so the clause would need to name the class it applies to. Ordering, initialisation sequence and short-circuit evaluation are candidates; one example is not enough to draw that boundary.
+
 ### One thing PM3 got right that is worth quoting
 
 > *"The failure was where the question got asked, not whether it was asked honestly."*
