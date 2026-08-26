@@ -1228,11 +1228,13 @@ def phase_sizing(component: Path) -> PhaseSizing:
     in the order, and what its bullets say. The NUMBER is a fact handed over;
     everything done WITH it is judgement.
 
-    AN UNSIZED PHASE IS REPORTED, NEVER TREATED AS ZERO. A complete phase gets no
-    estimate by design (`plan-verify` writes a sentence instead), and a phase
-    that should have one and does not is a defect the total must not swallow —
-    a quietly short total is worse than an absent one, because nothing says it is
-    wrong. Both land in `unsized` and the prompt is told to say which.
+    AN UNSIZED PHASE IS REPORTED, NEVER TREATED AS ZERO. Every phase carries an
+    estimate, a COMPLETE one included — `plan-verify` writes it `~0 hrs remaining`
+    because `plan_verify_activities.sizing_floor` counts phase-doc FILES ON DISK
+    and a complete phase still has its doc, so omitting the figure fails the run
+    that produced it. An unsized phase therefore has no benign case: it is a
+    defect the total must not swallow, and a quietly short total is worse than an
+    absent one because nothing says it is wrong. The prompt is told to say which.
     """
     roadmap = component / "roadmap.md"
     if not roadmap.is_file():
@@ -1283,10 +1285,11 @@ def sizing_block(sizing: "PhaseSizing", component_rel: Path) -> str:
     derived wrongly with nothing to catch it. This one is arithmetic, which makes
     it the clearest case in the family.
 
-    THE UNSIZED LIST IS NOT DECORATION. A complete phase carries no estimate by
-    design and a phase missing one is a defect; presenting a total without saying
-    which phases it does NOT cover is how a quietly short number gets recorded as
-    the cost of the work.
+    THE UNSIZED LIST IS NOT DECORATION, AND IT HAS NO BENIGN MEMBER. Every phase
+    carries an estimate, a COMPLETE one included at `~0 hrs remaining`, so a phase
+    missing one is always a defect; presenting a total without saying which phases
+    it does NOT cover is how a quietly short number gets recorded as the cost of
+    the work.
     """
     if not sizing.rows:
         return (f"**Counted in code, authoritative — do not recount:** "
@@ -1297,8 +1300,9 @@ def sizing_block(sizing: "PhaseSizing", component_rel: Path) -> str:
         for head, hours in sizing.rows)
     unsized = (
         "\n\n**Unsized:** " + ", ".join(f"*{u}*" for u in sizing.unsized)
-        + " — a COMPLETE phase carries none by design; any other is a defect and "
-          "the total does not cover it. Say which is which."
+        + " — every phase should carry one, a COMPLETE phase included at "
+          "`~0 hrs remaining`, so each of these is a defect and the total does "
+          "not cover it. Say so rather than presenting the total as complete."
         if sizing.unsized else
         "\n\n**Every phase carries an estimate.**")
     return (f"**Counted in code, authoritative — do not recount, re-derive or "
