@@ -206,6 +206,9 @@ claude-dot-files/
 ├── scripts/                                         # ORGANIZING AXIS: *who invokes it?* — that one question explains every folder below
 │   ├── helpers/                                     # YOU run these. Pure bash, no AI, zero tokens
 │   │                                                #   (helpers/ = standalone executables you RUN; workflows/lib/ = bash you SOURCE. Different things, hence two folders)
+│   │   ├── harvest-intake.py                        # THE NAMED HARVEST CADENCE of Tracked Items §5.0 — drains `tracked-intake` issues into
+│   │   │                                            #   tracked/<store>/ and closes them. Without it the intake exemption LAPSES and the
+│   │   │                                            #   intake becomes a second store, which §8 calls a violation. `/standup` runs it
 │   │   ├── init-project.sh                          # Initialize new project (git + GitHub + scaffolding)
 │   │   ├── lint-prompts.sh                          # Ship-gate (3 passes): backtick scan, sandbox-CONSTRUCTS every multi-line prompt fragment, verifies every MODEL_KEY resolves in config.yaml
 │   │   ├── check-settings.sh                        # Ship-gate: validates config/settings.json — malformed JSON, hook paths that don't resolve to an executable config/hooks/*.sh

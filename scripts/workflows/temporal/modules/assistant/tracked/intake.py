@@ -163,8 +163,16 @@ def harvest(root: Path, *, cwd: Path | None = None,
                          f"on {date.today().isoformat()}.*\n",
                     today=date.fromisoformat(issue["createdAt"][:10]))
 
+            # REPO-RELATIVE, NEVER ABSOLUTE. This comment is public and is read
+            # on someone else's machine: an absolute path leaks the harvester's
+            # filesystem layout and resolves for nobody. Measured on the first
+            # end-to-end run, which posted `/home/<user>/Repos/...`.
+            try:
+                shown = path.relative_to(root.parent)
+            except ValueError:                      # a root outside the repo
+                shown = path
             _gh("issue", "close", str(number), "--comment",
-                f"Harvested to `{path.as_posix()}`. The file is the record; "
+                f"Harvested to `{shown.as_posix()}`. The file is the record; "
                 f"this intake carried it and is now empty, per Tracked Items "
                 f"Standard §5.0.", cwd=cwd)
             moved.append((number, path))

@@ -220,7 +220,7 @@ anchor: <for standards — the section, precise enough to act on>
 **THE LAST GATE — run `/decide` and `/best-practices` on any finding that survives all of the above.** An Issue that has not been through both has not earned a human's attention, and a human's attention is what this queue spends. **State both verdicts in the disposition entry.** Three outcomes, and only one of them files anything:
 
 - **DISSOLVED** — the reframe kills it, or best practice says the incumbent is fine and the "defect" was a preference. **File nothing.** Record the finding and the verdict that dissolved it, so a later pass does not re-derive it.
-- **RESOLVED INTO A KNOWN FIX** — the reframe turns *"a human must rule on this"* into *"the answer is X, apply it."* **RE-DISPOSITION IT: `kind: redispatch`, `remedy: fix-in-place`, and do NOT file an issue.** It joins the runway and the correction pass applies it. **This is the outcome to reach for** — `/decide` exists to convert human decisions into known answers, and a converted finding costs one automated pass instead of an operator's attention.
+- **RESOLVED INTO A KNOWN FIX** — the reframe turns *"a human must rule on this"* into *"the answer is X, apply it."* **RE-DISPOSITION IT: `kind: redispatch`, `remedy: fix-in-place`, and file NOTHING.** It joins the runway and the correction pass applies it. **This is the outcome to reach for** — `/decide` exists to convert human decisions into known answers, and a converted finding costs one automated pass instead of an operator's attention.
 - **SURVIVES BOTH** — file it. This is a real ruling.
 
 **The re-disposition changes the VERDICT by the aggregation rule below, and that is the point:** a `redispatch` entry produces `VERDICT: HOLD - redispatch`, which is what makes the loop-back fire and the fix land automatically. **A finding you convert is a finding the pipeline resolves without the operator.**
@@ -231,7 +231,7 @@ anchor: <for standards — the section, precise enough to act on>
 
 **1. Does it have a done-state TODAY?** An item whose remedy waits on a **named trigger**, or on a system **not yet built or still in progress**, cannot be closed — only carried. A carried issue reads as neglect at every standup while being structurally unable to move, and the anti-rot flag misfires on it. That item is a **checkbox on the phase that owns the trigger**, where its readiness and its parent's readiness are the same event.
 
-**Assume the checkbox fits; file an issue only when it demonstrably does not.** The order is load-bearing — evaluated the other way round everything looks issue-shaped, **because an issue accepts anything.**
+**Assume the checkbox fits; file into a store only when it demonstrably does not.** The order is load-bearing — evaluated the other way round everything looks issue-shaped, **because an issue accepts anything.**
 
 **2. Is it closely related to something that already exists?** Then it is an **expansion of that item**, not a sibling. Two entries describing one concern cost two dispositions, two reviews, and eventually two PRs contending over the same files while the second author re-derives the first's decisions. Expand the existing item — its title, its body, its checkbox list.
 

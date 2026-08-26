@@ -44,8 +44,9 @@ MAX_TURNS_KEY = WORKFLOW_KEY
 
 # `(pull|issues)`, verbatim from V1, and the `issues` half is load-bearing rather
 # than defensive: Stage 1 can legitimately STOP (research required, or evidence
-# structurally faulty) and file an issue, and on that path the ISSUE is the
-# deliverable. Narrowing this to `pull` would turn a correct, cheap stop into a
+# structurally faulty) and file a tracked-item INTAKE, and on that path the
+# INTAKE is the deliverable — an issue is still what `gh` creates, which is why
+# this half of the pattern stays exactly as it was. Narrowing this to `pull` would turn a correct, cheap stop into a
 # reported failure and invite someone to re-dispatch past the very gate that
 # fired.
 COMPLETION_PATTERN = routing.PR_OR_ISSUE_COMPLETION_ERE

@@ -64,14 +64,17 @@ Question 0 first. Then, for a **defect**:
 
 **Naming an actor as the writer of a surface is not sufficient. The actor must also be ABLE to write it by the mechanism that surface requires.**
 
-Two mechanisms exist and they are not interchangeable:
+**THREE mechanisms exist** and they are not interchangeable:
 
 | Mechanism | What it needs | Who can |
 |---|---|---|
-| **API** — a GitHub Issue, a PR comment | a token. **No worktree, no branch, no commit, no push** | any run, including a decide-only reviewer |
+| **API** — a PR comment | a token. **No worktree, no branch, no commit, no push** | any run, including a decide-only reviewer |
 | **COMMIT** — any file in the repo | an edit, a commit **and a push** | only a run that produces a PR |
+| **INTAKE** — an API write a named cadence converts into a COMMIT | a token to file; a harvest to land it | **any run**, and it is what makes a decide-only reviewer able to reach a file surface |
 
 **A decide-only reviewer can write an API surface and structurally cannot write a file surface.** Routing a class of finding to a file surface while naming the reviewer as its writer produces findings that are correctly classified, correctly refused entry to the wrong queue, and then have nowhere to go. **Measured: three proposals, correctly identified, stranded in a PR body — which is a grave.**
+
+> **THE THIRD MECHANISM EXISTS BECAUSE THIS SECTION'S PROBLEM GOT WORSE BEFORE IT GOT SOLVED.** When every tracked store became a file (Tracked Items Standard §5, 2026-08-25), the API escape hatch this section describes stopped existing for any class at all, and `review-pr` — the largest producer of findings here — could place *nothing*. **INTAKE is the resolution, and it is bounded rather than a loophole:** [§5.0](documentation/tracked_items_standard.md) exempts an intake issue from the retirement **on condition that a named cadence empties it**. An intake nobody drains is a second store, which §8 there calls a violation rather than a grey area. **So an INTAKE row is only honest while its harvest is named** — ours is `scripts/helpers/harvest-intake.py`, run by `/standup`.
 
 **So every routing rule states the mechanism alongside the writer, and any rule that names a writer without checking the mechanism is incomplete.**
 
@@ -155,7 +158,9 @@ These are **vendored MIRROR** copies. **They win where they overlap this documen
 - [`documentation_standard.md` § Deferred Work](documentation/documentation_standard.md) — *Filing authority* (who may file a defect as an issue, and why the reviewer rather than the discoverer) and *Placement* (phase checkbox first, issue second; decide from the body, never the title).
 - [`research_standard.md` § Action candidates have a HOME](research/research_standard.md) — the routing table for a **research synthesis's** candidates, and the rule that *"the research run surfaces candidates in its synthesis and writes nothing outside `research/`."* **Research does not author standards; it recommends them.**
 
-**Two known gaps in those, raised upstream and not patched locally:** their routing has no row for a proposal surfaced by a **non-research** run, and their filing authority is stated in terms of *who* without asking *by what mechanism*. §4 and §5 are this document's answer pending their ratification.
+- [`tracked_items_standard.md`](documentation/tracked_items_standard.md) — **the four stores themselves**: identity (§2), the shared core every item carries (§3), recurrence via `count` (§3.1), the admission tests (§1), the DEFECT-vs-PROPOSAL discriminator (§1.1), and the INTAKE exemption (§5.0) that §4 above depends on.
+
+> **BOTH KNOWN GAPS ARE NOW CLOSED UPSTREAM, and this note is kept rather than deleted because the prediction is the useful part.** This section used to read: *"their routing has no row for a proposal surfaced by a non-research run, and their filing authority is stated in terms of who without asking by what mechanism."* The Tracked Items Standard closes the first (§1 names builds and autonomous dispatches as candidate filers) and §5.0 closes the second (the mechanism is named, and bounded by a cadence). **§4 and §5 here were written as the answer pending ratification; they were ratified.** What remains local is the surface list in §7, which is what this document says never promotes.
 
 ## 7 · `BINDING` — this repo's surfaces
 
@@ -164,10 +169,15 @@ These are **vendored MIRROR** copies. **They win where they overlap this documen
 | Class | Surface | Mechanism | Who writes it |
 |---|---|---|---|
 | change record | PR thread | **API** | every PR-producing run; `review-pr` posts the disposition |
-| **DEFECT** | GitHub Issues | **API** | **`review-pr` only** |
-| **PROPOSAL** | [`candidates.md`](architecture/research/candidates.md) | **COMMIT** | the **producing run**, in its own PR (§4); research runs already do this |
+| **DEFECT** | [`tracked/issues/`](../../tracked/issues/) | **COMMIT**, or **INTAKE** | **`review-pr` only.** A PR-producing run never files its own defect — that is the disposal chute below |
+| **PROPOSAL** | [`tracked/candidates/`](../../tracked/candidates/) | **COMMIT**, or **INTAKE** | the **producing run**, in its own PR (§4). `review-pr` by intake **only** for a proposal the run never surfaced |
+| **STANDARDS AMENDMENT** | [`tracked/standards/`](../../tracked/standards/) | **COMMIT**, or **INTAKE** | any run that surfaces one. **Filing is surfacing, not editing** — Governance permits it. `ratification` is the operator's alone |
 | **RULING** | [`direction.md`](architecture/research/direction.md) | **COMMIT** | `triage-candidates` appends; **only the operator sets `status`** |
-| **OPERATING STATE** | the standup tracker | **API** | **operator and PM sessions only** — no autonomous run |
+| **OPERATING STATE** | [`tracked/operations/`](../../tracked/operations/) | **COMMIT** | **operator and PM sessions only** — no autonomous run, ever (Tracked Items §1.2) |
+
+> **A FIFTH CLASS, AND §6 PREDICTED IT.** The four classes in §2 had no row for a proposed amendment to a **named standard**, and §6 recorded the consequence as a known gap: Governance permitted an autonomous run to *surface* one while forbidding it to edit a standard, and there was nowhere for the surfacing to land. `tracked/standards/` is that destination, and the class is now first-class rather than a defect wearing the wrong label.
+>
+> **Every surface here moved from an API to a file on 2026-08-26**, which is why the mechanism column now carries two values per row. The COMMIT half is for a run that produces a PR; the INTAKE half is for one that does not. **`tracked/operations/` deliberately has no INTAKE half** — it is human-only, so there is no autonomous path to provide.
 
 **`decision` on a candidate is `triage-candidates`'s output alone.** A run that places a proposal leaves it blank: blank means untriaged, which is the truth.
 

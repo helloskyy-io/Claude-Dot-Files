@@ -235,3 +235,9 @@ def test_the_closing_comment_points_AT_the_file(
     comment = next(a for a in captured if a[1] == "close")[-1]
     assert "candidates/C-" in comment and ".md" in comment
     assert "the file is the record" in comment.lower()
+    # AND THE PATH IS REPO-RELATIVE. The first end-to-end run posted an ABSOLUTE
+    # path into a public comment — it leaked the harvester's home directory and
+    # resolved for nobody else. A reader following this comment must land on the
+    # record, which is condition 2 of the exemption.
+    assert not comment.split("`")[1].startswith("/"), (
+        f"absolute path in a public comment: {comment.split('`')[1]}")

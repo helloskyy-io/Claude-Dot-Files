@@ -44,7 +44,7 @@ The full set of artifacts under doc-manager's purview:
 - `sprint.md` (or equivalent ordering doc) — sprint-level scheduling
 - `docs/development/<topic>/sprint.md` — per-topic phased plans with checkboxes
 - `docs/development/<topic>/phase-N.md` (or epic docs) — detailed implementation plans
-- deferred work lives as a phase checkbox, an expansion of an existing item, or a GitHub issue — **never a carried-work file**
+- deferred work lives as a phase checkbox, an expansion of an existing item, or an item in a `tracked/` store — **never a carried-work file**
 
 ### User-facing documentation
 - `docs/guide/*.md` — user-facing operating manuals, how-to guides
@@ -140,7 +140,7 @@ Drafts new documentation content per established conventions. Substance always f
 - User-focused: what does the user need to do? in what order? what tools?
 - Output: draft guide for human review
 
-**Deferred work** (a phase checkbox, an expansion, or a GitHub issue)
+**Deferred work** (a phase checkbox, an expansion, or an item in a `tracked/` store)
 - Brief entry: what was found, what's the impact, what's the recommended action, when to revisit
 - Output: draft entry for human review
 

@@ -132,6 +132,10 @@ SUPERSEDED_V1_LINES = {
         "by any sibling dispatch (13 overlapping pairs measured in one night), and the "
         "visible outcome is a PR published with another PR's body. The name now carries "
         "the branch; nothing else in the line changed.",
+    '**Recording a STOP (both checks above).** A STOP must land on a git surface, not just terminal output — a fail-fast that records itself only to a dispatch log is invisible to future humans AND to the eventual parent workflow (the grave-memory anti-pattern). So on ANY STOP above, open a GitHub ISSUE in the target repo, print its URL as your final line, and do NO planning after filing — the issue IS the deliverable of a STOP:':
+        'V1 files a plain GitHub issue, and GitHub Issues were RETIRED as a store on 2026-08-25 (Tracked Items Standard §5). A STOP recorded that way now lands nowhere a reader looks. The replacement files a `tracked-intake` issue — the same `gh issue create` API call, so the mechanism is unchanged — which the named harvest moves into `tracked/issues/` and closes. The property V1 was protecting, *a STOP must land on a git surface rather than a dispatch log*, is strengthened rather than weakened: the store IS a git surface, where an issue was an API object outside the repo.',
+    "- Ensure the label exists, then file: \\`gh label create <label> --color FBCA04 --description 'plan STOP' 2>/dev/null || true\\`, then \\`gh issue create --title '<title>' --label <label> --body-file <tmpfile>\\`.":
+        'same change, second line: the label is now `tracked-intake`, which is what makes the harvest see it at all. V1 cannot be updated — it is FROZEN REFERENCE per `config/rules/personal-tooling.md` and the Python fleet must not depend on it — so the divergence is recorded here, which is exactly what this mechanism is for.',
 }
 
 
