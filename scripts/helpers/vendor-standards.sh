@@ -36,6 +36,7 @@ FILES=(
   "development/temporal/worker_deployment_standard.md:temporal/worker_deployment_standard.md"
   "development/temporal/stateful_patterns.md:temporal/stateful_patterns.md"
   "documentation/documentation_standard.md:documentation/documentation_standard.md"
+  "documentation/tracked_items_standard.md:documentation/tracked_items_standard.md"
   "development/research/research_standard.md:research/research_standard.md"
   "development/testing/testing_standard.md:testing/testing_standard.md"
 )
