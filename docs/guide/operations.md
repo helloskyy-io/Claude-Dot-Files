@@ -10,7 +10,7 @@ Two things to understand before the inventory: where the platform keeps its memo
 
 Long-running work outlives any single session. Context windows do not. So the platform keeps **no state files and no bookmarks**: memory lives in durable records, and the record's own to-do bit is what marks work as current.
 
-Five surfaces carry it — **PR threads**, **GitHub Issues**, the **standup tracker**, **`direction.md`** and **`candidates.md`** — and they are not interchangeable. Which one a given outcome belongs to, what each holds and for how long, who reads and writes each field, and how a later dispatch addresses a record it needs are all answered in **one** document, and it is not this one.
+The surfaces that carry it are **PR threads** and the four **`tracked/` stores** — `issues/`, `operations/`, `candidates/` and `standards/`** — and they are not interchangeable. Which one a given outcome belongs to, what each holds and for how long, who reads and writes each field, and how a later dispatch addresses a record it needs are all answered in **one** document, and it is not this one.
 
 > **[`memory-model.md`](memory-model.md) is the framework.** It states the durable record as a substrate-free interface, this fleet's binding of it, the selection rule, the per-field consumer lists, and the addressing convention. **Read it before changing anything a surface emits or parses** — and before restating any of it here. Exactly one description of this model exists by design; a second one is drift with a delay on it.
 
@@ -24,7 +24,7 @@ morning  →  /standup  →  rule on what it surfaces  →  dispatch  →  (asyn
                 └──────────────  review-pr.sh  ←──  PR returns  ←─────┘
 ```
 
-**1. Sign on and run `/standup`.** It reads the standup tracker first — that is where you left off, and it reframes everything after it — then sweeps open PRs and their `pr_review:` verdicts, open issues, `direction.md`'s open rulings, and merges since the window. **It is a writer on three of the five surfaces**, and everything else it does is a read. The writes are what stop a finished item being re-reported every morning forever; which three, and the line in `standup.md` that declares each, are enumerated in [`memory-model.md` §2.3](memory-model.md) — **the one place that enumeration is maintained. If you find it restated elsewhere, that copy is drift: delete it and point here, rather than updating both.**
+**1. Sign on and run `/standup`.** It reads `tracked/operations/` first — that is where you left off, and it reframes everything after it — then sweeps open PRs and their `pr_review:` verdicts, open issues, `direction.md`'s open rulings, and merges since the window. **It is a writer on three of the five surfaces**, and everything else it does is a read. The writes are what stop a finished item being re-reported every morning forever; which three, and the line in `standup.md` that declares each, are enumerated in [`memory-model.md` §2.3](memory-model.md) — **the one place that enumeration is maintained. If you find it restated elsewhere, that copy is drift: delete it and point here, rather than updating both.**
 
 **2. Rule on what it surfaces.** This is the part that earns the command, and it is the part that rots if skipped:
 
@@ -110,7 +110,7 @@ Interactive-mode prompt templates. Type `/<name>` in a session.
 | Command | What it does | Example |
 |---|---|---|
 | `/get-started` | Session primer — sets working roles, the dual-workflow model, and the operating pattern. Run at the start of a session. | `/get-started` |
-| `/standup` | Reads the standup tracker, then sweeps PRs, issues, `direction.md` and merges into an attention brief. Writer on three of the five surfaces — the write set is in [`memory-model.md` §2.3](memory-model.md). | `/standup --since 48h` |
+| `/standup` | Reads `tracked/operations/`, drains the tracked-item intake, then sweeps PRs and issues into an attention brief. Writer on three of the five surfaces — the write set is in [`memory-model.md` §2.3](memory-model.md). | `/standup --since 48h` |
 | `/review` | Runs `code-reviewer` on recent changes, reported by severity. | `/review` |
 | `/best-practices` | Primes the session with the industry-standard approach to a topic before you build. | `/best-practices retry backoff in distributed queues` |
 | `/decide` | Five-whys reframing cascade — reframes the question before answering, for low/mid-confidence calls. | `/decide should we pin model versions per workflow?` |

@@ -18,7 +18,7 @@ THE AUTHORITY CAME WITH THE JOB, AND IT DID NOT WIDEN. `decision` on a candidate
 is this workflow's output alone — transferred from `plan-sprint` explicitly, in
 every document that names the writer, when the split landed. `status` is still
 NOT ours and never becomes ours: deciding to do something does not do it. On a
-`direction.md` row, `status` is the operator's alone.
+candidate, `decision` is this workflow's and `status` is a later process's.
 
 WHAT IT DELIBERATELY DOES NOT DO. It does not touch `sprint.md` — that is
 `plan-sprint`'s, and this workflow holds no sprint-file authorization at all. It
@@ -84,9 +84,7 @@ def permitted_paths(candidates_rel: Path, research_rel: Path) -> tuple[str, ...]
     """The two files this workflow EXISTS to write, BOTH from this run's arguments.
 
     Both live under `docs/standards/`, so without the exception the forbidden
-    pattern above fails every correct run. `direction.md` is the operator's inbox
-    rather than a standard, which is why the prompt names it as the one exception
-    to the standards-directory rule.
+    pattern above fails every correct run.
 
     A FUNCTION AND NOT THE MODULE-LEVEL TUPLE IT USED TO BE. The tuple's own
     comment said this workflow *"writes two fixed files and can name them at
@@ -99,11 +97,6 @@ def permitted_paths(candidates_rel: Path, research_rel: Path) -> tuple[str, ...]
     instructions as a crossing — failing a CORRECT run at the LAST guard, after
     every turn had been spent. It presents as *"the flag is broken"*.
 
-    `direction.md` DERIVES FROM `--research` AND NOT FROM `--candidates`, because
-    that is the parameter the workflow already holds it under: `prompt_values`
-    reads `direction_ceiling(tree / rel_research)` and the run snapshots
-    `own.direction_statuses(worktree / rel_research)`. Deriving the grant from
-    anything else would let the grant and the readers point at different files.
 
     `re.escape` ON BOTH, for the reason `plan_feature.permitted_paths` states at
     length: an operator-supplied segment interpolated raw makes `.` match any
@@ -122,7 +115,6 @@ def permitted_paths(candidates_rel: Path, research_rel: Path) -> tuple[str, ...]
     """
     return (
         rf"^{re.escape(candidates_rel.as_posix())}/[^/]+\.md$",
-        rf"^{re.escape((research_rel / own.DIRECTION).as_posix())}$",
     )
 
 # --- EVERY `You MAY NOT` ROW, AND WHAT OBSERVES IT ---------------------------
@@ -152,9 +144,6 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
     "Set `status` in the candidates file — that is a later process's":
         "act.candidate_statuses snapshotted either side of the run, compared by "
         "act.statuses_this_run_had_no_right_to",
-    "Set `status` on a `direction.md` row — that is the operator's":
-        "own.direction_statuses snapshotted either side of the run, through the "
-        "same comparator",
     "Set or change `component` on a candidate row that already existed — that is the FILER's":
         "act.candidate_components snapshotted either side of the run, compared by "
         "act.components_this_run_had_no_right_to — which judges only ids present "
@@ -171,7 +160,7 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
         "designing from reporting is the prose itself.",
     "Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/`":
         "FORBIDDEN_PATHS `^docs/standards/` less permitted_paths, same mechanism",
-    "**Delete anything** — a candidate row, a `direction.md` row, or either file":
+    "**Delete anything** — a candidate item, or the store":
         "act.ids_deleted over both id snapshots, and act.grants_that_vanished "
         "over permitted_paths for the files themselves",
 }
@@ -184,7 +173,7 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
 # deleted id is in neither intersection; `boundary_crossings` exempts a permitted
 # path unconditionally, so the file an override exists FOR is the one file whose
 # removal is invisible. Both were demonstrated by execution rather than argued: a
-# run deleted an operator-ruled `direction.md` row and returned a PR URL.
+# run deleted an operator-ruled row and returned a PR URL.
 #
 # Keyed by the SNAPSHOT rather than by the prohibition, because that is what the
 # blindness is a property of. `test_disappearance_is_observed.py` discovers every
@@ -203,12 +192,8 @@ DISAPPEARANCE_OBSERVERS: dict[str, str] = {
         "test_the_two_candidate_READERS_ALWAYS_KEY_THE_SAME_ROWS — which this "
         "entry named nowhere until a review pointed out it was stating the "
         "argument and stopping, which is precisely what the registry distrusts.",
-    "before_direction":
-        "act.ids_deleted against the after-snapshot of the same column, checked "
-        "BEFORE the status comparison because a vanished row is in neither "
-        "intersection that comparison judges",
     "before_tree":
-        "act.grants_that_vanished over permitted_paths for the two files this "
+        "act.grants_that_vanished over permitted_paths for the items this "
         "workflow writes; act.boundary_crossings for every other path, where a "
         "deletion already reads as a content change via the ABSENT sentinel",
 }
@@ -231,7 +216,6 @@ def prompt_values(rel_candidates: Path, rel_research: Path, tree: Path,
         "CANDIDATES_PATH": str(rel_candidates),
         "RESEARCH_DIR": str(rel_research),
         "WORKING_SET": _working_set(counts),
-        "DIRECTION_CEILING": own.direction_ceiling(tree / rel_research),
         # THE TREE, like the line above it. Every other read in this dict is
         # already tree-anchored; this one was the odd repo-rooted read out,
         # sitting one line from its correct neighbour.
@@ -261,7 +245,7 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
 
     # THE COLUMNS THIS RUN MUST NOT MOVE, and the paths it must not reach.
     # `decision` is ours; `status` is a later process's on a candidate and the
-    # OPERATOR'S on a direction row, and neither becomes ours — deciding to do
+    # OPERATOR'S, and neither becomes ours — deciding to do
     # something does not do it.
     #
     # Snapshotted AROUND THE MODEL, never diffed against `origin/main`: this
@@ -273,7 +257,6 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
     # runs in the parent immediately after this child and turns a component name
     # into a committed `docs/development/<name>/` on this same branch.
     before_component = act.candidate_components(wt_candidates)
-    before_direction = own.direction_statuses(worktree / rel_research)
     before_tree = act.worktree_state(worktree)
 
     values = prompt_values(rel_candidates, rel_research, worktree,
@@ -306,7 +289,7 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
             f"triage-candidates made {len(vanished)} file(s) it may WRITE cease "
             f"to exist: {', '.join(vanished)}. The permission covers editing "
             f"them and nothing further. `candidates.md` is the running list this "
-            f"workflow reads its working set from, and `direction.md` is the "
+            f"workflow reads its working set from, and it is the "
             f"operator's inbox — every open question in it is one nobody has "
             f"answered yet — see {url}"
         )
@@ -374,7 +357,7 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
         raise RuntimeError(
             f"triage-candidates edited {len(crossed)} file(s) outside its "
             f"authorization: {', '.join(crossed)}. This workflow rules candidates "
-            f"and files direction rows; it writes no sprint plan, no phase doc and "
+            f"and rules them; it writes no sprint plan, no phase doc and "
             f"no standard. A shipped candidate that looks like it needs a sprint "
             f"section is something to REPORT — `plan-sprint` runs after this and "
             f"carries the only override — see {url}"
@@ -424,52 +407,6 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
             f"required; naming it on somebody else's is not — see {url}"
         )
 
-    # THE SAME PAIR OF COMPARATORS, ON THE HIGHER-STAKES COLUMN. Read ONCE into
-    # a local and used by both: a second inline call would re-parse the file for
-    # a value that cannot have changed between them, which is the triple-read
-    # this workflow's sibling already had removed.
-    after_direction = own.direction_statuses(worktree / rel_research)
-
-    # DELETION FIRST, for the reason the candidates-side check is ordered that
-    # way: `statuses_this_run_had_no_right_to` judges only ids present on BOTH
-    # sides, so it would report nothing whatever about a row that is gone. A
-    # missing `direction.md` on both sides is `{}` vs `{}` and stays legitimate.
-    lost = act.ids_deleted(before_direction, after_direction)
-    if lost:
-        raise RuntimeError(
-            f"triage-candidates deleted {len(lost)} `direction.md` row(s): "
-            f"{', '.join(lost)}. Nobody but `/standup` rotates a row out. An "
-            f"`open` row is a question this workflow filed FOR the operator and "
-            f"nobody has answered; a ruled one is the RECEIPT for an answer they "
-            f"gave, and `direction.md` § Rotation is explicit that the reasoning "
-            f"must be durable elsewhere before the row goes — otherwise the same "
-            f"recommendation comes back round next cycle with nothing recording "
-            f"that it was already settled — see {url}"
-        )
-
-    # `applied` and `rejected` on a direction row are rulings only the operator
-    # can make, and once one is recorded `/standup` rotates the row out and the
-    # receipt is gone — so a wrongly-set flag is not merely wrong, it is
-    # unrecoverable. Only PRE-EXISTING rows are judged, because the prompt
-    # REQUIRES a newly appended row to carry `status: open`.
-    #
-    # `before->after` here for a sharper reason than on the candidates side: the
-    # three values are `open`, `applied` and `rejected`, and WHICH ruling the run
-    # invented is the whole of what the operator has to undo. Naming the row and
-    # not the flag hands them the id and keeps the answer.
-    ruled = act.statuses_this_run_had_no_right_to(before_direction, after_direction)
-    if ruled:
-        raise RuntimeError(
-            f"triage-candidates changed the `status` column on {len(ruled)} "
-            f"`direction.md` row(s): "
-            + ", ".join(f"{did} {before_direction[did]!r}->{after_direction[did]!r}"
-                        for did in ruled)
-            + f". That flag is the "
-            f"OPERATOR'S ALONE — `applied` and `rejected` are the rulings this "
-            f"workflow files a row to ask for, and it may not answer its own "
-            f"question. Appending a row with `status: open` is the whole of this "
-            f"workflow's part in it — see {url}"
-        )
     return url
 
 

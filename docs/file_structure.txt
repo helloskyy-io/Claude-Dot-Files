@@ -166,7 +166,6 @@ claude-dot-files/
 │       │   │   ├── README.md                        # What this altitude is for, and how it differs from a phase's own research/
 │       │   │   ├── topics.md                        # SIZE memory — tier, topic list with destinations, named gaps. Rewritten each run, never appended
 │       │   │   ├── raw/<topic>.md                   # The pool — 8 mini-papers carried over from the CSCI-6905.604 research project
-│       │   │   ├── direction.md                     # The operator's inbox — rulings only they can make. Binds nothing
 │       │   │   └── synthesis.md                     # What the pool means for the product's direction. NON-BINDING
 │       │   ├── README.md                            # What goes here vs the rest of standards/
 │       │   ├── problem-statement.md                 # THE WHY — the trade-off being closed, and that this repo is iteration 1 with coding as the first edge

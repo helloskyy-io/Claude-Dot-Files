@@ -834,7 +834,14 @@ _FRAGMENT_FLOOR = {
     # MEASURED 2026-08-17 by `_substantive_lines`, when `_PROMOTED` stopped being
     # a literal list and these came under the floor for the first time. Each was
     # promoted before this module last counted, so each was unguarded until now.
-    "altitude_product": 34,
+    # LOWERED 34 -> 20 on 2026-08-26, deliberately, and this is the decision the
+    # floor exists to force somebody to write down. Stage 4c was an instruction
+    # to append a `D-NNN` row to `direction.md` — a table, a row shape, an id
+    # series and a two-column "what goes where" split. That file is DELETED: the
+    # class it served (a recommendation only the operator can rule on) is a
+    # candidate carrying `decision: requires review`, which the fragment now
+    # says in three lines instead of twenty-two.
+    "altitude_product": 20,
     "decision_log_and_reflection": 43,
     "headless_execution_guard": 6,
     "mutation_discipline": 12,

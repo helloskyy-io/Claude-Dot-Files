@@ -246,11 +246,15 @@ def test_triage_forbids_the_files_it_may_not_write_and_permits_the_two_it_must()
     forbidden = ("docs/development/sprint.md",
                  "docs/development/temporal-integration/phase-1.md",
                  "docs/standards/architecture/problem-statement.md",
-                 "docs/standards/workflow-scripts.md")
+                 "docs/standards/workflow-scripts.md",
+                 # `direction.md` DELETED 2026-08-26 — the second queue for the
+                 # `requires review` disposition. It is forbidden now like any
+                 # other standards path, with no carve-out, because there is
+                 # nothing there to write.
+                 "docs/standards/architecture/research/direction.md")
     # AN ITEM IN THE POOL, not the pool directory: `tracked/` is forbidden as a
     # tree and the grant carves back the item files a run actually writes.
-    permitted = ("tracked/candidates/C-d1uhacwn.md",
-                 "docs/standards/architecture/research/direction.md")
+    permitted = ("tracked/candidates/C-d1uhacwn.md",)
     for path in forbidden:
         assert act.boundary_crossings({}, {path: "h"}, triage.FORBIDDEN_PATHS,
                                       triage.permitted_paths(Path("tracked/candidates"), Path("docs/standards/architecture/research"))) == [path], (

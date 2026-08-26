@@ -30,7 +30,7 @@ A **finding** is anything an actor concludes that it is not going to act on imme
 |---|---|---|
 | **DEFECT** | Something already built or already decided **behaves wrongly** — or a decision the existing research and planning do not supply is now **blocking** | the issue queue (§3) |
 | **PROPOSAL** | **Capability that does not exist** and would be *added* | the proposal queue (§3) |
-| **RULING** | The resolution is a **preference or a commitment**, not work. No amount of further work produces the answer | the ruling queue (§3) |
+| **RULING** | The resolution is a **preference or a commitment**, not work. No amount of further work produces the answer | a **candidate carrying `decision: requires review`** (§3) |
 | **OPERATING STATE** | A **condition** rather than a task — ongoing, multi-day, no single done-state | the continuity surface (§3) |
 
 **A finding that is not one of these four is not a finding.** It is an observation, and observations belong in the run's own report where they die with it, which is correct.
@@ -172,9 +172,10 @@ These are **vendored MIRROR** copies. **They win where they overlap this documen
 | **DEFECT** | [`tracked/issues/`](../../tracked/issues/) | **COMMIT**, or **INTAKE** | **`review-pr` only.** A PR-producing run never files its own defect — that is the disposal chute below |
 | **PROPOSAL** | [`tracked/candidates/`](../../tracked/candidates/) | **COMMIT**, or **INTAKE** | the **producing run**, in its own PR (§4). `review-pr` by intake **only** for a proposal the run never surfaced |
 | **STANDARDS AMENDMENT** | [`tracked/standards/`](../../tracked/standards/) | **COMMIT**, or **INTAKE** | any run that surfaces one. **Filing is surfacing, not editing** — Governance permits it. `ratification` is the operator's alone |
-| **RULING** | [`direction.md`](architecture/research/direction.md) | **COMMIT** | `triage-candidates` appends; **only the operator sets `status`** |
 | **OPERATING STATE** | [`tracked/operations/`](../../tracked/operations/) | **COMMIT** | **operator and PM sessions only** — no autonomous run, ever (Tracked Items §1.2) |
 
+> **THE RULING CLASS HAS NO SURFACE OF ITS OWN, AND THAT IS THE 2026-08-26 CORRECTION.** It had one: `direction.md`, a table beside the research pool with its own `D-NNN` series. **Deleted.** Every row it held pointed at a source candidate that still existed carrying `decision: requires review, status: open` — which IS the signal "a human owes a ruling", in a store that already has a triage cadence and a named runner. The second surface added an id and nothing else, and in three weeks **nobody ruled a single row on it**: it had a reader (`/standup` rotated it) and no ruler, which is [§0](documentation/tracked_items_standard.md)'s second property failing in the open. **A `requires review` candidate IS the ruling queue.** Do not give this class a surface again; §8 names a second surface for a class that already has one as a violation.
+>
 > **A FIFTH CLASS, AND §6 PREDICTED IT.** The four classes in §2 had no row for a proposed amendment to a **named standard**, and §6 recorded the consequence as a known gap: Governance permitted an autonomous run to *surface* one while forbidding it to edit a standard, and there was nowhere for the surfacing to land. `tracked/standards/` is that destination, and the class is now first-class rather than a defect wearing the wrong label.
 >
 > **Every surface here moved from an API to a file on 2026-08-26**, which is why the mechanism column now carries two values per row. The COMMIT half is for a run that produces a PR; the INTAKE half is for one that does not. **`tracked/operations/` deliberately has no INTAKE half** — it is human-only, so there is no autonomous path to provide.
@@ -183,7 +184,6 @@ These are **vendored MIRROR** copies. **They win where they overlap this documen
 
 > **This authority was `plan-sprint`'s until 2026-08-12, and it MOVED — it did not widen.** `plan-sprint` did two jobs in one run, triaging candidates and maintaining the sprint plan, with nothing able to sequence between them; `triage-candidates` is the triage half split out. The `decision` column and the `direction.md` append went with the job, `plan-sprint` kept `sprint.md`, and **`plan-sprint` may no longer write `decision` at all** — its runner reads the column before and after and fails the run if any ruling changed. Exactly one workflow writes each surface, which is the property that mattered and the one thing the split had to preserve.
 >
-> **`status` did not move and did not loosen.** On a `direction.md` row it is the operator's alone, as before. On a candidate it is still a later process's — `plan-feature`, or the build that completes the item — and `triage-candidates` sets it never.
 
 ## 8 · Breaking it looks like
 

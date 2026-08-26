@@ -115,7 +115,7 @@ def tree(tmp_path: Path) -> Path:
 def stub_context(monkeypatch: pytest.MonkeyPatch) -> None:
     """Silence the helpers that shell out or walk the real tree.
 
-    `existing_work` runs `gh` and iterates `docs/development/`; `direction_ceiling`
+    `existing_work` runs `gh` and iterates `docs/development/`; the reader
     reads a file; `worktree_state` runs `git` and the fixture tree is not a
     repository. None of them is what any assertion here is about, and
     `existing_work` making a live subprocess call would put a network dependency
@@ -133,7 +133,6 @@ def stub_context(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     monkeypatch.setattr(sprint.act, "existing_work", lambda *a, **k: "<work>")
     monkeypatch.setattr(triage.act, "existing_work", lambda *a, **k: "<work>")
-    monkeypatch.setattr(triage.own, "direction_ceiling", lambda *a, **k: "<ceiling>")
     monkeypatch.setattr(act, "worktree_state", lambda *a, **k: {})
 
 
@@ -877,7 +876,7 @@ def test_triage_FAILS_when_it_reached_outside_its_authorization(
 # literal. Spelling the repo's default here passed only because the grant ignored
 # what the run was pointed at — so this parametrize is now exercising the
 # non-default pool that `--candidates` and `--research` exist to reach.
-@pytest.mark.parametrize("path", ["c.md", "r/direction.md"])
+@pytest.mark.parametrize("path", ["tracked/candidates/C-d1uhacwn.md"])
 def test_triage_is_NOT_failed_for_writing_the_two_files_it_exists_to_write(
         tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch,
         path: str) -> None:
@@ -892,79 +891,6 @@ def test_triage_is_NOT_failed_for_writing_the_two_files_it_exists_to_write(
     _render(f, _table([("C-d1uhacwn", "")]))
     _fake_run(triage, monkeypatch, writes=_table([("C-d1uhacwn", "`ship`")]), path=f)
     _crossing(monkeypatch, path)
-
-    assert _run_triage(tree) == PR_URL
-
-
-def _direction(rows: list[tuple[str, str]]) -> str:
-    head = "| ID | Recommendation | Why it matters | Source | `status` |\n|---|---|---|---|---|\n"
-    return head + "".join(f"| `{d}` | r | w | `C-d1uhacwn` | `{st}` |\n" for d, st in rows)
-
-
-def test_triage_FAILS_when_it_ruled_the_operators_own_direction_row(
-        tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch) -> None:
-    """THE HIGHER-STAKES COLUMN, and the one the split left on prose.
-
-    `standards-governance.md` calls this flag *"the ruling this rule exists to
-    protect"*. A run that writes `applied` on a row the operator never ruled
-    leaves a green run and a ruling indistinguishable from a genuine one — after
-    which `/standup` rotates the row out and the receipt is gone. The prompt
-    asserted this was compared before and after. Nothing compared it.
-    """
-    d = tree / "r" / "direction.md"
-    d.write_text(_direction([("D-001", "open"), ("D-002", "open")]))
-    f = tree / "tracked" / "candidates"
-    _render(f, _table([("C-d1uhacwn", "")]))
-
-    def run(prompt: str, **kw: object) -> str:
-        _render(f, _table([("C-d1uhacwn", "`ship`")]))
-        d.write_text(_direction([("D-001", "applied"), ("D-002", "open")]))
-        return f"done\n{PR_URL}\n"
-    monkeypatch.setattr(triage.act, "run_claude", run)
-
-    with pytest.raises(RuntimeError, match=r"`direction.md` row"):
-        _run_triage(tree)
-
-
-def test_a_direction_row_APPENDED_open_is_not_a_ruling_the_run_made(
-        tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch) -> None:
-    """NEGATIVE CONTROL — filing a `requires review` row is the job, not an offence.
-
-    The same only-pre-existing-rows exemption the candidate `status` guard needed,
-    and for a stronger reason: the prompt REQUIRES a newly appended row to carry
-    `status: open`, so judging new rows would make an instruction this workflow is
-    under unfollowable.
-    """
-    d = tree / "r" / "direction.md"
-    d.write_text(_direction([("D-001", "open")]))
-    f = tree / "tracked" / "candidates"
-    _render(f, _table([("C-d1uhacwn", "")]))
-
-    def run(prompt: str, **kw: object) -> str:
-        _render(f, _table([("C-d1uhacwn", "`requires review`")]))
-        d.write_text(_direction([("D-001", "open"), ("D-002", "open")]))
-        return f"done\n{PR_URL}\n"
-    monkeypatch.setattr(triage.act, "run_claude", run)
-
-    assert _run_triage(tree) == PR_URL
-
-
-def test_a_run_that_CREATES_direction_md_is_not_failed_for_creating_it(
-        tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch) -> None:
-    """NEGATIVE CONTROL — the file legitimately does not exist yet in a new repo.
-
-    `direction_ceiling` already treats a missing file as a state rather than a
-    fault and tells the run to create it. A guard that read absence as an error
-    would forbid the very action the prompt above it instructs.
-    """
-    f = tree / "tracked" / "candidates"
-    _render(f, _table([("C-d1uhacwn", "")]))
-
-    def run(prompt: str, **kw: object) -> str:
-        _render(f, _table([("C-d1uhacwn", "`requires review`")]))
-        (tree / "r" / "direction.md").write_text(_direction([("D-001", "open")]))
-        return f"done\n{PR_URL}\n"
-    monkeypatch.setattr(triage.act, "run_claude", run)
 
     assert _run_triage(tree) == PR_URL
 
@@ -1058,69 +984,18 @@ def test_plan_sprint_FAILS_when_it_appended_to_the_operators_inbox(
 # before these existed; `test_disappearance_is_observed.py` holds the class, and
 # these prove each mechanism actually fires.
 
-def test_triage_FAILS_when_it_deleted_the_operators_own_direction_row(
-        tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Deleting a ruling is strictly worse than fabricating one.
-
-    A flipped `status` invents an answer the operator never gave; a deleted row
-    destroys one they did — and `direction.md` § Rotation is explicit that the
-    reasoning must be durable elsewhere before the row goes, because the row is
-    the only thing stopping the same recommendation coming back next cycle.
-    Nothing observed this: `statuses_this_run_had_no_right_to` judges
-    `before.keys() & after.keys()`, and a deleted id is in neither.
-    """
-    d = tree / "r" / "direction.md"
-    d.write_text(_direction([("D-001", "open"), ("D-002", "applied")]))
-    f = tree / "tracked" / "candidates"
-    _render(f, _table([("C-d1uhacwn", "")]))
-
-    def run(prompt: str, **kw: object) -> str:
-        _render(f, _table([("C-d1uhacwn", "`ship`")]))
-        d.write_text(_direction([("D-001", "open")]))
-        return f"done\n{PR_URL}\n"
-    monkeypatch.setattr(triage.act, "run_claude", run)
-
-    with pytest.raises(RuntimeError, match=r"deleted 1 `direction.md` row\(s\): D-002"):
-        _run_triage(tree)
-
-
-def test_a_direction_row_APPENDED_beside_a_ruled_one_is_still_clean(
-        tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch) -> None:
-    """NEGATIVE CONTROL, and it is what makes the arm above mean anything.
-
-    A probe that emptied the whole file would fail for either reason. Here the
-    run does the job — appends `D-003 open` — beside a row already carrying the
-    operator's `applied`, and touches nothing else.
-    """
-    d = tree / "r" / "direction.md"
-    d.write_text(_direction([("D-001", "open"), ("D-002", "applied")]))
-    f = tree / "tracked" / "candidates"
-    _render(f, _table([("C-d1uhacwn", "")]))
-
-    def run(prompt: str, **kw: object) -> str:
-        _render(f, _table([("C-d1uhacwn", "`requires review`")]))
-        d.write_text(_direction([("D-001", "open"), ("D-002", "applied"),
-                                 ("D-003", "open")]))
-        return f"done\n{PR_URL}\n"
-    monkeypatch.setattr(triage.act, "run_claude", run)
-
-    assert _run_triage(tree) == PR_URL
-
-
-# Same as above: the fixture's paths, because the grants derive from them now.
 @pytest.mark.parametrize("workflow,runner,path", [
     # AN ITEM INSIDE THE STORE, not the store itself. The grant now covers a
     # DIRECTORY, so the deletion a run can actually commit is of one item file —
     # and that is the one this guard has to catch, because deleting an item is
     # how a ruled candidate silently stops existing.
     (triage, _run_triage, "tracked/candidates/C-d1uhacwn.md"),
-    (triage, _run_triage, "r/direction.md"),
     (sprint, _run_sprint, "sprint.md"),
     # `(sprint, "c.md")` REMOVED 2026-08-19: plan-sprint no longer holds a
     # candidates grant, so there is no permitted file for it to delete there —
     # the case it tested cannot arise, and a parametrisation that cannot arise
     # reads as coverage while asserting nothing.
-], ids=["triage-candidates-file", "triage-direction-file", "sprint-plan"])
+], ids=["triage-candidates-file", "sprint-plan"])
 def test_NEITHER_workflow_may_delete_a_file_it_is_merely_PERMITTED_to_write(
         tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch,
         workflow, runner, path: str) -> None:

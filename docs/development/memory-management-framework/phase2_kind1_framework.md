@@ -60,7 +60,7 @@ Recorded here rather than only in the framework doc, because three of them are f
 
 **Finding 2 — there are FIVE Kind 1 surfaces, not three.** Two file surfaces sit alongside the three GitHub ones, and each was measured against §1's five properties rather than assumed in:
 
-- [`direction.md`](../../standards/architecture/research/direction.md) — durable, human- and machine-readable, carries outcome *and* reasoning, to-do bit (`status: open`), addressable (`D-NNN`), survives context death. **Its to-do bit is a column in a committed markdown table, not GitHub `open`, and its writer is in the V2 Python tree.** Documented as §2.4.
+- ``direction.md`` — durable, human- and machine-readable, carries outcome *and* reasoning, to-do bit (`status: open`), addressable (`D-NNN`), survives context death. **Its to-do bit is a column in a committed markdown table, not GitHub `open`, and its writer is in the V2 Python tree.** Documented as §2.4.
 - [`candidates.md`](../../../tracked/candidates/) — same six lines, same result: *"nobody deletes a row"*, a fixed-column table both `plan-sprint` and the research tree parse, *"both carry reasoning in the Note"*, an orthogonal `status:` bit the file devotes a section to keeping separate from `decision`, `C-NNN` ids *"never reused, and never renumbered"*, and a § *Why it exists* that is literally a context-death incident. Documented as §2.5.
 
 So this fleet already runs **two bindings** of Kind 1, and the file binding has **two members with different lifecycles** — one rotates rows out at 90 days, one never deletes — which converts the interface/binding split from an argument into an observation, and from one instance into a comparison. Used as the evidence for §9's inherit/re-implement table.

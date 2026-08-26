@@ -30,42 +30,12 @@ Create it with the header explaining the two flags, who sets which, and the neve
 
 State plainly: how many candidates you **added**, how many you **restated under an existing ID**, and how many existing rows you **left alone**. A cycle that adds nothing new is a legitimate outcome — say so rather than manufacturing candidates to look productive.
 
-## Stage 4c: APPEND TO `direction.md` — BINDING
+## Stage 4c: A RECOMMENDATION ABOUT WHAT THE PROJECT BELIEVES — BINDING
 
-Some findings are not design work. They are **recommendations about what the project believes** — that a differentiator is overstated, that a comparator is mis-framed, that a claim rests on an assumption nobody named. Those belong to the operator, not to a planner and not to you.
+Some findings are not design work. They are **recommendations about what the project believes** — that a differentiator is overstated, that a comparator is mis-framed, that the problem statement claims something the evidence no longer supports.
 
-`${RESEARCH_DIR}/direction.md` is where they go.
+**They go in `tracked/candidates/` like everything else, carrying `decision: requires review`.** That field is what says *only the operator can rule on this, and no further automated work makes it ready.*
 
-> **`tracked/candidates/` is the machine's store. `direction.md` is the human's.**
+> **THERE USED TO BE A SECOND FILE FOR THESE and it was deleted on 2026-08-26.** `direction.md` held them as `D-NNN` rows beside the pool. Every row pointed at a candidate that already carried this exact decision, so it added an id and nothing else — and in three weeks nobody ruled a single row on it. **Do not recreate it.** [Tracked Items Standard §8](../../../../../../docs/standards/documentation/tracked_items_standard.md) names a second surface for a class that already has one as a violation.
 
-**You NEVER edit `problem-statement.md`.** It is the thesis every other document derives from, and the judgement in it is not delegable. You recommend; the operator rules; the operator writes.
-
-### What belongs here rather than in `tracked/candidates/`
-
-| Goes in `direction.md` | Goes in `tracked/candidates/` |
-|---|---|
-| A differentiator is overstated, refuted, or should be restated | Build this, adopt that, decide a ruling |
-| The problem statement claims something the evidence no longer supports | A standards amendment, a phase item, a guard to ship |
-| A comparator is mis-framed or missing an axis | Anything with an implementation |
-| A stated assumption is load-bearing and unnamed | |
-
-**If you cannot tell, ask: does acting on this change what we BELIEVE, or what we BUILD?** Belief goes here.
-
-### Row shape
-
-| ID | Recommendation | Why it matters | Source | `status` |
-
-**You set:** `ID` · `Recommendation` · `Why it matters` · `Source`.
-**You NEVER set `status`** — that is the operator's, and it is one of `open` · `applied` · `rejected`. Leave it `` `open` ``.
-
-### If the file already exists
-
-Same discipline as `tracked/candidates/`: **read every item first**, reuse the original ID for anything you are restating, never renumber, never delete, and **do not re-propose something already marked `rejected`** unless new evidence overturns it — in which case say so explicitly.
-
-IDs are `D-001`, `D-002`, … and are independent of the `C-` series.
-
-**You are not the only writer.** `triage-candidates` also appends here — it is where a candidate it triages as `requires review` gets handed to the operator, carrying its `C-` id in the Source column. So **read every row and continue from the highest ID**; never assume the file holds only your own cycles' rows.
-
-### In your PR body
-
-**List the `direction.md` items separately from the candidates, as their own table.** They are the reason a research PR carries `HOLD - needs-assistance` rather than merging unattended: a human must rule on them, and no number of additional passes can produce that ruling.
+**You NEVER edit `problem-statement.md`.** It is the thesis every other document derives from, and the judgement in it is not delegable. You recommend; the operator rules.

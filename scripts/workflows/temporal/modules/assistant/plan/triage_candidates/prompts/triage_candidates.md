@@ -7,7 +7,6 @@ Research pool: ${RESEARCH_DIR}
 
 ${WORKING_SET}
 
-${DIRECTION_CEILING}
 
 ---
 
@@ -19,29 +18,26 @@ ${DIRECTION_CEILING}
 |---|---|
 | Set `decision` in the candidates file | Set `status` in the candidates file — that is a later process's |
 | **Set `size` on a row you ruled `ship`** | **Set `size` on a row you did NOT rule `ship`** — a rejection has no size |
-| Append a `D-NNN` row to `direction.md` | Set `status` on a `direction.md` row — that is the operator's |
 | Write reasoning into a candidate's Note | Set or change `component` on a candidate row that already existed — that is the FILER's |
 | Name the `component` on a row YOU append | **Touch `sprint.md` at all** — you hold no authorization over it |
 | | Write or edit any phase doc |
 | | Design *how* anything gets built |
 | | Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/` |
-| | **Delete anything** — a candidate row, a `direction.md` row, or either file |
+| | **Delete anything** — a candidate item, or the store |
 
 **`sprint.md` is not yours, and this is not a formality.** The sprint plan is the operator's cross-domain sequencing surface and the standing rule is that dispatches never write it. `plan-sprint` carries a specific, bounded override for it; **you do not.** If a candidate you ship looks like it needs a sprint section, say so in your report and stop — `plan-sprint` runs after you and that is its call to make.
 
 **Every row in that MAY NOT column is enforced, not requested, and here is exactly how.** When you finish, the worktree is read and compared against a snapshot taken before you started:
 
-- **Both `status` columns** — the one in the candidates file and the one on a `direction.md` row — are compared cell by cell on every row that already existed. A newly appended row is exempt, because you are *required* to write `status: open` on one.
+- **The `status` field** on every candidate is compared cell by cell on every row that already existed. A newly appended row is exempt, because you are *required* to write `status: open` on one.
 - **The `component` column**, the same way and for the same reason: cell by cell on every row that already existed, with a row you append exempt because filing one requires you to name where it goes. **The asymmetry is the whole point.** A component you name on your OWN proposal is the filer naming it, which is who owns the column; a component you write onto somebody else's row is a guess from a one-line summary — and it does not stay a guess, because `plan-candidates` runs immediately after you and turns it into a committed `docs/development/<name>/` on this branch.
 - **A `size` on a row you did NOT rule `ship`** is read off the finished file. Both cells come from the SAME row, so what is checked is the PAIRING and not either column alone — a table where every row is sized and none is shipped passes a per-column check and is nonsense. No before-snapshot is needed: a rejection has no size at any point, so the offence is visible in the result.
-- **Every path outside your authorization** — the sprint plan, any phase doc, anything under `docs/standards/` other than the candidates file and `direction.md` — is compared by content. Renaming or deleting one counts as editing it.
-- **Deleting anything** fails the run, at both altitudes and in both files. A candidate row and a `direction.md` row are each compared by ID against what was there before you started; the two files themselves are checked for still existing. This is separate from every check above it *because every check above it is blind to absence*: the triage count drops when a row vanishes exactly as it does when a row is ruled, and the two `status` comparisons judge only rows present on **both** sides, so a row that is simply gone is invisible to all three. A candidate ruled `reject` stays visibly rejected so the next research cycle does not re-propose it, and an `open` direction row is a question the operator has not answered yet.
+- **Every path outside your authorization** — the sprint plan, any phase doc, anything under `docs/standards/`, any store other than the candidates one — is compared by content. Renaming or deleting one counts as editing it.
+- **Deleting anything** fails the run. Candidate items are compared by ID against what was there before you started; the store itself is checked for still existing. This is separate from every check above it *because every check above it is blind to absence*: the triage count drops when a row vanishes exactly as it does when a row is ruled, and the two `status` comparisons judge only rows present on **both** sides, so a row that is simply gone is invisible to all three. A candidate ruled `reject` stays visibly rejected so the next research cycle does not re-propose it, and an `open` direction row is a question the operator has not answered yet.
 
 Any one of these **fails the whole run** — including the work you did correctly. Ruling a candidate is not doing it, and reporting that something needs a sprint section is the whole of your part in it.
 
 **One row in that column is NOT mechanically checked, and you are told which** so the list above is not read as covering everything: *designing how anything gets built* leaves no artifact distinct from the report you are required to write, since that report must say what you noticed about a shipped candidate. That one is held by your own discipline and by the reviewer reading your report.
-
-**`direction.md` is the one exception to the standards-directory rule.** It lives under `docs/standards/architecture/research/` but it is not a standard — it is the operator's inbox, and appending to it is how you hand something over.
 
 **The decision was made — implement your portion only.** A decided candidate does not become finished work because you decided it. Something else places it, and something else again builds it.
 
@@ -89,7 +85,7 @@ Report what you found: how many candidates are untriaged, and anything in the ev
 | Disposition | When | What you do |
 |---|---|---|
 | **`ship`** | It serves the trajectory AND is understood well enough to schedule | Set `decision`, **set `size`**, and say in the Note what makes it worth doing and what you sized it on |
-| **`requires review`** | Only the operator can rule on it, and no further automated work makes it ready | Set `decision`, **and write a `D-NNN` row into `direction.md`** |
+| **`requires review`** | Only the operator can rule on it, and no further automated work makes it ready | Set `decision: requires review` and say in the item's body why the operator and not you |
 | **`reject`** | We are not doing this | Set `decision`, and **state why** in the Note |
 
 ### THEN SIZE IT — the second ruling, asked ONLY of a `ship`
@@ -139,18 +135,14 @@ This exists because **`ship` and `reject` are both wrong answers for an open que
 - It is a trade-off with a real cost on both sides
 - Acting on it would commit the project to something the operator has not agreed to
 
-**How to file one.** Append a row to `${RESEARCH_DIR}/direction.md`, creating the file with a header row if it does not exist:
+**How to file one.** **Set `decision: requires review` on the candidate and stop.** That is the whole of it — the item itself is the record, and the field is what the operator reads.
 
-| ID | Recommendation | Why it matters | Source | `status` |
-|---|---|---|---|---|
-| `D-007` | Rule the laptop trust boundary — the resolution available is that the credential is the operator's own | Both major CI vendors publish guidance against exactly this shape; leaving it unwritten blocks the pinned-edge queue design | `C-i67vxj1t` | `open` |
+**There is no second queue any more.** A `D-NNN` row in a `direction.md` beside the pool used to be filed here as well. That file was deleted on 2026-08-26: every row it held pointed at a candidate that still existed carrying this exact decision, so the second surface added an id and nothing else, and nobody ever ruled the rows it accumulated. **Do not recreate it** — [Tracked Items Standard §8](../../../../../../../../docs/standards/documentation/tracked_items_standard.md) names a second surface for a class that already has one as a violation.
 
-- **IDs are `D-001`, `D-002`, …**, independent of the `C-` series. The next free id is stated above, counted in code — **never renumber, never delete, never re-propose something already marked `rejected`.**
-- **You always leave `status` as `open`.** `applied` and `rejected` are the operator's.
-- The `Source` column carries the `C-NNN` it came from, so the two files stay linked.
-- **Recommendation and Why-it-matters are one sentence each.** The operator reads these at standup; a paragraph does not get read.
+- **Say WHY the operator and not you**, in the item's body, in one or two sentences. *"Two defensible answers and the evidence does not pick"* is a ruling; *"this is hard"* is not.
+- **You never set `status`.** `adopted` and `rejected` are a later process's.
 
-**Then it leaves your working set.** A non-blank `decision` is never re-triaged, so it does not come back around. It surfaces at `/standup` as an open direction decision, the operator rules, and only then does anything change.
+**Then it leaves your working set.** A non-blank `decision` is never re-triaged, so it does not come back around. It surfaces as a candidate carrying `requires review`, the operator rules, and only then does anything change.
 
 **`requires review` is NOT a dumping ground either.** A candidate you simply find hard is still yours to rule on. The test is whether *the operator holds information you do not* — a preference, a priority, a commitment. If the blocker is that you have not read enough, read more.
 

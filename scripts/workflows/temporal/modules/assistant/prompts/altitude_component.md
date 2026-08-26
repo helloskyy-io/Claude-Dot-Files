@@ -26,6 +26,6 @@ You may turn up a finding that bears on what the project believes rather than ho
 
 1. **State it in `synthesis.md`** under a clearly-marked heading: `## Escalations — findings above this component's altitude`. One entry each: what you found, what it bears on, and what you think it means.
 2. **Repeat it in your PR body as its own table**, separate from the component's action candidates. The operator reads escalations differently from candidates — an escalation may stop other work.
-3. **Do NOT write it into the product pool's `direction.md` or `tracked/candidates/`.** Those files are the product pool's, and a component run appending to them means the operator's inbox is being written by runs that were never scoped to it. Surface it; the operator files it.
+3. **Do NOT write it into the product pool's `tracked/candidates/`.** Those files are the product pool's, and a component run appending to them means the operator's inbox is being written by runs that were never scoped to it. Surface it; the operator files it.
 
 **An escalation is rare.** If you produce more than one or two, that is a signal you have drifted upward rather than a signal the project is in trouble — say so plainly rather than presenting drift as findings.

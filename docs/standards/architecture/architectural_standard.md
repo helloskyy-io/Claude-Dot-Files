@@ -56,7 +56,6 @@ Deliberate boundaries. Each has a reason, and each was paid for:
 | GitHub Issues | **defects** — a no-change outcome on something already built or decided, and planning STOPs. **Never a proposal.** | filed → ruled → closed |
 | Standup tracker | continuity — operating state, next moves. **Operator and PM sessions only; no autonomous run writes here** | never closes; pruned |
 | `candidates.md` | **proposals** — research candidates and anything an actor wants ADDED | appended, never rewritten |
-| `direction.md` | rulings only the operator can make | appended → ruled → rotated at 90 days |
 
 **The full routing procedure lives in [`finding-routing.md`](../finding-routing.md), which owns it.** This section states the surface set and the one rule that decides between the two queues; the gates, the mechanism requirement and the disposition vocabulary are there, not restated here — this standard is *deliberately narrow in scope*, and a procedure that lives in two places diverges silently.
 

@@ -1,15 +1,14 @@
 Run a standup: read the operations store, sweep the platform's git-native memory surfaces, **bring that store up to what is actually true**, and report only what needs a human.
 
-**You take exactly FOUR kinds of action, and they are the complete list:**
+**You take exactly THREE kinds of action, and they are the complete list:**
 
 1. **Update the operations store** — edit the item files under `tracked/operations/`
 2. **Drain the intake** — `python3 scripts/helpers/harvest-intake.py --repo-root <repo>`, then commit what it wrote. **This is not optional housekeeping**: [Tracked Items Standard §5.0](../../docs/standards/documentation/tracked_items_standard.md) exempts the intake from the retirement of GitHub Issues *on condition that a named harvest cadence empties it*, and this is that cadence. **An intake nobody drains is a second store, which §8 calls a violation.**
 3. **Close an issue you verified is done** — `gh issue close <N> --comment <evidence>`
-4. **Rotate `direction.md`** — delete `applied`/`rejected` rows ruled ≥90 days ago whose reasoning is recorded in their source candidate, and correct a row whose stated facts have changed. **You never set `status`; that is the operator's alone.**
 
-Everything else is read-only: do not merge, do not dispatch, do not comment on an open PR, and **edit no file other than `direction.md`, the item files under `tracked/operations/`, and whatever the harvest writes into `tracked/`**.
+Everything else is read-only: do not merge, do not dispatch, do not comment on an open PR, and **edit no file other than the item files under `tracked/operations/` and whatever the harvest writes into `tracked/`**.
 
-*(Corrected three times. On 2026-08-08 this line forbade closing issues, which Stage 2 directs. The correction then said TWO actions and kept a blanket "edit no file" — which still forbade the `direction.md` rotation Stage 2 mandates at `§ Stage 2`. On 2026-08-26 the tracker moved from a GitHub issue to `tracked/operations/` and the harvest became a fourth action, so both the count and the file prohibition moved again — the same two lines, for the third time, which is why they are derived from the action table rather than counted by hand. **An undercount here is not cosmetic: the conservative reading of a prohibition is to obey it**, so the run silently skips the write and the item is re-reported every morning — the exact stacking this command exists to end. The list above is now derived from Stage 2's own table rather than counted from memory.)* The operations store is the main exception, and it exists because a reconciler that can see an item is finished but cannot say so re-reports that dead item every day forever. The tracker's own rules authorise this: *"Operator and PM sessions only, in the standup"* — this IS the standup.
+*(Corrected three times. On 2026-08-08 this line forbade closing issues, which Stage 2 directs. The correction then said TWO actions and kept a blanket "edit no file" — which still forbade the `direction.md` rotation Stage 2 mandates at `§ Stage 2`. On 2026-08-26 the tracker moved from a GitHub issue to `tracked/operations/` and the harvest became a new action; `direction.md` was deleted the same day and its rotation went with it, taking the count back to THREE. The same two lines have now moved three times, which is why they are derived from the action table rather than counted by hand. **An undercount here is not cosmetic: the conservative reading of a prohibition is to obey it**, so the run silently skips the write and the item is re-reported every morning — the exact stacking this command exists to end. The list above is now derived from Stage 2's own table rather than counted from memory.)* The operations store is the main exception, and it exists because a reconciler that can see an item is finished but cannot say so re-reports that dead item every day forever. The tracker's own rules authorise this: *"Operator and PM sessions only, in the standup"* — this IS the standup.
 
 > **THE BAR THIS COMMAND IS MEASURED AGAINST: every line you render must need something from the operator.** A finished item, a stale reference, an item whose blocker is gone — none of those are standup material. They are tracker maintenance, and you do that maintenance yourself before rendering. **If the operator reads a row and thinks "that's already done", this command has failed**, regardless of how accurate the rest of the brief was.
 
@@ -51,9 +50,6 @@ It exists because live-operational work — a multi-day vendor migration, an inc
 
 ## Stage 1 — Sweep (dumb, complete enumeration)
 
-**Read `docs/standards/architecture/research/direction.md` if it exists.** It holds recommendations about what the project *believes* — a differentiator overstated, a claim resting on an unnamed assumption — surfaced by research and **awaiting the operator's ruling**. Every row with `status: open` is a decision only the human can make. If the file is absent, say so in one line and move on.
-
-
 For each repo in the Stage 0 set (run `gh` from inside the repo dir so it infers the repo, or pass `--repo`), gather EVERYTHING — do not filter here; enumeration is complete and unfiltered, filtering happens in Stage 3:
 
 1. **Open PRs + their machine state.** `gh pr list --state open --json number,title,author,createdAt,headRefName`. For each, read the disposition: `gh pr view <N> --json comments --jq '.comments[].body'` and find the LATEST comment containing a `pr_review:` yaml block. Classify:
@@ -75,7 +71,6 @@ For each repo in the Stage 0 set (run `gh` from inside the repo dir so it infers
 |---|---|---|
 | **`tracked/operations/`** | the work is finished on a surface you checked | `state: resolved` + `resolved: <today>` |
 | **GitHub Issues** | the thing it asked for exists, or the condition it described is gone | **`gh issue close <N> --comment <evidence>`** — a done issue is CLOSED, never reported as done |
-| **`direction.md`** | *(you never RULE these)* | nothing — `status` is the operator's alone. **But you DO rotate:** delete any `applied` or `rejected` row ruled ≥90 days ago **whose reasoning is recorded in its source candidate's Note**. No record, no rotation — the record is what makes deletion safe. You may also correct a row whose stated facts have changed |
 
 **Closing an issue is the point, not a side effect.** An issue reported as "this is already done" every morning is the exact stacking the operator asked this command to stop. If you verified it is done, close it with the evidence in the comment and it never appears again.
 
@@ -103,7 +98,6 @@ Then edit the item file under `tracked/operations/` directly. **Preserve each it
 |---|---|---|
 | Tracker | `state:` is `blocked`, `queued` or `in-progress` | `state: resolved` — **at ANY age**, pruned or not |
 | Issues | the issue is OPEN right now | closed, at any point, for any reason |
-| `direction.md` | `status: open` | `applied` or `rejected` |
 
 **A TIMER whose date is still in the future does not render either.** An item parked on a date — a decision deliberately deferred until enough time passes — needs nothing from the operator until that date is close. Rendering it daily until then is the same noise as rendering a finished item: eleven mornings of a row nobody can act on. **Render a timer only within 3 days of its date, or once it has passed.** Outside that window it is a count in the tally, nothing more.
 
@@ -114,8 +108,6 @@ The only place a completed item is ever mentioned is **the single closing tally 
 **Also excluded, for a different reason:** anything already rendered under another section. One item, one row, one place.
 
 ### Pruning is an action you take, not something you report
-
-**A ruled `direction.md` row ≥90 days old → delete it**, on the same terms: only once its reasoning lives in the source candidate, which never deletes. That file is the operator's inbox, and an inbox that only grows stops being read. Count them in the tally.
 
 Resolved and **≥14 days old** → delete the item's file. §4.2 prunes on the same rule and git history is the archive, so there is no `archive/` and nothing to move it to. Its own rule says *"delete at the first standup ≥14 days after that date"*, and this is that standup. Count it in the tally; do not render it and do not offer it as a candidate.
 
@@ -141,7 +133,7 @@ A truncated title is not a description. A restatement of the title in longer wor
 
 Jargon from the artifact means nothing to a reader who did not write it. Say what the thing *is*.
 
-### The four sections, in this order and no others
+### The three sections, in this order and no others
 
 **1 · Operations** — operating state and continuity, from `tracked/operations/`. **OPEN ONLY**: `blocked`, `queued`, `in-progress`. No `resolved` line, at any age.
 
@@ -153,20 +145,8 @@ Jargon from the artifact means nothing to a reader who did not write it. Say wha
 | # | What it is, and why it matters now | Status |
 |---|---|---|
 
-**3 · Direction decisions** — rulings only the operator can make. **OPEN ONLY**: `status: open`, never `applied` or `rejected`.
 
-**A DIRECTION ROW MUST NOT SURVIVE A STANDUP IN THE SAME STATE**, exactly as an issue must not. Three exits, and the third is real:
-
-- **`applied`** — ruled, and the change it implies has landed
-- **`rejected`** — ruled against, with the reasoning in the row
-- **carried, WITH the specific thing it waits on** — a named spike, a named decision, a dated event. *"Still thinking about it"* is not a blocker and does not qualify
-
-**Say which exit each row is heading for**, and if the answer is carried, name the blocker. These are the only items on the board that nobody but the operator can move, so a row that survives untouched is not deferred work — it is a decision the project is making by default, in the direction of not deciding.
-
-| ID | The ruling, and what it unblocks | Status |
-|---|---|---|
-
-**4 · Sprint catchup** — the part that is NOT a queue.
+**3 · Sprint catchup** — the part that is NOT a queue.
 
 Three short paragraphs, prose, no table:
 
@@ -184,7 +164,7 @@ One closing line: the tally of what Stage 2 cleared, and anything you could not 
 
 ## Rules
 
-- **You write in exactly FOUR places, enumerated at the top of this file: the `tracked/operations/` item files, whatever the harvest writes into `tracked/`, a done issue's closure, and `direction.md`'s rotation.** Edits to `tracked/`, plus `gh issue close <N> --comment <evidence>`. Everything else is a read — never `merge`, never comment on a PR, never edit a file in the repo.
+- **You write in exactly THREE places, enumerated at the top of this file: the `tracked/operations/` item files, whatever the harvest writes into `tracked/`, and a done issue's closure.** Edits to `tracked/`, plus `gh issue close <N> --comment <evidence>`. Everything else is a read — never `merge`, never comment on a PR, never edit a file in the repo.
 - **Resolve on EVIDENCE, never on impression.** A line moves to `resolved` because you checked the surface and it is done — a merged PR, a file that exists, a passing suite you ran. "It looks finished" is not evidence, and a wrongly-resolved line is worse than a stale one because the stamp makes it invisible.
 - **Never set `status: ready`.** That flag is the operator's authorisation and only they set it. You set `state`, and you stamp `resolved:`.
 - Deliver pre-written actions verbatim; do not re-reason a HOLD's next-step — the disposition engine already did that work and the operator wants it as-written.
