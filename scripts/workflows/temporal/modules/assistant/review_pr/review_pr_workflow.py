@@ -2,7 +2,7 @@
 
 DECIDE-ONLY. It merges nothing, closes nothing, fixes nothing, dispatches
 nothing. Its output is one disposition comment plus a terminal VERDICT line —
-plus the single write authority it holds: filing GitHub Issues for qualifying
+plus the single write authority it holds: filing tracked items by INTAKE for
 deferred work. That exception exists because it is the only actor with no scope
 of its own to offload; everything else stays decide-only.
 

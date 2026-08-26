@@ -45,6 +45,10 @@ _ENTRY = re.compile(r'^\s*"[^"]+:([^"]+)"', re.M)
 EXPECTED = (
     "documentation_standard.md",
     "research_standard.md",
+    # Added 2026-08-26: MDC ratified the Tracked Items Standard and CDF adopted
+    # the contract. It is a MIRROR like the rest — amendments go upstream and
+    # are re-vendored, never edited here.
+    "tracked_items_standard.md",
     "stateful_patterns.md",
     "temporal_standard.md",
     "testing_standard.md",

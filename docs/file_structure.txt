@@ -179,7 +179,8 @@ claude-dot-files/
 │       │   └── research_standard.md                 # Mini-paper contract, source floor, confidence marking, revalidation
 │       ├── documentation/                           # VENDORED (MIRROR) from MDC-Master-Planning — do not edit
 │       │   ├── README.md                            # Applicability: what binds here, what is sprint-specific and ignored, and the CLAUDE.md-references-never-contains principle
-│       │   └── documentation_standard.md            # Cross-references over repetition, cite-don't-re-list, standards state the rule not completion-state
+│       │   ├── documentation_standard.md            # Cross-references over repetition, cite-don't-re-list, standards state the rule not completion-state
+│       │   └── tracked_items_standard.md            # THE FOUR STORES — identity, the shared core, recurrence, pruning. §2/§3 are the `v1` contract tracked_items.py writes against
 │       ├── temporal/                                # VENDORED (MIRROR) from MDC-Master-Planning — do not edit; re-vendor via scripts/helpers/
 │       │   ├── README.md                            # Applicability: what binds NOW (§3, §3.4, §7) vs what waits for workers
 │       │   ├── claude-dot-files-addendum.md         # The ONLY locally-editable file here — rules genuinely ours (long LLM activities, a producer that can be confidently wrong)
@@ -616,6 +617,12 @@ claude-dot-files/
 │                   │                                #   renumber is caught as a DELETION (both name guards pass it), a gap is not a free
 │                   │                                #   number, and the hour detector does NOT fire on the three prose uses of "hours"
 │                   │                                #   that exist in this tree — a word-keyed pattern would fail three correct runs
+│                   ├── test_phase_sizing.py         # The sprint header's TOTAL and TO-DO — the two figures
+│                   │                                #   4042357 shipped with no test at all
+│                   ├── test_tracked_items.py        # Every item on disk against §3, AND our store table
+│                   │                                #   against the VENDORED standard — the drift the v1 contract exists to catch
+│                   ├── test_intake.py               # The §5.0 exemption's three conditions, and the write-then-close
+│                   │                                #   ordering that decides whether a finding can be lost
 │                   ├── test_plan_verify.py          # plan-verify's own guards, and the TWO properties unique to a judge: the deliverable
 │                   │                                #   is keyed on STATE where every prohibition in the family is a DELTA — a --pr
 │                   │                                #   correction pass legitimately writes no new hours — and the re-planning guard
@@ -734,6 +741,19 @@ claude-dot-files/
 │                                                    #   satisfied its grep) and fails when one starts a run with no bag. Also checks ORDER —
 │                                                    #   the bag precedes the first side effect — with a self-contained non-conforming fixture
 │                                                    #   for both, and names the swept scope in its own failure message
+│
+├── tracked/                                         # THE FOUR TRACKED-ITEM STORES — one file per item, ids `<PREFIX>-<8 random base36>`.
+│   │                                                #   Root-relative on purpose: `tracked/issues/` resolves identically in every repo that
+│   │                                                #   adopts the contract, so there is ONE implementation rather than one per layout.
+│   │                                                #   Governed by docs/standards/documentation/tracked_items_standard.md (VENDORED, `v1`).
+│   │                                                #   ROLLED UP DELIBERATELY: the items are the data, they change every cycle, and a
+│   │                                                #   per-file map of them would be stale the day it was written. The RENDERED VIEW is
+│   │                                                #   how these are read; a folder of files is how they are safely WRITTEN concurrently.
+│   ├── README.md                                    # Which stores exist here and who runs each one's triage. Rules live in the standard
+│   ├── issues/                                      # A DEFECT — code, docs or the planning corpus — found while building something else
+│   ├── operations/                                  # Operating state and continuity. HUMAN-IN-THE-LOOP ONLY — no autonomous write, ever
+│   ├── candidates/                                  # A PROPOSAL — capability that should exist and does not. Filed by builds and dispatches
+│   └── standards/                                   # An amendment to a NAMED standard, with an anchor precise enough to act on
 │
 ├── testing/                                         # TIER 1 + TIER 2 of the Testing Standard's three-tier hierarchy
 │   ├── README.md                                    # How to run the suite and how to add a test

@@ -68,7 +68,7 @@ SKIP_DIRS = (REPO_ROOT / "config" / "skills",)
 # first flagged were exactly that. Fixing them would be local drift and
 # `vendor-standards.sh --check` would fail on it.
 #
-# IT IS SIX FILES, NOT FOUR DIRECTORIES. This exemption was spelled
+# IT IS SEVEN FILES, NOT FOUR DIRECTORIES. This exemption was spelled
 # `{"documentation", "research", "testing", "temporal"}` and matched on the
 # DIRECTORY, which exempted 11 files where 6 are vendored. The other five —
 # the four `README.md` applicability notes and `temporal/claude-dot-files-
@@ -154,7 +154,7 @@ def _broken(path: Path) -> list[tuple[str, str]]:
     return bad
 
 
-def test_the_VENDORED_EXEMPTION_names_the_SIX_FILES_the_script_declares() -> None:
+def test_the_VENDORED_EXEMPTION_names_the_SEVEN_FILES_the_script_declares() -> None:
     """Vacuity guard on the exemption above, which is derived rather than listed.
 
     If the derivation stopped matching, `vendored_paths()` would be empty and this gate would

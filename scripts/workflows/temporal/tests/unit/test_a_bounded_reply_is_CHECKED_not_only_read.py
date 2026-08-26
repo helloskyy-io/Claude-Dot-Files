@@ -12,8 +12,8 @@ a CEILING. Nothing proved any bounded reply was READ, and the gap was discharged
 instead by a sentence in `TimedOutProcess`'s docstring asserting that every
 converted caller already branched on `returncode`. Six sites route through
 `run_bounded`; the sentence named three behaviours, one of which belongs to a
-function that is not one of the six, and `observe_outcome`'s `git status` read —
-which IS one of the six — dropped the code and printed "Uncommitted changes:
+function that is not one of the seven, and `observe_outcome`'s `git status` read —
+which IS one of the seven — dropped the code and printed "Uncommitted changes:
 none" for a worktree it had never read. A reviewer found it two passes later.
 The claim was the wrong instrument: a docstring cannot go red.
 
@@ -60,7 +60,7 @@ as broader than it is does more harm than a narrow one:
     is that a new spelling escapes rather than that a good one is blocked.
 
 THE POPULATION FIGURE IS DERIVED, NOT ASSERTED. `test_the_census_matches_the_
-tree` fails when the number of launch bindings changes, so the sentence "six
+tree` fails when the number of launch bindings changes, so the sentence "seven
 sites route through `run_bounded`" cannot go stale the way the docstring this
 guard replaces did. That is the discipline this file exists to demonstrate: a
 coverage claim is either an assertion that goes red, or it is a hedge.
@@ -292,12 +292,12 @@ def test_the_census_matches_the_tree() -> None:
 
     The claim this guard replaces — "every converted caller is already correct" —
     was prose, and prose has no failure mode. This number goes red when a launch
-    binding is added or removed, so the docstring's "six sites" cannot rot: the
+    binding is added or removed, so the docstring's "seven sites" cannot rot: the
     next person to add one is told, here, that they are now in this population.
     """
     _, total = _scan_tree()
-    assert total == 6, (
-        f"the walk found {total} launch-reply binding(s), not the 6 recorded when "
+    assert total == 7, (
+        f"the walk found {total} launch-reply binding(s), not the 7 recorded when "
         f"this was written. That is not a failure — it is the census telling you "
         f"the population moved. Confirm the new site reads its outcome, then "
         f"update this number and the docstring's count together."

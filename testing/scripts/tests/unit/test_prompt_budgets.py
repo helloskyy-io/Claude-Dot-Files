@@ -95,7 +95,19 @@ BUDGETS: dict[str, int] = {
     # the diff cannot reach it. Now keyed on "makes a claim about what this PR
     # changed, touched or not". Changes what the model DOES, which is the test
     # `workflow-scripts.md` § Prompt economy sets for an addition.
-    "review_pr/prompts/disposition.md": 79_046,
+    # RAISED 79_046 -> 81734 on 2026-08-26 (+2688): GitHub Issues retired as a
+    # store, so the filing authority changed MECHANISM and gained a fourth route.
+    # Against § Prompt economy's four questions — it changes what the model DOES
+    # (it emits an intake body with a store field where it used to open a plain
+    # issue); a capable reasoner would NOT infer it, because the label, the
+    # frontmatter keys and the three permitted stores are conventions, not
+    # deductions; the harness enforces only the REFUSALS (a bad store, an
+    # operator-only field), which fire after the model has already written the
+    # thing, so the format has to be stated up front; and the evidence — the 21
+    # unenumerable amendments, the id-collision history — is in the commit
+    # message, not here. A first draft ran +3,432; the trim removed
+    # measurements and one justification a reader infers from the rule above it.
+    "review_pr/prompts/disposition.md": 81734,
     "plan/plan_revision/prompts/stages_1_to_5.md": 22_506,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-f0lfdhmm's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the

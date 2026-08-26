@@ -151,6 +151,14 @@ RECORD_SURFACES: dict[str, str] = {
         "than invisible",
     "docs/development/persistent-memory-protocol/research/":
         "research papers and their digests — a record of what was read",
+    "tracked/candidates/":
+        "the SAME proposal rows as the entry below, moved on 2026-08-26 when "
+        "candidates.md became one file per item. Nothing about the content "
+        "changed — the three labels this catches were written in 2026-07 and "
+        "migrated verbatim — so the exemption follows the rows to their new "
+        "home rather than the rows losing it by being moved. Rewriting a "
+        "migrated proposal's own words to satisfy a later taxonomy would "
+        "falsify the record this exemption exists to preserve",
     "docs/standards/architecture/research/":
         "candidates.md's proposal rows, and the pool's synthesis and topic "
         "queues, are records of what was proposed at the time. This is the one "

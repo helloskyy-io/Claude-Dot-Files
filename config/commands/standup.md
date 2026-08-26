@@ -1,14 +1,15 @@
-Run a standup: read the standup tracker, sweep the platform's git-native memory surfaces, **bring the tracker up to what is actually true**, and report only what needs a human.
+Run a standup: read the operations store, sweep the platform's git-native memory surfaces, **bring that store up to what is actually true**, and report only what needs a human.
 
-**You take exactly THREE kinds of action, and they are the complete list:**
+**You take exactly FOUR kinds of action, and they are the complete list:**
 
-1. **Update the standup tracker** — `gh issue edit <tracker> --body-file`
-2. **Close an issue you verified is done** — `gh issue close <N> --comment <evidence>`
-3. **Rotate `direction.md`** — delete `applied`/`rejected` rows ruled ≥90 days ago whose reasoning is recorded in their source candidate, and correct a row whose stated facts have changed. **You never set `status`; that is the operator's alone.**
+1. **Update the operations store** — edit the item files under `tracked/operations/`
+2. **Drain the intake** — `python3 scripts/helpers/harvest-intake.py --repo-root <repo>`, then commit what it wrote. **This is not optional housekeeping**: [Tracked Items Standard §5.0](../../docs/standards/documentation/tracked_items_standard.md) exempts the intake from the retirement of GitHub Issues *on condition that a named harvest cadence empties it*, and this is that cadence. **An intake nobody drains is a second store, which §8 calls a violation.**
+3. **Close an issue you verified is done** — `gh issue close <N> --comment <evidence>`
+4. **Rotate `direction.md`** — delete `applied`/`rejected` rows ruled ≥90 days ago whose reasoning is recorded in their source candidate, and correct a row whose stated facts have changed. **You never set `status`; that is the operator's alone.**
 
-Everything else is read-only: do not merge, do not dispatch, do not comment on an open PR, and **edit no file other than `direction.md`**.
+Everything else is read-only: do not merge, do not dispatch, do not comment on an open PR, and **edit no file other than `direction.md`, the item files under `tracked/operations/`, and whatever the harvest writes into `tracked/`**.
 
-*(Corrected twice. On 2026-08-08 this line forbade closing issues, which Stage 2 directs. The correction then said TWO actions and kept a blanket "edit no file" — which still forbade the `direction.md` rotation Stage 2 mandates at `§ Stage 2`. **An undercount here is not cosmetic: the conservative reading of a prohibition is to obey it**, so the run silently skips the write and the item is re-reported every morning — the exact stacking this command exists to end. The list above is now derived from Stage 2's own table rather than counted from memory.)* The tracker is the single exception, and it exists because a reconciler that can see an item is finished but cannot say so re-reports that dead item every day forever. The tracker's own rules authorise this: *"Operator and PM sessions only, in the standup"* — this IS the standup.
+*(Corrected three times. On 2026-08-08 this line forbade closing issues, which Stage 2 directs. The correction then said TWO actions and kept a blanket "edit no file" — which still forbade the `direction.md` rotation Stage 2 mandates at `§ Stage 2`. On 2026-08-26 the tracker moved from a GitHub issue to `tracked/operations/` and the harvest became a fourth action, so both the count and the file prohibition moved again — the same two lines, for the third time, which is why they are derived from the action table rather than counted by hand. **An undercount here is not cosmetic: the conservative reading of a prohibition is to obey it**, so the run silently skips the write and the item is re-reported every morning — the exact stacking this command exists to end. The list above is now derived from Stage 2's own table rather than counted from memory.)* The operations store is the main exception, and it exists because a reconciler that can see an item is finished but cannot say so re-reports that dead item every day forever. The tracker's own rules authorise this: *"Operator and PM sessions only, in the standup"* — this IS the standup.
 
 > **THE BAR THIS COMMAND IS MEASURED AGAINST: every line you render must need something from the operator.** A finished item, a stale reference, an item whose blocker is gone — none of those are standup material. They are tracker maintenance, and you do that maintenance yourself before rendering. **If the operator reads a row and thinks "that's already done", this command has failed**, regardless of how accurate the rest of the brief was.
 
@@ -16,35 +17,37 @@ The platform's memory lives entirely in git surfaces — there are no state file
 
 Parse `$ARGUMENTS` for an optional `--since <window>` (e.g. `--since 48h`, `--since 3d`). Default window: **24h**. The window only governs the "recently merged" section; open state is always current.
 
-## Stage 0 — Repo set, then the standup tracker
+## Stage 0 — Repo set, then the operations store
 
 **Enumerate the repo set.** Read `gh-monitor.repo-folders` from `~/Repos/claude-dot-files/config.yaml` (or `/opt/skyy-net/claude-dot-files/config.yaml`); fall back to `~/Repos` and `/opt/skyy-net` if unreadable. For each folder, scan its immediate subdirectories for git repos with a GitHub remote. Silently skip folders that don't exist and repos with no GitHub remote. Stage 1 reuses this set.
 
-**Then find the standup tracker — before sweeping anything.** It is a GitHub issue titled `standup-tracker`, discovered **by title, never by number**, so it stays portable across planning repos:
+**Then read the operations store — before sweeping anything.** It is `tracked/operations/` at each repo's root, one file per item, discovered **by path**, so it stays portable across repos and needs no API call:
 
 ```
-gh issue list --repo <each repo> --state open --search "standup-tracker in:title" --json number,title,body,updatedAt
+ls <repo>/tracked/operations/*.md          # then Read each one
 ```
 
-Read it first because **it is the frame the sweep lands inside** — a PR the sweep reports as "open" reads completely differently once the tracker says it is `IN FLIGHT` and what the next move on it was. If more than one repo has a tracker, render each under its repo name. If none exists, say so in one line and continue; most repos won't have one.
+**Read every file, not a sample.** The store is small by design — a store that grows without pruning stops being read, which §4.2 prunes to prevent.
 
-### What the tracker is, and why it is not an issue
+Read it first because **it is the frame the sweep lands inside** — a PR the sweep reports as "open" reads completely differently once the store says it is `IN FLIGHT` and what the next move on it was. If more than one repo has a tracker, render each under its repo name. If none exists, say so in one line and continue; most repos won't have one.
 
-It is a **third kind of memory** — not a third location. GitHub Issues are the substrate because the document is edited daily by several sessions and one API call beats a branch and a merge conflict on the artifact least able to afford being stale. The semantics are its own:
+### What the operations store is, and why it is not an issue
+
+It is a **distinct kind of memory** — one of four stores, not a fourth location. **It is file-per-item, and the reason is the one that used to argue for a GitHub issue, now pointing the other way.** The old argument was that a daily-edited document should be one API call rather than a merge conflict on the artifact least able to afford being stale. **File-per-item removes the conflict instead of routing around it:** two sessions touching different items never collide, and two touching the same item have a real conflict that deserves a human. The semantics are its own:
 
 | Surface | Holds | Lifecycle |
 |---|---|---|
 | Sprint | planned development work | items close; the plan persists |
 | Issue | one discrete unit of deferred work | filed → dispositioned → **closed** |
-| **Standup tracker** | operating state, next moves, continuity | **never closes**; items are **pruned** |
+| **`tracked/operations/`** | operating state, next moves, continuity | items have no single done-state; they are **pruned**, not closed |
 
 It exists because live-operational work — a multi-day vendor migration, an incident — belongs to no other surface: not development, so not a sprint item; no single done-state, so not an issue. Without it that work lives in session context and dies at a session boundary.
 
 **Three consequences, all binding:**
 
 1. **EXCLUDE it from the Stage 1 open-issue enumeration.** It must not appear twice, and it must **never be aging-flagged** — a permanent artifact is not a stalled one. The anti-rot flag exists for issues that should have closed; firing it on the one document designed to persist is backwards.
-2. **Never apply the issue-disposition obligation to it.** That obligation binds a *container* that is supposed to close. The tracker's obligation binds each *line* (below). Do not merge the two taxonomies — forcing the tracker into the issue enum would require inventing a fifth exit for *pruned*, which is a schema violation, not a convenience.
-3. **Render its structure; do not re-derive it.** The tracker's sections are **readiness states** — an item moves `BLOCKED` → `READY` → `IN FLIGHT` → `RESOLVED` — and that ordering is exactly how an operator triages: *what can I actually do right now.* Preserve the order and preserve each line's fields verbatim, including `owner:` and `blocked on:` even when the answer is "none". Those fields are deliberate forward compatibility: an agent asking *"what is ready, and which of it is mine?"* answers it from `READY` + `owner:` with no schema change. **If you normalise or reformat the sections, that property is lost.** The tracker's body documents its own format — treat the body as the shape-of-record rather than working from any spec here.
+2. **Never apply the issue-disposition obligation to it.** That obligation binds a *container* that is supposed to close. An operations item's obligation binds the *item* (below). Do not merge the two taxonomies — forcing operations into the issue enum would require inventing an exit for *pruned*, which is a schema violation, not a convenience.
+3. **Render its structure; do not re-derive it.** Group the items by `state:` into **readiness states** — an item moves `BLOCKED` → `READY` → `IN FLIGHT` → `RESOLVED` — and that ordering is exactly how an operator triages: *what can I actually do right now.* Preserve that order and preserve each item's fields verbatim, including `ownership:` and `blocked_on:` even when the answer is "none". Those fields are deliberate forward compatibility: an agent asking *"what is ready, and which of it is mine?"* answers it from `ready:` + `ownership:` with no schema change. **If you normalise or reformat an item, that property is lost.** [Tracked Items Standard §3 and §4](../../docs/standards/documentation/tracked_items_standard.md) document the format and are the shape-of-record — the rendering below is a VIEW, derived from the files and never edited in place of them.
 
 ## Stage 1 — Sweep (dumb, complete enumeration)
 
@@ -57,7 +60,7 @@ For each repo in the Stage 0 set (run `gh` from inside the repo dir so it infers
    - **`verdict: HOLD`** → a BLOCKER. Attach its `next_steps` VERBATIM (the redispatch `dispatch_context` or the needs-assistance `reframe:`/`bp:`/`recommendation:`). The disposition engine already wrote the action — you deliver it, you do not re-derive it.
    - **`verdict: MERGE`** but PR still open → "ready to merge."
    - **No `pr_review:` block yet** → "awaiting review" with the PR's age.
-2. **Open Issues.** `gh issue list --state open --json number,title,labels,body,createdAt,updatedAt`. **Drop the `standup-tracker` issue from these results** — it was already rendered in Stage 0, it is not a pending decision, and it must never be aging-flagged. Every OTHER open issue is a pending decision by construction. Two sources feed this surface: planning-STOP outcomes (labels `research-required` / `evidence-faulty`, carrying a `plan_stop:` yaml block — parse it and surface its `next_steps` verbatim, those are the ready-to-fire options) and **deferred work filed by `review-pr`** (carrying evidence, a pinned SHA, and a proposed next action — surface that action verbatim so the operator rules rather than investigates). Report nothing rather than inventing items if the surface is empty.
+2. **Open Issues.** `gh issue list --state open --json number,title,labels,body,createdAt,updatedAt`. **Drop any open `tracked-intake` issue from these results** — an intake is a conveyor, not a decision, and Stage 2 drains it. It must never be aging-flagged, and neither must a `standup-tracker` issue if a repo still has one. Every OTHER open issue is a pending decision by construction. Two sources feed this surface: planning-STOP outcomes (labels `research-required` / `evidence-faulty`, carrying a `plan_stop:` yaml block — parse it and surface its `next_steps` verbatim, those are the ready-to-fire options) and **deferred work filed by `review-pr`** (carrying evidence, a pinned SHA, and a proposed next action — surface that action verbatim so the operator rules rather than investigates). Report nothing rather than inventing items if the surface is empty.
    - **Flag AGING issues.** Any open issue whose `updatedAt` predates the current window — i.e. it was already open at the last standup and nothing has changed — gets flagged explicitly as aging. That is the exact failure mode this convention exists to prevent, and it means one of two things: the item is **blocked** (and the blocker is the real item to surface), or it **never qualified** in the first place.
 3. **Closed-as-invalid since the window** — `gh issue list --state closed --json number,title,closedAt,stateReason`. Surface any issue closed as invalid/not-planned as a **`review-pr` calibration signal**, not as cleanup. A pattern of invalid issues is evidence of a miscalibrated filer and is acted on as a tooling defect. This is the mechanism that makes the queue improve the tool rather than merely hold work — do not suppress or tidy it away.
 4. **Recently merged** (within the window). `gh pr list --state merged --json number,title,mergedAt,author` and keep those merged within `--since`. For each, pull the one-line outcome from its reflection/disposition comment if present.
@@ -70,7 +73,7 @@ For each repo in the Stage 0 set (run `gh` from inside the repo dir so it infers
 
 | Source | Done looks like | You write |
 |---|---|---|
-| **Standup tracker** (issue #26) | the work is finished on a surface you checked | `state: resolved` + `resolved: <today>` |
+| **`tracked/operations/`** | the work is finished on a surface you checked | `state: resolved` + `resolved: <today>` |
 | **GitHub Issues** | the thing it asked for exists, or the condition it described is gone | **`gh issue close <N> --comment <evidence>`** — a done issue is CLOSED, never reported as done |
 | **`direction.md`** | *(you never RULE these)* | nothing — `status` is the operator's alone. **But you DO rotate:** delete any `applied` or `rejected` row ruled ≥90 days ago **whose reasoning is recorded in its source candidate's Note**. No record, no rotation — the record is what makes deletion safe. You may also correct a row whose stated facts have changed |
 
@@ -88,7 +91,9 @@ For EVERY item in EVERY source, reach one of these — and **write the first thr
 
 **Evidence, per resolution, stated in the tally.** *"T-05 — PR #31 merged, all three tiers exist, 297 tests"* is evidence. *"T-05 looks done"* is not, and resolving on that stamps a lie the pruning rule will later act on.
 
-Then apply the whole updated body with `gh issue edit <N> --body-file <path>`. **Preserve the tracker's structure exactly** — its section order, its per-line fields, `owner:` and `blocked on:` included even when the answer is "none". You are updating values, never reshaping the document.
+Then edit the item file under `tracked/operations/` directly. **Preserve each item's shape exactly** — the six core fields of [Tracked Items Standard §3](../../docs/standards/documentation/tracked_items_standard.md) in their order, then the store's own `state:`, `ownership:` and `blocked_on:`, present even when the answer is "none". You are updating values, never reshaping the file.
+
+**Two fields are NOT yours even here.** `ready:` is the operator's alone (§4) — it is an authorisation to act, not a statement about blockedness, and an item can be entirely unblocked and still `not-ready` because it is not its turn. And `id:` never changes: ids are immutable and never reused, terminal state included.
 
 ### THE FILTER — one rule, applied to every row
 
@@ -112,7 +117,7 @@ The only place a completed item is ever mentioned is **the single closing tally 
 
 **A ruled `direction.md` row ≥90 days old → delete it**, on the same terms: only once its reasoning lives in the source candidate, which never deletes. That file is the operator's inbox, and an inbox that only grows stops being read. Count them in the tally.
 
-Resolved and **≥14 days old** → delete it from the tracker body. Its own rule says *"delete at the first standup ≥14 days after that date"*, and this is that standup. Count it in the tally; do not render it and do not offer it as a candidate.
+Resolved and **≥14 days old** → delete the item's file. §4.2 prunes on the same rule and git history is the archive, so there is no `archive/` and nothing to move it to. Its own rule says *"delete at the first standup ≥14 days after that date"*, and this is that standup. Count it in the tally; do not render it and do not offer it as a candidate.
 
 ## Stage 3 — The brief: three tables, then the catchup
 
@@ -138,7 +143,7 @@ Jargon from the artifact means nothing to a reader who did not write it. Say wha
 
 ### The four sections, in this order and no others
 
-**1 · Standup tracker** — operating state and continuity. **OPEN ONLY**: `blocked`, `queued`, `in-progress`. No `resolved` line, at any age.
+**1 · Operations** — operating state and continuity, from `tracked/operations/`. **OPEN ONLY**: `blocked`, `queued`, `in-progress`. No `resolved` line, at any age.
 
 | Item | What it is, and why it matters now | Status |
 |---|---|---|
@@ -179,7 +184,7 @@ One closing line: the tally of what Stage 2 cleared, and anything you could not 
 
 ## Rules
 
-- **You write in exactly THREE places, enumerated at the top of this file: the standup tracker, a done issue's closure, and `direction.md`'s rotation.** `gh issue edit <tracker> --body-file` and `gh issue close <N> --comment <evidence>`. Everything else is a read — never `merge`, never comment on a PR, never edit a file in the repo.
+- **You write in exactly FOUR places, enumerated at the top of this file: the `tracked/operations/` item files, whatever the harvest writes into `tracked/`, a done issue's closure, and `direction.md`'s rotation.** Edits to `tracked/`, plus `gh issue close <N> --comment <evidence>`. Everything else is a read — never `merge`, never comment on a PR, never edit a file in the repo.
 - **Resolve on EVIDENCE, never on impression.** A line moves to `resolved` because you checked the surface and it is done — a merged PR, a file that exists, a passing suite you ran. "It looks finished" is not evidence, and a wrongly-resolved line is worse than a stale one because the stamp makes it invisible.
 - **Never set `status: ready`.** That flag is the operator's authorisation and only they set it. You set `state`, and you stamp `resolved:`.
 - Deliver pre-written actions verbatim; do not re-reason a HOLD's next-step — the disposition engine already did that work and the operator wants it as-written.

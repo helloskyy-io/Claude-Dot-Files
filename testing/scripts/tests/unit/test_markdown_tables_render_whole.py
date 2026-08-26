@@ -62,13 +62,13 @@ module so it fails loudly if it ever stops being true:
   * FILES GIT DOES NOT TRACK, and files that are not `.md`.
 
 VENDORED MIRRORS ARE IN THE POPULATION ON PURPOSE, AND THAT HAS A COST WORTH
-NAMING — BUT ONLY SIX FILES CARRY IT, NOT THE WHOLE DIRECTORY. An earlier
+NAMING — BUT ONLY SEVEN FILES CARRY IT, NOT THE WHOLE DIRECTORY. An earlier
 revision of this paragraph said `docs/standards/{documentation,research,
 testing,temporal}/` were all verbatim copies, which is WRONG and would have
 misdirected a contributor: `scripts/helpers/vendor-standards.sh` copies exactly
-six files — `documentation_standard.md`, `research_standard.md`,
-`testing_standard.md`, `temporal_standard.md`, `stateful_patterns.md`,
-`worker_deployment_standard.md`. The four `README.md` applicability notes and
+seven files — `documentation_standard.md`, `tracked_items_standard.md`,
+`research_standard.md`, `testing_standard.md`, `temporal_standard.md`,
+`stateful_patterns.md`, `worker_deployment_standard.md`. The four `README.md` applicability notes and
 `temporal/claude-dot-files-addendum.md` in those same directories are LOCAL and
 editable here, and each says so of itself.
 
