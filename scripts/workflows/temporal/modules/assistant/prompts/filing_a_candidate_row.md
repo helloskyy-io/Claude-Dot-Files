@@ -1,6 +1,25 @@
-**FILING A CANDIDATE ROW — the two steps, and the second one is why runs push red.**
+**FILING A CANDIDATE — one file, and the store is `tracked/candidates/`.**
 
-1. **Append the row inside the table block**, with no blank line before it. A row separated from the table by a newline is not part of the table — it renders as a paragraph and two guards fire on it.
-2. **THEN UPDATE THE DERIVED DECLARATIONS THAT COUNT IT.** `candidates.md` § *Where things stand* states the untriaged total and the id range, and a test DERIVES both from the table and fails when the prose disagrees. Appending a row changes both. **A run that files a correct row and stops here has pushed a red suite**, which reads as a broken change rather than a finished one.
+Write **`tracked/candidates/<id>.md`**, using an id from the batch you were offered. **The filename IS the id.** Open it with the six core fields of [Tracked Items Standard §3](../../../../../../docs/standards/documentation/tracked_items_standard.md) in that order, then this store's own three, then the body:
 
-**Run the suite before you commit.** These two guards are cheap to trip and their messages name the exact remedy; neither is discoverable by reading the file you are editing.
+```
+---
+id: C-a1b2c3d4
+title: <one line — the CONSEQUENCE, not the mechanism>
+status: open
+count: 1
+filed: <today, YYYY-MM-DD>
+filed_by: <this workflow's name>
+component: <the docs/development/<name>/ it belongs to, or blank if you genuinely cannot tell>
+size:
+decision:
+---
+
+<what it is, why it matters, and the proposed action>
+```
+
+**`decision` and `size` stay BLANK.** They are `triage-candidates`'s output and blank is the truth: untriaged. **`status` is `open`.** Its terminal values are `adopted` and `rejected`, and neither is yours to write.
+
+**A RESTATEMENT OF AN EXISTING CANDIDATE IS NOT A NEW FILE.** Increment that item's `count` and append a dated line under `## Recurrences` (§3.1). A second item for one proposal costs two triage rulings and buries the recurrence signal, which is the highest-value input triage has.
+
+**One file, no counting, nothing else to update** — which is the point of the store. Filing used to mean appending inside a table block AND hand-correcting two derived totals in prose below it, and a run that did the first and not the second pushed a red suite. There is no table and no prose total now; writing the file is the whole of it.

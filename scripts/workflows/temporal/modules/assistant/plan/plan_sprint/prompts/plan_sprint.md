@@ -25,7 +25,7 @@ ${SPRINT_STATE}
 | **Add a section for this component when it has none — AND CHOOSE WHERE IN THE ORDER IT GOES** | **MOVE a section that already exists** — anyone's, including this component's |
 | Correct this component's own status marker to match its roadmap | **Rule a candidate** — `decision` is `triage-candidates`'s alone |
 | | **Tick a completion checkbox** — nothing here has been built |
-| | Write or edit a roadmap, a phase doc, a standard, or `candidates.md` |
+| | Write or edit a roadmap, a phase doc, a standard, or anything under `tracked/` |
 | | **Delete a section, a bullet or a milestone** |
 
 **THE TWO ROWS ABOUT ORDERING ARE NOT IN CONFLICT, and this paragraph exists so you do not read them as one.** Choosing where a NEW section goes is your job and it is the harder half of it — a new component dropped at the end of the file, for the human to move later, is a FAILED run, not a cautious one. What you may not do is **move something that is already placed**: every existing section's position is a decision the operator already made, and re-sequencing the file around your new entry overwrites those decisions with yours.

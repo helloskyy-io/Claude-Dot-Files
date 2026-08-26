@@ -84,9 +84,12 @@ def main(argv: list[str] | None = None) -> int:
             worktree_name=worktree_name,
             sprint_path=resolved["sprint"],
             # DERIVED FROM AN ALREADY-CONTAINED PATH, so it needs no declaration
-            # of its own: `research_dir` is proven inside the repo and a literal
-            # segment cannot walk back out of it. This is not an operator path.
-            candidates_path=research_dir / "candidates.md",
+            # of its own: `repo_root` is proven by preflight and two literal
+            # segments cannot walk back out of it. This is not an operator path.
+            # Root-relative rather than under the research tree, because the
+            # store is root-relative in EVERY repo that adopts the contract —
+            # that is what makes one implementation possible (Tracked Items §1).
+            candidates_path=repo_root / "tracked" / "candidates",
             research_dir=research_dir,
             pr_number=a.pr_number, repo_target=a.repo_target, verbose=a.verbose,
         )

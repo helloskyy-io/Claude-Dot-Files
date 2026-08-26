@@ -247,15 +247,17 @@ def test_triage_forbids_the_files_it_may_not_write_and_permits_the_two_it_must()
                  "docs/development/temporal-integration/phase-1.md",
                  "docs/standards/architecture/problem-statement.md",
                  "docs/standards/workflow-scripts.md")
-    permitted = ("docs/standards/architecture/research/candidates.md",
+    # AN ITEM IN THE POOL, not the pool directory: `tracked/` is forbidden as a
+    # tree and the grant carves back the item files a run actually writes.
+    permitted = ("tracked/candidates/C-d1uhacwn.md",
                  "docs/standards/architecture/research/direction.md")
     for path in forbidden:
         assert act.boundary_crossings({}, {path: "h"}, triage.FORBIDDEN_PATHS,
-                                      triage.permitted_paths(Path("docs/standards/architecture/research/candidates.md"), Path("docs/standards/architecture/research"))) == [path], (
+                                      triage.permitted_paths(Path("tracked/candidates"), Path("docs/standards/architecture/research"))) == [path], (
             f"triage-candidates may edit {path} undetected")
     for path in permitted:
         assert act.boundary_crossings({}, {path: "h"}, triage.FORBIDDEN_PATHS,
-                                      triage.permitted_paths(Path("docs/standards/architecture/research/candidates.md"), Path("docs/standards/architecture/research"))) == [], (
+                                      triage.permitted_paths(Path("tracked/candidates"), Path("docs/standards/architecture/research"))) == [], (
             f"triage-candidates cannot do its job: {path} is blocked")
 
 
@@ -280,10 +282,10 @@ def test_plan_sprint_permits_ONLY_its_override() -> None:
     assert act.boundary_crossings({}, {rel_sprint: "h"}, sprint.FORBIDDEN_PATHS,
                                   allowed) == [], "plan-sprint blocked from its own override"
     assert act.boundary_crossings(
-        {}, {"docs/standards/architecture/research/candidates.md": "h"},
+        {}, {"tracked/candidates/C-d1uhacwn.md": "h"},
         sprint.FORBIDDEN_PATHS, allowed) == [
-        "docs/standards/architecture/research/candidates.md"], (
-        "plan-sprint can still reach candidates.md — the grant outlived its job")
+        "tracked/candidates/C-d1uhacwn.md"], (
+        "plan-sprint can still reach the candidates pool — the grant outlived its job")
     for path in ("docs/standards/architecture/research/direction.md",
                  "docs/development/temporal-integration/phase-1.md",
                  "docs/standards/finding-routing.md"):

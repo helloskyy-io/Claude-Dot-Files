@@ -67,6 +67,17 @@ FORBIDDEN_PATHS = (
     r"(^|/)sprints?\.md$",      # "Touch `sprint.md` at all"
     r"^docs/development/",      # "Write or edit any phase doc"
     r"^docs/standards/",        # "...or anything else under `docs/standards/`"
+    # THE TRACKED STORES, ADDED 2026-08-26 WITH THE FLIP, AND IT RESTORES A
+    # PROPERTY RATHER THAN ADDING ONE. `candidates.md` used to live under
+    # `docs/standards/architecture/research/`, so it was already inside a
+    # forbidden tree and `permitted_paths` was a CARVE-OUT of it. The store is
+    # root-relative now — that is what lets one implementation serve every repo
+    # — and `tracked/` matches neither prefix above, so the flip silently took
+    # all four stores OUTSIDE the boundary. A planning run could have written
+    # `tracked/operations/`, which Tracked Items §1.2 reserves to humans, and
+    # nothing here would have seen it. Forbidding the tree and granting one pool
+    # back is exactly the shape this boundary had before the move.
+    r"^tracked/",
 )
 
 def permitted_paths(candidates_rel: Path, research_rel: Path) -> tuple[str, ...]:
@@ -98,9 +109,19 @@ def permitted_paths(candidates_rel: Path, research_rel: Path) -> tuple[str, ...]
     length: an operator-supplied segment interpolated raw makes `.` match any
     character, and a boundary silently widening to a sibling is the one failure
     these modules exist to prevent.
+
+    THE CANDIDATES GRANT COVERS A DIRECTORY'S ITEMS, NOT ONE FILE, since the
+    2026-08-26 flip. `--candidates` used to name `candidates.md` and an exact
+    `^...$` match was right; it now names `tracked/candidates/`, and this
+    workflow's whole output is edits to the item files INSIDE it. Left as an
+    exact match the grant covered a path nothing writes, every ruling read as a
+    boundary crossing, and a correct run failed at the last guard — the same
+    presentation the flag defect above describes. Scoped to `*.md` directly
+    under the store rather than `.+`, so a run cannot reach a nested directory
+    the store does not have.
     """
     return (
-        rf"^{re.escape(candidates_rel.as_posix())}$",
+        rf"^{re.escape(candidates_rel.as_posix())}/[^/]+\.md$",
         rf"^{re.escape((research_rel / own.DIRECTION).as_posix())}$",
     )
 

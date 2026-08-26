@@ -484,7 +484,7 @@ def _seed(row: act.CandidateRow, slug: str) -> str:
         f"\n"
         f"**This component arrived from project-wide planning as a candidate for "
         f"inclusion — [`{row.id}`]"
-        f"(../../../standards/architecture/research/candidates.md).** It was ruled "
+        f"(../../../tracked/candidates/{row.id}.md).** It was ruled "
         f"`ship` by `triage-candidates` and scaffolded by `plan-candidates`, which "
         f"creates the folder and this file and nothing else. **No research has been "
         f"done yet**, and the `roadmap.md` and phase docs that `plan-feature` writes "

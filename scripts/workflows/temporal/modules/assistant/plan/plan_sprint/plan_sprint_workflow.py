@@ -64,6 +64,17 @@ COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 FORBIDDEN_PATHS = (
     r"^docs/development/",      # "Write or edit any phase doc"
     r"^docs/standards/",        # "Append to or edit `direction.md`" and the rest
+    # THE TRACKED STORES, ADDED 2026-08-26 WITH THE FLIP, AND IT RESTORES A
+    # PROPERTY RATHER THAN ADDING ONE. `candidates.md` used to live under
+    # `docs/standards/architecture/research/`, so it was already inside a
+    # forbidden tree and `permitted_paths` was a CARVE-OUT of it. The store is
+    # root-relative now — that is what lets one implementation serve every repo
+    # — and `tracked/` matches neither prefix above, so the flip silently took
+    # all four stores OUTSIDE the boundary. A planning run could have written
+    # `tracked/operations/`, which Tracked Items §1.2 reserves to humans, and
+    # nothing here would have seen it. Forbidding the tree and granting one pool
+    # back is exactly the shape this boundary had before the move.
+    r"^tracked/",
 )
 
 
@@ -122,9 +133,13 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
     "**Tick a completion checkbox** — nothing here has been built":
         "act.checked_boxes over the sprint file — the only file this run may "
         "write — counted either side and compared in BOTH directions",
-    "Write or edit a roadmap, a phase doc, a standard, or `candidates.md`":
-        "FORBIDDEN_PATHS `^docs/development/` and `^docs/standards/` less "
-        "permitted_paths, via act.worktree_state / act.boundary_crossings",
+    "Write or edit a roadmap, a phase doc, a standard, or anything under `tracked/`":
+        "FORBIDDEN_PATHS `^docs/development/`, `^docs/standards/` and "
+        "`^tracked/` less permitted_paths, via act.worktree_state / "
+        "act.boundary_crossings. The third prefix arrived with the 2026-08-26 "
+        "flip: the candidates store moved to the repo root, out from under "
+        "`^docs/standards/`, and this workflow holds no grant back — it reads "
+        "the store and writes only `sprint.md`",
     "**Delete a section, a bullet or a milestone**":
         "act.grants_that_vanished over permitted_paths for the FILE, and "
         "act.checked_boxes compared in the erasure direction for a BULLET that "

@@ -66,7 +66,7 @@ _SIZED_ROADMAP = (
 # The repo's own candidates path, passed EXPLICITLY because the grant is now
 # derived from the argument rather than hard-coded. Named once so the boundary
 # tests below read as being about the COMPONENT half, which is what they test.
-_CANDS = Path("docs/standards/architecture/research/candidates.md")
+_CANDS = Path("tracked/candidates")
 
 
 # A REFERENCE THAT REACHES ALL THE PRINTED FIGURES AT ONCE — the grammar a
@@ -477,7 +477,7 @@ def test_the_grant_reaches_the_ROADMAP_and_NOT_the_phase_doc_beside_it(
         "docs/development/alpha/research/synthesis.md": "a",
         "docs/development/beta/roadmap.md": "a",
         "docs/development/sprint.md": "a",
-        "docs/standards/architecture/research/candidates.md": "a",
+        "tracked/candidates/C-d1uhacwn.md": "a",
         "docs/standards/architecture/problem-statement.md": "a",
     })
     after = {k: "CHANGED" for k in before}
@@ -549,21 +549,24 @@ def test_the_CANDIDATES_grant_follows_the_operator_s_path(tree: Path) -> None:
     ESCAPED, for the reason the component segment is: the path is operator input
     and nothing slugs it.
     """
-    elsewhere = Path("docs/standards/architecture/research/pool-v2.md")
+    # AN OPERATOR-SUPPLIED POOL, and the paths compared are ITEMS in it, because
+    # the pool is a directory and a run writes items rather than directories.
+    elsewhere = Path("docs/standards/architecture/pool-v2")
     permitted = wf.permitted_paths(Path("docs/development/alpha"), elsewhere)
-    moved = {elsewhere.as_posix(): "a"}
+    moved = {(elsewhere / "C-d1uhacwn.md").as_posix(): "a"}
     assert act.boundary_crossings(
         moved, {k: "CHANGED" for k in moved},
         wf.FORBIDDEN_PATHS, permitted) == [], (
-        "the operator's candidates file was denied, so the run would fail for "
+        "the operator's candidates pool was denied, so the run would fail for "
         "doing exactly what its prompt told it to do")
 
-    default = {_CANDS.as_posix(): "a"}
+    default_item = (_CANDS / "C-d1uhacwn.md").as_posix()
+    default = {default_item: "a"}
     assert act.boundary_crossings(
         default, {k: "CHANGED" for k in default},
-        wf.FORBIDDEN_PATHS, permitted) == [_CANDS.as_posix()], (
+        wf.FORBIDDEN_PATHS, permitted) == [default_item], (
         "and the grant did NOT follow the argument — it still reaches the "
-        "default path, which means it is a literal wearing a parameter")
+        "default pool, which means it is a literal wearing a parameter")
 
 
 def test_every_granted_path_is_also_watched_for_DELETION(tree: Path) -> None:
@@ -576,7 +579,10 @@ def test_every_granted_path_is_also_watched_for_DELETION(tree: Path) -> None:
     permitted = wf.permitted_paths(Path("docs/development/alpha"), _CANDS)
     before = _state({
         "docs/development/alpha/roadmap.md": "a",
-        "docs/standards/architecture/research/candidates.md": "a",
+        # AN ITEM, not the store directory: the grant covers what a run writes,
+        # and a run writes item files. Deleting one is how a ruled candidate
+        # silently stops existing, which is what this check has to catch.
+        "tracked/candidates/C-d1uhacwn.md": "a",
     })
     after = {k: act.ABSENT for k in before}
     assert act.boundary_crossings(before, after, wf.FORBIDDEN_PATHS, permitted) == [], (
@@ -584,7 +590,7 @@ def test_every_granted_path_is_also_watched_for_DELETION(tree: Path) -> None:
         "that blindness is the reason the check below must exist")
     assert act.grants_that_vanished(before, after, permitted) == [
         "docs/development/alpha/roadmap.md",
-        "docs/standards/architecture/research/candidates.md",
+        "tracked/candidates/C-d1uhacwn.md",
     ]
 
 
@@ -609,8 +615,10 @@ def _repo(tmp_path: Path) -> Path:
     repo = tmp_path / "repo"
     (repo / "docs" / "development" / "alpha").mkdir(parents=True)
     (repo / "docs" / "standards" / "architecture" / "research").mkdir(parents=True)
-    (repo / "docs" / "standards" / "architecture" / "research"
-     / "candidates.md").write_text("| ID |\n")
+    # THE STORE IS A DIRECTORY, and an EMPTY one is a legitimate repo state — a
+    # component can be planned before anything is proposed. The runner's
+    # preflight asks whether the pool exists, not whether it holds anything.
+    (repo / "tracked" / "candidates").mkdir(parents=True)
     subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
     return repo
 
@@ -680,12 +688,12 @@ def _harness(monkeypatch: pytest.MonkeyPatch, tree: Path, writes):
     claim about the real reader, and the claim has to hold for the property
     under test.
     """
-    cands = tree / "docs" / "standards" / "architecture" / "research" / "candidates.md"
-    cands.parent.mkdir(parents=True, exist_ok=True)
-    cands.write_text(
-        "| ID | Candidate | `component` | Source | `decision` | `size` | `status` | Note |\n"
-        "|---|---|---|---|---|---|---|---|\n"
-        "| C-d1uhacwn | a candidate |  | PR #1 |  | feature | `open` | n |\n")
+    cands = tree / "tracked" / "candidates"
+    cands.mkdir(parents=True, exist_ok=True)
+    (cands / "C-d1uhacwn.md").write_text(
+        "---\nid: C-d1uhacwn\ntitle: a candidate\nstatus: open\ncount: 1\n"
+        "filed: 2026-08-26\nfiled_by: test\ncomponent: \nsize: feature\n"
+        "decision: \n---\n\nn\n")
 
     comp, seen = _component(tree), set()
 

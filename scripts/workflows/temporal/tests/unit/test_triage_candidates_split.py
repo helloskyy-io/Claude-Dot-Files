@@ -50,29 +50,52 @@ _HEADER = (
 )
 
 
-def _table(rows: list[tuple[str, ...]], note: str = "n", component: str = "") -> str:
-    """A candidates file holding exactly `rows` as (id, decision[, status[, size]]) tuples.
+def _table(rows: list[tuple[str, ...]], note: str = "n", component: str = "") -> list[dict]:
+    """The candidates holding exactly `rows` as (id, decision[, status[, size]]) tuples.
 
-    `status` defaults to `` `open` `` because that is what every row in the real
-    file carries while its work is outstanding; the tests that care about the
-    status guard pass the third element explicitly.
+    KEPT AS A ROW BUILDER ACROSS THE 2026-08-26 FLIP. The store is one file per
+    item, so there is no table any more — but all fifty call sites here state
+    their fixture as *these candidates, with these cells*, and that is still
+    exactly what they mean. `_render` writes; this names.
+
+    `status` defaults to `` `open` `` because that is what every item carries
+    while its work is outstanding; the tests that care about the status guard
+    pass the third element explicitly.
 
     `component` defaults to BLANK, and deliberately. Every assertion in this
-    module is about the columns and the guards built on them; a component name
+    module is about the fields and the guards built on them; a component name
     would be inert fixture noise except in the two tests that assert on the
-    `component` guard, which pass one explicitly. The rows that exercise
+    `component` guard, which pass one explicitly. The items that exercise
     SCAFFOLDING live in `test_plan_candidates.py`, where that is the subject.
     """
-    # THE `size` CELL SITS BETWEEN `decision` AND `status` and defaults to BLANK,
-    # which is what an unsized row looks like and what every row in the real file
-    # carried when the column arrived. Tests that assert on the size guard pass a
-    # fourth element; everything else is unaffected by a column it never reads.
-    body = "".join(
-        f"| {row[0]} | a candidate | {component} | PR #1 | {row[1]} | "
-        f"{row[3] if len(row) > 3 else ''} | "
-        f"{row[2] if len(row) > 2 else '`open`'} | {note} |\n"
-        for row in rows)
-    return "# Action candidates\n\n" + _HEADER + body
+    # `size` DEFAULTS TO BLANK, which is what an unsized item looks like and what
+    # every item carried when the field arrived. Tests that assert on the size
+    # guard pass a fourth element; everything else is unaffected by a field it
+    # never reads.
+    return [{"id": r[0], "decision": r[1],
+             "status": r[2] if len(r) > 2 else "`open`",
+             "size": r[3] if len(r) > 3 else "",
+             "component": component, "note": note}
+            for r in rows]
+
+
+def _render(store: Path, items: list[dict]) -> Path:
+    """Write `items` into a candidates STORE, replacing whatever it held.
+
+    REPLACES, because this stands in for `Path.write_text` on the old single
+    file. A directory ACCUMULATES where a file overwrote, so a test that stages
+    a store twice would otherwise read both at once.
+    """
+    store.mkdir(parents=True, exist_ok=True)
+    for stale in store.glob("*.md"):
+        stale.unlink()
+    for it in items:
+        (store / f"{it['id']}.md").write_text(
+            f"---\nid: {it['id']}\ntitle: a candidate\nstatus: {it['status']}\n"
+            f"count: 1\nfiled: 2026-08-26\nfiled_by: test\n"
+            f"component: {it['component']}\nsize: {it['size']}\n"
+            f"decision: {it['decision']}\n---\n\n{it['note']}\n")
+    return store
 
 
 @pytest.fixture
@@ -138,17 +161,18 @@ def _vanished(monkeypatch: pytest.MonkeyPatch, path: str) -> None:
     monkeypatch.setattr(act, "worktree_state", lambda *a, **k: next(snapshots))
 
 
-def _fake_run(module, monkeypatch: pytest.MonkeyPatch, *, writes: str | None = None,
+def _fake_run(module, monkeypatch: pytest.MonkeyPatch, *, writes=None,
               path: Path | None = None, output: str = f"done\n{PR_URL}\n"):
-    """Stand in for the model: optionally rewrite the candidates file, then answer.
+    """Stand in for the model: optionally rewrite the candidates store, then answer.
 
-    Rewriting the file is how a real run offends — it edits `candidates.md` in
-    the worktree — so the fake offends the same way rather than by patching the
-    guard's inputs.
+    Rewriting the store is how a real run offends — it edits items in the
+    worktree — so the fake offends the same way rather than by patching the
+    guard's inputs. `writes` is the item list the run leaves behind, and it
+    REPLACES the store, which is what a rewrite does.
     """
     def run(prompt: str, **kw: object) -> str:
         if writes is not None and path is not None:
-            path.write_text(writes)
+            _render(path, writes)
         return output
     monkeypatch.setattr(module.act, "run_claude", run)
 
@@ -156,8 +180,8 @@ def _fake_run(module, monkeypatch: pytest.MonkeyPatch, *, writes: str | None = N
 # --- `candidate_decisions`: the reader the guard is built on ------------------
 
 def test_it_reads_a_ruling_per_row(tree: Path) -> None:
-    f = tree / "c.md"
-    f.write_text(_table([("C-d1uhacwn", "`ship`"), ("C-p5qvm3e7", "reject"), ("C-q65w30xm", "")]))
+    f = tree / "tracked" / "candidates"
+    _render(f, _table([("C-d1uhacwn", "`ship`"), ("C-p5qvm3e7", "reject"), ("C-q65w30xm", "")]))
     assert act.candidate_decisions(f) == {
         "C-d1uhacwn": "ship", "C-p5qvm3e7": "reject", "C-q65w30xm": ""}
 
@@ -170,8 +194,8 @@ def test_every_spelling_of_UNRULED_reads_as_the_same_thing(tree: Path, spelling:
     reported as having overturned a ruling — a false accusation that fails a
     completed run.
     """
-    f = tree / "c.md"
-    f.write_text(_table([("C-d1uhacwn", spelling)]))
+    f = tree / "tracked" / "candidates"
+    _render(f, _table([("C-d1uhacwn", spelling)]))
     assert act.candidate_decisions(f) == {"C-d1uhacwn": ""}
 
 
@@ -183,18 +207,18 @@ def test_MARKUP_is_not_MEANING(tree: Path) -> None:
     Without this pair the normalisation could be dropped entirely and every other
     assertion here would still pass.
     """
-    f = tree / "c.md"
-    f.write_text(_table([("C-d1uhacwn", "`ship`")]))
+    f = tree / "tracked" / "candidates"
+    _render(f, _table([("C-d1uhacwn", "`ship`")]))
     typeset = act.candidate_decisions(f)
-    f.write_text(_table([("C-d1uhacwn", "ship")]))
+    _render(f, _table([("C-d1uhacwn", "ship")]))
     assert act.candidate_decisions(f) == typeset
-    f.write_text(_table([("C-d1uhacwn", "reject")]))
+    _render(f, _table([("C-d1uhacwn", "reject")]))
     assert act.candidate_decisions(f) != typeset
 
 
 def test_a_missing_file_says_so_rather_than_reading_as_empty(tree: Path) -> None:
     """An empty dict from a missing file would make the guard pass vacuously."""
-    with pytest.raises(FileNotFoundError, match="candidates file not found"):
+    with pytest.raises(FileNotFoundError, match="candidates store not found"):
         act.candidate_decisions(tree / "nope.md")
 
 
@@ -301,8 +325,8 @@ def test_plan_sprint_does_NOT_fail_on_a_change_it_was_entitled_to_make(
     failed its own post-condition — a run that cannot obey two of its own rules
     at once. Blank is the absence of a ruling; placing one rules nothing.
     """
-    f = tree / "c.md"
-    f.write_text(_table(_ORIGINAL))
+    f = tree / "tracked" / "candidates"
+    _render(f, _table(_ORIGINAL))
     _fake_run(sprint, monkeypatch, writes=_table(mutated), path=f)
 
     assert _run_sprint(tree) == PR_URL
@@ -318,8 +342,8 @@ def test_plan_sprint_is_UNBOTHERED_by_rows_it_merely_left_untriaged(
     failure would be real, unfixable from inside this workflow, and would name
     the wrong cause.
     """
-    f = tree / "c.md"
-    f.write_text(_table([("C-d1uhacwn", "`ship`"), ("C-p5qvm3e7", ""), ("C-q65w30xm", "")]))
+    f = tree / "tracked" / "candidates"
+    _render(f, _table([("C-d1uhacwn", "`ship`"), ("C-p5qvm3e7", ""), ("C-q65w30xm", "")]))
     _fake_run(sprint, monkeypatch)
 
     assert _run_sprint(tree) == PR_URL
@@ -333,7 +357,7 @@ def test_plan_sprint_still_fails_when_it_produced_no_PR(
     reported as an early-stopped run rather than as a clean one that happened to
     change no rulings.
     """
-    (tree / "c.md").write_text(_table(_ORIGINAL))
+    _render(tree / "tracked" / "candidates", _table(_ORIGINAL))
     _fake_run(sprint, monkeypatch, output="I stopped early\n")
 
     with pytest.raises(RuntimeError, match="produced no PR URL"):
@@ -344,7 +368,7 @@ def test_plan_sprint_still_fails_when_it_produced_no_PR(
 
 def _run_triage(tree: Path) -> str:
     return triage.run_triage_candidates(
-        repo_root=tree, worktree=tree, candidates_path=tree / "c.md",
+        repo_root=tree, worktree=tree, candidates_path=tree / "tracked" / "candidates",
         research_dir=tree / "r", verbose=False,
     )
 
@@ -356,8 +380,8 @@ def test_triage_FAILS_when_it_left_a_row_unruled(
     The PR reads as ruled and is not, and the untriaged rows stay invisible until
     the next research cycle re-proposes them.
     """
-    f = tree / "c.md"
-    f.write_text(_table([("C-d1uhacwn", ""), ("C-p5qvm3e7", ""), ("C-q65w30xm", "")]))
+    f = tree / "tracked" / "candidates"
+    _render(f, _table([("C-d1uhacwn", ""), ("C-p5qvm3e7", ""), ("C-q65w30xm", "")]))
     _fake_run(triage, monkeypatch, writes=_table(
         [("C-d1uhacwn", "`ship`"), ("C-p5qvm3e7", ""), ("C-q65w30xm", "")]), path=f)
 
@@ -368,8 +392,8 @@ def test_triage_FAILS_when_it_left_a_row_unruled(
 def test_triage_passes_when_every_row_reached_a_disposition(
         tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch) -> None:
     """Negative control: the contract above must not fail a complete pass."""
-    f = tree / "c.md"
-    f.write_text(_table([("C-d1uhacwn", ""), ("C-p5qvm3e7", "")]))
+    f = tree / "tracked" / "candidates"
+    _render(f, _table([("C-d1uhacwn", ""), ("C-p5qvm3e7", "")]))
     _fake_run(triage, monkeypatch, writes=_table(
         [("C-d1uhacwn", "`ship`"), ("C-p5qvm3e7", "`requires review`")]), path=f)
 
@@ -379,8 +403,8 @@ def test_triage_passes_when_every_row_reached_a_disposition(
 def test_triage_names_the_rows_it_failed_on(
         tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch) -> None:
     """An operator cannot act on a count. The ids have to be in the message."""
-    f = tree / "c.md"
-    f.write_text(_table([("C-d1uhacwn", ""), ("C-yi2wk5fn", "")]))
+    f = tree / "tracked" / "candidates"
+    _render(f, _table([("C-d1uhacwn", ""), ("C-yi2wk5fn", "")]))
     _fake_run(triage, monkeypatch, writes=_table(
         [("C-d1uhacwn", "`ship`"), ("C-yi2wk5fn", "")]), path=f)
 
@@ -548,8 +572,8 @@ def test_triage_FAILS_when_it_edited_the_sprint_plan(
     from writing the section instead of saying so. The argument that built the
     decision guard ("prose is not a mechanism") reaches this boundary unchanged.
     """
-    f = tree / "c.md"
-    f.write_text(_table([("C-d1uhacwn", "")]))
+    f = tree / "tracked" / "candidates"
+    _render(f, _table([("C-d1uhacwn", "")]))
     _fake_run(triage, monkeypatch, writes=_table([("C-d1uhacwn", "`ship`")]), path=f)
     _crossing(monkeypatch, "docs/development/sprint.md")
 
@@ -571,16 +595,17 @@ def test_NEITHER_workflow_may_move_the_status_column(
     """`decision` MOVED between the two; `status` moved nowhere, because it was
     never either one's.
 
-    `candidates.md` gives it to "a later process" — `plan-feature`, or the build
-    that completes the item — and both prompts list it under MAY NOT. Ruling a
+    The store gives `status` to "a later process" — `plan-feature`, or the build
+    that completes the item — and its terminal values are Tracked Items §4's
+    `adopted` / `rejected` since the 2026-08-26 flip, not the table's `closed` — and both prompts list it under MAY NOT. Ruling a
     candidate is not doing it, and placing one is not finishing it. Without this,
     the split enforced one of the two columns it names and trusted prose for the
     other.
     """
-    f = tree / "c.md"
-    f.write_text(_table([("C-d1uhacwn", "`ship`", "`open`")]))
+    f = tree / "tracked" / "candidates"
+    _render(f, _table([("C-d1uhacwn", "`ship`", "`open`")]))
     _fake_run(workflow, monkeypatch,
-              writes=_table([("C-d1uhacwn", "`ship`", "`closed`")]), path=f)
+              writes=_table([("C-d1uhacwn", "`ship`", "`adopted`")]), path=f)
 
     with pytest.raises(RuntimeError, match="changed the `status` column"):
         runner(tree)
@@ -606,8 +631,8 @@ def test_NEITHER_workflow_may_name_the_component_on_somebody_elses_row(
     `docs/development/<name>/` on the same branch. A guessed name is not a bad
     cell, it is a directory and two research dispatches.
     """
-    f = tree / "c.md"
-    f.write_text(_table([("C-d1uhacwn", "`ship`", "`open`")]))
+    f = tree / "tracked" / "candidates"
+    _render(f, _table([("C-d1uhacwn", "`ship`", "`open`")]))
     _fake_run(workflow, monkeypatch, writes=_table(
         [("C-d1uhacwn", "`ship`", "`open`")], component="guessed-from-a-summary"), path=f)
 
@@ -630,10 +655,10 @@ def test_a_component_named_on_a_row_the_run_APPENDED_is_permitted(
     guard is reached, so parametrizing this over triage would assert about that
     post-condition instead of about this guard.
     """
-    f = tree / "c.md"
-    f.write_text(_table([("C-d1uhacwn", "`ship`", "`open`")]))
+    f = tree / "tracked" / "candidates"
+    _render(f, _table([("C-d1uhacwn", "`ship`", "`open`")]))
     body = (_table([("C-d1uhacwn", "`ship`", "`open`")])
-            + "| C-p5qvm3e7 | a candidate | filed-by-this-run | PR #1 |  | `open` | n |\n")
+            + _table([("C-p5qvm3e7", "", "`open`")], component="filed-by-this-run"))
     _fake_run(sprint, monkeypatch, writes=body, path=f)
 
     assert _run_sprint(tree) == PR_URL
@@ -648,8 +673,8 @@ def test_a_row_APPENDED_with_a_status_is_not_a_status_the_run_moved(
     instruction unfollowable — the run would obey one of its own rules and fail
     another. Only a row that already existed can have had its status MOVED.
     """
-    f = tree / "c.md"
-    f.write_text(_table([("C-d1uhacwn", "`ship`", "`open`")]))
+    f = tree / "tracked" / "candidates"
+    _render(f, _table([("C-d1uhacwn", "`ship`", "`open`")]))
     _fake_run(sprint, monkeypatch, writes=_table(
         [("C-d1uhacwn", "`ship`", "`open`"), ("C-p5qvm3e7", "", "`open`")]), path=f)
 
@@ -676,9 +701,9 @@ def test_the_two_readers_agree_on_what_BLANK_means(tree: Path) -> None:
     fail is not a regression test. Each reader is now held to the ANSWER, so the
     old normalisation fails both.
     """
-    f = tree / "c.md"
+    f = tree / "tracked" / "candidates"
     for spelling in ("` — `", "`  `", "` `", "—", "`—`", " - ", "``", "`  —  `"):
-        f.write_text(_table([("C-d1uhacwn", spelling)]))
+        _render(f, _table([("C-d1uhacwn", spelling)]))
         assert act.candidate_counts(f)["untriaged_ids"] == ["C-d1uhacwn"], (
             f"candidate_counts read {spelling!r} as RULED. `triage-candidates`'s "
             f"working set and its completion post-condition are both built on this "
@@ -759,8 +784,8 @@ def test_the_two_candidate_READERS_ALWAYS_KEY_THE_SAME_ROWS(tree: Path, rows: li
     a deleted row becomes invisible to `plan-sprint` again — the whole channel,
     silently, with the registry still reading as covered.
     """
-    f = tree / "c.md"
-    f.write_text(_table(rows))
+    f = tree / "tracked" / "candidates"
+    _render(f, _table(rows))
     keyed = {
         "act.candidate_statuses": act.candidate_statuses(f).keys(),
         "act.candidate_decisions": act.candidate_decisions(f).keys(),
@@ -837,8 +862,8 @@ def test_triage_FAILS_when_it_reached_outside_its_authorization(
     planning done by a workflow whose whole contract is that it decides and does
     not plan.
     """
-    f = tree / "c.md"
-    f.write_text(_table([("C-d1uhacwn", "")]))
+    f = tree / "tracked" / "candidates"
+    _render(f, _table([("C-d1uhacwn", "")]))
     _fake_run(triage, monkeypatch, writes=_table([("C-d1uhacwn", "`ship`")]), path=f)
     _crossing(monkeypatch, path)
 
@@ -847,7 +872,7 @@ def test_triage_FAILS_when_it_reached_outside_its_authorization(
 
 
 # THE FIXTURE'S OWN PATHS, WHICH ARE NOT THIS REPO'S. `_run_triage` passes
-# `candidates_path=tree / "c.md"` and `research_dir=tree / "r"`, and the grants
+# `candidates_path=tree / "tracked" / "candidates"` and `research_dir=tree / "r"`, and the grants
 # now DERIVE from those arguments rather than naming this repo's pool as a
 # literal. Spelling the repo's default here passed only because the grant ignored
 # what the run was pointed at — so this parametrize is now exercising the
@@ -863,8 +888,8 @@ def test_triage_is_NOT_failed_for_writing_the_two_files_it_exists_to_write(
     would fail it after the PR was already open, which is the worst moment to
     discover a guard is wrong.
     """
-    f = tree / "c.md"
-    f.write_text(_table([("C-d1uhacwn", "")]))
+    f = tree / "tracked" / "candidates"
+    _render(f, _table([("C-d1uhacwn", "")]))
     _fake_run(triage, monkeypatch, writes=_table([("C-d1uhacwn", "`ship`")]), path=f)
     _crossing(monkeypatch, path)
 
@@ -888,11 +913,11 @@ def test_triage_FAILS_when_it_ruled_the_operators_own_direction_row(
     """
     d = tree / "r" / "direction.md"
     d.write_text(_direction([("D-001", "open"), ("D-002", "open")]))
-    f = tree / "c.md"
-    f.write_text(_table([("C-d1uhacwn", "")]))
+    f = tree / "tracked" / "candidates"
+    _render(f, _table([("C-d1uhacwn", "")]))
 
     def run(prompt: str, **kw: object) -> str:
-        f.write_text(_table([("C-d1uhacwn", "`ship`")]))
+        _render(f, _table([("C-d1uhacwn", "`ship`")]))
         d.write_text(_direction([("D-001", "applied"), ("D-002", "open")]))
         return f"done\n{PR_URL}\n"
     monkeypatch.setattr(triage.act, "run_claude", run)
@@ -912,11 +937,11 @@ def test_a_direction_row_APPENDED_open_is_not_a_ruling_the_run_made(
     """
     d = tree / "r" / "direction.md"
     d.write_text(_direction([("D-001", "open")]))
-    f = tree / "c.md"
-    f.write_text(_table([("C-d1uhacwn", "")]))
+    f = tree / "tracked" / "candidates"
+    _render(f, _table([("C-d1uhacwn", "")]))
 
     def run(prompt: str, **kw: object) -> str:
-        f.write_text(_table([("C-d1uhacwn", "`requires review`")]))
+        _render(f, _table([("C-d1uhacwn", "`requires review`")]))
         d.write_text(_direction([("D-001", "open"), ("D-002", "open")]))
         return f"done\n{PR_URL}\n"
     monkeypatch.setattr(triage.act, "run_claude", run)
@@ -932,11 +957,11 @@ def test_a_run_that_CREATES_direction_md_is_not_failed_for_creating_it(
     fault and tells the run to create it. A guard that read absence as an error
     would forbid the very action the prompt above it instructs.
     """
-    f = tree / "c.md"
-    f.write_text(_table([("C-d1uhacwn", "")]))
+    f = tree / "tracked" / "candidates"
+    _render(f, _table([("C-d1uhacwn", "")]))
 
     def run(prompt: str, **kw: object) -> str:
-        f.write_text(_table([("C-d1uhacwn", "`requires review`")]))
+        _render(f, _table([("C-d1uhacwn", "`requires review`")]))
         (tree / "r" / "direction.md").write_text(_direction([("D-001", "open")]))
         return f"done\n{PR_URL}\n"
     monkeypatch.setattr(triage.act, "run_claude", run)
@@ -955,8 +980,8 @@ def test_triage_FAILS_when_a_candidate_row_simply_VANISHED(
     promise is that a rejected candidate stays visibly rejected instead of being
     re-proposed by the next research cycle.
     """
-    f = tree / "c.md"
-    f.write_text(_table([("C-d1uhacwn", ""), ("C-p5qvm3e7", "")]))
+    f = tree / "tracked" / "candidates"
+    _render(f, _table([("C-d1uhacwn", ""), ("C-p5qvm3e7", "")]))
     _fake_run(triage, monkeypatch, writes=_table([("C-d1uhacwn", "`ship`")]), path=f)
 
     with pytest.raises(RuntimeError, match="deleted 1 candidate row"):
@@ -973,8 +998,8 @@ def test_plan_sprint_FAILS_when_it_ticked_a_completion_checkbox(
     """
     sp = tree / "sprint.md"
     sp.write_text("## Sprint: X\n\n- [ ] build the thing\n- [ ] test the thing\n")
-    f = tree / "c.md"
-    f.write_text(_table([("C-d1uhacwn", "`ship`")]))
+    f = tree / "tracked" / "candidates"
+    _render(f, _table([("C-d1uhacwn", "`ship`")]))
 
     def run(prompt: str, **kw: object) -> str:
         sp.write_text("## Sprint: X\n\n- [x] build the thing\n- [ ] test the thing\n")
@@ -996,8 +1021,8 @@ def test_plan_sprint_may_ADD_an_unchecked_milestone_and_REORDER_the_file(
     """
     sp = tree / "sprint.md"
     sp.write_text("## Sprint: A\n\n- [x] done already\n\n## Sprint: B\n\n- [ ] b1\n")
-    f = tree / "c.md"
-    f.write_text(_table([("C-d1uhacwn", "`ship`")]))
+    f = tree / "tracked" / "candidates"
+    _render(f, _table([("C-d1uhacwn", "`ship`")]))
 
     def run(prompt: str, **kw: object) -> str:
         sp.write_text("## Sprint: B\n\n- [ ] b1\n- [ ] b2 is new\n\n"
@@ -1016,8 +1041,8 @@ def test_plan_sprint_FAILS_when_it_appended_to_the_operators_inbox(
     which is why it is asserted here rather than left to be inferred from a list
     it does not appear on.
     """
-    f = tree / "c.md"
-    f.write_text(_table([("C-d1uhacwn", "`ship`")]))
+    f = tree / "tracked" / "candidates"
+    _render(f, _table([("C-d1uhacwn", "`ship`")]))
     _fake_run(sprint, monkeypatch)
     _crossing(monkeypatch, "docs/standards/architecture/research/direction.md")
 
@@ -1046,11 +1071,11 @@ def test_triage_FAILS_when_it_deleted_the_operators_own_direction_row(
     """
     d = tree / "r" / "direction.md"
     d.write_text(_direction([("D-001", "open"), ("D-002", "applied")]))
-    f = tree / "c.md"
-    f.write_text(_table([("C-d1uhacwn", "")]))
+    f = tree / "tracked" / "candidates"
+    _render(f, _table([("C-d1uhacwn", "")]))
 
     def run(prompt: str, **kw: object) -> str:
-        f.write_text(_table([("C-d1uhacwn", "`ship`")]))
+        _render(f, _table([("C-d1uhacwn", "`ship`")]))
         d.write_text(_direction([("D-001", "open")]))
         return f"done\n{PR_URL}\n"
     monkeypatch.setattr(triage.act, "run_claude", run)
@@ -1069,11 +1094,11 @@ def test_a_direction_row_APPENDED_beside_a_ruled_one_is_still_clean(
     """
     d = tree / "r" / "direction.md"
     d.write_text(_direction([("D-001", "open"), ("D-002", "applied")]))
-    f = tree / "c.md"
-    f.write_text(_table([("C-d1uhacwn", "")]))
+    f = tree / "tracked" / "candidates"
+    _render(f, _table([("C-d1uhacwn", "")]))
 
     def run(prompt: str, **kw: object) -> str:
-        f.write_text(_table([("C-d1uhacwn", "`requires review`")]))
+        _render(f, _table([("C-d1uhacwn", "`requires review`")]))
         d.write_text(_direction([("D-001", "open"), ("D-002", "applied"),
                                  ("D-003", "open")]))
         return f"done\n{PR_URL}\n"
@@ -1084,7 +1109,11 @@ def test_a_direction_row_APPENDED_beside_a_ruled_one_is_still_clean(
 
 # Same as above: the fixture's paths, because the grants derive from them now.
 @pytest.mark.parametrize("workflow,runner,path", [
-    (triage, _run_triage, "c.md"),
+    # AN ITEM INSIDE THE STORE, not the store itself. The grant now covers a
+    # DIRECTORY, so the deletion a run can actually commit is of one item file —
+    # and that is the one this guard has to catch, because deleting an item is
+    # how a ruled candidate silently stops existing.
+    (triage, _run_triage, "tracked/candidates/C-d1uhacwn.md"),
     (triage, _run_triage, "r/direction.md"),
     (sprint, _run_sprint, "sprint.md"),
     # `(sprint, "c.md")` REMOVED 2026-08-19: plan-sprint no longer holds a
@@ -1102,7 +1131,7 @@ def test_NEITHER_workflow_may_delete_a_file_it_is_merely_PERMITTED_to_write(
     nothing could see. `plan-sprint` holds the family's only override to write
     `sprint.md`, and deleting it returned a PR URL and a green run.
     """
-    (tree / "c.md").write_text(_table([("C-d1uhacwn", "`ship`")]))
+    _render(tree / "tracked" / "candidates", _table([("C-d1uhacwn", "`ship`")]))
     _fake_run(workflow, monkeypatch)
     _vanished(monkeypatch, path)
 
@@ -1122,7 +1151,7 @@ def test_plan_sprint_FAILS_when_it_ERASED_a_completion_checkbox(
     """
     sp = tree / "sprint.md"
     sp.write_text("## Sprint: X\n\n- [x] shipped the thing\n- [ ] next thing\n")
-    (tree / "c.md").write_text(_table([("C-d1uhacwn", "`ship`")]))
+    _render(tree / "tracked" / "candidates", _table([("C-d1uhacwn", "`ship`")]))
 
     def run(prompt: str, **kw: object) -> str:
         sp.write_text("## Sprint: X\n\n- [ ] next thing\n")
@@ -1432,8 +1461,11 @@ def _fixture_repo(tmp_path: Path) -> Path:
     comp = tmp_path / "docs" / "development" / "alpha"
     comp.mkdir(parents=True, exist_ok=True)
     (comp / "roadmap.md").write_text("### Phase 1 — a thing\n\n**Est: ~4 hours**\n")
-    (research / "candidates.md").write_text(
-        _table([("C-d1uhacwn", "`ship`"), ("C-p5qvm3e7", "")]))
+    # THE STORE IS ROOT-RELATIVE, not under the research tree — that is what
+    # makes one implementation work in every repo that adopts the contract
+    # (Tracked Items §1), and it is where the runners now default.
+    _render(tmp_path / "tracked" / "candidates",
+            _table([("C-d1uhacwn", "`ship`"), ("C-p5qvm3e7", "")]))
     (tmp_path / "docs" / "development").mkdir(parents=True, exist_ok=True)
     (tmp_path / "docs" / "development" / "sprint.md").write_text("# Sprint\n")
     return tmp_path

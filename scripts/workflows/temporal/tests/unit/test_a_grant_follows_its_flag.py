@@ -55,7 +55,7 @@ _RUNNERS = sorted((_TEMPORAL / "scripts").glob("run_*.py"))
 
 # A pool that is deliberately NOT this repo's, and whose every segment differs, so
 # a grant that ignored the argument cannot match it by accident.
-_ELSEWHERE = Path("some/other/pool/candidates.md")
+_ELSEWHERE = Path("some/other/pool/candidates")
 _ELSEWHERE_DIR = Path("some/other/pool")
 
 
@@ -152,11 +152,17 @@ def test_a_workflow_grants_the_candidates_path_it_was_actually_GIVEN(
             pytest.fail(f"{module}.permitted_paths takes an unrecognised "
                         f"parameter `{name}`; teach this sweep what to pass it.")
 
+    # AN ITEM IN THE POOL, NOT THE POOL ITSELF, since the 2026-08-26 flip. The
+    # pool is a DIRECTORY now and a run never writes a directory — it writes an
+    # item inside one. Asserting the directory matched would have gone red on a
+    # correct grant and, worse, a grant that still matched the bare directory
+    # would pass while granting nothing a run can actually write.
+    placed = (_ELSEWHERE / "C-a1b2c3d4.md").as_posix()
     patterns = grant(*args)
-    assert any(re.search(p, _ELSEWHERE.as_posix()) for p in patterns), (
+    assert any(re.search(p, placed) for p in patterns), (
         f"{module}.permitted_paths returned {patterns}, none of which matches "
-        f"`{_ELSEWHERE.as_posix()}` — the path it was handed. A run pointed at "
-        f"that pool is told to append a proposal there and then failed by "
+        f"`{placed}` — an item in the pool it was handed. A run pointed at "
+        f"that pool is told to place a proposal there and then failed by "
         f"`boundary_crossings` for doing it, after every turn has been spent.")
 
 
@@ -171,7 +177,7 @@ def test_the_grant_still_reaches_the_DEFAULT_pool(runner: str, module: str) -> N
     """
     wf = importlib.import_module(module)
     params = inspect.signature(wf.permitted_paths).parameters
-    default = "docs/standards/architecture/research/candidates.md"
+    default = "tracked/candidates"
     args = []
     for name in params:
         if "candidates" in name:
@@ -184,10 +190,14 @@ def test_the_grant_still_reaches_the_DEFAULT_pool(runner: str, module: str) -> N
             args.append("docs/development/sprint.md")
 
     patterns = wf.permitted_paths(*args)
-    assert any(re.search(p, default) for p in patterns), (
-        f"{module} no longer grants the default pool: {patterns}")
+    placed = f"{default}/C-a1b2c3d4.md"
+    assert any(re.search(p, placed) for p in patterns), (
+        f"{module} no longer grants items in the default pool: {patterns}")
 
-    sibling = "docs/standards/architecture/research/candidates.md.bak"
+    # A SIBLING DIRECTORY, and it must stay out. `candidates.bak/C-x.md` is the
+    # shape a dropped `$`-anchor or an unescaped `.` would let through, and it is
+    # the reason the pattern ends `/[^/]+\.md$` rather than `.*`.
+    sibling = "tracked/candidates.bak/C-a1b2c3d4.md"
     granting = [p for p in patterns if re.search(p, sibling)]
     assert not granting, (
         f"{module} grants `{sibling}` through {granting}. Deriving the grant must "

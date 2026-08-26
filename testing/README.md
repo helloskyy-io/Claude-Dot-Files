@@ -56,7 +56,7 @@ whole tier reports **PASS having asserted nothing** on a CI runner. That is the
 category-present-but-nothing-ran case, which is a different thing from the
 category being absent, and `run-all.sh` cannot currently tell them apart — no
 pytest exit code carries an executed-test count. It is the same gap
-[`C-abieu0fg`](../docs/standards/architecture/research/candidates.md) already
+[`C-abieu0fg`](../tracked/candidates/) already
 describes for `mutate.sh`'s legs, met here through a second tool. **So an
 integration test is never the evidence that a guard works** — write the unit
 test that runs everywhere, and let the integration tier confirm the shape

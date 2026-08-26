@@ -152,8 +152,12 @@ def candidate_ceiling(research_dir: Path) -> str:
     someone later has to explain in prose, which is exactly the prose this file
     used to carry. Here, an id nobody writes down never existed.
     """
-    f = research_dir / "candidates.md"
-    taken = set(_ANY_ID.findall(f.read_text())) if f.exists() else set()
+    # THE STORE IS ROOT-RELATIVE, so it is found from the repo root rather than
+    # from the research pool. `research_dir` is `<repo>/docs/standards/architecture/
+    # research` at product altitude, which is three levels down — walking up is
+    # what keeps this working when the pool moves, and the pool has moved once.
+    store = _tracked_candidates(research_dir)
+    taken = {p.stem for p in store.glob("*.md")} if store.is_dir() else set()
 
     fresh: list[str] = []
     while len(fresh) < _IDS_OFFERED:
@@ -162,14 +166,29 @@ def candidate_ceiling(research_dir: Path) -> str:
             fresh.append(new)
 
     offer = ", ".join(f"`{i}`" for i in fresh)
-    if not f.exists():
-        return (f"`candidates.md` does NOT exist yet — create it. "
+    if not store.is_dir():
+        return (f"`tracked/candidates/` does NOT exist yet — create it. "
                 f"Use these ids, in order, for the candidates you file: {offer}.")
-    return (f"`candidates.md` holds **{len(taken)} rows**. "
+    return (f"`tracked/candidates/` holds **{len(taken)} items**. "
             f"**Ids are RANDOM, never sequential — do not compute one.** Use these, "
             f"in order, for the candidates you file: {offer}. Unused ids are discarded, "
             f"so take only what you need. "
             f"A restatement of an existing candidate REUSES its ID — do not mint a new one.")
+
+
+def _tracked_candidates(research_dir: Path) -> Path:
+    """The root-relative candidates store, found by walking up from the pool.
+
+    NAMED RATHER THAN INLINED because the walk is a guess that has to be a
+    CHECKED one: it climbs until it finds a directory holding `tracked/`, and
+    falls back to the pool's own grandparent if it finds none. A silent wrong
+    answer here mints ids against an empty set, which is not a collision risk at
+    36**8 but IS a wrong count in the sentence handed to the model.
+    """
+    for parent in [research_dir, *research_dir.parents]:
+        if (parent / "tracked" / "candidates").is_dir():
+            return parent / "tracked" / "candidates"
+    return research_dir / "tracked" / "candidates"
 
 
 # Research Standard §1 names TWO altitudes and one location each. The product

@@ -303,4 +303,4 @@ Not committed to the plan. **Two categories, not one list:** a comparator either
 
 ---
 
-**Ideas not committed to anything** live in [`candidates.md`](../standards/architecture/research/candidates.md), not here. A plan file that carries an idea list stops being a plan.
+**Ideas not committed to anything** live in [`candidates.md`](../../tracked/candidates/), not here. A plan file that carries an idea list stops being a plan.

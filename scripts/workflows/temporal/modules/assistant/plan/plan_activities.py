@@ -82,6 +82,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 from .. import assistant_activities as shared
+from ..tracked import tracked_items
 
 load_prompt = shared.load_prompt
 shared_prompt = shared.shared_prompt
@@ -144,14 +145,27 @@ _CONSTRAINED_CELLS = _HEADER.count("|") - 2
 # like. `_ROW` insists on `C-[0-9a-z]{8}`; this insists only on the shape a reader
 # would call a row, so the two can be compared and a row that fell out of the
 # parse can be named instead of vanishing.
-_ROW_LINE = re.compile(r"^\|\s*(C-\S+?)\s*\|", re.M)
+# §2's identity shape, checked by the reader — see `candidate_rows`.
+_ID_SHAPE = re.compile(r"[A-Z]-[0-9a-z]{8}")
 
-# THE CLOSED VOCABULARIES, AND THEY ARE THE FILE'S OWN. `candidates.md` § The
-# three dispositions: *"Every candidate ends at exactly one of these. There is no
-# fourth"* — `ship` / `requires review` / `reject`, plus blank for not-yet-triaged.
-# § Two flags gives `status` its two values.
+# THE CLOSED VOCABULARIES. `decision` is the store's own: *"Every candidate ends
+# at exactly one of these. There is no fourth"* — `ship` / `requires review` /
+# `reject`, plus blank for not-yet-triaged.
+#
+# `status` IS THE STANDARD'S, NOT THIS MODULE'S, and it changed at the flip.
+# The table carried `open` / `closed`; [Tracked Items Standard §4]
+# (../../../../../docs/standards/documentation/tracked_items_standard.md) gives
+# the candidates store the terminal states **`adopted` · `rejected`**. Those are
+# not renamings of `closed` — they say WHICH WAY it closed, which `closed` never
+# did, and §4.2 prunes them on different clocks (14 days against six months)
+# precisely because a rejection must stay visible so it is not re-proposed.
+#
+# THE MIGRATION WROTE THE STANDARD'S VALUES AND THIS TUPLE STILL HELD THE
+# TABLE'S, so the first real read of the store raised on its first item. Caught
+# by `_raise_on_foreign_cell` doing exactly its job — the vocabulary check is
+# what noticed that two definitions of `status` had come apart.
 _DECISIONS = ("", "ship", "requires review", "reject")
-_STATUSES = ("", "open", "closed")
+_STATUSES = ("", "open", "adopted", "rejected")
 # `size` is `triage-candidates`'s SECOND ruling and it is asked ONLY of a `ship`.
 # Blank is the honest value everywhere else: a rejected candidate has no size, and
 # a shipped row filed before this column existed is UNSIZED rather than wrongly
@@ -227,187 +241,210 @@ def normalise_cell(cell: str) -> str:
 
 
 def candidate_rows(candidates_path: Path, *, missing_hint: str) -> list[CandidateRow]:
-    """Every row in the file, normalised. One parse, one place.
+    """Every item in the candidates STORE, normalised. One parse, one place.
 
-    `missing_hint` lets each caller say what the absent file costs IT, without a
-    second copy of the regex travelling with the sentence.
+    `candidates_path` is `tracked/candidates/` — a DIRECTORY, one file per item.
+    It was a markdown table until 2026-08-26; see the module note on the flip.
 
-    `title` and `component` are normalised the same way as the two flags. For
-    `component` that matters: a filer typing `` ` — ` `` means "I did not name
-    one", and a scaffolder that read it literally would try to create a
-    directory out of an em dash.
+    `missing_hint` lets each caller say what the absent store costs IT, without a
+    second copy of the reader travelling with the sentence.
 
     THE SHAPE IS CHECKED BEFORE ANY ROW IS RETURNED, and it raises rather than
-    returning what it can. See `_check_shape`: every way this file's real shape
-    can depart from the assumed one lands in the same place — a row that reads
-    as TRIAGED without anybody having ruled it, or a row that is simply not
+    returning what it can. See `_check_shape`: every way the store's real shape
+    can depart from the assumed one lands in the same place — an item that reads
+    as TRIAGED without anybody having ruled it, or an item that is simply not
     there. An empty-ish result here is not a safe degradation; it is a
-    clean-looking answer over a working set that has quietly lost rows.
+    clean-looking answer over a working set that has quietly lost items.
     """
-    if not candidates_path.exists():
-        raise FileNotFoundError(f"candidates file not found: {candidates_path}. {missing_hint}")
-    text = candidates_path.read_text()
-    rows = [CandidateRow(cid, normalise_cell(title), normalise_cell(comp),
-                         normalise_cell(dec), normalise_cell(size), normalise_cell(st))
-            for cid, title, comp, dec, size, st in _ROW.findall(text)]
-    _check_shape(candidates_path, text, rows, missing_hint)
+    if not candidates_path.is_dir():
+        raise FileNotFoundError(
+            f"candidates store not found: {candidates_path}. It is a DIRECTORY, "
+            f"one file per item, per Tracked Items Standard §1. {missing_hint}")
+
+    rows: list[CandidateRow] = []
+    unreadable: list[tuple[str, str]] = []
+    _filed_of: dict[str, str] = {}
+    for path in sorted(candidates_path.glob("*.md")):
+        try:
+            fields, _ = tracked_items.parse(path)
+            # THE ID IS CHECKED HERE, NOT ONLY IN THE STORE'S OWN SUITE, and the
+            # reason is what the flip would otherwise have dropped. Under the
+            # table, an id that was not `C-` plus eight base36 characters did not
+            # match the row regex AT ALL, so the row was absent from every reader
+            # and `_raise_on_unparsed_rows` caught it. A store has no regex to
+            # miss: a file with `id: nonsense` parses perfectly and joins the
+            # working set. Without this the flip would have RETIRED a live guard
+            # by accident rather than by argument.
+            #
+            # THE FILENAME MUST AGREE TOO (§2: the filename IS the id). A file
+            # copied and edited without its `id` changed reads as its neighbour
+            # to every dict keyed by id.
+            cid = fields.get("id", "")
+            if not _ID_SHAPE.fullmatch(cid):
+                raise ValueError(
+                    f"id {cid!r} is not a prefix plus eight lowercase base36 "
+                    f"characters (Tracked Items Standard §2)")
+            if cid != path.stem:
+                raise ValueError(
+                    f"id {cid!r} disagrees with its filename {path.stem!r}; the "
+                    f"filename IS the id (§2)")
+            rows.append(CandidateRow(
+                fields["id"],
+                normalise_cell(fields.get("title", "")),
+                normalise_cell(fields.get("component", "")),
+                normalise_cell(fields.get("decision", "")),
+                normalise_cell(fields.get("size", "")),
+                normalise_cell(fields.get("status", "")),
+            ))
+            _filed_of[cid] = fields.get("filed", "")
+        except (ValueError, KeyError) as exc:
+            unreadable.append((path.name, str(exc)))
+
+    _check_shape(candidates_path, unreadable, rows, missing_hint)
+
+    # ORDER IS FILED-DATE THEN ID, AND IT IS A DECISION RATHER THAN A DEFAULT.
+    # The table carried filing order for free: a row's position in the file WAS
+    # the order it was filed in. A store has no positions, and `glob` yields
+    # filesystem order, so an unsorted read would hand every consumer a
+    # different sequence on a different machine — and two of them render lists a
+    # human reads.
+    #
+    # FILED-THEN-ID rather than id alone, because `filed` is the only field that
+    # carries what position used to: the date the candidate was surfaced. Id is
+    # the tiebreak and is arbitrary BY DESIGN (§2 mints at random), which is
+    # exactly what a tiebreak wants — stable, and carrying no accidental meaning.
+    #
+    # WHAT THIS CANNOT RECOVER, stated rather than glossed: the 119 items
+    # migrated on 2026-08-26 all carry that date, so within them the original
+    # table order is GONE and the id tiebreak decides. Nothing downstream ranks
+    # on it — triage sorts by `count` (§3.1) — but a reader comparing today's
+    # order to the old file will not find them the same, and that is why it is
+    # written here instead of being discovered.
+    rows.sort(key=lambda r: (_filed_of.get(r.id, ""), r.id))
     return rows
 
 
-def _check_shape(path: Path, text: str, rows: list[CandidateRow],
-                 missing_hint: str) -> None:
-    """Raise unless the file's real shape is the one `_ROW` assumes.
+def _check_shape(path: Path, unreadable: list[tuple[str, str]],
+                 rows: list[CandidateRow], missing_hint: str) -> None:
+    """Raise unless the store's real shape is the one the reader assumes.
 
-    KEYED ON THE CLASS, NOT ON A SPELLING OF IT, and that distinction is the
-    whole reason this is a function rather than the one-line header test it
-    replaces. Every way the shape has departed or can depart produces the SAME
-    failure — a row that leaves the untriaged working set without anybody ruling
-    it, while `triage-candidates` reports a complete pass — so the check asks
-    about the failure rather than about the departures.
+    KEYED ON THE CLASS, NOT ON A SPELLING OF IT. Every way the shape has departed
+    or can depart produces the SAME failure — an item that leaves the untriaged
+    working set without anybody ruling it, while `triage-candidates` reports a
+    complete pass — so the check asks about the failure rather than about the
+    departures.
 
-    THE HEADER TEST CAUGHT ONE OF THEM, AND ONLY BY LUCK. It asked whether a
-    seven-column header appeared ANYWHERE in the file; this file holds many
-    candidate tables, so the correct ones satisfied it while another was
-    malformed. Measured on the real file: one table reverted to the old shape and
-    the guard stayed silent while the untriaged count fell from 33 to 25.
-
-    So the check no longer asks about the table's shape at all. It asks the
-    questions whose answers a departure necessarily corrupts, one per helper
-    below, and each helper's docstring is the only place its case is described:
+    THE THREE QUESTIONS SURVIVED THE FLIP FROM A TABLE TO A STORE, because they
+    were never about markdown. A file that will not parse is exactly what an
+    unparsed ROW was; two files claiming one id is what two rows claiming one id
+    was; a cell outside the closed vocabulary is unchanged. What went away is the
+    column-shift family — a store has no columns to shift — and nothing replaced
+    it, which is a genuine reduction rather than a gap:
 
       * `_raise_on_unparsed_rows`  — is the population the readers see the
-        population the file holds?
+        population the store holds?
       * `_raise_on_duplicate_ids`  — the same question one altitude down, and it
         needs its own helper because a SET answers neither on its own.
-      * `_raise_on_foreign_cell`   — does every parsed row's `decision`, `size`
-        and `status` fall in the closed vocabulary `candidates.md` defines?
+      * `_raise_on_foreign_cell`   — does every item's `decision`, `size` and
+        `status` fall in the closed vocabulary the store admits?
 
     ONE CASE PER HELPER, RATHER THAN ONE LIST IN ONE DOCSTRING, and that is the
     fix for a defect this docstring itself carried: it opened *"Three ways the
     shape has departed"* over FOUR bulleted cases, because the fourth was added
-    without the tally being re-counted. That is the same class as every hand-kept
-    figure this repo has already gated — a count of mutable state, restated where
-    nothing derives it — arriving inside the function whose whole argument is
-    *count things, do not eyeball them*. A list that lives in one docstring per
-    case cannot go out of step with itself, and the next case added here inherits
-    that by construction rather than by anybody remembering.
+    without the tally being re-counted. A list that lives in one docstring per
+    case cannot go out of step with itself.
     """
-    _raise_on_unparsed_rows(path, text, rows, missing_hint)
+    _raise_on_unparsed_rows(path, unreadable, missing_hint)
     _raise_on_duplicate_ids(path, rows, missing_hint)
-    _raise_on_foreign_cell(path, text, rows, missing_hint)
+    _raise_on_foreign_cell(path, rows, missing_hint)
 
 
-def _raise_on_unparsed_rows(path: Path, text: str, rows: list[CandidateRow],
+def _raise_on_unparsed_rows(path: Path, unreadable: list[tuple[str, str]],
                             missing_hint: str) -> None:
-    """Every line that PRESENTS as a candidate row must actually have parsed.
+    """Every `*.md` in the store must actually have parsed into an item.
 
-    An id that is not `C-` plus exactly three digits is the reachable way to fail
-    this: `_ROW` does not match it at all, so the row is absent from every reader
-    and every guard here is green over it.
+    A FILE THE READER CANNOT PARSE IS A CANDIDATE THAT DOES NOT EXIST for every
+    consumer downstream — absent from the untriaged working set, from every
+    authorization snapshot, and from the deletion check — and every guard reads
+    green over it. Skipping it would be the silent shrink this whole check
+    family exists to prevent, so an unreadable file stops the run and names
+    itself. Reachable ways to land here: no frontmatter block, a frontmatter
+    line that is not `key: value`, or a missing `id`.
     """
-    unparsed = sorted(set(_ROW_LINE.findall(text)) - {row.id for row in rows})
-    if unparsed:
+    if unreadable:
+        listed = "; ".join(f"{name} ({why})" for name, why in unreadable)
         raise ValueError(
-            f"{path} holds {len(unparsed)} line(s) that present as candidate rows "
-            f"but that the row parser does not match: {', '.join(unparsed)}. An "
-            f"id must be `C-` plus exactly three digits. A row the parser cannot "
-            f"see is absent from the untriaged working set, from every "
-            f"authorization snapshot, and from the deletion check — every guard "
-            f"reads green over it. {missing_hint}")
+            f"{path} holds {len(unreadable)} file(s) the item parser cannot "
+            f"read: {listed}. An item opens with a frontmatter block carrying "
+            f"`id`, per Tracked Items Standard §3. A file the parser cannot see "
+            f"is absent from the untriaged working set, from every authorization "
+            f"snapshot, and from the deletion check — every guard reads green "
+            f"over it. {missing_hint}")
 
 
 def _raise_on_duplicate_ids(path: Path, rows: list[CandidateRow],
                             missing_hint: str) -> None:
-    """No id may name two rows — the door that has actually opened.
+    """No id may name two items — the door that has actually opened.
 
-    Every reader here is a dict keyed by id, so the second row's cells silently
-    overwrite the first's — every column in `_GUARDED_COLUMNS`, which is where
-    the list is kept rather than restated here — and one of the two candidates
-    stops existing for every consumer.
-    `test_candidate_ids_are_unique` records it three times by 2026-08-11 and
-    twice more on 2026-08-13, always the same way — two branches each allocate
-    the next free id against the same base and both merge. THAT MECHANISM IS GONE
-    as of 2026-08-21: ids are eight random base36 characters, minted by
-    `research_activities.candidate_ceiling`, so there is no next-free to race for.
-    This check STAYS, because the remaining way to duplicate an id is to copy one,
-    and a guard whose failure mode is now rare is not a guard whose value is now
-    zero — it is the one that catches the case nobody is watching for. That test
-    is a merge
-    gate on ONE file on the default branch; this runs at the moment a pipeline
-    reads whatever file it was handed, which is the branch mid-collision, and the
-    two comparators that would notice a lost row (`ids_deleted`,
-    `components_this_run_had_no_right_to`) are keyed by the same colliding id and
-    see nothing.
+    Every reader here is a dict keyed by id, so the second item's fields
+    silently overwrite the first's — every column in `_GUARDED_COLUMNS`, which is
+    where the list is kept rather than restated here — and one of the two
+    candidates stops existing for every consumer.
 
-    IT CANNOT BE FOLDED INTO THE CHECK ABOVE, and that is why it is its own
-    helper rather than two lines there: that one compares SETS, and a duplicated
-    id collapses into a set — so it reads clean over exactly the row this exists
-    to catch.
+    THE FILENAME IS THE ID (§2), so the filesystem now refuses the commonest way
+    to land here, and that is precisely why this check is worth keeping rather
+    than retiring: what it catches now is an item whose FRONTMATTER `id`
+    disagrees with a neighbour's — a file copied and edited without its id being
+    changed. A guard whose failure mode has become rare is not a guard whose
+    value has become zero; it is the one catching the case nobody is watching for.
     """
-    repeated = sorted(cid for cid, n in Counter(row.id for row in rows).items() if n > 1)
-    if repeated:
+    seen: dict[str, int] = {}
+    for row in rows:
+        seen[row.id] = seen.get(row.id, 0) + 1
+    dupes = sorted(i for i, n in seen.items() if n > 1)
+    if dupes:
         raise ValueError(
-            f"{path} allocates {len(repeated)} id(s) to more than one row: "
-            f"{', '.join(repeated)}. Every reader here is a dict keyed by id, so "
-            f"the later row's "
-            + ", ".join(f"`{col}`" for col in _GUARDED_COLUMNS)
-            + f" overwrite the "
-            f"earlier one's and one of the two candidates stops existing for the "
-            f"untriaged working set, for both authorization snapshots and for the "
-            f"deletion check — all of which are keyed by the same colliding id and "
-            f"see nothing. Under SEQUENTIAL ids this happened whenever two branches "
-            f"each allocated the next free one against the same base and both "
-            f"merged. Ids are RANDOM now, so a duplicate means an id was COPIED "
-            f"rather than minted: take a fresh one from the batch "
-            f"`research_activities.candidate_ceiling` hands the run. {missing_hint}")
+            f"{path} holds {len(dupes)} id(s) naming more than one item: "
+            f"{', '.join(dupes)}. Every reader here is keyed by id, so one "
+            f"item's {', '.join(f'`{c}`' for c in _GUARDED_COLUMNS)} silently "
+            f"overwrites the other's and one candidate stops existing. Ids are "
+            f"RANDOM and the filename IS the id, so a duplicate means a "
+            f"frontmatter `id` was COPIED rather than allocated. {missing_hint}")
 
 
-def _raise_on_foreign_cell(path: Path, text: str, rows: list[CandidateRow],
+def _raise_on_foreign_cell(path: Path, rows: list[CandidateRow],
                            missing_hint: str) -> None:
-    """`decision`, `size` and `status` must hold values `candidates.md` admits.
+    """`decision`, `size` and `status` must hold values the store admits.
 
     THIS IS THE ARM THAT COVERS SHAPES NOBODY HAS THOUGHT OF YET, which is why it
-    does not name any of them. A column shift moves foreign text into the three
-    ruled cells — `open` into `size` for a table left in the old seven-column
-    shape, a Source string for a row carrying a pipe in a cell before the Note
-    (markdown's own escape for a literal pipe is `\\|`, and `[^|\\n]*` treats that
-    pipe as a cell boundary, so a CORRECTLY escaped title shifts the row).
-    Neither shape is enumerated in the condition: the condition asks whether the
-    cell reads as something the file admits, so any future departure that moves
-    text sideways fails here rather than being discovered by a later pass.
+    does not name any of them. It asks whether the value reads as something the
+    store admits, so a future departure fails here rather than being discovered
+    by a later pass.
 
-    ALL THREE RULED COLUMNS, NOT TWO. `size` was added to the table and left out
-    of this condition, so the one cell a stalled seven-to-eight-column migration
-    displaces text INTO was the one cell that accepted anything. `_SIZES` was
-    declared for this check and had no reader at all: a table left in the
-    seven-column shape puts `status` into `size` and the Note into `status`, and
-    only the second of those two was ever asked about. Widening the condition is
-    what makes `_SIZES` load-bearing rather than documentation.
+    ALL THREE RULED FIELDS, NOT TWO. `size` was added and left out of this
+    condition once already, so the one field a stalled migration displaced text
+    INTO was the one field that accepted anything. Widening the condition is what
+    makes `_SIZES` load-bearing rather than documentation.
 
-    It is not exhaustive and does not claim to be — a shift lands silently only
-    if the displaced text happens to read as one of the strings the three closed
-    vocabularies admit. The message names both known shapes because a reader who
-    has just been told "row C-dhot2cyq's decision is unreadable" needs to know where
-    to look.
+    WHAT THE FLIP REMOVED. Under the table, the reachable cause was a COLUMN
+    SHIFT — a seven-column table putting `status` into `size`, or a pipe inside a
+    cell moving every field sideways. A store has no columns and no cell
+    boundaries, so that entire family is gone. What remains is a hand-edited
+    value: a `decision` of `shipped`, a `status` of `done`. The check is
+    unchanged because it never asked about markdown.
     """
     for row in rows:
         if (row.decision in _DECISIONS and row.size in _SIZES
                 and row.status in _STATUSES):
             continue
-        shape = ("" if _HEADER in text else
-                 f"\nNo table in this file carries the expected header:\n  {_HEADER}\n"
-                 f"so the whole table is probably still in the old seven-column shape.")
         raise ValueError(
-            f"{path} row {row.id} parses to decision={row.decision!r} "
-            f"size={row.size!r} status={row.status!r}, and `candidates.md` admits "
-            f"no such value — `decision` is one of {_DECISIONS}, `size` one of "
-            f"{_SIZES} and `status` one of {_STATUSES}. "
-            f"A cell holding anything else means the columns have SHIFTED: the "
-            f"row then reads as triaged, drops out of the untriaged working set, "
-            f"and `triage-candidates` reports a complete pass over a candidate "
-            f"nobody ruled. Either a table is in the old seven-column shape, or "
-            f"this row carries a pipe in one of its first {_CONSTRAINED_CELLS} "
-            f"cells — only the Note may contain one.{shape} {missing_hint}")
+            f"{path} item {row.id} carries decision={row.decision!r} "
+            f"size={row.size!r} status={row.status!r}, and the store admits no "
+            f"such value — `decision` is one of {_DECISIONS}, `size` one of "
+            f"{_SIZES} and `status` one of {_STATUSES}. An item holding anything "
+            f"else reads as triaged, drops out of the untriaged working set, and "
+            f"`triage-candidates` reports a complete pass over a candidate "
+            f"nobody ruled. {missing_hint}")
 
 
 def candidate_components(candidates_path: Path) -> dict[str, str]:

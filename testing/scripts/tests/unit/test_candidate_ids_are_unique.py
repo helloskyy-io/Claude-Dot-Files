@@ -42,35 +42,47 @@ import re
 from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[4]
-_CANDIDATES = _REPO / "docs" / "standards" / "architecture" / "research" / \
-    "candidates.md"
+_CANDIDATES = _REPO / "tracked" / "candidates"
 
-# A row: `| C-skkjo6jn | <finding> | <source> | <decision> | `status` | <note> |`.
-# Anchored at line start so an id merely CITED inside another row's prose —
-# which happens constantly, and is not an allocation — is not read as one.
+# THE ID NOW LIVES IN TWO PLACES AND BOTH ARE CHECKED: the filename, which §2
+# makes authoritative, and the item's own `id` field. The filesystem refuses two
+# files with one name, so a duplicate FILENAME cannot occur — but a file COPIED
+# and edited without its `id` changed reads as its neighbour to every consumer
+# keyed by id, and that is what this gate still catches.
 #
-# `[0-9a-z]+` AND NOT `\d+`: ids are eight random base36 characters. A digits-only
-# key would silently stop seeing every id containing a letter, which is all but a
-# vanishing fraction of them — and a uniqueness check that cannot SEE an id
-# reports "all unique" over the handful it can, which is the wrong-confidence
-# shape this suite exists to refuse.
-_ROW = re.compile(r"^\|\s*(C-[0-9a-z]+)\s*\|", re.M)
+# `[0-9a-z]{8}` AND NOT `\d+`: ids are eight random base36 characters. A
+# digits-only key would silently stop seeing every id containing a letter, which
+# is all but a vanishing fraction of them — and a uniqueness check that cannot
+# SEE an id reports "all unique" over the handful it can, which is the
+# wrong-confidence shape this suite exists to refuse.
+_ID_FIELD = re.compile(r"^id:\s*(C-[0-9a-z]+)\s*$", re.M)
 
 
 def _ids() -> list[str]:
-    return _ROW.findall(_CANDIDATES.read_text())
+    """Every id the store DECLARES, read from the frontmatter rather than the name.
+
+    Deliberately not `[p.stem for p in ...]`: reading the filenames would make
+    this check tautological, since the filesystem already guarantees those are
+    unique. The declared id is the one that can collide.
+    """
+    found = []
+    for path in sorted(_CANDIDATES.glob("*.md")):
+        m = _ID_FIELD.search(path.read_text())
+        if m:
+            found.append(m.group(1))
+    return found
 
 
-def test_the_candidates_file_is_where_it_is_declared_to_be() -> None:
+def test_the_candidates_store_is_where_it_is_declared_to_be() -> None:
     """If it moves, every assertion below passes against nothing."""
-    assert _CANDIDATES.is_file(), (
-        f"{_CANDIDATES} does not exist. finding-routing.md §4 sends every "
-        f"producing run's proposal here; a moved file means this check has "
-        f"been asserting about an empty string."
+    assert _CANDIDATES.is_dir(), (
+        f"{_CANDIDATES} does not exist. finding-routing.md §7 sends every "
+        f"producing run's proposal here; a moved store means this check has "
+        f"been asserting about an empty list."
     )
 
 
-def test_there_are_enough_rows_for_this_check_to_mean_anything() -> None:
+def test_there_are_enough_items_for_this_check_to_mean_anything() -> None:
     """A vacuity floor: uniqueness over zero ids holds trivially."""
     assert len(_ids()) > 30
 

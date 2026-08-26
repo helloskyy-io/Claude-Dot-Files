@@ -146,7 +146,7 @@ Nothing about that record is a GitHub fact. It is the same interface on a differ
 
 ### 2.5 · `candidates.md` — the fifth surface, and the durable floor §2.4 rotates onto
 
-[`docs/standards/architecture/research/candidates.md`](../standards/architecture/research/candidates.md) is a committed markdown table of `C-NNN` rows. Same test as §2.4, run against the file rather than against an account of it:
+[`docs/standards/architecture/research/candidates.md`](../../tracked/candidates/) is a committed markdown table of `C-NNN` rows. Same test as §2.4, run against the file rather than against an account of it:
 
 | Property | What the file provides, in its own words |
 |---|---|

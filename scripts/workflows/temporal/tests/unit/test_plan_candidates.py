@@ -52,8 +52,15 @@ _HEADER = (
 )
 
 
-def _table(*rows: tuple[str, ...]) -> str:
-    """Rows as `(id, title, component, decision, status[, size])`, in the real shape.
+def _table(*rows: tuple[str, ...]) -> list[tuple[str, ...]]:
+    """Rows as `(id, title, component, decision, status[, size])`.
+
+    KEPT AS A ROW-TUPLE BUILDER ACROSS THE 2026-08-26 FLIP, deliberately. The
+    store is one file per item, so there is no table to build any more — but
+    every test in this module states its fixture as *these candidates, with
+    these cells*, and that is still what they mean. Rewriting ~55 call sites to
+    emit frontmatter would have changed what each test SAYS while changing
+    nothing it asserts. `_write` renders; this names.
 
     `size` DEFAULTS TO `feature` HERE, and that is the opposite of the default in
     `test_triage_candidates_split.py`. The subject of this module is scaffolding,
@@ -62,11 +69,7 @@ def _table(*rows: tuple[str, ...]) -> str:
     Defaulting to blank would have made all of them assert the new skip path
     instead, which is a different test wearing the old name.
     """
-    body = "".join(
-        f"| {r[0]} | {r[1]} | {r[2]} | PR #1 | {r[3]} | "
-        f"{r[5] if len(r) > 5 else 'feature'} | {r[4]} | note |\n"
-        for r in rows)
-    return "# Action candidates\n\n" + _HEADER + body
+    return list(rows)
 
 
 @pytest.fixture
@@ -75,10 +78,37 @@ def tree(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def _write(tree: Path, content: str) -> Path:
-    f = tree / "candidates.md"
-    f.write_text(content)
-    return f
+def _write(tree: Path, rows) -> Path:
+    """Render rows into a candidates STORE and return the directory.
+
+    RETURNS A DIRECTORY, because `candidate_rows` now reads one. Callers pass
+    the result straight through unchanged, which is the whole reason the flip
+    cost this module two helpers rather than fifty-five edits.
+
+    A caller may pass RAW TEXT instead of rows, and that is not a leftover: a
+    handful of tests here assert on a MALFORMED store — a file with no
+    frontmatter, an id that disagrees with its filename — and those cannot be
+    expressed as well-formed row tuples. Text lands as a single item file
+    verbatim, so the parser meets exactly what the test wrote.
+    """
+    store = tree / "tracked" / "candidates"
+    store.mkdir(parents=True, exist_ok=True)
+    # REPLACES, because writing a file replaced it and this stands in for that.
+    # A directory ACCUMULATES where a file overwrote, so a test that calls this
+    # twice — several here do, to stage a pool a previous run seeded — would
+    # otherwise read both stores at once and see items it never wrote.
+    for stale in store.glob("*.md"):
+        stale.unlink()
+    if isinstance(rows, str):
+        (store / "raw.md").write_text(rows)
+        return store
+    for r in rows:
+        size = r[5] if len(r) > 5 else "feature"
+        (store / f"{r[0]}.md").write_text(
+            f"---\nid: {r[0]}\ntitle: {r[1]}\nstatus: {r[4]}\ncount: 1\n"
+            f"filed: 2026-08-26\nfiled_by: test\ncomponent: {r[2]}\n"
+            f"size: {size}\ndecision: {r[3]}\n---\n\nnote\n")
+    return store
 
 
 # ASSERTED AGAINST THE WHOLE RESULT, NOT AGAINST `.created`. Every skip below
@@ -113,8 +143,13 @@ def test_only_a_SHIP_row_is_scaffolded(tree: Path, decision: str) -> None:
 
 
 def test_a_CLOSED_row_is_not_scaffolded(tree: Path) -> None:
-    """`closed` means the work is done. Scaffolding it would re-open finished work."""
-    f = _write(tree, _table(("C-d1uhacwn", "t", "some-component", "`ship`", "`closed`")))
+    """`adopted` means the work is done. Scaffolding it would re-open finished work.
+
+    The status vocabulary changed at the 2026-08-26 flip: the table's `closed`
+    became Tracked Items §4's `adopted` / `rejected`, which say WHICH WAY it
+    closed. This test is about the terminal state, so `adopted` is its case.
+    """
+    f = _write(tree, _table(("C-d1uhacwn", "t", "some-component", "`ship`", "`adopted`")))
     assert own.scaffold_candidate_components(tree, f) == _NOTHING
     assert not (tree / "docs" / "development" / "some-component").exists()
 
@@ -236,14 +271,24 @@ def test_a_second_run_over_an_unchanged_file_is_a_NO_OP(tree: Path) -> None:
 
 
 def test_every_eligible_row_is_scaffolded_not_just_the_first(tree: Path) -> None:
-    """A loop that returned on its first hit would pass every test above."""
+    """A loop that returned on its first hit would pass every test above.
+
+    ORDER IS THE READER'S, NOT THE FIXTURE'S, since the 2026-08-26 flip. The
+    table gave filing order for free — a row's position WAS its order — and a
+    store has no positions, so `candidate_rows` sorts by `filed` then id. Every
+    item here shares a `filed` date, so the id tiebreak decides and `gamma`
+    (`C-c5y9uqhk`) precedes `alpha` (`C-d1uhacwn`). The assertion is written in
+    that order rather than sorted at the call site, because what this test is
+    for is that BOTH appear — and a `sorted()` here would hide the day the
+    reader stopped being deterministic.
+    """
     f = _write(tree, _table(
         ("C-d1uhacwn", "t", "alpha", "`ship`", "`open`"),
         ("C-p5qvm3e7", "t", "", "`ship`", "`open`"),
         ("C-q65w30xm", "t", "beta", "`reject`", "`open`"),
         ("C-c5y9uqhk", "t", "gamma", "`ship`", "`open`"),
     ))
-    assert own.scaffold_candidate_components(tree, f).created == ["alpha", "gamma"]
+    assert own.scaffold_candidate_components(tree, f).created == ["gamma", "alpha"]
 
 
 def test_two_rows_naming_the_SAME_component_scaffold_it_once(tree: Path) -> None:
@@ -337,149 +382,120 @@ def test_a_MISSING_candidates_file_raises_and_says_what_is_now_unknown(
 
 # --- the parse the whole thing rests on -----------------------------------
 
-def test_the_row_parse_survives_UNESCAPED_PIPES_IN_THE_NOTE(tree: Path) -> None:
-    """The Note is the ONLY cell that may carry a pipe, and rows in the live file do.
+# RETIRED 2026-08-26 · `test_the_row_parse_survives_UNESCAPED_PIPES_IN_THE_NOTE`
+# It asserted that a `|` inside the Note could not shift the row, because the
+# cell regex stopped at the next pipe and never reached the Note. **A store has
+# no cells and no boundaries**, so a pipe in an item's body is an ordinary
+# character with nothing to shift. Keeping it would mean asserting that markdown
+# the reader never parses does not break a parser that no longer exists — a
+# fossil, not a guard. The property it protected (a free-text field cannot
+# corrupt a ruled field) is now structural rather than tested.
 
-    Anything that splits a row on `|` and re-joins reads a different cell count
-    per row and mis-assigns every column after the stray pipe. The regex stops
-    each cell at the next pipe and never reaches the Note, so a Note may contain
-    anything at all. This is the property the column insertion depended on.
+def _store_with(tree: Path, *files: tuple[str, str]) -> Path:
+    """Eight well-formed items plus whatever `files` add, as the real store is shaped.
+
+    The store equivalent of the nine-table fixture this replaced: a departure has
+    to be caught in a POPULATED store, because a check that only ever meets one
+    item passes for the wrong reason.
     """
-    f = _write(tree, _table(("C-d1uhacwn", "t", "piped", "`ship`", "`open`")))
-    f.write_text(f.read_text().replace(
-        "| note |", "| a | b | c note with | pipes | in it |"))
+    store = tree / "tracked" / "candidates"
+    store.mkdir(parents=True, exist_ok=True)
+    for n in range(1, 9):
+        cid = f"C-fixture{n}"
+        (store / f"{cid}.md").write_text(
+            f"---\nid: {cid}\ntitle: t\nstatus: open\ncount: 1\n"
+            f"filed: 2026-08-26\nfiled_by: test\ncomponent: c\nsize: feature\n"
+            f"decision: ship\n---\n\nn\n")
+    for name, body in files:
+        (store / name).write_text(body)
+    return store
 
-    rows = act.candidate_rows(f, missing_hint="x")
-    assert len(rows) == 1
-    assert (rows[0].id, rows[0].component, rows[0].decision, rows[0].status) == (
-        "C-d1uhacwn", "piped", "ship", "open")
-    assert own.scaffold_candidate_components(tree, f).created == ["piped"]
+
+def _item(cid: str, **over: str) -> str:
+    f = {"id": cid, "title": "a thing", "status": "open", "count": "1",
+         "filed": "2026-08-26", "filed_by": "test", "component": "c",
+         "size": "feature", "decision": "ship"}
+    f.update(over)
+    return "---\n" + "".join(f"{k}: {v}\n" for k, v in f.items()) + "---\n\nn\n"
 
 
-# --- the shape check, keyed on the CLASS ----------------------------------
+# THREE OF THE FIVE ORIGINAL DOORS WERE RETIRED BY THE FLIP, BY ARGUMENT RATHER
+# THAN BY DELETION-UNTIL-GREEN, and the argument is recorded because retiring a
+# guard is the move this repo distrusts most.
 #
-# ONE FAILURE, THREE DOORS INTO IT: a row that reads as TRIAGED without anybody
-# having ruled it, or a row that is not there at all. Either way it leaves the
-# untriaged working set, `triage-candidates` reports a complete pass over it, and
-# nothing is red.
+# The table's dangerous failure was the COLUMN SHIFT: a six-column table whose
+# rows did not parse at all, a seven-column table whose every field landed one
+# column left, and a pipe inside a cell doing the same to one row. All three
+# were the same mechanism — POSITION carries meaning, so anything that moves a
+# boundary silently re-points every field. **A store has no columns, no cell
+# boundaries and no positions.** A field is named by its key. There is no
+# arrangement of a frontmatter block that puts the Note into `status`, so the
+# three fixtures could only be kept by asserting that markdown the reader never
+# sees does not break it. That is not a guard; it is a fossil.
 #
-# THE FIRST VERSION OF THIS TEST PASSED WHILE THE GUARD DID NOT FIRE, and that is
-# why the parametrization below is over SHAPES rather than one example. The guard
-# was `if _HEADER not in text` — a whole-file substring test — and this test's
-# fixture held exactly ONE table, so the two agreed by construction. The real
-# file holds NINE candidate tables: reverting one of them and leaving the other
-# eight correct satisfied the guard, and the untriaged count fell from 33 to 25
-# with nothing raised. A single-table fixture cannot see a whole-file check's
-# scope error; `_nine_tables` is what makes the difference visible.
-
-_SIX_COL = ("| ID | Candidate | Source | `decision` | `status` | Note |\n"
-            "|---|---|---|---|---|---|\n")
-
-# THE SHAPE A STALLED MIGRATION LEAVES, which `_SIX_COL` is not. `component` took
-# the table from six columns to seven and `size` took it from seven to eight, so
-# the table that exists half-migrated TODAY is the seven-column one — and it is
-# the dangerous one, because seven cells satisfy the row parser and six do not.
-_SEVEN_COL = ("| ID | Candidate | `component` | Source | `decision` | `status` | Note |\n"
-              "|---|---|---|---|---|---|---|\n")
-
-
-def _nine_tables(bad: str) -> str:
-    """Eight well-formed candidate tables and one `bad` one, as the real file is shaped."""
-    good = "".join(
-        f"\n## Cycle {n}\n\n{_HEADER}| C-fixture{n} | t | c | PR #1 | `ship` | feature | `open` | n |\n"
-        for n in range(1, 9))
-    return "# Action candidates\n" + good + "\n## Cycle 9\n\n" + bad
-
-
-@pytest.mark.parametrize("label,bad", [
-    # A whole table left in the old shape. `_ROW` needs six cells after the id, so
-    # a six-column row does not parse AT ALL and is caught as an unparsed row.
-    ("a table still in the six-column shape",
-     _SIX_COL + "| C-hjwrspgl | a thing | PR #1 |  | `open` | n |\n"),
-    # ONE row carrying a pipe in a cell before the Note. Markdown's own escape for a
-    # literal pipe is `\\|`, and the cell pattern treats that pipe as a boundary —
-    # so a CORRECTLY escaped title shifts the row and nothing else on the page.
-    ("one row with a pipe in its title",
-     _HEADER + "| C-hjwrspgl | Make `a | b` share a pool | c | PR #1 |  |  | `open` | n |\n"),
-    # An id the parser does not match at all: absent from the working set, from
-    # every authorization snapshot, and from the deletion check.
+# WHAT SURVIVES IS THE TWO DOORS THAT WERE NEVER ABOUT MARKDOWN — an id the
+# reader cannot use, and one id naming two items — plus one the flip CREATED:
+# a file that does not parse at all. Under the table an unparseable line was
+# caught by the row regex failing to match it; a store file has no regex to miss,
+# so `candidate_rows` checks the id's shape and its agreement with the filename
+# itself. Without that the flip would have dropped a live guard by accident.
+@pytest.mark.parametrize("label,files", [
     ("an id that is not eight base36 characters",
-     _HEADER + "| C-1009 | a thing | c | PR #1 | `ship` | feature | `open` | n |\n"),
-    # TWO ROWS SHARING ONE ID — the door that has actually opened, five times.
-    # Both rows parse; every reader is a dict keyed by id, so the second silently
-    # overwrites the first and one candidate stops existing. `C-fixture1` is reused
-    # from the fixture's own first table on purpose: the collision that happens in
-    # production is across TABLES, when two branches allocate against one base.
-    ("one id allocated to two rows",
-     _HEADER + "| C-fixture1 | a different thing | c | PR #1 | `ship` | feature | `open` | n |\n"),
-    # A TABLE LEFT IN THE SEVEN-COLUMN SHAPE — the one a STALLED migration
-    # actually leaves, and the case none of the four above reaches. `_SIX_COL` is
-    # two columns short, so its rows do not parse and land on the unparsed-row
-    # arm; a seven-column row parses PERFECTLY and every field lands one column
-    # left. `size` reads the status, `status` reads the Note.
-    #
-    # THE NOTE IS `closed` ON PURPOSE, AND THAT IS THE WHOLE FIXTURE. Write any
-    # ordinary note there and the displaced text fails the `status` vocabulary,
-    # so the row raises whether or not `size` is checked — the fixture would read
-    # identically with the defect present and could not see it. A note that
-    # happens to read as a status word (this file's notes are terse) lands every
-    # displaced cell on an ADMITTED value except one: `` `open` ``, sitting in
-    # `size`. Under the condition as it shipped, this row parses clean, reads as
-    # triaged, and drops out of the untriaged working set with nothing raised.
-    ("a table still in the seven-column shape",
-     _SEVEN_COL + "| C-hjwrspgl | a thing | c | PR #1 | `ship` | `open` | closed |\n"),
-], ids=["six-column-table", "pipe-in-a-cell", "wrong-id-shape", "duplicate-id",
-        "seven-column-table"])
-def test_a_row_READ_WRONGLY_or_LOST_RAISES_rather_than_reading_as_triaged(
-        tree: Path, label: str, bad: str) -> None:
+     [("C-1009.md", _item("C-1009"))]),
+    ("an id that disagrees with its filename",
+     [("C-hjwrspgl.md", _item("C-somethin"))]),
+    ("one id allocated to two items",
+     [("C-hjwrspgl.md", _item("C-fixture1"))]),
+    ("a file with no frontmatter at all",
+     [("C-hjwrspgl.md", "just prose, no frontmatter\n")]),
+], ids=["wrong-id-shape", "id-filename-disagreement", "duplicate-id",
+        "no-frontmatter"])
+def test_an_item_READ_WRONGLY_or_LOST_RAISES_rather_than_reading_as_triaged(
+        tree: Path, label: str, files) -> None:
     """Every departure from the assumed shape is loud, whatever the door.
 
     Loud beats a clean-looking answer: the whole point is that an empty-ish result
-    from this parser is indistinguishable from a genuinely quiet file.
+    from this parser is indistinguishable from a genuinely quiet store.
 
-    THE ERROR MUST NAME THE OFFENDING ROW, which is asserted rather than assumed.
-    A raise that says only "the file is malformed" over an eighty-row file leaves
+    THE ERROR MUST NAME THE OFFENDING ITEM, which is asserted rather than assumed.
+    A raise that says only "the store is malformed" over a hundred items leaves
     the operator with the same search this check was supposed to do for them, and
     each door here reaches the raise by a different route.
     """
-    f = _write(tree, _nine_tables(bad))
+    store = _store_with(tree, *files)
     with pytest.raises(ValueError) as exc:
-        act.candidate_rows(f, missing_hint="x")
-    offender = "C-fixture1" if label.startswith("one id") else (
-        "C-1009" if "base36" in label else "C-hjwrspgl")
+        act.candidate_rows(store, missing_hint="x")
+    named = files[0][0].removesuffix(".md")
+    offender = "C-fixture1" if label.startswith("one id") else named
     assert offender in str(exc.value), (
         f"{label} raised without naming {offender}: {exc.value}")
 
 
-def test_EIGHT_GOOD_TABLES_DO_NOT_EXCUSE_A_NINTH(tree: Path) -> None:
+def test_EIGHT_GOOD_ITEMS_DO_NOT_EXCUSE_A_NINTH(tree: Path) -> None:
     """THE NEGATIVE CONTROL ON THE CHECK'S SCOPE, not on its subject.
 
-    Without this, a check that reads the file as a whole passes for the wrong
-    reason and no assertion above can tell. Nine well-formed tables must parse
-    clean — so when the parametrized cases go red it is the ninth table that did
+    Without this, a check that reads the store as a whole passes for the wrong
+    reason and no assertion above can tell. Nine well-formed items must parse
+    clean — so when the parametrized cases go red it is the ninth item that did
     it, not the fixture.
     """
-    rows = act.candidate_rows(
-        _write(tree, _nine_tables(
-            _HEADER + "| C-hjwrspgl | a thing | c | PR #1 |  |  | `open` | n |\n")),
-        missing_hint="x")
-    assert len(rows) == 9, f"the nine-table fixture itself does not parse: {rows}"
+    store = _store_with(tree, ("C-hjwrspgl.md", _item("C-hjwrspgl", decision="", size="")))
+    rows = act.candidate_rows(store, missing_hint="x")
+    assert len(rows) == 9, f"the nine-item fixture itself does not parse: {rows}"
     assert [r.id for r in rows if not r.decision] == ["C-hjwrspgl"], (
-        "the untriaged row must survive the parse — losing it silently is the "
+        "the untriaged item must survive the parse — losing it silently is the "
         "entire failure this check exists to prevent")
 
 
 def test_the_REAL_candidates_file_parses_and_every_cell_is_in_vocabulary() -> None:
     """RUN AGAINST THE ARTIFACT, because a fixture agrees with whatever it was built from.
 
-    Every check above builds its own table, so all of them would stay green if the
-    live `candidates.md` drifted out of the shape they assume. This is the one
+    Every check above builds its own store, so all of them would stay green if the
+    live store drifted out of the shape they assume. This is the one
     assertion that reads what the pipeline will actually read.
     """
     # parents[5]: unit -> tests -> temporal -> workflows -> scripts -> repo root.
-    real = (Path(__file__).resolve().parents[5] / "docs" / "standards"
-            / "architecture" / "research" / "candidates.md")
-    assert real.is_file(), f"{real} is gone; this check would assert against nothing"
+    real = Path(__file__).resolve().parents[5] / "tracked" / "candidates"
     rows = act.candidate_rows(real, missing_hint="x")
     assert len(rows) > 30, "too few rows parsed for this to mean anything"
 
@@ -831,7 +847,7 @@ def test_THE_REAL_CANDIDATES_FILE_PARSES_UNDER_THE_TIGHTENED_CHECK() -> None:
     """The production file, read as the fleet reads it. Not a fixture.
 
     A vocabulary tightened against fixtures alone is a guess about the live file,
-    and this one gates every planning workflow: if `candidates.md` stopped
+    and this one gates every planning workflow: if the candidates STORE stopped
     parsing, `triage-candidates`, `plan-feature`, `plan-verify` and
     `plan-candidates` all raise before doing anything. The row count is asserted
     non-zero rather than pinned — a pinned figure goes stale on the next filing,
@@ -839,11 +855,10 @@ def test_THE_REAL_CANDIDATES_FILE_PARSES_UNDER_THE_TIGHTENED_CHECK() -> None:
     """
     # `parents[5]` is the repo root from `tests/unit/`, the idiom this suite
     # already uses in eight modules — see `journal_entrypoint_facts.REPO_ROOT`.
-    real = Path(__file__).resolve().parents[5] / (
-        "docs/standards/architecture/research/candidates.md")
-    assert real.is_file(), f"the production candidates file moved: {real}"
+    real = Path(__file__).resolve().parents[5] / "tracked" / "candidates"
+    assert real.is_dir(), f"the production candidates store moved: {real}"
     rows = act.candidate_rows(real, missing_hint="x")
-    assert rows, "the production file parsed to zero rows"
+    assert rows, "the production store parsed to zero items"
 
 
 # --- `Scaffolded` carries no shared mutable default -------------------------
@@ -895,28 +910,14 @@ def test_the_two_DECLINE_REASONS_are_required_at_construction() -> None:
 
 # --- the diagnostics name the shape that is actually out there -------------
 
-def test_THE_SHAPE_DIAGNOSTIC_NAMES_THE_SHAPE_A_STALLED_MIGRATION_LEAVES(
-        tree: Path) -> None:
-    """"six-column" was the shape before LAST migration, not this one.
-
-    The message exists to point an operator at a table. `component` took the
-    table from six columns to seven and `size` took it from seven to eight, so
-    the half-migrated table sitting in the tree today is SEVEN-column — and a
-    message naming the six-column shape sends the reader looking for a table that
-    has not existed since before the previous migration. Worse, the two shapes
-    fail differently: six columns do not parse at all, seven parse perfectly and
-    shift every field one column left, which is the case that reaches here.
-    """
-    f = _write(tree, _nine_tables(
-        _SEVEN_COL + "| C-hjwrspgl | a thing | c | PR #1 | `ship` | `open` | closed |\n"))
-    with pytest.raises(ValueError) as exc:
-        act.candidate_rows(f, missing_hint="x")
-    message = str(exc.value)
-    assert "seven-column" in message, (
-        f"the diagnostic does not name the shape it is describing: {message}")
-    assert "six-column" not in message, (
-        f"the diagnostic still names the shape before last: {message}")
-
+# RETIRED 2026-08-26 · `test_THE_SHAPE_DIAGNOSTIC_NAMES_THE_SHAPE_A_STALLED_MIGRATION_LEAVES`
+# It asserted the vocabulary error names the SEVEN-column shape, so an operator
+# reading "row C-x's decision is unreadable" knew to go look for a half-migrated
+# table. **There is no table to look for.** `_raise_on_foreign_cell` still
+# fires — a hand-edited `status: done` reaches it — but its cause is now one
+# item's one field, which the message already names. The diagnostic pointed at
+# a shape that cannot occur, which is worse than no diagnostic: it would send
+# the next operator hunting for a migration that never stalled.
 
 def test_the_diagnostic_CELL_COUNT_is_derived_from_the_header() -> None:
     """And the count it prints is the count the parser actually enforces.

@@ -10,7 +10,7 @@
 
 > **Automation appends and leaves `status` at `open`. The operator sets `status`.**
 
-- **IDs are `D-001`, `D-002`, …**, independent of the `C-` series in [`candidates.md`](candidates.md). Never reused, never renumbered.
+- **IDs are `D-001`, `D-002`, …**, independent of the `C-` series in [`candidates.md`](../../../../tracked/candidates/). Never reused, never renumbered.
 - **A row is a RECEIPT once ruled, not a record.** The durable home of a ruling is elsewhere — see *Resolving a row* below — and a ruled row rotates out on the schedule at the bottom of this file.
 - **`Source` carries the `C-NNN` it came from**, so this file and `candidates.md` stay linked.
 - **Recommendation and *Why it matters* are one sentence each.** These are read at standup.
@@ -74,6 +74,6 @@ Enforced rather than asserted because the failure is silent and unrecoverable. A
 
 ## Related
 
-- [`candidates.md`](candidates.md) — research action candidates and their dispositions
+- [`candidates.md`](../../../../tracked/candidates/) — research action candidates and their dispositions
 - [`synthesis.md`](synthesis.md) — what the evidence currently says
 - [`../problem-statement.md`](../problem-statement.md) — the thesis these rulings bear on

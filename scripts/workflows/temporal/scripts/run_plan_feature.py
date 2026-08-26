@@ -22,7 +22,7 @@ BANNER = "=" * 64
 # A default, not a derivation — the repo's own surface. A different repo passes
 # its own. Stated here rather than in the workflow so the workflow stays
 # repo-agnostic and the launch concern owns the convention.
-DEFAULT_CANDIDATES = "docs/standards/architecture/research/candidates.md"
+DEFAULT_CANDIDATES = "tracked/candidates"
 
 
 def main(argv=None) -> int:

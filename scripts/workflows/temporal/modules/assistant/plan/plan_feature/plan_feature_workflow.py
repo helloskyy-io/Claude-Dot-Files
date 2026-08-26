@@ -110,6 +110,17 @@ FORBIDDEN_PATHS = (
                                 #   stated separately because the prohibition is
                                 #   about the FILE and outlives this directory
     r"^docs/standards/",        # "...or anything else under `docs/standards/`"
+    # THE TRACKED STORES, ADDED 2026-08-26 WITH THE FLIP, AND IT RESTORES A
+    # PROPERTY RATHER THAN ADDING ONE. `candidates.md` used to live under
+    # `docs/standards/architecture/research/`, so it was already inside a
+    # forbidden tree and `permitted_paths` was a CARVE-OUT of it. The store is
+    # root-relative now — that is what lets one implementation serve every repo
+    # — and `tracked/` matches neither prefix above, so the flip silently took
+    # all four stores OUTSIDE the boundary. A planning run could have written
+    # `tracked/operations/`, which Tracked Items §1.2 reserves to humans, and
+    # nothing here would have seen it. Forbidding the tree and granting one pool
+    # back is exactly the shape this boundary had before the move.
+    r"^tracked/",
 )
 
 
@@ -170,10 +181,18 @@ def permitted_paths(component_rel: Path, candidates_rel: Path) -> tuple[str, ...
     SIBLING COMPONENT, which is a real failure this module names. A repo-wide map
     every workflow is required to keep current is not that, and it was caught as
     collateral.
+
+    THE CANDIDATES GRANT COVERS A DIRECTORY'S ITEMS since the 2026-08-26 flip:
+    `--candidates` named `candidates.md` and an exact match was right; it now
+    names `tracked/candidates/`, and a run places its proposal as an item file
+    INSIDE it. Left exact, the grant would cover a path nothing writes and every
+    placement would read as a boundary crossing — failing a correct run at the
+    last guard. Same shape as the component grant one line up, and for the same
+    reason: `[^/]+` rather than `.+`, so it cannot reach a nested directory.
     """
     return (
         rf"^{re.escape(component_rel.as_posix())}/[^/]+\.md$",
-        rf"^{re.escape(candidates_rel.as_posix())}$",
+        rf"^{re.escape(candidates_rel.as_posix())}/[^/]+\.md$",
         r"^docs/file_structure\.txt$",
     )
 

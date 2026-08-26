@@ -12,7 +12,7 @@ repo: claude-dot-files
 
 ## The consequence
 
-`C-011` in [`docs/standards/architecture/research/candidates.md`](../../docs/standards/architecture/research/candidates.md) (line 99) is a **ratified `ship` decision**:
+`C-011` in `candidates.md` (the table this store replaced on 2026-08-26) (line 99) is a **ratified `ship` decision**:
 
 > `| C-011 | Ship three cheap guards: credential expiry, false completion, safety-hook wiring test (~9 h) | | fleet_failure_modes.md §7 | ship | open | **Ship:** three things built with a stated cost. Placed as a *Fleet Reliability* milestone |`
 

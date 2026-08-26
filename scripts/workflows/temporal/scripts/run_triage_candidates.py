@@ -20,7 +20,7 @@ def main(argv=None) -> int:
     # unchecked and test only `.exists()` — which follows `..`, so an escaping
     # `--candidates` passed, was rendered into the prompt, and was ruled on by a
     # run holding `--dangerously-skip-permissions`. Demonstrated by execution.
-    p.add_repo_path("--candidates", default="docs/standards/architecture/research/candidates.md")
+    p.add_repo_path("--candidates", default="tracked/candidates")
     p.add_repo_path("--research", kind="dir", default="docs/standards/architecture/research")
     p.add_argument("--pr", dest="pr_number", help="update an existing triage-candidates PR")
     p.add_argument("--verbose", "-v", action="store_true")

@@ -188,7 +188,13 @@ BUDGETS: dict[str, int] = {
     # saying a COMPLETE phase carries no estimate by design. It now does carry
     # one, so an unsized phase has no benign case and the reader must treat every
     # member of that list as a defect. Changes what the model DOES with the list.
-    "plan/plan_sprint/prompts/plan_sprint.md": 9904,
+    # +10 on 2026-08-26: the MAY-NOT row named `candidates.md`, a file that is
+    # no longer the store. "anything under `tracked/`" is the true prohibition
+    # and it is WIDER — it now also covers the three stores plan-sprint never
+    # had a reason to touch, `operations/` included, which §1.2 reserves to
+    # humans. A prohibition naming a retired surface reads as permission for
+    # what replaced it.
+    "plan/plan_sprint/prompts/plan_sprint.md": 9914,
     # RATCHETED DOWN 16_060 -> 9_919: the mutation discipline moved to the shared
     # prompts/mutation_discipline.md, budgeted below. Content did not shrink, it
     # MOVED — so both lines exist and neither absorbs growth silently.
@@ -422,7 +428,11 @@ BUDGETS: dict[str, int] = {
     # the operator was the enforcement mechanism and asked four times in three days.
     # Paid for by a raise rather than a cut: the fragment carries no duplicated
     # sentences, so funding it meant deleting substance to hit a number.
-    "prompts/decision_log_and_reflection.md": 9_810,
+    # +5 on 2026-08-26: the PROPOSAL route names `tracked/candidates/` and one
+    # file per item, where it named `candidates.md` and "append a row with the
+    # next free C-NNN". Both halves of that were wrong after the flip — there is
+    # no row to append and ids are not sequential.
+    "prompts/decision_log_and_reflection.md": 9_815,
     # 8,106 not 8,057 — the first draft of this budget counted CHARACTERS and
     # this file is full of em-dashes. The test caught it on its first run,
     # which is the cheapest possible demonstration that byte counts are not

@@ -1,6 +1,6 @@
-## Stage 4b: APPEND TO `candidates.md` — BINDING
+## Stage 4b: FILE INTO `tracked/candidates/` — BINDING
 
-`${RESEARCH_DIR}/candidates.md` is the **durable** home for action candidates. `synthesis.md` is rewritten every cycle; that file is not, and a candidate that lives only in the synthesis loses its disposition the moment the next cycle runs. That has happened: candidates already ruled on were re-proposed, and seven ended up parked on a tracker whose own rules forbid it.
+`tracked/candidates/` is the **durable** home for action candidates, one file per item. `synthesis.md` is rewritten every cycle; that file is not, and a candidate that lives only in the synthesis loses its disposition the moment the next cycle runs. That has happened: candidates already ruled on were re-proposed, and seven ended up parked on a tracker whose own rules forbid it.
 
 **The division of labour is absolute:**
 
@@ -13,14 +13,14 @@
 
 ${CANDIDATE_CEILING}
 
-### If the file already exists — read it BEFORE you write
+### If the store already holds items — read them BEFORE you write
 
-1. **Read every existing row.** Note the highest `C-NNN` in use.
+1. **Read every existing item.** You are not choosing ids: `${CANDIDATE_CEILING}` above offered you a batch, minted at random, and **there is no highest-in-use to continue from.**
 2. **For each candidate in your synthesis, decide: is this NEW, or a RESTATEMENT of one already there?**
-   - **A restatement REUSES the original ID.** Do not mint a new one. If your wording is better, update the `Candidate` cell in place and leave the ID, `decision` and `status` untouched. A carried-forward candidate is the *same* candidate.
-   - **Only genuinely new candidates get new IDs**, continuing from the highest in use. **IDs are never reused and never renumbered**, even if a row is rejected.
-3. **A candidate already marked `reject` must NOT be re-proposed.** Read the reasoning; if new evidence genuinely overturns it, say so explicitly in the Note and in your PR body rather than quietly adding it again. That file exists so a rejection sticks.
-4. **Never delete a row.** Not a rejected one, not a stale one.
+   - **A restatement REUSES the original ID.** Do not mint a new one — increment that item's `count` and append a dated line under `## Recurrences`. If your wording is better, update its `title` in place and leave the `id`, `decision` and `status` untouched. A carried-forward candidate is the *same* candidate.
+   - **Only genuinely new candidates get new IDs**, taken from the batch you were offered. **IDs are never reused**, even after a terminal state, and unused ones are simply discarded.
+3. **A candidate already marked `reject` must NOT be re-proposed.** They are kept for six months precisely so the reasoning is findable. Read it; if new evidence genuinely overturns it, say so explicitly in the Note and in your PR body rather than quietly adding it again. That file exists so a rejection sticks.
+4. **Never delete an item.** Not a rejected one, not a stale one — pruning runs on the Tracked Items Standard §4.2 clock, never on yours.
 
 ### If the file does not exist
 
@@ -36,13 +36,13 @@ Some findings are not design work. They are **recommendations about what the pro
 
 `${RESEARCH_DIR}/direction.md` is where they go.
 
-> **`candidates.md` is the machine's document. `direction.md` is the human's.**
+> **`tracked/candidates/` is the machine's store. `direction.md` is the human's.**
 
 **You NEVER edit `problem-statement.md`.** It is the thesis every other document derives from, and the judgement in it is not delegable. You recommend; the operator rules; the operator writes.
 
-### What belongs here rather than in `candidates.md`
+### What belongs here rather than in `tracked/candidates/`
 
-| Goes in `direction.md` | Goes in `candidates.md` |
+| Goes in `direction.md` | Goes in `tracked/candidates/` |
 |---|---|
 | A differentiator is overstated, refuted, or should be restated | Build this, adopt that, decide a ruling |
 | The problem statement claims something the evidence no longer supports | A standards amendment, a phase item, a guard to ship |
@@ -60,11 +60,11 @@ Some findings are not design work. They are **recommendations about what the pro
 
 ### If the file already exists
 
-Same discipline as `candidates.md`: **read every row first**, reuse the original ID for anything you are restating, never renumber, never delete, and **do not re-propose something already marked `rejected`** unless new evidence overturns it — in which case say so explicitly.
+Same discipline as `tracked/candidates/`: **read every item first**, reuse the original ID for anything you are restating, never renumber, never delete, and **do not re-propose something already marked `rejected`** unless new evidence overturns it — in which case say so explicitly.
 
 IDs are `D-001`, `D-002`, … and are independent of the `C-` series.
 
-**You are not the only writer.** `triage-candidates` also appends here — it is where a candidate it triages as `requires review` gets handed to the operator, carrying its `C-NNN` in the Source column. So **read every row and continue from the highest ID**; never assume the file holds only your own cycles' rows.
+**You are not the only writer.** `triage-candidates` also appends here — it is where a candidate it triages as `requires review` gets handed to the operator, carrying its `C-` id in the Source column. So **read every row and continue from the highest ID**; never assume the file holds only your own cycles' rows.
 
 ### In your PR body
 

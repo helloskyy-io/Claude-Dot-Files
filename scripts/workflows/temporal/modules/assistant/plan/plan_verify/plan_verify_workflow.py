@@ -140,6 +140,17 @@ FORBIDDEN_PATHS = (
                                 #   stated separately because the prohibition is
                                 #   about the FILE and outlives this directory
     r"^docs/standards/",        # "...or anything else under `docs/standards/`"
+    # THE TRACKED STORES, ADDED 2026-08-26 WITH THE FLIP, AND IT RESTORES A
+    # PROPERTY RATHER THAN ADDING ONE. `candidates.md` used to live under
+    # `docs/standards/architecture/research/`, so it was already inside a
+    # forbidden tree and `permitted_paths` was a CARVE-OUT of it. The store is
+    # root-relative now — that is what lets one implementation serve every repo
+    # — and `tracked/` matches neither prefix above, so the flip silently took
+    # all four stores OUTSIDE the boundary. A planning run could have written
+    # `tracked/operations/`, which Tracked Items §1.2 reserves to humans, and
+    # nothing here would have seen it. Forbidding the tree and granting one pool
+    # back is exactly the shape this boundary had before the move.
+    r"^tracked/",
 )
 
 
@@ -197,7 +208,12 @@ def permitted_paths(component_rel: Path, candidates_rel: Path) -> tuple[str, ...
         # re-plan; it stopped ALL editing, which is what parked a one-sentence
         # fix as a fifteen-hundred-byte candidate row.
         rf"^{re.escape(component_rel.as_posix())}/[^/]+\.md$",
-        rf"^{re.escape(candidates_rel.as_posix())}$",
+        # THE CANDIDATES POOL IS A DIRECTORY since the 2026-08-26 flip, so the
+        # grant covers the ITEMS in it. A run places its proposal as one file
+        # there; an exact match on the directory would grant a path nothing
+        # writes and fail every correct placement at the last guard. Same shape
+        # as the component grant above, and `[^/]+` for the same reason.
+        rf"^{re.escape(candidates_rel.as_posix())}/[^/]+\.md$",
     )
 
 
