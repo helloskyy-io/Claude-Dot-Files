@@ -1446,6 +1446,30 @@ That is the same shape as PR #123 here: eleven review passes, every one rigorous
 
 ---
 
+## 2026-08-26 — First four-child dispatch on the tracked stores: two shipped, four deferred
+
+**The cycle:** `plan-verify` → `plan-sprint` → `review-pr` on PR #141 (memory-management-framework), the first real dispatches after the tracked-items flip. Every finding below came from those three runs' reflections plus the reviewer's disposition.
+
+### SHIPPED
+
+- **`plan_verify.md` contradicted itself about phase-doc authority**, and the contradiction had a measured cost: `:28` grants *"correct a DETERMINED defect in a phase doc"* with a bounding section at `:88`, while `:22` and `:74` asserted every phase doc was read-only. **`permitted_paths` sides with `:28`** — the grant permits the write, so the prompt was the only thing stopping it, wrongly. The PR #141 run resolved the contradiction toward the prohibition and *reported* a defect it was authorized to fix.
+- **`filing_a_candidate_row.md` assumed a batch most consumers never receive.** It told every filer to use *"an id from the batch you were offered"*; only research workflows are handed `CANDIDATE_CEILING`. Reworded so minting is the normal case — which is what random ids are FOR: filing is a pure write, so no coordination is needed and none should be implied.
+
+**Both are instances of `C-zwzepum0`'s class** — *a prompt sentence asserting how another file behaves either names the check that holds it, or is not written.* That candidate went to **`count: 4`** rather than three new items being filed. **This is the first real use of §3.1's recurrence mechanism**, and it is the argument for the mechanism: under the old rule these were three separate reports in three separate PR bodies that nobody aggregates.
+
+### DEFERRED — watch-criteria stated
+
+- **Sizing a RETIRED component is under-specified.** MMF's banner says its docs *"are not maintained"*, every phase is `✅ COMPLETE`, and the sprint reads `~0h to-do`. The brief has no rule for whether re-sizing finished, retired work is in scope. The run did it and said so. **Ship on:** a second run hitting a retired or complete-only component and reaching a different answer, OR the operator ruling that retired components are out of scope for sizing.
+- **`sprint.md`'s status legend has four markers and no RETIRED.** `plan-sprint` correctly refused to invent a fifth and flagged the disagreement. **Ship on:** a second component retiring, which makes it a class rather than one file. **This one is the operator's ruling, not a tooling fix.**
+- **The derived bullet count includes the sprint close-out**, so `plan-sprint`'s prompt says *"7 phase bullet(s)"* against a roadmap with 6 phases, and the run had to reconcile it. **Ship on:** recurrence, or any run mis-reconciling it. Cheap to fix (exclude the close-out from the count) and not worth a prompt edit on one sighting.
+- **A `--dry-run --pr N` reports a figure the real run will not use.** The dry run counts in the operator's checkout and says so — but `--pr` makes the real run cut its worktree from the PR's branch, so the two disagree by design. Honest, and still a wrong-confidence shape for a reader who skims. **Ship on:** anyone acting on a dry-run figure that the real run contradicted.
+
+### CALIBRATION
+
+**The reviewer caught a false absence claim by the producing run** — `plan-verify` reported MMF candidates 4 *and* 8 as homeless; candidate 4 is homed at `persistent-memory-protocol/roadmap.md:484`. It checked one surface and generalised. `laundered_deferrals: 0 of 4` was still earned. **`author ≠ judge` paying for itself on its first run against the new stores.**
+
+**And the review filed its own finding through the INTAKE path** — issue #142, harvested to `tracked/standards/S-5jo0ecfg.md`, closed with a repo-relative pointer. A decide-only reviewer placed a standards amendment it could not have placed the day before. That is the fourth routing option working end to end.
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.

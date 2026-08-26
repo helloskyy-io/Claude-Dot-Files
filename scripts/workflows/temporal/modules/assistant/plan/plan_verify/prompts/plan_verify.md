@@ -19,7 +19,7 @@ ${PLAN_INVENTORY}
 
 ## YOUR AUTHORIZATION — read this first, it is narrow on purpose
 
-**You write ONE file: `${COMPONENT_PATH}/roadmap.md`.** Every phase doc is read-only to you.
+**Your DELIVERABLE is one file: `${COMPONENT_PATH}/roadmap.md`** — the estimates go there and nowhere else. **A phase doc is read-only EXCEPT for a determined defect**, which the table below grants and § *A DETERMINED defect you FIX* bounds. Your write grant covers this component's top-level markdown, so the boundary check will not stop you; the rule is what stops you, and the rule permits exactly that one edit.
 
 | You MAY | You MAY NOT |
 |---|---|
@@ -28,19 +28,19 @@ ${PLAN_INVENTORY}
 | **Correct a DETERMINED defect in a phase doc** — see below | **Rename, renumber or delete a phase doc** — the number is IDENTITY |
 | Report a phase boundary you believe is wrong | **Reword a completion criterion** — a checkbox is the author's sentence |
 | Report a phase resting on evidence that does not support it | Write or edit anything under ANOTHER component, or under this one's `research/` |
-| Append a proposal row to the candidates file | **WRITE or edit `sprint.md`** — read it (Stage 1), never touch it |
-| Name the `component` on a row YOU append | |
+| File a proposal into `tracked/candidates/` | **WRITE or edit `sprint.md`** — read it (Stage 1), never touch it |
+| Name the `component` on an item YOU file | |
 | | **Tick a completion checkbox** — nothing has been built |
-| | Set `decision`, `size`, `status`, or another filer's `component` in the candidates file |
+| | Set `decision`, `size`, `status`, or another filer's `component` on an item |
 | | Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/` |
-| | **Delete anything** — a candidate row, a phase doc, or the roadmap |
+| | **Delete anything** — a candidate item, a phase doc, or the roadmap |
 | | Decide WHEN this component gets built, or where it sits against other work |
 
 ${FILING_A_CANDIDATE_ROW}
 
 ### You judge the decomposition; you do not rewrite it
 
-**A phase boundary you think is wrong is a FINDING, not an edit.** Say so in your report, name what the second verifiable outcome is, and stop. `plan-feature` closes that runway — the phase docs are its output and you hold no grant over them.
+**A phase boundary you think is wrong is a FINDING, not an edit.** Say so in your report, name what the second verifiable outcome is, and stop. `plan-feature` closes that runway — the phase docs are its output, and a boundary is a design choice rather than a determined defect.
 
 This is not deference. **A reviewer who corrects the artifact has made the artifact agree with the review**, and the next reader cannot tell which parts the author decided and which parts you did. The same rule made research write-then-verify and build draft-then-refine two runs each.
 
@@ -71,13 +71,13 @@ The sprint plan is the operator's cross-domain sequencing surface. `plan-sprint`
 
 ${WORKTREE_IS_COMPARED_TO_A_SNAPSHOT}
 
-- **Every path outside your authorization** — every phase doc, another component, this component's `research/`, the sprint plan, anything under `docs/standards/` other than the candidates file — is compared by content. Renaming or deleting one counts as editing it.
+- **Every path outside your authorization** — another component, this component's `research/`, the sprint plan, anything under `docs/standards/` other than the candidates store — is compared by content. Renaming or deleting one counts as editing it.
 - **Which phase docs `roadmap.md` references** is counted before and after, in both directions.
 - **Which phase docs EXIST on disk** is compared separately, so a doc that vanishes is named as a deletion rather than reaching you as some other guard's message.
 - **The roadmap must carry AT LEAST AS MANY hour estimates as the component has phase docs** when you finish, or the run fails as unsized. **Read that literally: it is a TOTAL against a TOTAL.** Nothing in code knows which phase an estimate sits beside, so two figures written against one phase will satisfy the count while another phase has none — the check passes and the plan is still unsized. **Nothing catches that but you.** Write exactly one estimate per phase, and if you add a sizing note, keep a second hour figure out of it.
 - **Completion checkboxes** in the roadmap are counted before and after by their text. Adding a tick fails the run, and so does erasing one.
-- **Every candidate column** — `decision`, `size`, `status`, `component` — is compared cell by cell on every row that already existed. A row you append is exempt, because filing one requires you to write `status: open` and to name where it goes.
-- **Deleting anything** fails the run, at both altitudes: rows are compared by ID, and the files themselves are checked for still existing.
+- **Every candidate field** — `decision`, `size`, `status`, `component` — is compared on every item that already existed. An item you file is exempt, because filing one requires you to write `status: open` and to name where it goes.
+- **Deleting anything** fails the run, at both altitudes: items are compared by id, and the store itself is checked for still existing.
 
 Any one of these **fails the whole run** — including the work you did correctly.
 

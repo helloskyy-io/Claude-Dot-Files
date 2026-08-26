@@ -1,6 +1,6 @@
 **FILING A CANDIDATE — one file, and the store is `tracked/candidates/`.**
 
-Write **`tracked/candidates/<id>.md`**, using an id from the batch you were offered. **The filename IS the id.** Open it with the six core fields of [Tracked Items Standard §3](../../../../../../docs/standards/documentation/tracked_items_standard.md) in that order, then this store's own three, then the body:
+Write **`tracked/candidates/<id>.md`**. **The filename IS the id**, and its shape is `C-` plus **eight random lowercase base36 characters** — `C-a1b2c3d4`. **Mint it yourself: pick eight at random and do not compute one.** There is no next-free to continue from and no maximum to read, which is the whole point — filing is a PURE WRITE, so two runs filing at once cannot collide over an id. *(Some workflows are handed a batch of pre-minted ids; if you were, use those. Most are not, and minting is the normal case rather than the fallback.)* Open it with the six core fields of [Tracked Items Standard §3](../../../../../../docs/standards/documentation/tracked_items_standard.md) in that order, then this store's own three, then the body:
 
 ```
 ---

@@ -345,7 +345,21 @@ BUDGETS: dict[str, int] = {
     # evidence — the run it failed, the PR that introduced it — is in the commit
     # message, not in these bytes. A first draft ran +527; the trim to +197 took
     # out the history and the third bullet a reasoner infers from the first.
-    "plan/plan_verify/prompts/plan_verify.md": 18334,
+    # RAISED 18334 -> 18649 on 2026-08-26 (+315): the prompt CONTRADICTED ITSELF
+    # and the contradiction cost a real run a fix. `:28` grants "correct a
+    # DETERMINED defect in a phase doc" and § A DETERMINED defect bounds it,
+    # while `:22` said every phase doc was read-only and `:74` listed them as
+    # outside authorization. `permitted_paths` sides with `:28`. The producing
+    # run on PR #141 resolved it toward the prohibition and REPORTED a defect it
+    # was authorized to fix -- measured cost, not a hypothetical.
+    # Against § Prompt economy: it changes what the model DOES (a determined
+    # defect now gets fixed rather than reported); a capable reasoner could NOT
+    # infer it, because the prompt asserted the opposite in two places; and the
+    # harness cannot enforce it, since the GRANT already permits the write --
+    # the prompt was the only thing stopping it, wrongly.
+    # This is the THIRD instance of C-zwzepum0's class in this one file today,
+    # which is why its count moved rather than a new candidate being filed.
+    "plan/plan_verify/prompts/plan_verify.md": 18649,
     # RATCHETED DOWN 14_437 -> 9_896, the other side of the same move. It stays
     # above the FLOOR, so it keeps its line rather than dropping off the table.
     # Then 9_896 -> 9_908, the same twelve substituted-away bytes as above.

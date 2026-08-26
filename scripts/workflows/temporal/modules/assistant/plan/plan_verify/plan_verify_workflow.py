@@ -313,7 +313,7 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
         "clause: prose inside a granted file cannot be told from a correction "
         "by any comparator, and it is held by the report's integrity clause — "
         "every correction named, with whether it moved an estimate",
-    "Set `decision`, `size`, `status`, or another filer's `component` in the candidates file":
+    "Set `decision`, `size`, `status`, or another filer's `component` on an item":
         "act.candidate_decisions, act.candidate_sizes, act.candidate_statuses and "
         "act.candidate_components snapshotted either side of the run, compared by "
         "act.decisions_this_run_had_no_right_to, act.sizes_this_run_had_no_right_to, "
@@ -323,7 +323,7 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
         "comparator docstring is where that reason is recorded",
     "Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/`":
         "FORBIDDEN_PATHS `^docs/standards/` less permitted_paths, same mechanism",
-    "**Delete anything** — a candidate row, a phase doc, or the roadmap":
+    "**Delete anything** — a candidate item, a phase doc, or the roadmap":
         "act.ids_deleted over the candidate id snapshots for a ROW, "
         "act.ids_deleted over own.phase_docs_of for a PHASE DOC, and "
         "act.grants_that_vanished over permitted_paths for the two files this "

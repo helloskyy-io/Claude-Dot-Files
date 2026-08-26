@@ -53,23 +53,28 @@ Deliberate boundaries. Each has a reason, and each was paid for:
 | Surface | Holds | Lifecycle |
 |---|---|---|
 | PR threads | change-outcomes, decision logs, disposition rulings | closes at merge |
-| GitHub Issues | **defects** — a no-change outcome on something already built or decided, and planning STOPs. **Never a proposal.** | filed → ruled → closed |
-| Standup tracker | continuity — operating state, next moves. **Operator and PM sessions only; no autonomous run writes here** | never closes; pruned |
-| `candidates.md` | **proposals** — research candidates and anything an actor wants ADDED | appended, never rewritten |
+| [`tracked/issues/`](../../../tracked/issues/) | **defects** — something already built or already decided behaves wrongly, in code, docs or the planning corpus. **Never a proposal.** | filed → ruled → `resolved` / `rejected`, then pruned |
+| [`tracked/operations/`](../../../tracked/operations/) | continuity — operating state, next moves. **Human-in-the-loop ONLY; no autonomous run writes here** | never closes; pruned |
+| [`tracked/candidates/`](../../../tracked/candidates/) | **proposals** — anything an actor wants ADDED, and the ruling queue: a finding only the operator can decide carries `decision: requires review` | filed → ruled → `adopted` / `rejected` |
+| [`tracked/standards/`](../../../tracked/standards/) | **amendments to a NAMED standard**, with an anchor precise enough to act on. Filing is surfacing, not editing | filed → `ratified` / `amended` / `rejected` |
+
+> **REBOUND 2026-08-26, and this table was the last binding surface still naming the old ones.** GitHub Issues are retired for tracked work, the standup tracker and the candidates table moved into `tracked/`, and `direction.md` was deleted. **The `standards/` row is new** — before it, an autonomous run was permitted to *surface* a standards amendment and had nowhere to put it, so correctly-classified amendments died in PR bodies. See [Tracked Items Standard](../documentation/tracked_items_standard.md), which owns the four stores.
+>
+> **A decide-only reviewer still cannot commit, and does not need to.** It files a `tracked-intake` GitHub issue — the same API call it always made — which a named harvest moves into the store and closes. §5.0 there makes that exemption conditional on the harvest existing.
 
 **The full routing procedure lives in [`finding-routing.md`](../finding-routing.md), which owns it.** This section states the surface set and the one rule that decides between the two queues; the gates, the mechanism requirement and the disposition vocabulary are there, not restated here — this standard is *deliberately narrow in scope*, and a procedure that lives in two places diverges silently.
 
 ### Defect or proposal — ask this BEFORE choosing a surface (binding)
 
-**An Issue holds a DEFECT: something already built or already decided behaves wrongly, or a decision the existing research and planning do not supply is now blocking.** Issues are the human-in-the-loop queue and are reserved for the hardest of those.
+**`tracked/issues/` holds a DEFECT: something already built or already decided behaves wrongly, or a decision the existing research and planning do not supply is now blocking.** Issues are the human-in-the-loop queue and are reserved for the hardest of those.
 
-**A PROPOSAL — capability that does not exist yet and would be added — goes to `candidates.md` and is NEVER an Issue**, however clean its done-state looks.
+**A PROPOSAL — capability that does not exist yet and would be added — goes to `tracked/candidates/` and is NEVER an issue**, however clean its done-state looks.
 
 **This question comes first because the surface test alone routes proposals wrongly.** A proposal answers *"nothing changed"* and *"it has a done-state"* — *"add a link checker"* has a perfectly clean one — so any rule keyed on those two properties files it as an Issue. Measured across two repos in one cycle: roughly a third of everything filed was a proposal, and clearing the queue cost two working days against zero days of development.
 
-**Bias toward `candidates.md` when a finding reads either way.** The costs are asymmetric: a proposal misfiled as a candidate costs a triage pass; a proposal misfiled as an Issue costs an operator's day. **No actor is expected to know where a proposal belongs in the plan** — only that it is one. Deciding whether it becomes a sprint, a phase or nothing is separate triage with its own criteria.
+**Bias toward `tracked/candidates/` when a finding reads either way.** The costs are asymmetric: a proposal misfiled as a candidate costs a triage pass; a proposal misfiled as an issue costs an operator's day. **No actor is expected to know where a proposal belongs in the plan** — only that it is one. Deciding whether it becomes a sprint, a phase or nothing is separate triage with its own criteria.
 
-**Breaking it looks like:** an Issue proposing capability that does not exist; a second Issue describing the same mechanism as an existing one in different words; several Issues from one pass against one file or one function; a proposal parked on the standup tracker, whose own rules forbid it.
+**Breaking it looks like:** an issue item proposing capability that does not exist; a second item describing the same mechanism as an existing one in different words instead of incrementing its `count`; several issues from one pass against one file or one function; a proposal parked on the standup tracker, whose own rules forbid it.
 
 Every reviewing actor verifies claims **against the artifact rather than the account of it**, and verifies a pointer by fetching it.
 
