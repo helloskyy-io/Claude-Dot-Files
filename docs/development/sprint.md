@@ -136,7 +136,7 @@ Make the system improve its own tooling from evidence it generates itself.
 
 ## Sprint: Memory Management Framework
 
-✅ COMPLETE · (~86h total · ~0h to-do)
+✅ COMPLETE · (~124h total · ~0h to-do)
 
 **Retired into the [Persistent Memory Protocol](persistent-memory-protocol/roadmap.md)**, which now covers all of memory. The typed exit record is PMP's.
 
