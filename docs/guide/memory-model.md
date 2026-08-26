@@ -75,21 +75,25 @@ Two rules, and they are the reason the model does not rot:
 
 ---
 
-## 2 · This fleet's binding — five surfaces
+## 2 · This fleet's binding — one API surface and four file surfaces
 
-Three GitHub surfaces plus two file surfaces. They are not interchangeable, and collapsing any two of them is a recurring failure (§2.6).
+**REBOUND 2026-08-26, AND THE INTERFACE DID NOT MOVE.** §1's five properties are unchanged; what changed underneath them is the whole substrate. This section used to read *"three GitHub surfaces plus two file surfaces"* — Issues, the standup tracker, `direction.md` and `candidates.md`. Issues are **retired** for tracked work, the tracker and the candidates table **moved into `tracked/`**, and `direction.md` was **deleted outright**. That is four of the five, in one direction: **off GitHub's API and into the repo.**
 
-> **This set and the binding standard's do not yet agree, and the reconciliation is the operator's.** [`architectural_standard.md` § 4 Memory](../standards/architecture/architectural_standard.md) is marked *(binding)* and its table lists four surfaces — it carries `candidates.md` but **no `direction.md`**. This document measured both against §1 and both pass (§2.4, §2.5), so the set below is the measured one. Closing the other direction means amending a human-ratified standard, which no dispatch may do: it is filed as **candidate 8** in the [Memory Management Framework roadmap](../development/memory-management-framework/roadmap.md#standards-amendment-candidates) and lands by operator signature.
+**That is the argument of this document arriving, not failing.** §1 was written without a substrate precisely so a rebinding of this size would be a table change rather than a rewrite — and it was.
+
+They are not interchangeable, and collapsing any two of them is a recurring failure (§2.6).
 
 | Surface | Holds | To-do bit | Lifecycle | Written by | Read by |
 |---|---|---|---|---|---|
-| **PR threads** | change-outcomes — what got built, the run's own decision log and reflection, and the `pr_review:` disposition ruling on it | PR `open` | closes at merge | every PR-producing workflow; `review-pr` posts the disposition comment | `/standup`, `review-pr.sh` (prior-pass detection), `review_pr_activities.py`, the operator |
-| **Issues** | no-change outcomes — deferred work `review-pr` filed, and planning STOPs | issue `open` | filed → ruled → **closed** | `review-pr` (sole autonomous filer), `plan-new` / `plan-revision` (STOP issues), the operator | `/standup` (**and closes them**), every build child's prior-art search, the operator |
-| **Standup tracker** | continuity — operating state, next moves, work in flight | per-line `state:` | **never closes**; items are **pruned** | `/standup` (sole automated writer), operator and PM sessions | `/standup`, the operator |
-| **`direction.md`** | rulings only the operator can make — a real finding whose answer is a preference, not a fact | row `status: open` | appended → ruled → **rotated out** at 90 days | `triage-candidates` appends (V2 tree only); **`/standup` deletes rotated rows and corrects stale ones** (§2.3); **the operator alone sets `status`, and the appending writer's runner fails the run if a pre-existing row's flag moved** | `/standup` (renders), `triage-candidates` (reads the ruling back via `candidates.md`), the operator |
-| **`candidates.md`** | research action candidates and their dispositions — the proposal *before* it is work, and the reasoning behind every `ship` / `requires review` / `reject` | row `status: open` | appended → triaged → closed on landing; **a row is never deleted** | research runs append rows (product altitude only); **`triage-candidates` alone sets `decision`**; `plan-feature` or the completing build sets `status` | `triage-candidates` (triage), `plan-sprint` (reads the `ship` rows to place them, and writes nothing), every later research run (id reuse, and no re-proposing a `reject`), **`/standup`** (as the rotation precondition — §2.5), the operator |
+| **PR threads** | change-outcomes — what got built, the run's own decision log and reflection, and the `pr_review:` disposition ruling on it | PR `open` | closes at merge | every PR-producing workflow; `review-pr` posts the disposition | the operator, and the next run through the PR body |
+| **`tracked/issues/`** | a **defect** — code, docs or the planning corpus — found while building something unrelated | `status: open` | filed → ruled → `resolved` / `rejected`, then pruned | `review-pr` (sole autonomous filer), by **intake** | sprint close-out |
+| **`tracked/operations/`** | continuity — operating state, next moves, work in flight. **No single done-state** | `state:` | items are **pruned**, never closed | **the operator alone** — no autonomous write, ever (§1.2) | every `/standup` |
+| **`tracked/candidates/`** | a **proposal**, and the reasoning behind every `ship` / `requires review` / `reject`. **`requires review` IS the ruling queue** | `status: open` | filed → ruled → `adopted` / `rejected` | producing runs place their own; `triage-candidates` rules `decision` | `triage-candidates`, `plan-feature`, `plan-verify`, `plan-sprint` |
+| **`tracked/standards/`** | a proposed amendment to a **named** standard, with an actionable anchor | `status: open` | filed → `ratified` / `amended` / `rejected` | any run that surfaces one — filing is surfacing, not editing | the standards pass |
 
-> **Both writers changed name on 2026-08-12, and neither changed scope.** `plan-sprint` did two jobs in one run — triage and sprint maintenance — with nothing able to sequence between them; `triage-candidates` is the triage half split into its own workflow, and the `decision` column and the `direction.md` append moved with it. `plan-sprint` kept `sprint.md` and became a **reader** of `candidates.md`: its runner snapshots the `decision` column before the run and fails if any ruling changed. Still exactly one writer per surface — the property §1 asks for.
+> **THE RULING CLASS LOST ITS OWN SURFACE AND GAINED NOTHING, WHICH IS THE POINT.** `direction.md` was a fifth surface holding `D-NNN` rows for findings only the operator could rule on. Every row pointed at a candidate that already carried `decision: requires review` — the same signal, in a store that already had a triage cadence — so the second surface added an id and nothing else. It had a reader and **no ruler**, and five rows sat unruled for three weeks. **A `requires review` candidate is the ruling queue now.** Giving this class a surface again is what [Tracked Items §8](../standards/documentation/tracked_items_standard.md) calls a violation.
+
+> **`review-pr` still files without a commit, and the mechanism is new.** A file surface needs an edit, a commit and a push; a decide-only reviewer has none of those and must not. It files a `tracked-intake` GitHub issue — the same API call it always made — which a named harvest moves into the store and closes. See §5.0 of the standard: the exemption is conditional on that harvest existing.
 
 ### 2.1 · The selection rule, bound
 
@@ -99,7 +103,7 @@ Apply §1.1's questions, **starting with question 0**:
 - **Something changed** → **PR thread**. The change and its ruling live together, and both die at merge because the change is then history.
 - **Nothing changed, and it has a done-state** → **Issue**. It can be finished, so it must be able to close.
 - **Nothing changed, and it has no done-state** → **standup tracker**. Operating state is a condition, not a task.
-- **Nothing changed, and the resolution is a ruling rather than work** → **`direction.md`**. No amount of further work would produce the answer; only the operator can.
+- **Nothing changed, and the resolution is a ruling rather than work** → **a candidate carrying `decision: requires review`**. No amount of further work would produce the answer; only the operator can.
 
 **That is the whole rule.** It is stated as a rule and not implied by examples on purpose: an example-driven table answers the cases someone thought of, and the failure mode here is always the case nobody thought of.
 
@@ -107,78 +111,56 @@ Apply §1.1's questions, **starting with question 0**:
 
 **A run is not expected to know where a proposal belongs in the plan** — only that it is a proposal. Deciding whether it becomes a sprint, a phase, or nothing is a separate triage job with its own criteria, and asking a dispatch to do it inline is what produced feature requests filed as Issues in the first place.
 
-The rule also owns where a row goes *once triaged*: `requires review` → a `direction.md` row, with the candidate row staying behind as the pointer; `ship` → an existing phase doc or a new sprint section.
+The rule also owns what happens *once triaged*: `requires review` is set on the candidate and it stays there as the pointer; `ship` → an existing phase doc or a new sprint section.
 
-### 2.2 · Why the tracker is a GitHub issue anyway
+### 2.2 · Why the tracker STOPPED being a GitHub issue
 
-**It is an issue only because of the substrate, and documenting it under the Issues surface would be a category error.** Several sessions edit it daily; one API call beats a branch and a merge conflict on the artifact least able to afford being stale. Its semantics are its own: it never closes, items flow through it, and **a tracker that grows month over month is failing** — that is a property of the framework, not a housekeeping note.
+**It was an issue only because of the substrate, and the substrate's argument reversed.** Several sessions edit it daily, and one API call beat a branch and a merge conflict on the artifact least able to afford being stale. **File-per-item removes the conflict instead of routing around it:** two sessions touching different items never collide, and two touching one item have a real conflict that deserves a human. `tracked/operations/` since 2026-08-26.
 
-Two consequences bind every reader:
+One consequence binds every reader, and it survived the move unchanged:
 
-- **Exclude it from the open-issue enumeration.** It must not appear twice, and it must **never be aging-flagged** — a permanent artifact is not a stalled one.
-- **Never apply the issue-disposition obligation to it.** That obligation binds a *container* that is supposed to close; the tracker's obligation binds each *line*. Merging the two taxonomies would require inventing a fifth exit for *pruned*, which is a schema violation and not a convenience.
+- **Never apply the issue-disposition obligation to it.** That obligation binds a *container* that is supposed to close; an operations item's binds the *item*. Merging the two taxonomies would need an exit for *pruned*, which is a schema violation rather than a convenience.
+
+**And one is new: no machine writes here.** §1.2 reserves this store to humans. A run that wants something remembered files an issue, a candidate or a standards amendment — all three have admission tests a machine can apply, and *"someone should look at this"* is not one.
 
 ### 2.3 · `/standup` is a WRITER, and the corrected record of that matters
 
-**`/standup` writes on three of the five surfaces**, derived from its Stage 2 body rather than from its own § Rules summary — which is the distinction §1.2 is about, and getting it wrong is how the first two attempts at this paragraph were both undercounts:
+**`/standup` writes on three surfaces**, derived from its Stage 2 body rather than from its own § Rules summary — which is the distinction §1.2 is about, and getting it wrong is how the first two attempts at this paragraph were both undercounts:
 
 | Write | Surface | Declared at |
 |---|---|---|
-| `gh issue edit <tracker> --body-file` — reconciles per-line `state:`, prunes `resolved` ≥14 days | standup tracker | `config/commands/standup.md:83`, `:107` |
-| `gh issue close <N> --comment <evidence>` — closes an issue whose work it verified done | Issues | `:66`, `:69` |
-| **deletes** a ruled row ≥90 days old whose reasoning is recorded downstream; **may correct** a row whose stated facts changed | **`direction.md`** | `:67`, `:105` |
+| **edits item files** — reconciles `state:`, prunes a `resolved` item ≥14 days after last activity | `tracked/operations/` | `config/commands/standup.md:5` |
+| **drains the intake** — harvests every `tracked-intake` issue into its store and closes it | all four `tracked/` stores | `:6` |
+| `gh issue close <N> --comment <evidence>` — closes an issue whose work it verified done | GitHub Issues | `:7` |
 
-Everything else it does is a read. **It never sets `status:`** — the ruling stays the operator's; what it does is rotate and repair. **The fifth surface is a read for `/standup` and stays one:** it must open the source candidate's Note to establish that a `direction.md` row is safe to delete (`:67`, `:105`), and it writes nothing back. The denominator moved from four to five; the numerator did not.
-
-**Two corrections are stacked here, and the second is the instructive one.** The original claim in `operations.md` and in [Phase 2](../development/memory-management-framework/phase2_kind1_framework.md)'s own gotchas — *"strictly read-only, including the tracker"* — was true before commits `1e7d6ce` and `88c4e81` and stale after them. **The replacement claim, "writes in exactly two places", was also wrong**, and it was wrong for a subtler reason: it was taken from `standup.md`'s § Rules summary of itself (`:174`), which undercounts its own Stage 2 table (`:67`). *An account is not the artifact* (§1.2) — and a command's summary of itself is an account. The consumer/writer map is what [Phase 4](../development/memory-management-framework/phase4_fleet_migration.md) verifies fleet-wide against, and a map that omits a writer is worse than no map.
-
-**`standup.md` still states its write set two contradictory ways, and the half that was fixed is the reason to state the other half precisely.** The issue-closing contradiction is **closed**: `1506053` rewrote `:3` to authorise it outright (*"exactly TWO kinds of action: updating the standup tracker, and CLOSING an issue you verified is done"*), and this document's Phase 2 pass is what escalated it. What survives is the third write. `:3` still forbids `/standup` to *"edit any file"*, while `:67` and `:105` direct it to delete rotated rows from `direction.md` — a committed repo file, so those writes are exactly what `:3` prohibits. And `:174`'s § Rules summary still says *"exactly TWO places"*, which is the undercount the paragraph above is about. A live defect in a working-record consumer, surfaced rather than fixed: this phase documents what exists and does not edit prompts.
+Everything else it does is a read. **It never sets `ready:`** — that is an authorisation to act, and it is the operator's alone (§4).
 
 **Why the write exists, so it is not read as scope creep:** a reconciler that can see an item is finished but cannot say so re-reports that dead item every morning, forever. The write is what makes the read worth doing. **No autonomous *dispatch* writes to the tracker** — that remains true, and it is a different claim: `/standup` runs in an operator session, which is the human-in-the-loop.
 
-### 2.4 · `direction.md` — the fourth surface, and the proof the interface is real
+### 2.4 · `tracked/candidates/` — the file surface, and the proof the interface is real
 
-``docs/standards/architecture/research/direction.md`` is a committed markdown table of `D-NNN` rows. Check it against §1: durable (in git), human- and machine-readable (`/standup` parses it, `triage-candidates` reads rulings back), carries outcome *and* reasoning (`Recommendation` and `Why it matters`, one sentence each), has a to-do bit (`status: open`), addressable (`D-NNN`, never reused, never renumbered), survives context death. **Five for five.**
+`tracked/candidates/` is a directory of committed markdown items, one file per candidate, each opening with the six-field core of [Tracked Items §3](../standards/documentation/tracked_items_standard.md). Check it against §1: durable (in git), human- and machine-readable, addressable (`C-` plus eight random base36, and **the filename IS the id**), carrying a to-do bit (`status`), and reaching a terminal state (`adopted` / `rejected`, then pruned).
 
-**Its lifecycle shape is Task**, like §2.5's — every `D-NNN` row is obliged to reach a ruling — with a retention term on top of it, which §3.1's Task row defers to §3.2 for exactly this reason. **And its to-do bit is not GitHub `open`.** It is a column in a file. Its lifecycle is not close-at-merge or filed-then-closed but **ruled-then-rotated**: a ruled row is a receipt, its durable reasoning goes back down into `candidates.md`, and the receipt is then deleted. Its appending writer is in the V2 Python tree, its rotating writer is a slash command, and neither may rule. **The rule's authoritative statement is the file itself** — ``direction.md` § Rotation`; this document cites it rather than re-typing it, for the same reason §4 cites the emitting script, and §3.2's row is the consumer-map entry rather than a second copy of it.
+**Five for five, on a substrate with no API at all.** Nothing about that record is a GitHub fact — it is the same interface on a different substrate, shipped and in daily use, which is the whole claim §1 makes.
 
-Nothing about that record is a GitHub fact. It is the same interface on a different substrate, **shipped, in daily use, in this repo** — which is why §1's five properties are a description and not an aspiration.
+**Its lifecycle shape is Task** — every item is obliged to reach a ruling — with a retention term on top, which §3.1 separates from the bit itself.
 
-### 2.5 · `candidates.md` — the fifth surface, and the durable floor §2.4 rotates onto
+> **THIS SECTION USED TO DESCRIBE TWO SURFACES AND A TABLE.** §2.4 was `direction.md` and §2.5 was `candidates.md`, both `NNN`-keyed markdown tables, and §2.6 below recorded that the pair "collapses in the direction of the operator's file". **They did collapse — in the other direction, deliberately.** `direction.md` is deleted and `candidates.md` became a store of files. The property the split was protecting, *a ruling only the operator can make*, is now `decision: requires review` on a candidate.
 
-[`docs/standards/architecture/research/candidates.md`](../../tracked/candidates/) is a committed markdown table of `C-NNN` rows. Same test as §2.4, run against the file rather than against an account of it:
-
-| Property | What the file provides, in its own words |
-|---|---|
-| **1 · durable** | in git — and stronger than the substrate, by its own rule: *"**Nobody deletes a row.** A rejected candidate stays visible so it is not re-proposed — that is the whole point"* |
-| **2 · readable by humans *and* runs** | one fixed-column markdown table serving both. `triage-candidates` parses it to triage; `plan-sprint` parses it to find the `ship` rows; the research tree reads it to find the highest live id before appending |
-| **3 · outcome *and* reasoning** | `decision` is the outcome; *"Planning sets `decision`; a later process sets `status`. **Both carry reasoning in the Note**"* — and a `reject` without it *"gets re-proposed on the next cycle by a run that cannot see why it was refused"* |
-| **4 · to-do bit** | `status:` — `open` / `closed`, binary, on the row. Kept distinct from the disposition by a section of the file titled *"Two flags, orthogonal — do not collapse them"* |
-| **5 · addressable** | `C-NNN` — the file's rule is that research *"adds new candidates with a **stable ID**, never reused, and never renumbers an existing one"*, with the one incident where a carried-forward candidate briefly held a duplicate id recorded alongside it so the rule is not merely asserted |
-| *(consequence of 1 + 5)* **survives context death** | its § *Why it exists*: a candidate surfaced only in `synthesis.md` vanished on the next research cycle and its disposition went with it |
-
-**Five for five — and property 1 is why §2.4's surface is allowed to delete anything.** §3.2 states the rotation precondition and cites its authoritative home; what belongs here is the consequence for the surface set. **The surface the framework omitted is the one the surface it included depends on for correctness**: `direction.md` is a receipt with a bounded life, and this is the floor underneath it. Documenting the receipt without the floor describes a record that discards reasoning on a timer — property 3 failing at the deletion boundary, which is the exact thing the precondition exists to prevent.
-
-**Its lifecycle shape is Task, not Continuous — which is why *nobody deletes a row* is not the ledger failure of §2.6.** §3.1's size bound binds the two shapes whose contents are not each obliged to reach a disposition: Continuous, whose **record-level** bit never clears because the store is the record, and Append-only history, whose records have no bit at all. *(Read it at the record, not at the item — a Continuous surface's per-item bits do clear; the standup tracker's `state: resolved` is one, §3.2.)* This surface's rows do end — a row reaches a terminal `decision` and then `status: closed`. **Its bound is on the other axis, and §3.2 states it** — which is the same distinction §2.6 draws between an issue and a carried-work file, applied to a substrate that happens to be a file: what makes a store a ledger is that nothing obliges its entries to reach a disposition, not that they stay legible afterwards.
-
-**So the fleet's second binding has two members and a distinguishing pair between them.** `candidates.md` is the machine's document and `direction.md` is the operator's; one never deletes and one rotates at 90 days. They share the five properties and not their lifecycles — which is §9's claim, instantiated twice rather than once.
-
-**One defect in property 4, recorded rather than smoothed over.** The file names it itself: `status` is set by *"a later process"* — `plan-feature` on landing, or the build that completes the work — and **a `reject` never lands and no build completes it, so nothing will ever close one.** Nine of the twelve rejected rows therefore sat at `status: open`, reading as outstanding work when they were not — corrected by hand on 2026-08-10, per `candidates.md`'s own record. The bit exists and is binary, so property 4 holds; what is missing is a writer on one path, which remains true for the next `reject`. It is surfaced here and not fixed — this document describes the surfaces and does not edit the research pool.
+> **AND FILE-PER-ITEM IS NOT A COSMETIC CHANGE TO THIS ARGUMENT.** A single table makes every concurrent write a merge conflict on the artifact least able to afford being stale — measured on the old `candidates.md`: nine renumbering events and six id collisions in a day. Two sessions touching different items now never conflict; two touching one item have a real conflict that deserves a human. **The store optimises for safe writing and the rendered view optimises for reading**, and the view is never the source.
 
 ### 2.6 · Which two get collapsed, and what happens
 
 Collapsing surfaces is the recurring failure, and it is not symmetric — one pair collapses far more often than the others.
 
-**Issue ↔ tracker is the collapse that actually happens.** Both are GitHub issues; the substrate invites it. The failure is bidirectional and both directions have been observed:
+**Defect ↔ continuity is the collapse that actually happens**, and moving both into `tracked/` did not stop it — it only stopped the substrate *inviting* it. The failure is bidirectional and both directions have been paid for:
 
-- **Continuity filed as an issue** → it can never close, so it ages, gets flagged as stalled, and every standup asks the operator to dispose of something that is not disposable. The anti-rot flag fires on the one document designed to persist.
-- **Deferred work parked in the tracker** → it loses the standing disposition obligation an issue carries (*an issue must not survive a standup in the same state*), so it becomes a line in a growing document that nobody rules on. **This is the carried-work-ledger shape, and this repo ran one for ten weeks:** two of its entries described work completed the same day the file was finally read, and one had a run flag six weeks earlier that its trigger had fired. A store that accepts anything gets read by nobody.
+- **Continuity filed as an issue** → it can never close, so it ages, gets flagged as stalled, and every standup asks the operator to dispose of something that is not disposable.
+- **Deferred work parked in operations** → it loses the standing disposition obligation an issue carries, and it is now also a **§1.2 violation**, because no machine may write there at all.
 
-**PR thread ↔ Issue collapses in one direction only:** a run parking its own deferred work in its own PR body. That pointer dies at merge, which makes it the most effective burial available — the PR reads clean and the item stops existing. It is why `review-pr` holds the sole autonomous filing authority and why the reviewed PR is never a valid pointer.
+**PR thread ↔ any store collapses in one direction only:** a run parking its own deferred work in its own PR body. That pointer dies at merge, which makes it the most expensive collapse of the set — the finding is not misfiled, it is gone.
 
-**`direction.md` ↔ Issue** collapses when a ruling is filed as work. An issue asks *who will do this*; the row asks *what do we believe*. Filed as an issue it sits open and unactionable, because nobody can action a preference.
-
-**`candidates.md` ↔ `direction.md`** collapses in the direction of the operator's file, because both are `NNN`-keyed tables in the same directory. The `requires review` path is what keeps them apart and it writes to *both* deliberately: the `D-NNN` row is the question put to the operator, and the `C-NNN` row stays behind as the pointer and, after the ruling, as the place the reasoning is written down. Collapsed into one file, the operator's inbox stops being an inbox — it acquires every untriaged proposal — and the 90-day rotation loses the floor it stands on (§2.5).
+> **TWO COLLAPSES THIS SECTION USED TO NAME NO LONGER EXIST, and one of them was resolved by being committed rather than avoided.** *"Issue ↔ tracker"* was keyed on both being GitHub issues; neither is now. *"`candidates.md` ↔ `direction.md`"* warned that two `NNN`-keyed tables in one directory would collapse toward the operator's file — **they collapsed the other way on 2026-08-26**, by deleting `direction.md`, because the ruling it held was already a candidate's `decision`. A predicted collapse that gets resolved deliberately is the document working.
 
 ---
 
@@ -220,14 +202,12 @@ Four lifecycle shapes exist, discriminated by **what ends a record's life** — 
 | PR threads | permanent; closed at merge | none — history | thread size (§6.3) |
 | Issues | until ruled; closed with evidence | none needed — closing *is* the bound | an issue surviving a standup in the same state |
 | Standup tracker | permanent document, transient lines | `state: resolved` + ≥14 days → deleted from the body | month-over-month growth |
-| `direction.md` | permanent file, transient rows | ruled ≥90 days ago **and** reasoning recorded in the source candidate → row deleted | rows accumulating unruled |
+| `tracked/candidates/` | one file per item | `adopted` 14 days after last activity; `rejected` at six months, so a rejection stays findable | rows accumulating unruled |
 | `candidates.md` | permanent file, permanent rows | **none, by design** — a row is never deleted, because a rejected candidate that disappears gets re-proposed | rows accumulating with a **blank `decision`** — untriaged, not outstanding |
 
 **`candidates.md` is the one row here with no pruning rule, and that is not an omission.** Its bound is on the other axis: every row must reach a `decision`, and *"leaving a row blank is not a disposition."* The growth signal is therefore blank decisions rather than row count — a file of 45 fully-triaged rows is healthy and a file of 5 untriaged ones is not, which is the opposite of what a size check would report.
 
 **Append-only history has no binding in this fleet yet, and the table above is five surfaces rather than six for that reason.** Every surface here is Transactional, Task or Continuous; nothing in daily use is append-only history. Building it — the journal, its retention budget and its snapshots — is the [Persistent Memory Protocol](../development/persistent-memory-protocol/roadmap.md)'s work, and this table gains a row when that lands rather than before. **A row written ahead of the surface would be a retention rule nobody is obliged to follow**, which is the failure §3.1's bound exists to name.
-
-**`direction.md`'s pruning rule carries a precondition the others do not, and it is the interesting one:** a row rotates out *only once its reasoning lives somewhere that never deletes*. That is property 3 (outcome **and** reasoning) enforced at the deletion boundary — the receipt may go because the reasoning stayed. The rule's authoritative statement is in ``direction.md` § Rotation`; the row above is the consumer-map entry, not a second copy of it.
 
 ---
 
@@ -311,7 +291,6 @@ Independent of substrate, a working record has exactly three change classes that
 | the prose `VERDICT:` line | `build.sh:277`, `build-minor.sh:281`, `routing.py:72`, `run-claude.sh` § *Completion contract* | the parent's completion gate fails loud (child side) or synthesises `HOLD - needs-assistance` (parent side). **The gate's surface now depends on the caller:** without a declared schema it reads `.result`; with one it reads the LAST assistant text block, because declaring a schema replaces `.result` with the serialised structured output ([Exit Protocol §2.4](../standards/exit-protocol.md)) |
 | anything in §4.2 | no code | nothing breaks; **a human loses information and nothing tells them** |
 | the tracker's section order or per-line fields | `/standup` `standup.md:39` | the readiness ordering (`BLOCKED`→`READY`→`IN FLIGHT`→`RESOLVED`) is how the operator triages; normalising it destroys the property |
-| `direction.md`'s `status` value set | `/standup` `standup.md:43`, `:143`, `:105` (rotation) | a row with an unrecognised status renders forever or never |
 
 **The two silent rows are the ones that matter.** Both are in the convergence path, both fail by producing a wrong answer rather than no answer, and neither has a consumer that would notice. They are the reason [Phase 4](../development/memory-management-framework/phase4_fleet_migration.md) verifies fleet-wide against this list rather than against the emitting script.
 
@@ -343,7 +322,7 @@ Retrieval is *addressing*, not *location*. "It is posted on the PR" is a locatio
 | Ordering rule | comment creation order on the thread; **last wins** | `/standup` `standup.md:48` — *"the LATEST comment containing a `pr_review:` yaml block"* |
 | Sequence number | the block's `pass:` key, written by the producer | **two emitters** — `review-pr.sh:346` (counter at `:141-143`) and `disposition.md` (V2 writes the same key) |
 
-For the other four surfaces the address is simpler and complete: **Issues** — `owner/repo#N`, one record per container, no ordering needed. **Tracker** — discovered *by title* (`standup-tracker in:title`), never by number, so it stays portable across repos; per-line `id` inside. **`direction.md`** — `D-NNN`, never reused, never renumbered, plus the source `C-NNN` linking it to `candidates.md`. **`candidates.md`** — `C-NNN`, on the same never-reused/never-renumbered rule, and it is the terminal address of the pair: a `D-NNN` resolves to a `C-NNN` and a `C-NNN` resolves to nothing further, which is what lets the `D-NNN` be deleted.
+For the other four surfaces the address is simpler and complete: **Issues** — `owner/repo#N`, one record per container, no ordering needed. **Tracker** — discovered *by title* (`standup-tracker in:title`), never by number, so it stays portable across repos; per-line `id` inside. **the `tracked/` stores** — `<PREFIX>-<8 random base36>`, never reused, and the filename IS the id, so an id in a commit message resolves to a file without a lookup. It carries it to `candidates.md`. **`candidates.md`** — `C-NNN`, on the same never-reused/never-renumbered rule, and it is the terminal address of the pair: a `D-NNN` resolves to a `C-NNN` and a `C-NNN` resolves to nothing further, which is what lets the `D-NNN` be deleted.
 
 ### 6.3 · What retrieval costs today
 
