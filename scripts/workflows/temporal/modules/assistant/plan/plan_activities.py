@@ -6,7 +6,7 @@ when it lands. The promotion rule was anticipatory when this file was written an
 is now satisfied outright.
 
 THE SPLIT SETTLED WHAT BELONGS HERE, AND RULE 3 DECIDED IT — NOT TASTE. This
-docstring used to record `candidate_counts`, `direction_ceiling` and
+docstring used to record `candidate_counts` and
 `existing_work` as a stated rule-3 deviation: here on the family's shared surface
 with only `plan_sprint` calling them. Splitting triage out gave two of them a
 genuine second caller and left the other single-consumer, so each moved to where
@@ -35,14 +35,13 @@ its consumer count puts it:
     argument called unreachable. Two consumers, so it is here — and the lesson is
     narrower than "the argument was wrong": **a claim that no second consumer CAN
     exist is a claim about every workflow not yet written.**
-  * `direction_ceiling` — one consumer. MOVED to `triage_candidates_activities`.
   * `new_sprint_sections`, `component_dir` — one consumer each (`plan_project`,
     and nothing else in the tree). MOVED to `plan_project_activities`. They were
     missing from the audit above when it was first written, which made this
     docstring's own rule-3 claim incomplete on the very file that states the
     rule. Counted rather than eyeballed the second time.
 
-`candidate_decisions` and `direction_ceiling` were briefly argued to belong here
+`candidate_decisions` was briefly argued to belong elsewhere
 anyway, as "the same concern as their neighbours".
 [`workflow-scripts.md` § Location](../../../../../../docs/standards/workflow-scripts.md)
 restates §10.1 rule 3 as BINDING and forecloses exactly that argument — *"consumer
