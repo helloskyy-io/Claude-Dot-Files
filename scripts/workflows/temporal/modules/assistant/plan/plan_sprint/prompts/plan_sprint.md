@@ -42,7 +42,7 @@ ${SPRINT_STATE}
 
 **What is yours is everything done WITH the number**: whether this component has a home, where a new one goes, and what the entry says.
 
-**An UNSIZED phase is named in the block and you carry that forward.** Every phase carries an estimate, a complete one included — `plan-verify` writes it `~0 hrs remaining — COMPLETE` with a sentence saying why. **So an unsized phase is a defect with no benign case**, and **the total must not be presented as if it covered it**. Say in your report which phases are unsized and why, and never treat an unsized phase as zero.
+**An UNSIZED phase is named in the block and you carry that forward.** Every phase carries an estimate, a COMPLETE one included and sized for the work it contained — `plan-verify` sizes all of them on every run, with no exception. **So an unsized phase is a defect with no benign case**, and **the total must not be presented as if it covered it**. Say in your report which phases are unsized and why, and never treat an unsized phase as zero.
 
 ## Stage 1: ASSESS
 

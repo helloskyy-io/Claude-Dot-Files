@@ -1228,47 +1228,60 @@ def phase_sizing(component: Path) -> PhaseSizing:
     in the order, and what its bullets say. The NUMBER is a fact handed over;
     everything done WITH it is judgement.
 
-    AN UNSIZED PHASE IS REPORTED, NEVER TREATED AS ZERO. Every phase carries an
-    estimate, a COMPLETE one included — `plan-verify` writes it `~0 hrs remaining`
-    because `plan_verify_activities.sizing_floor` counts phase-doc FILES ON DISK
-    and a complete phase still has its doc, so omitting the figure fails the run
-    that produced it. An unsized phase therefore has no benign case: it is a
-    defect the total must not swallow, and a quietly short total is worse than an
-    absent one because nothing says it is wrong. The prompt is told to say which.
+    AN UNSIZED PHASE IS REPORTED, NEVER TREATED AS ZERO, AND HAS NO BENIGN CASE.
+    `plan-verify` sizes EVERY phase on every run, a COMPLETE one included, so a
+    phase without an estimate is always a defect the total must not swallow — a
+    quietly short total is worse than an absent one, because nothing says it is
+    wrong. The prompt is told to say which.
+
+    SIZING A COMPLETE PHASE DOES NOT INFLATE WHAT IS LEFT, which is the whole
+    reason the exception that used to live here was removed: `total` counts it and
+    `todo` subtracts it, so the two figures need it present to differ at all. An
+    exception carved into the WRITER cannot be seen by `sizing_floor`, which
+    counts phase-doc FILES ON DISK — that disagreement failed a real run on
+    2026-08-25, and the fix was to delete the exception rather than teach three
+    surfaces about it.
     """
     roadmap = component / "roadmap.md"
     if not roadmap.is_file():
         return PhaseSizing((), 0.0, 0.0, ())
 
+    text = roadmap.read_text().splitlines()
+    heading_at = [n for n, line in enumerate(text) if re.match(r"^#{2,4}\s", line)]
+
     rows: list[tuple[str, float | None]] = []
-    for line in roadmap.read_text().splitlines():
-        if not re.match(r"^#{2,4}\s", line):
-            continue
+    for n in heading_at:
+        line = text[n]
         if not re.search(r"\bPhase\s+\d+", line, re.I):
             continue
-        heading = line.lstrip("# ").strip()
-        m = HOUR_ESTIMATE.search(line)
-        hours = float(next(g for g in m.groups() if g)) if m else None
-        rows.append((heading, hours))
 
-    # The estimate may sit on the line BELOW the heading rather than in it.
-    if rows and all(h is None for _, h in rows):
-        text = roadmap.read_text().splitlines()
-        rows = []
-        for n, line in enumerate(text):
-            if not (re.match(r"^#{2,4}\s", line) and re.search(r"\bPhase\s+\d+", line, re.I)):
-                continue
-            # SIX LINES, measured rather than guessed: `plan-verify` writes
-            # `**Est: ~15 hours** *(sized cold …)*` as its own paragraph after
-            # the heading and a blank line and the phase's italic subtitle,
-            # which lands it four lines down. A window of 4 found nothing on
-            # the first real roadmap it met. Six covers that with one line of
-            # slack and still cannot reach the NEXT heading, which is what
-            # would attribute one phase's estimate to another.
-            window = "\n".join(text[n:n + 6])
-            m = HOUR_ESTIMATE.search(window)
-            hours = float(next(g for g in m.groups() if g)) if m else None
-            rows.append((line.lstrip("# ").strip(), hours))
+        # ONE WINDOW PER PHASE, STARTING AT THE HEADING ITSELF, so an estimate
+        # written INTO the heading and one written as the paragraph below it are
+        # the same search rather than two passes. The previous shape ran the
+        # below-heading pass only when EVERY phase lacked an inline figure, so a
+        # roadmap mixing the two spellings reported every below-heading phase as
+        # unsized. That failed loudly rather than quietly, but it failed on a
+        # correct document.
+        #
+        # SIX LINES, measured rather than guessed: `plan-verify` writes
+        # `**Est: ~15 hours** *(sized cold …)*` as its own paragraph after the
+        # heading and a blank line and the phase's italic subtitle, which lands
+        # it four lines down. A window of 4 found nothing on the first real
+        # roadmap it met. Six covers that with one line of slack.
+        #
+        # AND IT IS BOUNDED BY THE NEXT HEADING, because six lines alone is NOT
+        # enough to keep it out of the following phase. The comment here used to
+        # assert that it "cannot reach the NEXT heading"; that was false for a
+        # phase whose body is short or empty — two adjacent headings put the
+        # SECOND phase's estimate inside the FIRST phase's window, which is a
+        # double fault: the figure is counted twice in the total, and the phase
+        # that was actually missed drops out of `unsized`, which is the only
+        # signal anyone gets that it was missed. A GATED phase — a roadmap entry
+        # with no doc and often no body — is exactly that shape.
+        nxt = next((k for k in heading_at if k > n), len(text))
+        m = HOUR_ESTIMATE.search("\n".join(text[n:min(n + 6, nxt)]))
+        hours = float(next(g for g in m.groups() if g)) if m else None
+        rows.append((line.lstrip("# ").strip(), hours))
 
     total = sum(h for _, h in rows if h is not None)
     unsized = tuple(head for head, h in rows if h is None)
@@ -1286,10 +1299,10 @@ def sizing_block(sizing: "PhaseSizing", component_rel: Path) -> str:
     it the clearest case in the family.
 
     THE UNSIZED LIST IS NOT DECORATION, AND IT HAS NO BENIGN MEMBER. Every phase
-    carries an estimate, a COMPLETE one included at `~0 hrs remaining`, so a phase
-    missing one is always a defect; presenting a total without saying which phases
-    it does NOT cover is how a quietly short number gets recorded as the cost of
-    the work.
+    carries an estimate, a COMPLETE one included and sized for the work it
+    contained, so a phase missing one is always a defect; presenting a total
+    without saying which phases it does NOT cover is how a quietly short number
+    gets recorded as the cost of the work.
     """
     if not sizing.rows:
         return (f"**Counted in code, authoritative — do not recount:** "
@@ -1300,9 +1313,9 @@ def sizing_block(sizing: "PhaseSizing", component_rel: Path) -> str:
         for head, hours in sizing.rows)
     unsized = (
         "\n\n**Unsized:** " + ", ".join(f"*{u}*" for u in sizing.unsized)
-        + " — every phase should carry one, a COMPLETE phase included at "
-          "`~0 hrs remaining`, so each of these is a defect and the total does "
-          "not cover it. Say so rather than presenting the total as complete."
+        + " — every phase should carry one, a COMPLETE phase included and sized "
+          "for the work it contained, so each of these is a defect and the total "
+          "does not cover it. Say so rather than presenting the total as whole."
         if sizing.unsized else
         "\n\n**Every phase carries an estimate.**")
     return (f"**Counted in code, authoritative — do not recount, re-derive or "

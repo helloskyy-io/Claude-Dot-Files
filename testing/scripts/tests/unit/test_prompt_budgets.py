@@ -172,7 +172,11 @@ BUDGETS: dict[str, int] = {
     # derived not chosen, hours derived, phases cited by name not number, and
     # every sprint ends with a close-out. Changes what the model DOES, which is
     # the test `workflow-scripts.md` § Prompt economy sets.
-    "plan/plan_sprint/prompts/plan_sprint.md": 9840,
+    # RAISED 9840 -> 9904 on 2026-08-25 (+64): the UNSIZED sentence had to stop
+    # saying a COMPLETE phase carries no estimate by design. It now does carry
+    # one, so an unsized phase has no benign case and the reader must treat every
+    # member of that list as a defect. Changes what the model DOES with the list.
+    "plan/plan_sprint/prompts/plan_sprint.md": 9904,
     # RATCHETED DOWN 16_060 -> 9_919: the mutation discipline moved to the shared
     # prompts/mutation_discipline.md, budgeted below. Content did not shrink, it
     # MOVED — so both lines exist and neither absorbs growth silently.
@@ -303,7 +307,17 @@ BUDGETS: dict[str, int] = {
     # "Every candidate column") and -1 for the same agreement fix. Ratcheted
     # rather than left slack, because a budget five bytes loose is exactly the
     # room the next unrecorded addition slips into.
-    "plan/plan_verify/prompts/plan_verify.md": 18137,
+    # RAISED 18137 -> 18334 on 2026-08-25 (+197). The COMPLETE-phase exception
+    # added on 2026-08-19 was DELETED: every phase is sized on every run.
+    # Against § Prompt economy's four questions — it changes what the model DOES
+    # (the rule inverted); a capable reasoner would NOT do it anyway, because the
+    # prompt previously said the opposite and the floor's arithmetic is invisible
+    # from here; the harness does NOT already enforce it, it enforces the
+    # CONTRARY and fails the run at its last guard, destroying the work; and the
+    # evidence — the run it failed, the PR that introduced it — is in the commit
+    # message, not in these bytes. A first draft ran +527; the trim to +197 took
+    # out the history and the third bullet a reasoner infers from the first.
+    "plan/plan_verify/prompts/plan_verify.md": 18334,
     # RATCHETED DOWN 14_437 -> 9_896, the other side of the same move. It stays
     # above the FLOOR, so it keeps its line rather than dropping off the table.
     # Then 9_896 -> 9_908, the same twelve substituted-away bytes as above.
