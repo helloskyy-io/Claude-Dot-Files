@@ -34,7 +34,7 @@ from modules.assistant.tracked import tracked_items as own
 
 REPO = Path(__file__).resolve().parents[5]
 STANDARD = REPO / "docs/standards/documentation/tracked_items_standard.md"
-TRACKED = REPO / "docs/development/tracked"
+TRACKED = REPO / "tracked"
 
 
 def _items() -> list[Path]:
@@ -73,15 +73,15 @@ def test_every_store_PREFIX_matches_what_the_standard_declares() -> None:
     for line in text.splitlines():
         # §2's rows read `| Issues | `I-` |`; §1's carry a directory too.
         cells = [c.strip().strip("*` ") for c in line.strip().strip("|").split("|")]
-        if len(cells) >= 2 and re.fullmatch(r"[ICST]-", cells[1]):
+        if len(cells) >= 2 and re.fullmatch(r"[A-Z]-", cells[1]):
             declared[cells[0].lower().split()[0]] = cells[1]
 
     assert declared, "parsed no prefix rows out of §2 — the table shape changed"
 
     ours = {s.name: s.prefix for s in own.STORES.values()}
     by_holds = {
-        "issues": ours["issues"], "tracker": ours["tracker"],
-        "research": ours["research"], "standards": ours["standards"],
+        "issues": ours["issues"], "operations": ours["operations"],
+        "candidates": ours["candidates"], "standards": ours["standards"],
     }
     assert set(declared.values()) == set(by_holds.values()), (
         f"prefix set diverged from the standard: standard={sorted(declared.values())} "
@@ -141,7 +141,7 @@ def test_every_item_id_matches_its_FILENAME_and_its_STORE(path: Path) -> None:
     assert store.name == path.parent.name, (
         f"{path.name} sits in {path.parent.name}/ but its prefix says {store.name}"
     )
-    assert re.fullmatch(r"[ICST]-[0-9a-z]{8}", fields["id"]), (
+    assert re.fullmatch(r"[A-Z]-[0-9a-z]{8}", fields["id"]), (
         f"{fields['id']!r} is not §2's shape: prefix plus 8 lowercase base36"
     )
 
@@ -216,7 +216,7 @@ def test_a_tool_CANNOT_set_an_operator_only_field(tmp_path: Path) -> None:
     point of Standards Governance is that an autonomous run surfaces and does
     not rule. A prompt that says so is a request; this is a refusal.
     """
-    for store_name, field in (("tracker", "ready"), ("standards", "ratification")):
+    for store_name, field in (("operations", "ready"), ("standards", "ratification")):
         with pytest.raises(ValueError, match="OPERATOR"):
             own.file_item(
                 tmp_path, own.STORES[store_name], title="t", filed_by="a-workflow",
@@ -238,7 +238,7 @@ def test_incrementing_appends_and_never_rewrites_the_body(tmp_path: Path) -> Non
     makes "a count is not reasoning" true in code rather than in prose.
     """
     path = own.file_item(
-        tmp_path, own.STORES["research"], title="t", filed_by="pm3", status="open",
+        tmp_path, own.STORES["candidates"], title="t", filed_by="pm3", status="open",
         body="ORIGINAL REASONING, untouched.\n", extras={"component": "x"},
         today=date(2026, 8, 26))
     before = path.read_text()

@@ -23,6 +23,7 @@ claude-dotfiles/
 │   ├── guide/                    ← OPERATING MANUAL: user-facing docs
 │   ├── standards/                ← THE HOW: conventions and patterns
 │   └── file_structure.txt        ← annotated map of the repo
+├── tracked/                      ← the four tracked-item stores (issues/operations/candidates/standards)
 ├── testing/                      ← Tier 1 + 2 of the Testing Standard: run-all.sh, suites/
 ├── conftest.py                   ← repo-root pytest memory guardrail (RLIMIT_AS)
 ├── pytest.ini                    ← pins rootdir so that guardrail is invocation-agnostic

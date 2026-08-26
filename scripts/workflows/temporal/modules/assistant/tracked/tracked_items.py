@@ -50,7 +50,7 @@ CONTRACT_VERSION = "v1"
 _ID_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyz"
 _ID_LEN = 8
 
-TRACKED_ROOT = Path("docs/development/tracked")
+TRACKED_ROOT = Path("tracked")
 
 
 @dataclass(frozen=True)
@@ -77,22 +77,22 @@ STORES: dict[str, Store] = {
     "issues": Store(
         name="issues",
         prefix="I-",
-        holds="deferred work with a clean done-state and a proposed action",
+        holds="a DEFECT, found while building something unrelated to it",
         extra_fields=("repo",),
         terminal=("resolved", "rejected"),
     ),
-    "tracker": Store(
-        name="tracker",
-        prefix="T-",
-        holds="operating state and continuity — live work with no single done-state",
+    "operations": Store(
+        name="operations",
+        prefix="O-",
+        holds="a note-to-self of something that needs doing; the standup's surface",
         extra_fields=("state", "ownership", "blocked_on", "ready"),
         terminal=("resolved",),
         operator_only=("ready",),
     ),
-    "research": Store(
-        name="research",
+    "candidates": Store(
+        name="candidates",
         prefix="C-",
-        holds="a question that evidence could settle, awaiting triage",
+        holds="a PROPOSAL — a capability, detector or improvement to be considered",
         extra_fields=("component", "size", "decision"),
         terminal=("adopted", "rejected"),
     ),
@@ -113,7 +113,7 @@ CORE_FIELDS: tuple[str, ...] = (
     "id", "title", "status", "count", "filed", "filed_by",
 )
 
-_ID_RE = re.compile(r"\b([ICST])-([0-9a-z]{8})\b")
+_ID_RE = re.compile(r"\b([A-Z])-([0-9a-z]{8})\b")
 _FRONTMATTER = re.compile(r"\A---\n(.*?)\n---\n", re.S)
 
 
