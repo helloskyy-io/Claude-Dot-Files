@@ -1,0 +1,14 @@
+---
+id: C-2t2qw8nm
+title: A format check on `docs/file_structure.txt
+status: open
+count: 1
+filed: 2026-08-26
+filed_by: triage-candidates
+---
+
+The map is authoritative per `CLAUDE.md`, and its only structural signal is a column-1 tree gutter — nothing parses it and nothing validates it. **PR #71's draft pass broke it on five lines and nothing noticed**; its refine pass repaired them, and the map is clean as of this commit (re-verified at placement: every body line starts with a gutter character). **So the instance is closed and the check is the candidate** — proposal, not defect. Same mechanism as C-523klr8n (*derive declared counts rather than restating them*): both are "an authoritative artifact with no gate," and if either is ever ruled `ship` the other should be re-read alongside it. **AMENDED 2026-08-12 (PR #84, research-verify correction pass) — the premise above is REVERSED, and what remains of the candidate is now measured rather than argued.** `testing/scripts/tests/unit/test_file_structure_map_covers_the_tree.py` landed in PR #82 (`e7fadd9`, 2026-08-12) and **does** parse the map, so *"nothing parses it and nothing validates it"* no longer holds. It derives its population from `git ls-files` rather than from the map itself, parses the tree's indentation back into real paths rather than matching leaf names, and enforces two rules — where the map ENUMERATES it must enumerate completely, and where it ROLLS UP every tracked file must still be reachable through some named ancestor. The first half found **27 missing files** when it landed. **The RESIDUAL gap is DIRECTORY-shaped, and PR #84 measured it on itself rather than reasoning about it:** the gate is scoped to FILES, so its roll-up rule is satisfied by *any* named ancestor — and `docs/development/` is always one. The suite was **GREEN on that branch** while `docs/development/persistent-memory-protocol/`, an entire new component directory, appeared nowhere in the map, and while `docs/development/github-actions-integration/` was still named despite having had zero tracked files since `e397632` folded it into `autonomous-execution`. Both were corrected by hand in that PR, which is the finding: nothing would have caught either, and the gate reported success throughout. **So the map's `development/` section is a second hand-kept enumeration — of DIRECTORIES — nested inside the one the gate already derives, and nothing derives it.** The remaining capability is directory-level set-equality wherever the map enumerates directories, and the machinery already exists since the test reconstructs paths from indentation today. **The candidate is NARROWER than when it was filed, not closed** — and its pairing with C-523klr8n still holds, now as the half-closed instance of the same mechanism
+
+**Source:** PR #71
+
+*Migrated from `docs/standards/architecture/research/candidates.md` on 2026-08-26, preserving its id.*

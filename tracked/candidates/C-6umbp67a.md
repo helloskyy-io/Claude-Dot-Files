@@ -1,0 +1,15 @@
+---
+id: C-6umbp67a
+title: Carry a candidate's Note EVIDENCE into the synthesis `plan-candidates` seeds, so the reasoning that justified the component does not stop at the folder it created
+status: open
+count: 1
+filed: 2026-08-26
+filed_by: triage-candidates
+component: workflow-decomposition
+---
+
+**`plan-candidates` seeds a new component's `synthesis.md` from the `Candidate` cell — one line — and the `Note` cell, which is where this file actually keeps its evidence, does not travel.** Measured on the live file the day this was written: the median Note is a paragraph and several run to over 2,000 characters carrying measurements, rejected alternatives and explicit *not-an-expansion-of* rulings. **The consequence is a research cycle re-deriving what a triage pass already established**: `research-write` runs against the seeded pool immediately afterwards, is told the one-line summary is its brief, and has no access to the reasoning that made the candidate `ship` — so a rejected alternative already argued against in the Note is a live option again to the run that reads only the seed. **Why it was NOT done here, and this is the substantive half:** the row parser deliberately stops every cell at the next pipe and never reaches the Note, because **Note text carries unescaped pipes** — and that property is exactly what made inserting the `component` column a safe prefix-only transform. *(A tally was stated here and was falsified by this very row: the count was taken before the row was appended, so the denominator was stale the moment it was written. The load-bearing claim is that no row's first five cells contain a pipe, which no new row can falsify.)* Reaching the Note means parsing the one cell whose content is not pipe-safe, which is a design decision about the file's format, not a line of code. **Done-state today: yes** — either an escaping rule for the Note that the filing prompts enforce, or a last-cell parse that takes everything after the fifth pipe verbatim. **NOT a defect:** the seed behaves exactly as designed and as the operator specified — *"it just needs to move the info over to the correct place"* — and every test on it passes. This proposes carrying MORE than was asked for. **Not an expansion of C-523klr8n:** that concerns derived-versus-restated counts in prose. **`component` is `workflow-decomposition`, which already exists** — so `plan-candidates` correctly scaffolds nothing for this row, which is the extends-an-existing-component case working as intended. **Not filed as an issue** — capability that would be ADDED, which per [`finding-routing.md` § 4](../../finding-routing.md) makes it a candidate whatever its done-state looks like. *(Id taken as the next free one after re-reading the file at HEAD and comparing against `origin/main` immediately before writing — both carried 76 rows with highest C-l2doi8ox.)*
+
+**Source:** PR for `plan-candidates` (build-draft, 2026-08-13)
+
+*Migrated from `docs/standards/architecture/research/candidates.md` on 2026-08-26, preserving its id.*

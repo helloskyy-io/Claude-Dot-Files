@@ -1,3 +1,11 @@
+> # ⛔ FROZEN 2026-08-26 — THIS IS NO LONGER THE STORE. DO NOT WRITE HERE.
+>
+> **Every row below was migrated to [`tracked/candidates/`](../../../../tracked/candidates/) on 2026-08-26, one file per item, ids preserved.** That directory is the store; this file is a frozen copy kept only so tooling that has not been repointed yet does not hard-fail mid-transition.
+>
+> **Anything written here after this date is LOST** — it will not be migrated a second time, and no reader of the store will ever see it. File into `tracked/candidates/` instead, per the [Tracked Items Standard](../../documentation/tracked_items_standard.md).
+>
+> **Delete this file** once `plan_activities` and `triage-candidates` read the store directly.
+
 # Action candidates — the running list
 
 **This file is the durable home for research action candidates. `synthesis.md` is rewritten every cycle; this is not.**
