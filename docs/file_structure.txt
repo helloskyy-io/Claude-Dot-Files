@@ -620,6 +620,9 @@ claude-dot-files/
 │                   │                                #   that exist in this tree — a word-keyed pattern would fail three correct runs
 │                   ├── test_phase_sizing.py         # The sprint header's TOTAL and TO-DO — the two figures
 │                   │                                #   4042357 shipped with no test at all
+│                   ├── test_recurrence.py           # The ranking, and the ruling it REFUSES to make — this
+│                   │                                #   module ranks and the filer rules, because a wrong merge
+│                   │                                #   buries a finding where a duplicate costs one ruling
 │                   ├── test_tracked_items.py        # Every item on disk against §3, AND our store table
 │                   │                                #   against the VENDORED standard — the drift the v1 contract exists to catch
 │                   ├── test_intake.py               # The §5.0 exemption's three conditions, and the write-then-close

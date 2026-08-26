@@ -107,7 +107,17 @@ BUDGETS: dict[str, int] = {
     # unenumerable amendments, the id-collision history — is in the commit
     # message, not here. A first draft ran +3,432; the trim removed
     # measurements and one justification a reader infers from the rule above it.
-    "review_pr/prompts/disposition.md": 81734,
+    # RAISED 81734 -> 82627 on 2026-08-26 (+893) for the RECURRENCE CHECK, which
+    # is the half of §3.1 that was missing: the standard says increment rather
+    # than open a second item, and said nothing about how a filer KNOWS. Against
+    # § Prompt economy — it changes what the model DOES (a read of the store now
+    # precedes every filing, and "already there" became a terminal disposition);
+    # a capable reasoner would NOT infer it, because the instinct is to file and
+    # the asymmetry that says otherwise is counter-intuitive; the harness cannot
+    # enforce it, since deciding two findings are one finding is exactly the
+    # judgement `recurrence.py` refuses to automate; and the measurement behind
+    # it — four nominated for merging, one surviving — is in the commit, not here.
+    "review_pr/prompts/disposition.md": 82627,
     "plan/plan_revision/prompts/stages_1_to_5.md": 22_506,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-f0lfdhmm's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the

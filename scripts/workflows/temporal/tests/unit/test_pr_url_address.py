@@ -158,6 +158,12 @@ def test_every_consumer_of_the_pr_url_address_holds_the_OWNING_object() -> None:
 # listed one goes away — a list that only grows is a gate that widens itself.
 DECLARED_SPLITS = {
     ("resource_telemetry.py", "_read_anon"),         # a /proc line, not a URL
+    # A LITERAL WRITTEN IN THIS FILE, split at import to make a stop-word set —
+    # the safest member of this census by a distance, since its input cannot
+    # come from anywhere. Declared anyway rather than exempted: the gate is an
+    # exact set over the SHAPE, and a shape that starts accepting "obviously
+    # fine" splits stops being able to see the one that is not.
+    ("recurrence.py", "<module>"),
     # MOVED, not new: `plan_activities` -> `plan_project_activities` under §10.1
     # rule 3. Still a markdown heading's em-dash, still not a URL.
     ("plan_project_activities.py", "new_sprint_sections"),

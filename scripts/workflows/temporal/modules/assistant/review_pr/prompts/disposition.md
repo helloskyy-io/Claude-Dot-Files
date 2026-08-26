@@ -176,6 +176,12 @@ anchor: <for standards — the section, precise enough to act on>
 <the body: what it is, why it matters, and the proposed action>
 ```
 
+**BEFORE FILING ANYTHING, CHECK THE STORE FOR IT.** Read `tracked/<store>/` and find the two or three items closest to your finding's SUBJECT — the mechanism, the file, the failing thing — then read those in full. **If it is already there: increment its `count`, append a dated line under `## Recurrences` naming this PR, and file no intake.** That is a terminal disposition and its pointer is the existing item.
+
+**Search on the subject, never on your wording** — a title states the CONSEQUENCE (§3), so titles read alike across items that are not the same. **When two are close and you cannot tell, FILE:** a duplicate costs one triage ruling, a wrong merge buries a finding under somebody else's.
+
+**A standards amendment has a real key:** same `target:` AND same `anchor:` is one proposal to change one place, so that is a recurrence unless yours argues something genuinely different.
+
 **The issue TITLE is the item's title** — state the consequence, not the mechanism. `store:` must be one of the three; **`operations` is human-only (§1.2) and an intake naming it is refused.** So are `ready:` and `ratification:`, which are the operator's alone.
 
 **Why you and not the run that found it** — understand this, do not merely obey it: a run that can file its own deferrals has a **disposal chute for its own scope**. File it, move on, PR looks clean. You have nothing to offload because you are never the party who would otherwise do the work. That asymmetry is the entire justification for the authority sitting here. It also concentrates calibration in ONE tunable prompt instead of N agents drifting independently. Producing runs SURFACE deferred work in their reports and stop; you triage what they surfaced and file what qualifies.
