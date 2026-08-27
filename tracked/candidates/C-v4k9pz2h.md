@@ -2,7 +2,7 @@
 id: C-v4k9pz2h
 title: Workflow Decomposition Phase 4 bundles two independently demonstrable outcomes, so whichever half is finished first cannot be shown as finished and the phase cannot close on either
 status: open
-count: 1
+count: 2
 filed: 2026-08-27
 filed_by: plan-feature
 component: workflow-decomposition
@@ -28,3 +28,8 @@ decision:
 **Not a duplicate of [[C-qp4n7vzt]] or [[C-wb1xc1xs]].** Both of those are about the run-log observables in `persistent-memory-protocol` — one asks whether an observable's rate decides anything, the other asks for a reader for `convergence` events. Neither is about how this component's phases are bounded, and both would stand unchanged whichever way this is ruled.
 
 **Source:** `plan-feature` follow-up design pass over `docs/development/workflow-decomposition`, 2026-08-27. The pass was explicitly constrained to a fixed five-phase list, so it surfaced the boundary rather than acting on it; this item is what carries the finding past the PR body it was surfaced in.
+
+## Recurrences
+
+- **2026-08-27 · `plan-verify`** — reached independently, cold. The verify pass read the roadmap and all four phase docs without having read this item, asked § *Does each phase end at ONE verifiable outcome?* of each phase in turn, and named Phase 4 as the only one needing the word "and" to state its outcome. **That is the `author != judge` confirmation this item could not carry when filed**, since `plan-feature` was reporting its own bundle.
+- **What the second pass adds beyond agreement: a figure against each half.** Sized cold, Phase 4 is **~30h — derived ~14h, produced ~16h** (the 2026-08-19 pass read ~24h against the whole). Neither half is small enough to be a note on the other, and the produced half is now the larger of the two, which inverts the merge's original premise that *"neither carried enough work to stand alone as a document."* The figures are in [`roadmap.md`](../../docs/development/workflow-decomposition/roadmap.md) beside the phase.
