@@ -28,7 +28,7 @@ There is a second reason, specific to this one. Phase 3's completeness requireme
 
 ## Requirements for completion
 
-1. **Replay of the journal reproduces `candidates.md` and `direction.md`** — either byte-identical, or under a normalisation that is **stated and justified in this doc** — **from a starting snapshot forward** (requirement 2).
+1. **Replay of the journal reproduces the [`tracked/`](../../../tracked/) stores** — either byte-identical, or under a normalisation that is **stated and justified in this doc** — **from a starting snapshot forward** (requirement 2).
 2. **A starting snapshot exists, in a stated shape with its own version.** A one-off record of each in-test store's contents, written into the journal at journal start. § *Why replay needs a starting point* below; it needs no scheduler and no server, so it belongs here rather than behind [Phase 5](phase5_snapshots_then_retention.md)'s gate. **The shape is two named sections and a version field**, because [Phase 5](phase5_snapshots_then_retention.md) adds structurally different content to the same artifact later and a mid-stream shape change would violate this component's own *never change a written artifact, upcast on read* rule:
    - **(a) store materialisation** — what each in-test store held at that moment. **Replay applies this section and only this section.**
    - **(b) carried-forward journal-meta events** — retention, gap and redaction events preserved from bags that have been rotated out ([Phase 5](phase5_snapshots_then_retention.md) r8). Empty at Phase 4. **Replay never applies section (b) as a store write**, because materialising a housekeeping record into `candidates.md` is exactly the junk this separation exists to prevent.
@@ -159,7 +159,7 @@ Requirement 1 permits a normalisation. It is necessary — trailing whitespace, 
 - [ ] Build the **restore** (requirement 8): the same replay, writing into the working tree, with `destination` resolved through an allowlist from requirement 5's enumeration and a dry-run that shows what would change first
 - [ ] Carry provenance and gap state through the rebuild (requirement 9), and confirm a rebuilt row is distinguishable by origin
 - [ ] Rule on out-of-run writes: either Phase 3 specifies the ingest, or requirement 1 is scoped and the exclusion is recorded below
-- [ ] Run it against `candidates.md` and `direction.md` and record the result with its command
+- [ ] Run it against the `tracked/` stores and record the result with its command
 - [ ] **Negative test**: remove one emit, confirm the test goes red, restore it
 - [ ] Read [Phase 3](phase3_the_emit_rule.md)'s gap events before diffing: **exclude gapped bags from the diff and count them**, and confirm a gapped journal produces a *reported gap* rather than either a red test or a silently tolerated mismatch
 - [ ] Enumerate every store, mark each in-test or out-of-test, and give a reason for every exclusion in § *Stores not covered*

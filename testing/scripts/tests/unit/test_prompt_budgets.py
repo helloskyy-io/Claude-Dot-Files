@@ -117,7 +117,15 @@ BUDGETS: dict[str, int] = {
     # enforce it, since deciding two findings are one finding is exactly the
     # judgement `recurrence.py` refuses to automate; and the measurement behind
     # it — four nominated for merging, one surviving — is in the commit, not here.
-    "review_pr/prompts/disposition.md": 82627,
+    # RAISED 82627 -> 82831 on 2026-08-26 (+204): the recurrence check shipped
+    # the same day as an INSTRUCTION to "read the two or three closest items in
+    # full" with no tool to produce that shortlist -- a hand search over 122
+    # files. `plan-feature` and `review-pr` flagged it independently on PR #144.
+    # The line now names `similar-candidates.py`. Against § Prompt economy: it
+    # changes what the model DOES (runs a command instead of grepping a store);
+    # a capable reasoner cannot infer a script it has never been told exists;
+    # and the harness cannot enforce it.
+    "review_pr/prompts/disposition.md": 82831,
     "plan/plan_revision/prompts/stages_1_to_5.md": 22_506,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-f0lfdhmm's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the
@@ -293,7 +301,12 @@ BUDGETS: dict[str, int] = {
     # capable reasoner could NOT infer it, because nothing in this prompt or any
     # standard listed the four; and the harness enforcement added alongside is a
     # test over the ARTIFACT, which fires after the run rather than during it.
-    "plan/plan_feature/prompts/plan_feature.md": 23_949,
+    # RAISED 23_949 -> 24008 on 2026-08-26: `:86` said "Completion checkboxes ...
+    # are counted", and `_CHECKED` matches `[x]` only. A reader could take it
+    # that unchecked boxes are watched too — while the next sentence tells them
+    # adding unchecked boxes is their whole job. C-zwzepum0's class, third
+    # instance in the plan family today. Found by `review-pr` on PR #144.
+    "plan/plan_feature/prompts/plan_feature.md": 24008,
     # 15_510 -> 13_204: the `research-analyst` re-dispatch is gone. The verify
     # child holds Write/Edit and applies the critic's findings itself, so the
     # rules that existed only to coordinate a second writing agent went with it

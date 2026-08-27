@@ -176,7 +176,13 @@ anchor: <for standards — the section, precise enough to act on>
 <the body: what it is, why it matters, and the proposed action>
 ```
 
-**BEFORE FILING ANYTHING, CHECK THE STORE FOR IT.** Read `tracked/<store>/` and find the two or three items closest to your finding's SUBJECT — the mechanism, the file, the failing thing — then read those in full. **If it is already there: increment its `count`, append a dated line under `## Recurrences` naming this PR, and file no intake.** That is a terminal disposition and its pointer is the existing item.
+**BEFORE FILING ANYTHING, CHECK THE STORE FOR IT** — with the command, not by hand:
+
+```
+python3 scripts/helpers/similar-candidates.py --store <issues|candidates|standards> "<the finding>"
+```
+
+For a standards amendment add `--target` and `--anchor`: they are the one field pair that IDENTIFIES rather than narrows, so an exact match is promoted and labelled. It hands you the few worth opening; **read those in full.** **If it is already there: increment its `count`, append a dated line under `## Recurrences` naming this PR, and file no intake.** That is a terminal disposition and its pointer is the existing item.
 
 **Search on the subject, never on your wording** — a title states the CONSEQUENCE (§3), so titles read alike across items that are not the same. **When two are close and you cannot tell, FILE:** a duplicate costs one triage ruling, a wrong merge buries a finding under somebody else's.
 

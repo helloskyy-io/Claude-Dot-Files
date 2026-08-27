@@ -489,9 +489,28 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
     # grant check) and this is that lesson applied at authoring time rather than
     # after a review. Nothing is weakened by the swap: this guard parses only the
     # roadmap, which `grants_that_vanished` above has already proven still exists.
+    # COMPARED AS SETS, NOT AS COUNTS, AND THAT DISTINCTION IS THE WHOLE GUARD.
+    # The prohibition is *do not add, merge, split or drop a PHASE* — a question
+    # about WHICH phases the roadmap references, never HOW MANY TIMES each is
+    # mentioned. `roadmap_phase_links` returns a Counter, so subtracting the
+    # Counters compared multiplicity: a run that added two cross-references to a
+    # phase already referenced six times was reported as having ADDED it twice.
+    #
+    # MEASURED ON PR #144, AND THE RUN SAW IT COMING. `plan-verify` wrote a
+    # sizing note that legitimately linked a sibling phase, took Phase 2 from 6
+    # references to 8, and failed here with the phase set IDENTICAL — nothing
+    # added, merged, split or dropped, exactly as it self-reported. Its own
+    # reflection had already reasoned it out: *"if the check is count-based
+    # rather than set-based it will fail runs for doing the right thing... I
+    # kept the cross-references and accepted the risk rather than dropping a
+    # useful link to game a check."* A guard that punishes the correct choice
+    # teaches runs to degrade their output, which is worse than no guard.
+    #
+    # AND IT BROKE THE CHAIN, not just the run: `plan_project` calls this child
+    # unguarded, so the raise propagated and `plan-sprint` was never reached.
     after_links = own.roadmap_phase_links(wt_component)
-    added = sorted((after_links - before_links).elements())
-    dropped = sorted((before_links - after_links).elements())
+    added = sorted(set(after_links) - set(before_links))
+    dropped = sorted(set(before_links) - set(after_links))
     if added or dropped:
         raise RuntimeError(
             f"plan-verify changed which phases `{rel_component}/roadmap.md` "

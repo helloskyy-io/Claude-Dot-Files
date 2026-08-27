@@ -289,6 +289,44 @@ def test_the_link_reader_sees_every_phase_the_roadmap_REFERENCES(tree: Path) -> 
         "distinct names, so a phase whose SECOND mention is deleted is still seen")
 
 
+def test_an_EXTRA_reference_to_a_phase_ALREADY_LINKED_is_not_a_re_plan(
+        tree: Path) -> None:
+    """THE FALSE POSITIVE THAT BROKE A CHAIN, pinned so the Counter cannot come back.
+
+    The prohibition is *do not add, merge, split or drop a PHASE* — about WHICH
+    phases are referenced, never HOW MANY TIMES each is mentioned. The guard
+    subtracted two Counters, so multiplicity leaked into a question about a set:
+    a run that added two cross-references to an already-referenced phase was
+    reported as having ADDED that phase twice.
+
+    MEASURED ON PR #144. `plan-verify` wrote a sizing note that legitimately
+    linked a sibling phase, took it from six references to eight, and failed
+    with the phase set IDENTICAL. `plan_project` calls this child unguarded, so
+    the raise propagated and `plan-sprint` was never reached — the whole chain
+    stopped over a cross-reference.
+
+    AND THE RUN SAW IT COMING, which is the part worth keeping: its reflection
+    reasoned that the check might be count-based, and it *"kept the
+    cross-references and accepted the risk rather than dropping a useful link to
+    game a check."* A guard that punishes the correct choice teaches runs to
+    degrade their output.
+    """
+    before = own.roadmap_phase_links(_planned(tree))
+    c = _planned(tree)
+    roadmap = c / own.ROADMAP
+    roadmap.write_text(roadmap.read_text() +
+                       "\n\nSee also [the first thing](phase1_the_first_thing.md).\n")
+    after = own.roadmap_phase_links(c)
+
+    assert sum(after.values()) > sum(before.values()), (
+        "the fixture must actually add a reference, or this asserts nothing")
+    assert set(after) == set(before), (
+        "the phase SET is what the prohibition is about, and it is unchanged")
+    assert not (set(after) - set(before)) and not (set(before) - set(after)), (
+        "set comparison reports no addition and no drop — a Counter subtraction "
+        "here reported ADDED phase1_the_first_thing.md and failed the run")
+
+
 def test_a_DROPPED_phase_reference_is_the_offence_the_boundary_cannot_see(
         tree: Path) -> None:
     """THE FIXTURE WHERE THE TWO MECHANISMS DISAGREE, which is why it exists.

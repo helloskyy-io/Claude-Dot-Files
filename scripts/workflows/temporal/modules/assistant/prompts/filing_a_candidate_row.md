@@ -20,7 +20,13 @@ decision:
 
 **`decision` and `size` stay BLANK.** They are `triage-candidates`'s output and blank is the truth: untriaged. **`status` is `open`.** Its terminal values are `adopted` and `rejected`, and neither is yours to write.
 
-**BEFORE YOU WRITE IT, CHECK WHETHER IT IS ALREADY THERE.** Search `tracked/candidates/` for the SUBJECT of your finding — the mechanism, the file, the failing thing — and read the two or three closest items in full. **Search on what it is ABOUT, not on how you worded it:** a title states the CONSEQUENCE, and consequences read alike across genuinely different items. Measured upstream, a title-driven pass nominated four items for merging and **one of the four survived reading the bodies.**
+**BEFORE YOU WRITE IT, CHECK WHETHER IT IS ALREADY THERE — and there is a command for it, so do not hand-search a store of a hundred-plus files:**
+
+```
+python3 scripts/helpers/similar-candidates.py "<your finding, in your own words>"
+```
+
+It ranks on rare shared terms, which surfaces SUBJECT rather than phrasing, and hands you the few worth opening. **Read those in full.** It ranks and never rules: it will not tell you something is a duplicate, because that judgement is made from an item's body. **Search on what it is ABOUT, not on how you worded it:** a title states the CONSEQUENCE, and consequences read alike across genuinely different items. Measured upstream, a title-driven pass nominated four items for merging and **one of the four survived reading the bodies.**
 
 **A RESTATEMENT OF AN EXISTING CANDIDATE IS NOT A NEW FILE.** Increment that item's `count` and append a dated line under `## Recurrences` (§3.1). A second item for one proposal costs two triage rulings and buries the recurrence signal, which is the highest-value input triage has.
 

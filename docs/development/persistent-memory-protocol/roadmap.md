@@ -312,7 +312,7 @@ The core rule, and it is absolute: if any store gets it, the journal gets it, ve
 
 Replays the journal into a scratch directory and diffs the result against the live store. This is what makes Phase 3 enforceable: without it, completeness decays silently the first time a write path is added and its emit is forgotten. The test belongs on the merge path, so a missing emit goes red rather than unnoticed.
 
-- [ ] Replay of the journal reproduces `candidates.md` and `direction.md`, either byte-identical or under a normalisation that is stated and justified, from a starting snapshot forward
+- [ ] Replay of the journal reproduces the `tracked/` stores, either byte-identical or under a normalisation that is stated and justified, from a starting snapshot forward
 - [ ] Deleting one emit from a write path makes the test **fail**, demonstrated
 - [ ] The test runs on the merge path against a committed synthetic fixture and against the live journal on a host, with **no skip-when-absent arm**
 - [ ] A store the journal cannot rebuild is named as such, with the reason, rather than silently excluded

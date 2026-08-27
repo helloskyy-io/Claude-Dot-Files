@@ -203,6 +203,8 @@ claude-dot-files/
 ├── scripts/                                         # ORGANIZING AXIS: *who invokes it?* — that one question explains every folder below
 │   ├── helpers/                                     # YOU run these. Pure bash, no AI, zero tokens
 │   │                                                #   (helpers/ = standalone executables you RUN; workflows/lib/ = bash you SOURCE. Different things, hence two folders)
+│   │   ├── similar-candidates.py                     # Which existing items to READ before filing one. A COMMAND, not a prompt value:
+│   │   │                                            #   the ranking needs the finding's text, which exists only mid-run. Ranks; never rules
 │   │   ├── harvest-intake.py                        # THE NAMED HARVEST CADENCE of Tracked Items §5.0 — drains `tracked-intake` issues into
 │   │   │                                            #   tracked/<store>/ and closes them. Without it the intake exemption LAPSES and the
 │   │   │                                            #   intake becomes a second store, which §8 calls a violation. `/standup` runs it
@@ -826,6 +828,10 @@ claude-dot-files/
 │   │       │                                        #   rather than a list of paths, so a fourth shape fails until the docs say where
 │   │       │                                        #   the bytes land. A planning doc deliberately does not count: that is where the
 │   │       │                                        #   journal root already was when review-pr found it undocumented
+│   │       ├── test_an_OPEN_criterion_does_not_name_a_deleted_surface.py
+│   │       │                                                  #   An UNCHECKED box is an obligation and must be keepable; a CHECKED one is a
+│   │       │                                                  #   record and is left alone. Caught PMP Phase 4 promising replay against two
+│   │       │                                                  #   files deleted the day before
 │   │       ├── test_a_roadmap_STATUS_uses_a_marker_the_legend_defines.py
 │   │       │                                                  #   The four status markers are a CLOSED set, and the legend in sprint.md is READ
 │   │       │                                                  #   rather than copied. A run marked a finished component `🗄️ RETIRED` — a word no
