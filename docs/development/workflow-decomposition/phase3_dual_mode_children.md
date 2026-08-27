@@ -4,7 +4,9 @@
 
 ## What this phase does
 
-Twenty workflows live in `scripts/workflows/temporal/modules/assistant/`. **Eleven of them can be started by a person; nine cannot.** The nine are all children, and the gap is not a missing feature inside them — each one's core function is written, tested and reachable in-process. What is missing is the outer half of a shape the other eleven already have: a runner that defines the CLI contract, and a thin shim that hands its arguments through.
+Twenty workflows live under `scripts/workflows/temporal/modules/assistant/`, across the four workflow families `build/`, `plan/`, `research/` and `review_pr/`. **Eleven of them can be started by a person; nine cannot.** The nine are all children, and the gap is not a missing feature inside them — each one's core function is written, tested and reachable in-process. What is missing is the outer half of a shape the other eleven already have: a runner that defines the CLI contract, and a thin shim that hands its arguments through.
+
+> **Count the four families, not the directory's subdirectories** — the sentence above used to say "live in `modules/assistant/`" without the qualifier, and that stopped being enough on 2026-08-26. `modules/assistant/tracked/` now sits beside the four families and is a **library package** — `tracked_items.py`, `intake.py`, `recurrence.py` — with no workflow in it and no entrypoint owed. A builder recounting from the directory listing gets five subdirectories and finds one that does not fit the arithmetic. **The twenty and the nine are unchanged by it; only the sentence that produces them was wrong.** Re-verified on disk 2026-08-27 — see § Runtime Verification.
 
 This phase closes that gap, for all nine, and proves it by running each of them alone.
 
@@ -25,10 +27,11 @@ This phase was planned on 2026-08-18 as a roadmap entry with no phase doc, becau
 ## Requirements for completion
 
 1. **Each of the nine children has a runner and a shim**, on the same two-entrypoints-one-core pattern the eleven existing pairs use. A parent still calls the core function directly; nothing about how a parent invokes a child changes.
-2. **The five known failure surfaces are handled explicitly, not inherited by copying.** Verbosity, exit-code semantics, interactive-prompt blocking, stream discipline, and working-directory assumptions — each is a place a standalone caller and a parent want different behaviour. See § *The five places standalone and parent-driven diverge*.
+2. **The five known failure surfaces are handled explicitly, not inherited by copying.** Verbosity, exit-code semantics, interactive-prompt blocking, stream discipline, and working-directory assumptions — each is a place a standalone caller and a parent want different behaviour. See § *The five places standalone and parent-driven diverge*. **The ruling is written where a later reader will hit it before writing an adapter, and "written down" now has an address** — see § *Where the divergence ruling lands*.
 3. **The shim-naming guard covers all twenty**, extended in the same change that adds the nine. `test_shim_usage_names_itself.py` exists because three earlier entry scripts shipped with usage text copied from whichever script they were cloned from. Adding nine adapters without extending the guard risks that defect at three times today's scale.
 4. **`research_refresh_parent` has an entrypoint of its own.** Not "becomes invocable" — it already is. See § *The roadmap checkbox's premise is wrong as measured*.
-5. **Each of the nine is DEMONSTRATED to run alone, end to end**, with the invocation and what came back recorded. Constructing a runner is not the deliverable; the deliverable is a child a person can exercise, and only running it shows that. This is the phase's end-to-end proof and requirements 1–4 are not complete without it.
+5. **Each of the nine is DEMONSTRATED to run alone, end to end**, with the invocation and what came back recorded. Constructing a runner is not the deliverable; the deliverable is a child a person can exercise, and only running it shows that. This is the phase's end-to-end proof and requirements 1–4 and 6 are not complete without it.
+6. **The nine adapters are ruled as ONE family, once, before the first is written** — not pair-by-pair after the fact. [Phase 2](phase2_family_alignment.md) shipped with its per-pair ruling procedure measured at **κ = 0.000** and demoted to advisory; per-FAMILY ruling is the granularity that replaced it. Nine near-identical runners written from one template in one sitting are a single category of guidance, and this phase inherits the obligation to rule them that way. See § *What this phase inherits from Phase 2's blind trial*.
 
 ---
 
@@ -71,6 +74,28 @@ The pre-existing checkbox says *"`research_refresh_parent` has no entrypoint —
 
 **The checkbox is carried verbatim into [`roadmap.md`](roadmap.md) anyway**, because a planning run does not reword a completion criterion. This paragraph is the correction, and requirement 4 is what a builder works from. Source: [`raw/invocation_contract.md`](research/raw/invocation_contract.md) §5.1.
 
+### What this phase inherits from Phase 2's blind trial, and it was not written down here until 2026-08-27
+
+[`sprint.md`](../sprint.md) records that [Phase 2](phase2_family_alignment.md) shipped with an open question **"which Phase 3 inherits"**, and until this revision the inheritance existed only in that sentence. It is named here because it changes how the nine get built.
+
+**What was measured.** [`fork_vs_parameterize_blind_trial.md`](fork_vs_parameterize_blind_trial.md) § 5.1 scored two blind raters against revealed history at **κ = 0.000**, against the field's benchmark of 0.271. Phase 2's requirement 3 named that threshold in advance as the trigger to change granularity, so it fired: **ruling moved from per-pair to per-family**, a per-pair verdict is now advisory, and the rulings that emptied the frozen duplication baseline live as `FAMILY_RULINGS` — *one per category of guidance, not one per pair*.
+
+**Why that lands on this phase specifically, and not on whichever phase happens to be next.** This phase's own § Notes already says the nine adapters are *"a copying event waiting to happen … written in one sitting, from one template, by one run."* That is the exact population the demoted procedure would otherwise be asked to rule on afterwards — and it would rule at chance. The remedy is not a better reviewer; it is **ruling the category before the copies exist**, which is what per-family granularity means in practice and is the only order in which it is cheap.
+
+**Concretely, requirement 6 is satisfied when:** the nine adapters carry ONE ruling naming which parts of a runner are tier- and family-invariant (argument parsing shape, exit-code translation, the `resolve_repo_root` call, the usage block's self-naming) and which are legitimately per-child, with each deliberate variant carrying Phase 2's `differs from <sibling> because <reason>` line. **Nine separate rulings is the failure**, not the fallback.
+
+**What this does NOT claim.** κ = 0.000 came from seven pairs and two LLM raters, and the trial names both limits itself (§ 6.1). It is not evidence that per-pair ruling is impossible — it is the reason this phase does not *depend* on per-pair ruling being reproducible, which is a weaker and sufficient claim.
+
+### Where the divergence ruling lands
+
+Requirement 2 used to say the five divergences are *"ruled once, written down"* without saying where, and an address-less ruling is one a tenth adapter will not find.
+
+**The five divergences are a proposed amendment to a named standard with an actionable anchor:** [`workflow-scripts.md`](../../standards/workflow-scripts.md) § *Composition*, which already carries this component's parent/child rule and was corrected in place on 2026-08-19 to make standalone an interface. That is the section the ruling extends.
+
+**The route is a `tracked/standards/` item, and the phase does not edit the standard itself.** [Tracked Items Standard §4](../../standards/documentation/tracked_items_standard.md) is explicit that autonomous work MAY file a standards candidate and MUST NOT edit the standard, that `target:` and `anchor:` are the store's required extra fields, and that `ratification:` is the operator's alone. **§4.1 is why the anchor is not optional:** 21 surfaced amendments across 8 heading wordings were unenumerable, so nothing triaged them and nothing did.
+
+**Until it is ratified, the ruling still binds this phase** — it is recorded in this doc, the nine adapters are built against it, and the standards item is what carries it past this phase's close. A ruling that lives only in nine source files has to be re-derived by whoever writes the tenth.
+
 ### What this phase does not do
 
 - **It does not change how a parent invokes a child.** A parent imports the core function and calls it. Adding an outer entrypoint does not make that path go through a subprocess, and routing parent calls through the shim would trade a function call for a process spawn and lose the return value's type.
@@ -84,6 +109,9 @@ The pre-existing checkbox says *"`research_refresh_parent` has no entrypoint —
 
 - [ ] Read the two-entrypoints-one-core shape off an existing pair before writing any of the nine — the runner owns the CLI, the shim resolves the interpreter and passes everything through, and the core function stays the parent's path.
 - [ ] Rule the five divergences in § *The five places standalone and parent-driven diverge* once, written down, before the first adapter — nine adapters each answering these independently is exactly the drift [Phase 2](phase2_family_alignment.md) exists to stop.
+- [ ] **Write that ruling as ONE family ruling covering all nine, per requirement 6**, naming what is invariant across the nine and what is legitimately per-child, and giving each deliberate variant Phase 2's `differs from <sibling> because <reason>` line. Do this before the first adapter is written; ruling nine copies afterwards is the granularity Phase 2's trial measured at chance.
+- [ ] **File the ruling as a `tracked/standards/` item** against [`workflow-scripts.md`](../../standards/workflow-scripts.md) § *Composition*, with `target:` and `anchor:` filled and `ratification:` left blank — see § *Where the divergence ruling lands*. Do not edit the standard in this phase.
+- [ ] Re-run § Runtime Verification's inventory commands and confirm the arithmetic still reads 20 − 11 = 9 before building anything; a workflow added since the last dating changes the scope this phase is sized on.
 - [ ] Confirm requirement 3's ruling with [Phase 4](phase4_nothing_invisible.md)'s echo contract if that phase has landed; if it has not, record the answer here so [Phase 4](phase4_nothing_invisible.md) inherits it rather than contradicting it.
 - [ ] Build the four build-family adapters: `build_draft`, `build_draft_minor`, `build_refine`, `build_refine_minor`.
 - [ ] Build the five research-family adapters: `research_write`, `research_write_minor`, `research_verify`, `research_refresh`, `research_refresh_parent`.
@@ -126,6 +154,31 @@ usage: plan-verify [-h] [--repo REPO_TARGET] [--candidates CANDIDATES]
 3. **An existing pair answers `--help` and exits 0**, with a `--dry-run` that spends nothing. That is the target shape, and it is also how requirement 5's demonstration can be run cheaply for children whose real work is expensive.
 
 **Re-verify before the build dispatch fires.** The counts above are the scope claim; a workflow added or an adapter landed between now and then changes the arithmetic, and this phase is sized on it.
+
+### Re-verification — 2026-08-27
+
+**Date:** 2026-08-27 · **Host:** `puma-workstation-mint` · **Runtime verified:** the same entrypoint surface, re-counted eight days on, because the tracked stores landed in this directory in the interval.
+
+```
+$ ls scripts/*.sh | wc -l
+11
+
+$ ls scripts/run_*.py | wc -l
+11
+
+$ ls modules/assistant/
+assistant_activities.py  build  convergence.py  __init__.py  plan  prompts
+research  resource_telemetry.py  review_pr  routing.py  tracked
+
+$ ls modules/assistant/tracked/
+__init__.py  intake.py  recurrence.py  tracked_items.py
+```
+
+**Three things observed:**
+
+1. **Still eleven shims and eleven runners**, and still twenty workflows across the four families — `build/` 6, `plan/` 6, `research/` 7, `review_pr/` 1. **The arithmetic 20 − 11 = 9 is unchanged, and so is the list of nine.** Two of the eleven pairs (`plan_verify`, `triage_candidates`) are newer than this phase's first dating and were already counted in it.
+2. **`modules/assistant/tracked/` is new since the original count and is NOT a workflow family** — four modules, no workflow, no runner owed. It is why § *What this phase does* now names the four families rather than the directory.
+3. **`run_research.py --refresh` still reaches `research_refresh_parent`** (`scripts/run_research.py:12,32,98`), so § *The roadmap checkbox's premise is wrong as measured* is still true as measured, and requirement 4 is still the narrower fix rather than the checkbox's.
 
 ---
 

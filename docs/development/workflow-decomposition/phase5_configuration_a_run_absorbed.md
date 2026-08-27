@@ -6,7 +6,7 @@
 
 A dispatch reads its agents, its skills, its rules and its hooks from `~/.claude/` on the machine it runs on. Those files are symlinks into a repository, which is what makes them syncable — and it is also what makes them **editable mid-flight**. Someone adjusts a rule in an interactive session at 14:00, and every dispatch on that machine after 14:00 behaves differently from every dispatch before it. Nothing records the change, and no two machines can be *shown* to be running the same thing; they can only be assumed to be.
 
-The roadmap's own gate for this problem already names the cheap half of the answer: *if the run bag records the config a run used, the divergence half shrinks to a reader.* **That gate is open.** The run bag exists and carries five `Journal-` tags today — the workflow key, the origin repo, its remote, its commit, and the worktree — and **none of them names the configuration the run absorbed.**
+The roadmap's own gate for this problem already names the cheap half of the answer: *if the run bag records the config a run used, the divergence half shrinks to a reader.* **That gate is open.** The run bag exists and carries five `Journal-` tags today — the workflow key, the origin repo, its remote, its commit, and the worktree — and **none of them names the configuration the run absorbed.** *(Re-read on disk 2026-08-27 at `modules/journal/journal_activities.py:342-346`: still exactly those five, written together in one `open_bag` call. The bag's own lifecycle labels — `Journal-Redaction`, `Journal-Incomplete`, `Journal-Gap`, `Journal-Sealed-At` — are a separate set declared in `modules/journal/bag.py` and are not part of the five this phase joins; a builder who counts nine and re-scopes has counted two different things together.)*
 
 So this phase builds three things and deliberately stops: **one digest, one tag, one reader.** Record what configuration a run ran under; put it in that run's own bag beside the five facts already there; write the reader that answers *did these two runs use the same configuration*. Divergence detection then falls out as a question you ask of records that already exist, instead of a drift detector nobody has justified building.
 
@@ -17,12 +17,21 @@ So this phase builds three things and deliberately stops: **one digest, one tag,
 ## Requirements for completion
 
 1. **A run's bag records a digest of the configuration that run absorbed** — a sixth `Journal-` tag beside the five that exist. Written at the same point in the run the other five are, before the first side effect.
-2. **What the digest covers is stated explicitly**, and what it deliberately excludes is stated by name. A digest whose inputs are unnamed cannot be reasoned about when two runs disagree, and cannot be recomputed by anyone checking it.
+2. **What the digest covers is stated explicitly**, and what it deliberately excludes is stated by name. A digest whose inputs are unnamed cannot be reasoned about when two runs disagree, and cannot be recomputed by anyone checking it. **The input set is READ from `install.sh`'s `SYMLINK_TARGETS`, never copied beside it** — see § *The digest's inputs are the hard part*.
 3. **A reader answers "did these two runs use the same configuration"** from bags alone — no network, no live filesystem read, no drift detector.
 4. **The tag survives the bag's own rules.** A value is written once and never edited afterwards; a field with nothing to say records that it had nothing to say rather than being omitted. Verify against the bag's existing contract rather than inventing a convention for this one tag.
 5. **Whether Claude Code's own Managed settings tier survives `--setting-sources` and `--safe-mode` is MEASURED** — declared, then tested against both flags, with the observed output recorded. **This requirement stays unchecked until the measurement exists, and nothing in this phase or any later one may be designed on the assumption that it passes.**
 
 **Requirement 5 is an input to a decision this phase does not make.** The immunity property is an inference across three sources, one of them a rendered page, flagged by its own paper as unmeasured. It matters because the fleet's safety hook lives in user-scope settings, and a dispatch that narrows its setting sources strips the file the hook is declared in — the one control still operating during a headless run. Measuring it is cheap. Building on it unmeasured is not.
+
+**And a measurement's RESULT needs a destination, or it dies in a verification block.** Requirement 5 produces one of two findings and each has a different home, named here so the answer outlives this phase:
+
+| Observed | What it is | Where it goes |
+|---|---|---|
+| **The Managed tier survives both flags** | a proposed change to how the fleet declares its safety hook | a `tracked/standards/` item against the safety-layer invariant, with the anchor named — [Tracked Items Standard §4](../../standards/documentation/tracked_items_standard.md) permits autonomous filing and reserves `ratification:` to the operator |
+| **It does not survive, or the tier is not reachable** | the existing guard stands and one design route is closed | recorded in § Runtime Verification, and stated in [`C-mq7v3z8k`](../../../tracked/candidates/C-mq7v3z8k.md) as a constraint on the tier successor |
+
+**Either way the guard `test_no_runner_STRIPS_the_settings_file_the_safety_hook_lives_in` is untouched by this phase.** The measurement asks whether a different tier would make it unnecessary; until something is ratified on the answer, the guard is what holds.
 
 ---
 
@@ -47,6 +56,8 @@ The checkbox is carried verbatim because a planning run does not reword a comple
 **AND THAT LEAVES THIS PHASE WITHOUT A REACHABLE CLOSE, which is a defect rather than a design.** `roadmap.md` states the component has a real end — *when these phases close, decomposition is done* — and a phase carrying a requirement that stays permanently unchecked cannot close, so the component's stated end is unreachable through it.
 
 **This phase closes on its increment: the digest, the reader, and the Managed-tier measurement.** The tier mechanism is a SUCCESSOR, gated on the evidence this phase produces and on an operator ruling about precedence direction — so it is named here as what comes next and is **not** a completion criterion of this phase. **An open question is an INPUT to a phase, never a condition of its closing**; the roadmap box stays as written and unchecked, and closing this phase does not require ticking it.
+
+> **The successor now has a surface that outlives this phase, added 2026-08-27: [`C-mq7v3z8k`](../../../tracked/candidates/C-mq7v3z8k.md).** The paragraph above was written on 2026-08-19, when the only place a deferral could live was the prose of the phase deferring it — the four tracked stores landed on 2026-08-26. **A successor named only in a document that will be marked COMPLETE is a successor that stops existing when the box is ticked**, and the roadmap's own claim that *"when these phases close, decomposition is done"* is what makes that silent. The reasoning for the deferral is unchanged and is not reopened; only its placement moved from prose to a store with a triage cadence and a named runner.
 
 ---
 
@@ -74,12 +85,18 @@ This is recorded here as a trap rather than as a decision, because the decision 
 
 `~/.claude/` holds machine-local state — credentials, sessions, caches, per-project data — alongside the synced configuration. A digest over the whole tree changes on every run and answers nothing. A digest over the synced set answers the question, and **the synced set is already enumerated**: it is what the installer links, and there are seven of those targets. Requirement 2 exists so that whichever set is chosen is written down beside the tag, rather than being recoverable only by reading the function that computed it — which is the same property [Phase 4](phase4_nothing_invisible.md) is establishing for every other derived value in the fleet.
 
+**READ the set from `install.sh`; do not copy it. Added 2026-08-27, and it is the same defect this component keeps finding in other clothes.** `SYMLINK_TARGETS` in [`install.sh`](../../../install.sh) is the array the installer actually links — re-verified 2026-08-27, still seven entries: `settings.json`, `CLAUDE.md`, `agents`, `commands`, `hooks`, `rules`, `skills`. **A digest built from a hand-copied list of seven is a hand-kept population, which is precisely what [Phase 4](phase4_nothing_invisible.md) requirement 1 and requirement 5 both exist to forbid** — a list checked against itself cannot see the target that was added to the installer and never added to it.
+
+**This is not hypothetical and there is a live proposal to change the set.** [`C-idwrru3n`](../../../tracked/candidates/C-idwrru3n.md) proposes per-file granularity in the installer's targets so a `tests/` directory beside a hook does not land in the live `~/.claude/hooks/`; [`C-7ymfdw28`](../../../tracked/candidates/C-7ymfdw28.md) proposes pointing the symlinks at a pinned worktree, and the two are constrained to be ruled together. **The day either lands, a copied seven makes the digest answer a question about a set nobody syncs — and it answers it confidently, which is the failure mode this whole component is about.** Derive the set; if deriving it from a bash array is awkward, that awkwardness is a finding about where the set is declared, not a licence to copy it.
+
 ---
 
 ## Implementation steps
 
 - [ ] Read the run bag's contract for how a tag is written, what a field with nothing to say records, and what may never be edited after a run ends. Do not invent a convention for this tag.
 - [ ] Decide and write down the digest's inputs and exclusions, against the installer's synced set rather than the whole of `~/.claude/`.
+- [ ] **Derive that set by reading `SYMLINK_TARGETS` from [`install.sh`](../../../install.sh) at digest time**, and add the check that fails when the digest's population and the installer's disagree. A copied list is the hand-kept-population defect [Phase 4](phase4_nothing_invisible.md) forbids, and two open candidates propose changing the set.
+- [ ] **Route requirement 5's result before running it**, per the table in § *Requirements for completion* — a measurement whose answer has no destination is one that survives only in a verification block nobody re-reads.
 - [ ] Compute the digest and write the sixth `Journal-` tag, at the same point in the run the existing five are written — before the first side effect.
 - [ ] Verify a run with no readable configuration still produces a bag, and records *that* rather than omitting the tag.
 - [ ] Write the reader that compares the digests of two bags and reports same-or-different, with no network and no live filesystem read.
@@ -129,4 +146,5 @@ $ claude --help | grep -A5 -- "--safe-mode"
 - **The digest answers "were these the same", never "which one was right".** Two runs disagreeing is a fact; which configuration should have been in force is a policy question this phase does not own.
 - **Do not reach for Claude Code's Managed tier because the name matches.** Its precedence model is unconditional-managed-wins, which is the opposite of what this phase's own checkbox promises the user.
 - **The bag is append-only by design.** A digest recorded at the start of a run describes what the run absorbed at that moment; if configuration changed mid-run, that is a separate finding and not a reason to rewrite the tag.
+- **The tier half is deferred, and a deferral is PLACED rather than mentioned.** Its home is [`C-mq7v3z8k`](../../../tracked/candidates/C-mq7v3z8k.md), not this document. If the build dispatch finds new evidence bearing on the precedence direction, **increment that item's `count` and append a dated recurrence line** ([Tracked Items Standard §3.1](../../standards/documentation/tracked_items_standard.md)) — do not open a second item and do not write the finding into this phase doc, which will be marked complete.
 - **This phase is the strongest argument for [Phase 4](phase4_nothing_invisible.md), and it also dodges it** — it ships its consumer in the same phase as its producer. That is the correct shape and it is exactly why the gate is needed for the pairings that are not planned together.

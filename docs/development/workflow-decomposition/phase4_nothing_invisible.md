@@ -30,8 +30,9 @@ Both halves fail the same way — **silently, and while looking like success.** 
 
 ### The produced half
 
-4. **"Producer" is defined**, in a sentence a check can be built from, and the definition names what it deliberately excludes. **This requirement stays unchecked, and the definition does not exist yet** — see § *The definition is the whole of the produced half, and this plan does not supply it*.
-5. **The gate reaches producers outside `scripts/helpers/measure/`**, with the population read **off disk, never off a hand-kept list**, and **every exclusion named and asserted** by name in the check itself.
+4. **"Producer" is defined**, in a sentence a check can be built from, and the definition names what it deliberately excludes. **This requirement stays unchecked** — the definition still does not exist as a check. **What changed on 2026-08-27 is that it no longer has to be invented from priors:** the tracked stores shipped a first-party, ratified statement of the same property, and this requirement is now *rule it against the fleet* rather than *write it from scratch*. See § *The stores supplied the definition this phase was missing*.
+5. **The gate reaches producers outside `scripts/helpers/measure/`**, with the population read **off disk, never off a hand-kept list**, and **every exclusion named and asserted** by name in the check itself. **The first extension target is named rather than left as a direction:** the six tools in `scripts/helpers/` that sit outside `measure/` and are therefore in no gate's population today, and the intake→harvest pair whose reader is a *condition* rather than a nicety. See § *The first extension target, off disk*.
+   **One exclusion is already known and is part of this requirement, not a separate one:** `tracked/operations/` is excluded **by name and asserted**, the way `run_log.py` already is. Its consumer is a human, no machine may write to it ([Tracked Items Standard §1.2](../../standards/documentation/tracked_items_standard.md)), and **no check can assert that a person read something.** A gate that tries either lies or gets disabled. See § *The one exclusion the stores force*.
 
 ### The proof, which is one demonstration with two halves
 
@@ -76,7 +77,43 @@ Derivation is a **per-value decision with a stated reason**, not a policy. A rul
 
 That paragraph is the model for requirement 1's scope-of-effect column. An echo that prints a path tells a reader *what* was derived; the scope of effect is what tells them whether to care.
 
+### The stores supplied the definition this phase was missing
+
+**Written 2026-08-27, revising the section below rather than replacing it.** When this phase was planned on 2026-08-18 the produced half rested on priors plus two local occurrences of one shape, and its central deliverable — a definition of *producer* — had no first-party referent. **The four tracked stores landed on 2026-08-26 and supplied one.** That does not make requirement 4 done; it makes it a ruling against a written property instead of an invention.
+
+**The property, stated by somebody else and ratified.** [Tracked Items Standard §0](../../standards/documentation/tracked_items_standard.md) names three things every store must have, and calls a store missing any of them out of conformance:
+
+1. **An admission test** — a stated rule for what does NOT belong.
+2. **A triage cadence with a named runner.**
+3. **An exit** — every item reaches a terminal state.
+
+**That is this phase's definition with the cadence added, and the cadence is the part the measure-tool version was missing.** The existing gate asks *does a reader exist*; §0 asks *does something empty this, on a schedule, run by someone named*. A surface with a reader nobody runs is the failure this half exists to catch, and only the second question sees it.
+
+**The fleet already carries a worked instance, in code, with the reasoning attached.** `modules/assistant/tracked/intake.py`'s own docstring states the three conditions of §5.0 as the whole of the exemption that lets an intake issue exist at all — *"A named harvest cadence exists. `harvest()` is it, and `/standup` calls it. **An intake with no harvest is a second store and a §8 violation.**"* — and says the module is built to keep them true rather than to assume them.
+
+**So requirement 4's definition, in the sentence a check can be built from:** *a producer is a surface something else is meant to read; it is conformant when its reader is named, the reader is invoked on a named cadence, and the surface empties or terminates.* The exclusions the current gate already knows (a declaration module) survive unchanged.
+
+**The honest test of the definition is unchanged and now has a third case.** The implementation step below already requires checking it against the three observables that motivated the gate. **Add the intake:** if the definition would not have caught *an intake surface whose harvest stopped being called*, it is too weak — because that failure is silent, it looks like a working store, and Tracked Items §8 calls the result a violation.
+
+### The first extension target, off disk
+
+Requirement 5 said *"outside `scripts/helpers/measure/`"*, which is a direction rather than a population. **Counted on disk 2026-08-27, `scripts/helpers/` holds six tools outside `measure/`:** `check_settings.py`, `check-settings.sh`, `harvest-intake.py`, `init-project.sh`, `lint-prompts.sh`, `vendor-standards.sh`. **None is in any gate's population**, and the gate that exists reads only `scripts/helpers/measure/`.
+
+**One of the six is the case that matters most, and it is not the most obvious one.** `harvest-intake.py` is the *consumer* half of the intake pair — the thing whose being run is a stated condition of an exemption, not a convenience. It is invoked from `/standup` by prose in [`config/commands/standup.md`](../../../config/commands/standup.md), and **prose in a command file is exactly the shape this half already ruled insufficient**: the `measure/` README stated its own `Read by` rule in prose and a tool shipped unread anyway. **If that line is ever dropped, the intake keeps accepting and nothing empties it, and no suite goes red.**
+
+**Rule the six in or out against requirement 4's definition rather than adding them wholesale.** `vendor-standards.sh` and `init-project.sh` are plausibly operator-invoked tools with no produced surface at all; `check_settings.py` and `lint-prompts.sh` have their own tests. **The finding is that none of them has been ASKED**, not that all six are defects.
+
+### The one exclusion the stores force
+
+`tracked/operations/` is **human-in-the-loop only** — [Tracked Items Standard §1.2](../../standards/documentation/tracked_items_standard.md) forbids any workflow, dispatch or agent writing to it, and its triage cadence is *"every standup · the operator."*
+
+**Its consumer is a person, and no check can assert that a person read something.** A gate that tries to prove the operations store is being consumed will either assert something it cannot see (and be wrong quietly) or assert a proxy like file mtime (and be routed around within a month). **So it is excluded, by name, with the exclusion asserted in the check** — the same treatment `run_log.py` gets, for the same reason: an exclusion that is not named is a hole.
+
+**This is the third shape for the definition to be checked against**, beside *a tool that answers a question* and *a declaration module*: **a surface whose only legitimate consumer is outside the system.** Get it wrong in the permissive direction and the gate red-flags the operator's own notebook; get it wrong in the restrictive direction and *"a human reads it"* becomes the excuse that exempts anything.
+
 ### The definition is the whole of the produced half, and this plan does not supply it
+
+> **Superseded in part, 2026-08-27 — read § *The stores supplied the definition this phase was missing* first.** The section below was written on 2026-08-18 and its argument about *why* the definition is load-bearing is unchanged and still the best statement of it. What is no longer true is its premise that no referent exists. **The three shapes it enumerates are still the ones to rule on, and there is now a fourth** — a surface whose only consumer is a human.
 
 **Requirement 4 is unchecked because nobody has written the definition yet, and this plan deliberately does not write it either.** Extend the gate to the wrong population and it becomes a check people route around; extend it to too narrow a one and it catches nothing the existing gate did not. Three shapes have to be ruled on explicitly, and none is decided here:
 
@@ -99,6 +136,7 @@ The rule this half generalises was already written in prose in the directory it 
 - **It does not build a config digest.** What a run absorbed from `~/.claude/` is a different question with a different mechanism — [Phase 5](phase5_configuration_a_run_absorbed.md).
 - **It does not delete an unread producer.** Finding one is the output; ruling what happens to it is a separate decision with its own criteria, and an automated remedy here would delete a surface whose consumer simply has not been built yet.
 - **It does not check that a consumer is any good.** Naming a reader is a much weaker claim than the reader being correct, and this gate makes only the weaker one. Say so where the check lives, so nobody over-reads a green suite.
+- **It does not own the tracked stores, their triage, or their cadences.** [Tracked Items Standard](../../standards/documentation/tracked_items_standard.md) owns those, and it is vendored — amendments go upstream. This phase borrows its §0 property as a *definition* and rules the fleet's surfaces against it. **What it may legitimately add is the check that the intake's stated condition is still true**, because that is a producer/consumer pair inside this repo and it is exactly the population requirement 5 extends to.
 
 ---
 
@@ -116,6 +154,10 @@ The rule this half generalises was already written in prose in the directory it 
 **The produced half:**
 
 - [ ] Write the definition of a producer, with its exclusions, and check it against the existing gate's population — **if the definition would not have caught the three observables that motivated the gate, the definition is wrong.** This step is requirement 4 and nothing below it is safe until it is done.
+- [ ] **Start from [Tracked Items Standard §0](../../standards/documentation/tracked_items_standard.md)'s three properties rather than from a blank page** — admission test, named cadence with a named runner, exit — and read `modules/assistant/tracked/intake.py`'s docstring for the worked instance before writing a word of the definition. See § *The stores supplied the definition this phase was missing*.
+- [ ] **Add the fourth honest test:** the definition must catch *an intake surface whose harvest stopped being invoked*. If it does not, it is too weak, and the failure it misses is one Tracked Items §8 calls a violation.
+- [ ] **Rule the six tools in `scripts/helpers/` outside `measure/` in or out, one at a time**, recording the reason for each out-ruling. `harvest-intake.py` is the one to rule first — it is a stated condition of an exemption, invoked only by prose in a command file.
+- [ ] **Assert `tracked/operations/`'s exclusion by name**, with the reason in the check: its consumer is a human, and no gate can observe that a person read something.
 - [ ] Enumerate candidate producer surfaces across the fleet and rule each in or out against that definition. Record the out-rulings with reasons; an unexplained exclusion is the hole this half exists to close.
 - [ ] Extend the gate to the ruled-in surfaces, reading each population off disk.
 - [ ] Assert every exclusion by name, in the check itself, the way the existing gate asserts its one exclusion.
