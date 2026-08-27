@@ -2,7 +2,7 @@
 id: C-zwzepum0
 title: A stated rule for load-bearing PROSE: a comment or prompt sentence asserting how ANOTHER file behaves either names the check that holds it, or is not written
 status: open
-count: 4
+count: 5
 filed: 2026-08-26
 filed_by: triage-candidates
 ---
@@ -20,3 +20,4 @@ filed_by: triage-candidates
 - 2026-08-26 · plan-verify prompt `:167` asserted a COMPLETE phase is outside both totals of the unsized check; `sizing_floor` counts phase-doc FILES ON DISK, so it is inside one. A run obeying the brief fails at its last guard. Fixed 9ce3b44
 - 2026-08-26 · plan-verify prompt `:22`/`:74` assert every phase doc is read-only, while `:28` grants correcting a determined defect and `permitted_paths` permits the write. PR #141's run reported a defect it was authorized to fix. Fixed this commit
 - 2026-08-26 · `filing_a_candidate_row.md` told every consumer to use "an id from the batch you were offered"; only research workflows are handed one. PR #141's plan-verify run had to infer the id shape. Fixed this commit
+- 2026-08-27 · The SAME contradiction, one prompt over: `plan_feature.md`'s authorization table grants editing only "a phase doc **you created in this run**", while this run's operator context directs it to correct determined defects in EXISTING phase docs — and `permitted_paths` grants `<component>/[^/]+\.md$`, which permits the write. Two of three surfaces say yes and the table says no. This run corrected a determined defect (a link labelled `candidates.md`, a store deleted 2026-08-26) and had to reason from this row's plan-verify precedent to know it was allowed. Surfaced, not fixed — the prompt is outside this run's write boundary
