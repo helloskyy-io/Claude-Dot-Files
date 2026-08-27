@@ -283,7 +283,17 @@ BUDGETS: dict[str, int] = {
     #   prompt without leaving the run. A budget that keeps the old ceiling
     #   after a promotion silently re-grants the space the promotion freed,
     #   which is how a prompt gets back to its old size with nobody deciding it.
-    "plan/plan_feature/prompts/plan_feature.md": 23_437,
+    # RAISED 23_437 -> 23_949 on 2026-08-26 (+512): this prompt writes the
+    # roadmap and told the model to mark a status WITHOUT NAMING THE SET. So a
+    # run marked a completed component `🗄️ RETIRED` -- a word no standard
+    # defines, in a field read as a controlled vocabulary -- and nothing refused
+    # it for ten days, until `plan-sprint` tripped over a marker its own legend
+    # does not have. Against § Prompt economy: it changes what the model DOES
+    # (it now copies a marker from a closed set instead of composing one); a
+    # capable reasoner could NOT infer it, because nothing in this prompt or any
+    # standard listed the four; and the harness enforcement added alongside is a
+    # test over the ARTIFACT, which fires after the run rather than during it.
+    "plan/plan_feature/prompts/plan_feature.md": 23_949,
     # 15_510 -> 13_204: the `research-analyst` re-dispatch is gone. The verify
     # child holds Write/Edit and applies the critic's findings itself, so the
     # rules that existed only to coordinate a second writing agent went with it

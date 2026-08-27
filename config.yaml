@@ -94,7 +94,7 @@ models:
   plan-new: opus                # 14-stage project planning (was fable — see 2026-07-27 economics retier)
   plan-revision: opus           # planning build (was fable — see 2026-07-27 economics retier)
   triage-candidates: opus       # rules every untriaged research candidate — ship / requires review /
-                                #   reject — and files the open questions to direction.md. Opus
+                                #   reject — a `requires review` ruling stays on the candidate. Opus
                                 #   deliberately: this decides what the project builds next, reading a
                                 #   thesis, an evidence synthesis and an architectural standard
                                 #   together. The measured failure it exists to avoid is a cheap
@@ -241,7 +241,7 @@ max_turns:
                               #   read the candidates file, one synthesis and three
                               #   architecture documents (~10), rule 24 rows with the
                               #   evidence already in context (~1-2 each), append the
-                              #   direction.md rows, commit and open the PR (~10). That
+                              #   the ruled candidates, commit and open the PR (~10). That
                               #   lands near 70; 200 is roughly 3x it as headroom, the
                               #   same posture research-verify's measured cap uses.
                               #   REVISE FROM THE FIRST REAL RUN — and note the working

@@ -162,7 +162,8 @@ Report what you found: what this component is, what its evidence says, and what 
 
 Written for quick understanding, not for implementation.
 
-- **Current status marked clearly at the top**, plus the one-line convention note so a reader seeing Phase 10 above Phase 2 does not assume the file is broken: *"Phases are listed in logical rollout order. Phase numbers are creation-order identifiers and do not reflect rollout sequence; execution order across components lives in `sprint.md`."*
+- **Current status marked clearly at the top, using ONE OF THE FOUR MARKERS `sprint.md` defines** — read its legend and copy a marker verbatim. **The set is closed: there is no fifth, and inventing one is the defect this line exists to prevent.** *(Measured: a run marked a completed component `🗄️ RETIRED` — a word no standard defines — and it went unnoticed for ten days until `plan-sprint` tripped over it.)* A component whose work is done is `✅ COMPLETE`; where its FUTURE work now lives is a sentence beside the marker, never a new marker.
+- Plus the one-line convention note so a reader seeing Phase 10 above Phase 2 does not assume the file is broken: *"Phases are listed in logical rollout order. Phase numbers are creation-order identifiers and do not reflect rollout sequence; execution order across components lives in `sprint.md`."*
 - **What this component is** — and what it explicitly does NOT own. The second half is what stops the next component's plan overlapping this one.
 - **One paragraph per phase**, what it achieves and not how, each linking to its phase doc where one exists.
 - **3–5 checkboxes per phase**, all unchecked, completion criteria rather than steps.

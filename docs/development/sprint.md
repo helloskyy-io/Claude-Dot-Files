@@ -138,11 +138,11 @@ Make the system improve its own tooling from evidence it generates itself.
 
 ✅ COMPLETE · (~86h total · ~0h to-do)
 
-**Retired into the [Persistent Memory Protocol](persistent-memory-protocol/roadmap.md)**, which now covers all of memory. The typed exit record is PMP's.
+**Future memory work is covered by the [Persistent Memory Protocol](persistent-memory-protocol/roadmap.md)**, which carries the obligations this component handed forward. The typed exit record is PMP's.
 
 Two distinct kinds of memory, both built. Both exist because a context window ends and the work does not; they differ in who reads them.
 
-**Kind 1 — durable memory in git, read by humans and AI.** Built and in use; **documented as a framework by Phase 2**. **Five** surfaces, measured: PR threads carry change-outcomes, Issues carry no-change outcomes, the standup tracker carries continuity, `direction.md` carries rulings only the operator can make, and `candidates.md` carries research candidates and their dispositions — the last of these being what makes `direction.md`'s 90-day rotation safe, since a ruled row may only be deleted once its reasoning is recorded in the candidate that never deletes. The record's own to-do bit is what marks work as current.
+**Kind 1 — durable memory in git, read by humans and AI.** Built and in use; **documented as a framework by Phase 2**. **One API surface and four file surfaces:** PR threads carry change-outcomes, and the four [`tracked/`](../../tracked/) stores carry defects, continuity, proposals and standards amendments — one file per item, the `status:` field as the to-do bit. *(Phase 2 shipped against five surfaces including two markdown tables; the substrate was rebound on 2026-08-26 and the properties did not move.)* The record's own to-do bit is what marks work as current.
 
 **Kind 2 — machine handoff in a file, read by CODE.** The typed exit record: a parent decides *in code, with no AI in the loop*, which child to invoke next. Now PMP's.
 
@@ -179,7 +179,7 @@ All of memory in this fleet — the framework and the protocol. Every run writes
 - [ ] **Persistent Memory Protocol · One run, one identity** · ([roadmap](persistent-memory-protocol/roadmap.md) · [phase](persistent-memory-protocol/phase9_one_run_one_identity.md)) — one authority names a run, the name is handed TO the journal rather than made by it, and every shape an invocation can take resolves to one bag under one name
 - [ ] **Persistent Memory Protocol · The content store** · ([roadmap](persistent-memory-protocol/roadmap.md) · [phase](persistent-memory-protocol/phase2_content_store.md)) — every cited artifact stored by checksum, and a `verify` that resolves every citation with the network disabled
 - [ ] **Persistent Memory Protocol · The emit rule** · ([roadmap](persistent-memory-protocol/roadmap.md) · [phase](persistent-memory-protocol/phase3_the_emit_rule.md)) — every write path emits the authored content verbatim with the destination as a field; a failed journal write is never silent
-- [ ] **Persistent Memory Protocol · Rebuildability is a test** · ([roadmap](persistent-memory-protocol/roadmap.md) · [phase](persistent-memory-protocol/phase4_rebuild_is_a_test.md)) — replay reproduces `candidates.md` and `direction.md`; deleting one emit makes the test fail
+- [ ] **Persistent Memory Protocol · Rebuildability is a test** · ([roadmap](persistent-memory-protocol/roadmap.md) · [phase](persistent-memory-protocol/phase4_rebuild_is_a_test.md)) — replay reproduces the `tracked/` stores; deleting one emit makes the test fail
 - [ ] **Sprint close-out** · ([checks](close_out/sprint_end_recurring.md)) — recurring checks run for this sprint and every finding dispositioned (fixed / rejected-with-reasoning / placed); no open issue belongs to this sprint's work
 
 ## Sprint: Temporal Integration
