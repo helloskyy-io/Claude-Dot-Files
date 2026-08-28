@@ -155,6 +155,25 @@ _PHASE_MARKER = re.compile(r"(?:✅ COMPLETE|🟡 IN PROGRESS|🟠 PLANNED|🔵 
 #: `dev_ui`, and it is in use across ten of their roadmaps with no false hit.
 _IMPLEMENTATION = re.compile(r"^\*\*Implementation:\*\*", re.M)
 
+#: THE PRE-RULE-8 CHECKBOX LIST, which `documentation_standard.md` rule 8 binds
+#: every reader to accept: *"Tooling that reads phase entries MUST accept the
+#: checkbox-list form until the corpus finishes converting."* Rule 4's migration
+#: clause makes conversion opportunistic — a roadmap converts when someone is
+#: already working in it — so **12 of MDC's 39 roadmaps carry this shape** and
+#: will for months.
+#:
+#: **Two exact anchors, the same standard the heading key is held to:** a
+#: checkbox, and a bold name. The phase-doc link is required separately over the
+#: entry's own span, which is what keeps an ordinary bolded checklist item out.
+#: This is NOT the heuristic that was measured and rejected — *"a heading whose
+#: section links a `phaseN_*.md`"* inferred a phase from a citation; these
+#: anchors are the notation itself.
+_CHECKBOX_PHASE = re.compile(r"^\s*[-*]\s*\[([ x~X])\]\s*\*\*(.+?)\*\*")
+
+#: A phase doc named anywhere in a checkbox entry's span. Required in addition to
+#: the box and the bold name — three anchors, no inference.
+_PHASE_DOC_REF = re.compile(r"\bphase\d+[\w.-]*\.md\b", re.I)
+
 # THE CLOSED VOCABULARIES. `decision` is the store's own: *"Every candidate ends
 # at exactly one of these. There is no fourth"* — `ship` / `requires review` /
 # `reject`, plus blank for not-yet-triaged.
@@ -1365,6 +1384,47 @@ def phase_sizing(component: Path) -> PhaseSizing:
         m = HOUR_ESTIMATE.search("\n".join(text[n:nxt]))
         hours = float(next(g for g in m.groups() if g)) if m else None
         rows.append((line.lstrip("# ").strip(), hours))
+
+    # THE PRE-RULE-8 FORM, READ ONLY WHEN THE RULE-8 FORM FOUND NOTHING.
+    #
+    # `documentation_standard.md` rule 8 BINDS this: *"Tooling that reads phase
+    # entries MUST accept the checkbox-list form until the corpus finishes
+    # converting."* Measured 2026-08-28 before it existed — a checkbox-form
+    # roadmap read **0 phases / 0 h** while the rule-8 form read correctly. On
+    # MDC's corpus that is 12 of 39 roadmaps, and a zero here is not inert: it
+    # makes `sizing_block` render *"lists no phases"*, which withholds the
+    # `(~Nh total · ~Nh to-do)` template that block otherwise supplies — so the
+    # run falls back to copying its target file's neighbours and writes whatever
+    # shape they carry. **That is exactly how `~128h sized ·` reached MDC PR
+    # #171**: not a tool ignoring the convention, a tool with nothing to say.
+    #
+    # ALTERNATIVES, NOT ADDITIVE, and the fallback is deliberate rather than a
+    # merge. Rule 4's migration clause converts a roadmap as a unit, so the two
+    # shapes are successive states of one file rather than a mixture. Reading
+    # both and merging would need a dedupe key, and the only exact one is the
+    # phase-doc name, which the rule-8 path does not capture.
+    #
+    # A HALF-CONVERTED ROADMAP THEREFORE UNDERCOUNTS — and that failure is
+    # already caught: `sizing_floor` counts phase-doc FILES ON DISK, so fewer
+    # phases than docs fails loudly there. Undercounting announces itself; the
+    # silent case this whole function exists to prevent is the wrong count.
+    if not rows:
+        starts = [n for n, line in enumerate(text) if _CHECKBOX_PHASE.match(line)]
+        for i, n in enumerate(starts):
+            nxt = min([k for k in starts[i + 1:] + heading_at if k > n],
+                      default=len(text))
+            span = "\n".join(text[n:nxt])
+            if not _PHASE_DOC_REF.search(span):
+                continue            # a bolded checklist item, not a phase entry
+            box, name = _CHECKBOX_PHASE.match(text[n]).groups()
+            # THE MARKER IS SYNTHESISED SO BOTH PATHS PRODUCE ONE ROW SHAPE.
+            # A rule-8 row's head literally contains `✅ COMPLETE` because it is
+            # part of the heading, and `todo` below tests exactly that. Rule 5
+            # names `[x]` the checkbox equivalent of `✅ COMPLETE`, so this is
+            # the standard's own mapping applied, not a convenience.
+            head = f"{name} {_COMPLETE_MARK} COMPLETE" if box.lower() == "x" else name
+            m = HOUR_ESTIMATE.search(span)
+            rows.append((head, float(next(g for g in m.groups() if g)) if m else None))
 
     total = sum(h for _, h in rows if h is not None)
     unsized = tuple(head for head, h in rows if h is None)
