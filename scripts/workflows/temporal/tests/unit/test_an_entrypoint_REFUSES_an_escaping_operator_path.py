@@ -71,6 +71,7 @@ _ESCAPE = "../" * 40 + "tmp/escape-probe-under-test"
 # than being silently skipped.
 _ARGV_SHAPE: dict[str, list[str]] = {
     "run_plan_verify.py": ["--dry-run"],
+    "run_plan.py": ["docs", "--dry-run"],
     "run_plan_feature.py": ["--dry-run"],
     "run_plan_sprint.py": ["--dry-run"],
     "run_triage_candidates.py": ["--dry-run"],

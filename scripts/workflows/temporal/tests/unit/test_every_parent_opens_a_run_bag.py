@@ -25,7 +25,7 @@ other covered.
 WHY THE SWEPT UNIT IS THE ENTRYPOINT AND NOT THE WORKFLOW MODULE. This tree has
 two defensible readings of "parent" and they do not agree: `test_isolation_
 invariants.py` classifies six workflow modules as parents by `act.worktree_add(`,
-while ELEVEN entrypoints are 1:1 with a run. FIVE of those eleven call
+while TWELVE entrypoints are 1:1 with a run. FIVE of those eleven call
 `worktree_add` themselves and hand the workflow module an already-cut worktree,
 and three more hand off by name to a module that cuts one, so a bag opened inside
 the workflow module would fire AFTER a worktree existed on disk in EIGHT of the
@@ -53,7 +53,7 @@ enumerating test is only as good as its discovery predicate:
     _first_side_effect` below closes the most likely version of that by ORDER;
     proving execution needs the integration tier.
   * `--dry-run` IS A DELIBERATE EXEMPTION, and it is the concrete instance of the
-    point above rather than a hypothetical one: Seven of the eleven entrypoints
+    point above rather than a hypothetical one: Eight of the twelve entrypoints
     return from their dry-run branch before reaching bag-open, so on that path
     the call is present and does not run. That is intended — a dry run states
     "nothing invoked, nothing posted", and creating a directory would falsify it
@@ -63,7 +63,7 @@ enumerating test is only as good as its discovery predicate:
     mistakes for an oversight. (The other four have no `--dry-run` at all, which
     is why this said EIGHT for four passes and no reading of the tree supported
     it; `test_journal_prose_figures_are_DERIVED.py` now derives the number.)
-  * The ORDERING check covers eight of eleven; the three it cannot reach are
+  * The ORDERING check covers nine of tweven; the three it cannot reach are
     named in `_ORDERING_UNCOVERED` below, with why.
 """
 
@@ -449,7 +449,7 @@ def test_the_ordering_check_FAILS_on_a_reversed_entrypoint(tmp_path: Path) -> No
     assert offenders_in(handoff_reversed), (
         "a workflow handoff called BY NAME before bag-open must be flagged — this "
         "is the case the narrow `worktree_add`-only predicate could not see, and "
-        "it is three of the eleven entrypoints")
+        "it is three of the twelve entrypoints")
 
 
 def test_the_worktree_cutting_count_this_argument_RESTS_ON() -> None:
@@ -477,8 +477,12 @@ def test_the_worktree_cutting_count_this_argument_RESTS_ON() -> None:
         f"entrypoints cut their own worktree; the tree says "
         f"{len(cut_their_own)}: {sorted(cut_their_own)}. Correct the prose — a "
         f"count restated beside the code that derives it is how it drifted last time.")
-    assert len(cut_their_own) + len(hand_off_by_name) == 8, (
-        f"the placement argument rests on EIGHT of eleven entrypoints reaching a "
+    # 8 -> 9 on 2026-08-28: the `plan` parent joined the population. The
+    # ARGUMENT is what this asserts and it did not move — `run_plan.py`
+    # cuts no worktree itself and hands off by name to `plan_workflow`,
+    # which is the second of the two shapes this count exists to cover.
+    assert len(cut_their_own) + len(hand_off_by_name) == 9, (
+        f"the placement argument rests on NINE of twelve entrypoints reaching a "
         f"worktree before any workflow-module code runs; the tree says "
         f"{len(cut_their_own) + len(hand_off_by_name)}. If that number has moved, "
         f"the argument for opening the bag at the entrypoint rather than in the "
