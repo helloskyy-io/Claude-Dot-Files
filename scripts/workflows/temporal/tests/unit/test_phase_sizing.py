@@ -264,3 +264,39 @@ def test_the_sizing_block_says_so_when_there_are_NO_phases(tmp_path: Path) -> No
     block = own.sizing_block(own.phase_sizing(c), Path("docs/development/comp"))
     assert "no phases" in block
     assert "TOTAL" not in block
+
+
+def test_a_phase_declaring_NOT_SIZED_is_unsized_even_though_it_quotes_a_figure(tmp_path):
+    """A removal notice necessarily names the figure it removed.
+
+    MEASURED ON PR #145. `plan-verify` split a phase, deleted the inherited
+    estimate as no longer meaningful, and wrote *"**NOT SIZED. The 2026-08-19
+    figure of ~24 hours was written against a phase that no longer exists and has
+    been removed rather than left to mislead**"*. `HOUR_ESTIMATE`'s first
+    alternative needs only a tilde, so it read that quoted figure as the phase's
+    estimate — **the phase declaring itself unsized parsed as sized at 24 h**,
+    and the total it fed was wrong in the direction nobody checks.
+
+    The honest act — deleting a stale figure and saying why — is exactly what
+    tripped it. That is the shape this guards.
+    """
+    comp = tmp_path / "c"; comp.mkdir()
+    (comp / "roadmap.md").write_text(
+        "# R\n\n"
+        "### Nothing a run relies on is invisible 🟠 PLANNED\n\n"
+        "**NOT SIZED. The 2026-08-19 figure of ~24 hours was written against a phase "
+        "that no longer exists and has been removed rather than left to mislead** — "
+        "both halves need reading cold.\n\n"
+        "### Dual-mode children 🟠 PLANNED\n\n"
+        "**Est: ~30 hours**\n"
+    )
+    sizing = own.phase_sizing(comp)
+    assert sizing.total == 30.0, (
+        f"total is {sizing.total}, expected 30 — the NOT SIZED phase must "
+        f"contribute nothing. A phantom 24 h here inflates every figure derived "
+        f"from this roadmap, including the sprint header."
+    )
+    assert "Nothing a run relies on is invisible 🟠 PLANNED" in " ".join(sizing.unsized), (
+        f"the NOT SIZED phase must appear in `unsized`: {sizing.unsized}. That "
+        f"list is the only signal an operator gets that a phase still needs a figure."
+    )

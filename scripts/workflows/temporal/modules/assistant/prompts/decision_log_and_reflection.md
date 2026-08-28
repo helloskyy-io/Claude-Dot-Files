@@ -43,11 +43,10 @@ Items intentionally NOT addressed in this PR but tracked for follow-up. The find
 
   **Name the `component` this candidate belongs to — in the item YOU are writing, and in no other.** An existing `docs/development/<name>/` if it extends one, a new name if it does not. **A blank means nothing is scaffolded for it.** You are the one who knows: you have just written the proposal, and anything downstream would be guessing from a one-line summary. A blank is an unanswered question rather than an error, so leave it blank rather than inventing a name you are not sure of. **Do not fill in the cell on a row somebody else filed** — that is guessing from a summary, it is checked cell-by-cell on every pre-existing row, and it does not stay a guess: `plan-candidates` turns a component name into a committed `docs/development/<name>/`.
 
-  **Why you and not the reviewer** ([`finding-routing.md`](../../../../../../docs/standards/finding-routing.md) § 4): a file surface needs a commit and a push, and the reviewer is decide-only — it structurally cannot write there. **And the disposal-chute argument does not reach a proposal:** it forbids filing DEFECTS you could have fixed, because that offloads your own scope. A proposal is capability that does not exist, so it was never your scope and cannot be offloaded. **You still do not decide where it belongs in the plan** — sprint, phase or nothing is separate triage with its own criteria.
+  **Why the reviewer and not you** ([`finding-routing.md`](../../../../../../docs/standards/finding-routing.md) § 4): the judge is not the author. It applies to a proposal exactly as it does to a defect — *defect-or-proposal* is itself a call you have an interest in. The reviewer reaches a file surface by INTAKE, so it is no longer barred from filing.
 
-  **A proposal you surface without placing dies at merge.** That is measured, not cautionary: three correctly-classified proposals were left in a PR body and `/standup` does not sweep merged PR bodies.
+  **Surfacing is the mechanism, not a fallback — so make it findable.** Give the item its own heading in the PR body with consequence, remedy and intended store. What dies at merge is a finding the reviewer could not locate, and that is now the only way one is lost.
 
-  **UNLESS YOUR OWN WRITE BOUNDARY FORBIDS IT — then SURFACE the proposal in your PR body and place nothing.** This fragment is injected into every producing workflow, and three of them are explicitly barred from this file: `research-write` and `research-refresh` at component altitude (*"Do NOT write it into the product pool's `direction.md` or `candidates.md`"*) and `research-write-minor` (*"never touch `candidates.md` or `direction.md`"*, and a binding clause telling it to disobey any dispatch instructing it to file anything outside its own research directory). Without this sentence those runs receive two binding instructions that cannot both be followed, and the one they are told to prefer is the one that makes the proposal disappear. **Your write boundary wins; say in the PR body that you were barred from placing, so the reader knows the surfaced item still needs a home.**
 
 **And cluster YOUR OWN findings before considering any of them separately.** Findings sharing a file, a function, a subsystem, or one remedy are **ONE item**. Measured: four separate Issues against one file, from one pass, each individually correct.
 
@@ -59,7 +58,7 @@ Items intentionally NOT addressed in this PR but tracked for follow-up. The find
 **Only what fails BOTH becomes a new issue, and the default is against filing.** A new issue is the last option, not the first — measured: applying these questions to one run's candidates took its filings from six to zero without losing a single item.
 
 **INVALID deferral targets — these are not homes, they are disappearances:**
-- **THIS PR** (its body, its description, its comments, 'tracked in this PR') — it dies at merge. This is the most common laundering shape and it is never acceptable.
+- **THIS PR as the item's FINAL HOME** — 'tracked in this PR', a table nobody harvests. *(Surfacing it there for `review-pr` to file is the required mechanism and is not this.)*
 - A tracker you are 'about to' create — create it FIRST, then cite the real number.
 - A checked `- [x]` line or a completed section — that records something FINISHED, and pointing pending work at it is how the work stops existing.
 - A person, a session, or 'the next run'.

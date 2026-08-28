@@ -254,17 +254,25 @@ def test_the_minor_child_keeps_the_write_boundary() -> None:
     """A lighter cycle is not a wider one.
 
     The write boundary is the rule that keeps a researcher out of the planner's
-    and reviewer's surfaces, and `candidates.md` / `direction.md` are the product
-    pool's triage queues that `plan-sprint` consumes. Wiring the scaled-down
-    shape into the surface that steers the whole product is the coupling this
-    workflow most needs not to have.
+    and reviewer's surfaces, and `tracked/` is the product pool's triage queue
+    that `plan-sprint` consumes. Wiring the scaled-down shape into the surface
+    that steers the whole product is the coupling this workflow most needs not
+    to have.
+
+    THE SURFACE THIS NAMES MOVED, and the assertion moved with it. It used to
+    require the literal strings `candidates.md` and `direction.md` — both deleted
+    by the four-store migration on 2026-08-26. They were also never in
+    `write_minor.md`: they arrived from the shared `decision_log_and_reflection`
+    fragment, so the failure message blamed the wrong file for four weeks. The
+    property being protected is unchanged: this child is told, in its assembled
+    prompt, that the triage store is out of bounds for it.
     """
     text = assembled(MINOR_PROMPT)
     assert "WRITE BOUNDARY (binding)" in text
-    assert "candidates.md" in text and "direction.md" in text, (
-        "write_minor.md no longer names candidates.md/direction.md as out of "
-        "bounds. It does not carry the ALTITUDE fragments that would let it "
-        "maintain them, so a run told nothing may improvise."
+    assert "tracked/" in text, (
+        "the assembled minor prompt no longer names `tracked/` as out of bounds. "
+        "It does not carry the ALTITUDE fragments that would let it write there, "
+        "so a run told nothing may improvise."
     )
 
 
