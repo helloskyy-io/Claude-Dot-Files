@@ -817,10 +817,16 @@ def phase_docs(component: Path) -> dict[str, str]:
 # the read half does not produce, or the read half satisfy itself with a shape
 # the write half would have rejected, and neither divergence shows in a diff.
 #
-# EVERY ALTERNATIVE REQUIRES A DIGIT ADJACENT TO THE UNIT *AND* AN ESTIMATE
-# MARKER. That second requirement is the whole discriminator: without it the
-# pattern reads "measured in hours" as a finding, and this repo's planning docs
-# hold three such prose phrases and (before `plan-verify`) zero estimates.
+# ALTERNATIVES (b) AND (c) REQUIRE AN ESTIMATE MARKER. ALTERNATIVE (a) DOES NOT
+# — the tilde is its only discriminator, and that is weaker than it reads. A
+# tilde-figure inside ordinary prose matches: `**NOT SIZED. The 2026-08-19 figure
+# of ~24 hours ... has been removed**` parsed as an estimate of 24 h, so a phase
+# declaring itself unsized read as sized. `_NOT_SIZED` below is the fix; widening
+# (a) is not, because the Documentation Standard's own worked example puts a bare
+# `(~30 hrs)` in a heading with no label anywhere near it.
+#
+# (This comment previously asserted that every alternative required a marker.
+# It was describing (b) and (c) and had never been checked against (a).)
 #
 # THE PERIOD IS ALLOWED AFTER THE ABBREVIATION `est` AND NOWHERE ELSE, and the
 # narrowness is the fix rather than a nicety. `[^.\n]` is what keeps the label
@@ -1259,6 +1265,13 @@ def plan_boxes(component: Path) -> Counter:
 # second look, where under-reporting quietly shortens a plan.
 _COMPLETE_MARK = "✅"
 
+#: A phase saying it is DELIBERATELY unsized. Checked BEFORE `HOUR_ESTIMATE`,
+#: because a removal notice necessarily quotes the figure it removed and
+#: `HOUR_ESTIMATE`'s first alternative cannot tell a quoted figure from a live
+#: one. Without this the honest act — deleting a stale estimate and saying why —
+#: leaves the phase reading as sized at the number it just retired.
+_NOT_SIZED = re.compile(r"\*\*\s*NOT SIZED\b", re.I)
+
 
 class PhaseSizing(NamedTuple):
     """One component's phases, each with the estimate `plan-verify` wrote.
@@ -1381,7 +1394,9 @@ def phase_sizing(component: Path) -> PhaseSizing:
         # retuned — a wider fixed window would break again on the next line
         # anyone adds. The prompt already forbids a second hour figure in a
         # sizing note, which is what keeps one section to one estimate.
-        m = HOUR_ESTIMATE.search("\n".join(text[n:nxt]))
+        section = "\n".join(text[n:nxt])
+        # DECLARED ABSENCE WINS OVER AN INFERRED FIGURE — see `_NOT_SIZED`.
+        m = None if _NOT_SIZED.search(section) else HOUR_ESTIMATE.search(section)
         hours = float(next(g for g in m.groups() if g)) if m else None
         rows.append((line.lstrip("# ").strip(), hours))
 

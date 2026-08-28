@@ -842,7 +842,9 @@ _FRAGMENT_FLOOR = {
     # candidate carrying `decision: requires review`, which the fragment now
     # says in three lines instead of twenty-two.
     "altitude_product": 20,
-    "decision_log_and_reflection": 43,
+    "decision_log_and_reflection": 42,   # 43 -> 42 (2026-08-28): the superseded
+    # "why you and not the reviewer" argument and the "UNLESS your boundary
+    # forbids it" exception merged into one statement of the rule in force.
     "headless_execution_guard": 6,
     "mutation_discipline": 12,
     "rules": 22,
