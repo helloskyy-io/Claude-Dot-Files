@@ -33,3 +33,23 @@ decision:
 
 - 2026-08-28 · 2026-08-28: second sighting, our own PR #145, and it caught the REVIEWER this time. `review-pr` pass 1 prescribed a fix for the stale body total; the fix landed exactly as written and `plan-verify` invalidated it fifteen minutes later by re-sizing. Pass 2 named the gap in its own prompt: *a prescription that lands correctly and is then invalidated by a later stage of the same dispatch has no name in this prompt.* Its remedy sharpens the candidate's: the fix is to REMOVE the literal, not to re-type it — re-typing is what put it back. Applied to #145's body on 2026-08-28.
 - 2026-08-28 · 2026-08-28: third sighting, and the first from another repo. MDC PM3's PR #171 RCA files it as RC4 with two flagged instances (passes 3 and 5): `plan-feature` wrote 'No hours, no days, no points, anywhere in this PR' — correct, it does not size — and `plan-verify` then appended ten hour figures with nothing retracting the claim. Their remedy matches ours exactly: the stage that falsifies an earlier claim retracts it, cheapest at `plan-verify`.
+
+
+## The remedy we proposed is ALREADY BUILT, and that is the finding
+
+**2026-08-28.** Both this item and MDC PM3's RC4 proposed *"the stage that falsifies an earlier claim retracts it."* **That instruction already exists**, in `prompts/submit_and_push.md` — the shared fragment EVERY producing child receives:
+
+> **RE-READ THE WHOLE BODY AGAINST THE TREE, not just the part you wrote.** … Open every path it names and confirm it exists; check every count and filename against what is on disk now.
+
+It is emphatic, it cites its own measured evidence, and **it predicted PR #145 exactly**: *"a fix that leaves the PR's own description stale mechanically manufactures findings for the next review pass (measured: 1-2 per round, and one pass found ZERO code defects — only self-description drift)."*
+
+**#145 produced 1–3 body findings per round, across three rounds, with that text in context every time.**
+
+**So writing the instruction is not the remedy — the strongest available version of it is already written and was ignored three times by three different actors.** The fragment names the cause itself: ***"there is no run whose job the body is, so it is nobody's until it is everybody's."***
+
+**That is a shared-ownership problem, and instructions do not fix those.** The two remedies that could:
+
+1. **Give the body ONE owner.** The last stage before `review-pr` reconciles it whole; earlier stages append and do not verify. Ownership beats exhortation, and it is testable — the owner either ran the check or did not.
+2. **A mechanical check.** Every figure and path in the body re-derived and diffed against the tree, in code, the way `phase_sizing` is. No model judgement, so no model to ignore it.
+
+**[[C-hdme5l4k]] is the same class, filed narrower and earlier**, for `research_verify`. Its `count` has been incremented; this item carries the general shape.
