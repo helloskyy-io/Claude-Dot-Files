@@ -67,6 +67,39 @@ def in_worktree(research_dir: Path, repo_root: Path, worktree: Path) -> Path:
         return research_dir      # already outside the repo; leave it alone
 
 
+def due_block(due: list[Path]) -> str:
+    """The papers `paper_currency` computed as expired, as an instruction block.
+
+    THE TABLE SAYS WHAT IS TRUE; THIS SAYS WHAT TO DO ABOUT IT. `paper_currency`
+    already reaches every research child, and every one of them discarded the due
+    list — so a run could cite a paper's staleness accurately in its synthesis and
+    still leave the paper stale, because nothing told it that was its job.
+
+    RETURNS EMPTY WHEN NOTHING IS DUE, which is the common case and must cost
+    nothing: an empty string drops out of the context block's `if b` filter, so a
+    current pool sends no bytes and reads no instruction it cannot act on.
+    """
+    if not due:
+        return ""
+    names = "\n".join(f"- `{p.name}`" for p in due)
+    return (
+        "**THESE PAPERS ARE PAST THEIR REVALIDATION WINDOW — computed in code from "
+        "each header's `Last validated:` and `Revalidate:`, not judged:**\n\n"
+        f"{names}\n\n"
+        "**Revalidate them in this cycle, with `research-currency` rather than "
+        "`research-analyst`.** The two agents do different jobs: an analyst writes a "
+        "paper, and currency diffs an existing one against a fresh sweep, records what "
+        "changed / is now wrong / is missing, re-examines whether the topic is still the "
+        "right question, and re-sets the interval. Handing a due paper to an analyst "
+        "rewrites what should have been diffed and loses the delta.\n\n"
+        "**If your task tells you to do something else, do that instead — and still "
+        "name these in `topics.md` under the gaps you did not cover this cycle, with "
+        "the reason.** An instruction narrows the work; it does not make the staleness "
+        "stop being true, and a pool that rots faster the more deliberately it is used "
+        "is the failure this block exists to prevent."
+    )
+
+
 def paper_currency(research_dir: Path, today: date | None = None) -> tuple[str, list[Path]]:
     """Compute staleness in code and return (rendered table, due papers).
 

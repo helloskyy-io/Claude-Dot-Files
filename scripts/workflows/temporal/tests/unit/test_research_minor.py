@@ -749,3 +749,48 @@ def test_the_model_key_is_its_own() -> None:
         "cycle, so the scaled-down shape costs the same per turn as the shape it "
         "was built to replace"
     )
+
+
+def test_the_DUE_LIST_reaches_the_write_child_and_costs_nothing_when_empty() -> None:
+    """The merge of `research-refresh` into the write child, held at its seam.
+
+    Every research child already computed `paper_currency` and every one of them
+    threw the due list away — `currency, _due = ...`. So a run could cite a
+    paper's staleness accurately in its synthesis and leave the paper stale,
+    because nothing told it that was its job. Measured 2026-08-28: 7 of 37 papers
+    due, and `research-refresh` had run ONCE in 399 logged runs.
+
+    THE EMPTY CASE IS THE PROPERTY THAT MATTERS. `research-refresh` could exit at
+    zero cost when nothing was due, and folding it in must not spend a run's
+    context on an instruction it cannot act on. An empty block drops out of the
+    context filter, so a current pool sends no bytes.
+    """
+    from modules.assistant.research import research_activities as ra
+    assert ra.due_block([]) == "", (
+        "a pool with nothing due must contribute NO bytes — this is the free "
+        "no-op `research-refresh` had and the merge must not lose."
+    )
+    block = ra.due_block([Path("p/raw/alpha.md"), Path("p/raw/beta.md")])
+    assert "`alpha.md`" in block and "`beta.md`" in block, "names the papers"
+    assert "research-currency" in block and "research-analyst" in block, (
+        "must say WHICH agent and why the other is wrong — handing a due paper "
+        "to an analyst rewrites what should have been diffed."
+    )
+    assert "topics.md" in block, (
+        "an instruction may narrow the work, but the staleness still has to be "
+        "reported where the next cycle reads it"
+    )
+
+
+def test_the_write_child_WIRES_the_due_list_rather_than_discarding_it() -> None:
+    """The other half: computing it and dropping it is what the fleet did before."""
+    wf = (Path(__file__).resolve().parents[2] / "modules" / "assistant" / "research"
+          / "research_write_minor" / "research_write_minor_workflow.py").read_text()
+    assert "currency, due = act.paper_currency(pool)" in wf, (
+        "the due list is being discarded again (`currency, _due = ...`). The table "
+        "alone tells a run what is stale without telling it to act."
+    )
+    assert "act.due_block(due)" in wf, (
+        "the due list is computed but never rendered into the context block, so "
+        "the run cannot see it."
+    )

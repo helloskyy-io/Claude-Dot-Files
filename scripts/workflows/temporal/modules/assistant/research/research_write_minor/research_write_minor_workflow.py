@@ -93,7 +93,17 @@ def run_write_minor(*, research_dir: Path, repo_root: Path, worktree: Path,
                     verbose: bool = False) -> str:
     """Research one TOPIC, write one paper and the synthesis, submit. Returns the PR URL."""
     pool = act.in_worktree(research_dir, repo_root, worktree)
-    currency, _due = act.paper_currency(pool)
+    # THE DUE LIST IS USED, NOT DISCARDED. `paper_currency` computes staleness in
+    # code — never delegated to a model, because one once marked four of eight
+    # papers past window when one was, correctly reasoned against a "today" it
+    # had invented. Both halves reach the run: the TABLE so it can cite currency
+    # honestly, and the DUE LIST so it can revalidate what has expired instead of
+    # leaving that to a separate dispatch nobody schedules.
+    #
+    # MEASURED 2026-08-28: 7 of 37 papers are due, all in the product pool, and
+    # `research-refresh` — the only thing that revalidates them — has run ONCE in
+    # 399 logged runs. A pool nothing revalidates rots at the rate it is written.
+    currency, due = act.paper_currency(pool)
 
     # `upstream_block` is kept and the ALTITUDE fragments are not, and the two
     # decisions are not in tension. The fragments decide whether a run also
@@ -126,6 +136,7 @@ def run_write_minor(*, research_dir: Path, repo_root: Path, worktree: Path,
         # one arm that silently loses the feature pools.
         act.component_pools_block(pool, worktree),
         currency,
+        act.due_block(due),
     ) if b]
 
     values = {
