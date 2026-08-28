@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 """Replay archived run logs through the fleet's completion predicates.
 
-WHY THIS IS KEPT (and not deleted as a one-shot): open direction row `D-007`
-(`docs/standards/architecture/research/direction.md`) rules on whether the
-VERDICT-token-on-stdout completion contract stands, gains a write-time gate, or
-is replaced. Its evidence is the miss rate of the incumbent grep, and a miss
+WHY THIS IS KEPT (and not deleted as a one-shot): the open question is whether
+the VERDICT-token-on-stdout completion contract stands, gains a write-time gate,
+or is replaced. Its evidence is the miss rate of the incumbent grep, and a miss
 rate over 14 review-pr logs is a different claim from the same rate over 140.
+
+NO TRACKED ITEM OWNS THAT QUESTION. `tracked/standards/S-fnpuwoy4.md` is the
+nearest and is not it — it asks whether to CODIFY the contract, not whether the
+contract stands. Said here so the gap is visible rather than papered over with a
+citation that does not answer.
 The denominator grows every time the fleet runs. Re-run this rather than
 re-deriving the method.
 

@@ -7,7 +7,7 @@
 #
 # Usage:
 #   ./plan_sprint.sh --verbose
-#   ./plan_sprint.sh --candidates docs/standards/architecture/research/candidates.md
+#   ./plan_sprint.sh --candidates tracked/candidates
 #   ./plan_sprint.sh --pr 42 --verbose
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

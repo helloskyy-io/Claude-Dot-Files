@@ -51,11 +51,11 @@ A working record is any record with all five. **No property below is stated in t
 **QUESTION 0, asked before the other two, because everything downstream is wrong without it: is this a DEFECT or a PROPOSAL?**
 
 - **A defect** — something already built or already decided behaves wrongly, or a decision the existing research and planning do not supply is now blocking. Continue to questions 1 and 2.
-- **A proposal** — capability that does not exist yet and would be *added*. **It goes to `candidates.md` and it is NEVER an Issue**, however clean its done-state looks. Stop here; questions 1 and 2 do not apply to it.
+- **A proposal** — capability that does not exist yet and would be *added*. **It goes to [`tracked/candidates/`](../../tracked/candidates/) and it is NEVER an issue**, however clean its done-state looks. Stop here; questions 1 and 2 do not apply to it.
 
 **Why this is question 0 rather than a note.** Without it a proposal answers *"nothing changed"* and *"yes, it has a done-state"* — because *"add a link checker"* has a perfectly clean done-state — and the rule routes it to **Issue**. That is not a misreading of the rule; it is the rule working as written, and it is measured: across two repos in one cycle roughly a third of everything filed was a proposal wearing a defect's clothes, and clearing them cost two working days against zero days of development.
 
-**The asymmetry is deliberate.** Issues are the human-in-the-loop queue and are reserved for the hardest cases, so **question 0 is biased toward `candidates.md`**: when a finding could plausibly be read either way, it is a proposal. A proposal misfiled as a candidate costs a triage pass; a proposal misfiled as an Issue costs an operator's day.
+**The asymmetry is deliberate.** The issue store is the human-in-the-loop queue and is reserved for the hardest cases, so **question 0 is biased toward the proposal store**: when a finding could plausibly be read either way, it is a proposal. A proposal misfiled as a candidate costs a triage pass; a proposal misfiled as an issue costs an operator's day.
 
 Once question 0 says *defect*, which record it goes to is decided by **two further questions, in this order** — neither of which mentions a substrate:
 
@@ -64,7 +64,7 @@ Once question 0 says *defect*, which record it goes to is decided by **two furth
 
 Those two questions produce exactly three classes. **A fourth class exists and is a genuine one:** an outcome whose resolution is not work at all but a *ruling* — a preference, a priority, a commitment that no amount of further work would uncover. §2.4.
 
-**Four outcome classes, five surfaces — and the fifth surface holds PROPOSALS, which are not outcomes at all.** Questions 1 and 2 route things that already *are* outcomes. A proposal has not been dispositioned yet, so it has no outcome class to route by — which is exactly why it needs question 0 in front, and why the earlier version of this section, which said the rule *"never selects" `candidates.md`, produced the misfiling described above. **The rule does select it: question 0 does.** Entries are *created* there and acquire an outcome class later, at which point questions 1 and 2 apply to them normally. A rule that appeared to route to every surface would have to pretend an untriaged proposal is a decided thing, and §2.5 records what that costs: *a blank decision is not the same as `open`*, and collapsing the two is what put seven untriaged candidates on a surface whose own rules forbid them.
+**Four outcome classes, five surfaces — and the fifth surface holds PROPOSALS, which are not outcomes at all.** Questions 1 and 2 route things that already *are* outcomes. A proposal has not been dispositioned yet, so it has no outcome class to route by — which is exactly why it needs question 0 in front, and why the earlier version of this section, which said the rule *"never selects"* the proposal store, produced the misfiling described above. **The rule does select it: question 0 does.** Entries are *created* there and acquire an outcome class later, at which point questions 1 and 2 apply to them normally. A rule that appeared to route to every surface would have to pretend an untriaged proposal is a decided thing, and §2.5 records what that costs: *a blank decision is not the same as `open`*, and collapsing the two is what put seven untriaged candidates on a surface whose own rules forbid them.
 
 ### 1.2 · The discipline that makes it work
 
@@ -87,9 +87,9 @@ They are not interchangeable, and collapsing any two of them is a recurring fail
 |---|---|---|---|---|---|
 | **PR threads** | change-outcomes — what got built, the run's own decision log and reflection, and the `pr_review:` disposition ruling on it | PR `open` | closes at merge | every PR-producing workflow; `review-pr` posts the disposition | the operator, and the next run through the PR body |
 | **`tracked/issues/`** | a **defect** — code, docs or the planning corpus — found while building something unrelated | `status: open` | filed → ruled → `resolved` / `rejected`, then pruned | `review-pr` (sole autonomous filer), by **intake** | sprint close-out |
-| **`tracked/operations/`** | continuity — operating state, next moves, work in flight. **No single done-state** | `state:` | items are **pruned**, never closed | **the operator alone** — no autonomous write, ever (§1.2) | every `/standup` |
+| **`tracked/operations/`** | continuity — operating state, next moves, work in flight. **No single done-state** | `status:` | items are **pruned**, never closed | **the operator alone** — no autonomous write, ever (§1.2) | every `/standup` |
 | **`tracked/candidates/`** | a **proposal**, and the reasoning behind every `ship` / `requires review` / `reject`. **`requires review` IS the ruling queue** | `status: open` | filed → ruled → `adopted` / `rejected` | producing runs place their own; `triage-candidates` rules `decision` | `triage-candidates`, `plan-feature`, `plan-verify`, `plan-sprint` |
-| **`tracked/standards/`** | a proposed amendment to a **named** standard, with an actionable anchor | `status: open` | filed → `ratified` / `amended` / `rejected` | any run that surfaces one — filing is surfacing, not editing | the standards pass |
+| **`tracked/standards/`** | a proposed amendment to a **named** standard, with an actionable anchor | `status: open` | filed → `ratified` / `amended` / `rejected` | **`review-pr` only** — a producing run surfaces it in its PR (2026-08-27 ruling) | the standards pass |
 
 > **THE RULING CLASS LOST ITS OWN SURFACE AND GAINED NOTHING, WHICH IS THE POINT.** `direction.md` was a fifth surface holding `D-NNN` rows for findings only the operator could rule on. Every row pointed at a candidate that already carried `decision: requires review` — the same signal, in a store that already had a triage cadence — so the second surface added an id and nothing else. It had a reader and **no ruler**, and five rows sat unruled for three weeks. **A `requires review` candidate is the ruling queue now.** Giving this class a surface again is what [Tracked Items §8](../standards/documentation/tracked_items_standard.md) calls a violation.
 
@@ -99,15 +99,15 @@ They are not interchangeable, and collapsing any two of them is a recurring fail
 
 Apply §1.1's questions, **starting with question 0**:
 
-- **A PROPOSAL — capability that does not exist yet** → **`candidates.md`**. Never an Issue, whatever its done-state looks like. Bias toward this when a finding reads either way: a proposal misfiled here costs a triage pass, a proposal misfiled as an Issue costs an operator's day.
+- **A PROPOSAL — capability that does not exist yet** → **[`tracked/candidates/`](../../tracked/candidates/)**. Never an issue, whatever its done-state looks like. Bias toward this when a finding reads either way: a proposal misfiled here costs a triage pass, a proposal misfiled as an Issue costs an operator's day.
 - **Something changed** → **PR thread**. The change and its ruling live together, and both die at merge because the change is then history.
-- **Nothing changed, and it has a done-state** → **Issue**. It can be finished, so it must be able to close.
-- **Nothing changed, and it has no done-state** → **standup tracker**. Operating state is a condition, not a task.
+- **Nothing changed, and it has a done-state** → **[`tracked/issues/`](../../tracked/issues/)**. It can be finished, so it must be able to close.
+- **Nothing changed, and it has no done-state** → **[`tracked/operations/`](../../tracked/operations/)**. Operating state is a condition, not a task.
 - **Nothing changed, and the resolution is a ruling rather than work** → **a candidate carrying `decision: requires review`**. No amount of further work would produce the answer; only the operator can.
 
 **That is the whole rule.** It is stated as a rule and not implied by examples on purpose: an example-driven table answers the cases someone thought of, and the failure mode here is always the case nobody thought of.
 
-**`candidates.md` is reached by question 0 and by nothing else** — questions 1 and 2 never select it, because a proposal has no outcome class for them to read. *(Corrected 2026-08-09: this paragraph previously said nothing was routed there at all, which left a proposal to fall through questions 1 and 2 into **Issue**. That is the measured misfiling this correction exists to stop.)*
+**`tracked/candidates/` is reached by question 0 and by nothing else** — questions 1 and 2 never select it, because a proposal has no outcome class for them to read. *(Corrected 2026-08-09: this paragraph previously said nothing was routed there at all, which left a proposal to fall through questions 1 and 2 into the issue surface. That is the measured misfiling this correction exists to stop.)*
 
 **A run is not expected to know where a proposal belongs in the plan** — only that it is a proposal. Deciding whether it becomes a sprint, a phase, or nothing is a separate triage job with its own criteria, and asking a dispatch to do it inline is what produced feature requests filed as Issues in the first place.
 
@@ -203,9 +203,8 @@ Four lifecycle shapes exist, discriminated by **what ends a record's life** — 
 | Issues | until ruled; closed with evidence | none needed — closing *is* the bound | an issue surviving a standup in the same state |
 | Standup tracker | permanent document, transient lines | `state: resolved` + ≥14 days → deleted from the body | month-over-month growth |
 | `tracked/candidates/` | one file per item | `adopted` 14 days after last activity; `rejected` at six months, so a rejection stays findable | rows accumulating unruled |
-| `candidates.md` | permanent file, permanent rows | **none, by design** — a row is never deleted, because a rejected candidate that disappears gets re-proposed | rows accumulating with a **blank `decision`** — untriaged, not outstanding |
 
-**`candidates.md` is the one row here with no pruning rule, and that is not an omission.** Its bound is on the other axis: every row must reach a `decision`, and *"leaving a row blank is not a disposition."* The growth signal is therefore blank decisions rather than row count — a file of 45 fully-triaged rows is healthy and a file of 5 untriaged ones is not, which is the opposite of what a size check would report.
+**`tracked/candidates/` prunes like every other store ([Tracked Items §4.2](../standards/documentation/tracked_items_standard.md)) — but its health signal is on a second axis:** every row must reach a `decision`, and *"leaving a row blank is not a disposition."* The growth signal is therefore blank decisions rather than row count — a file of 45 fully-triaged rows is healthy and a file of 5 untriaged ones is not, which is the opposite of what a size check would report.
 
 **Append-only history has no binding in this fleet yet, and the table above is five surfaces rather than six for that reason.** Every surface here is Transactional, Task or Continuous; nothing in daily use is append-only history. Building it — the journal, its retention budget and its snapshots — is the [Persistent Memory Protocol](../development/persistent-memory-protocol/roadmap.md)'s work, and this table gains a row when that lands rather than before. **A row written ahead of the surface would be a retention rule nobody is obliged to follow**, which is the failure §3.1's bound exists to name.
 
@@ -322,7 +321,7 @@ Retrieval is *addressing*, not *location*. "It is posted on the PR" is a locatio
 | Ordering rule | comment creation order on the thread; **last wins** | `/standup` `standup.md:48` — *"the LATEST comment containing a `pr_review:` yaml block"* |
 | Sequence number | the block's `pass:` key, written by the producer | **two emitters** — `review-pr.sh:346` (counter at `:141-143`) and `disposition.md` (V2 writes the same key) |
 
-For the other four surfaces the address is simpler and complete: **Issues** — `owner/repo#N`, one record per container, no ordering needed. **Tracker** — discovered *by title* (`standup-tracker in:title`), never by number, so it stays portable across repos; per-line `id` inside. **the `tracked/` stores** — `<PREFIX>-<8 random base36>`, never reused, and the filename IS the id, so an id in a commit message resolves to a file without a lookup. It carries it to `candidates.md`. **`candidates.md`** — `C-NNN`, on the same never-reused/never-renumbered rule, and it is the terminal address of the pair: a `D-NNN` resolves to a `C-NNN` and a `C-NNN` resolves to nothing further, which is what lets the `D-NNN` be deleted.
+For the other surfaces the address is simpler and complete: **PR threads** — `owner/repo#N`, one record per container, no ordering needed. **The `tracked/` stores** — `<PREFIX>-<8 random base36>`, never reused, and **the filename IS the id**, so an id in a commit message resolves to a file without a lookup. An id is terminal: it resolves to one item and to nothing further.
 
 ### 6.3 · What retrieval costs today
 

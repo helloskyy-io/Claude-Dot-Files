@@ -1385,29 +1385,19 @@ def phase_sizing(component: Path) -> PhaseSizing:
         hours = float(next(g for g in m.groups() if g)) if m else None
         rows.append((line.lstrip("# ").strip(), hours))
 
-    # THE PRE-RULE-8 FORM, READ ONLY WHEN THE RULE-8 FORM FOUND NOTHING.
+    # THE PRE-RULE-8 CHECKBOX FORM. `documentation_standard.md` rule 8 binds
+    # every phase-entry reader to accept it until the corpus finishes converting,
+    # and rule 4 converts a roadmap only when someone is already working in it.
     #
-    # `documentation_standard.md` rule 8 BINDS this: *"Tooling that reads phase
-    # entries MUST accept the checkbox-list form until the corpus finishes
-    # converting."* Measured 2026-08-28 before it existed — a checkbox-form
-    # roadmap read **0 phases / 0 h** while the rule-8 form read correctly. On
-    # MDC's corpus that is 12 of 39 roadmaps, and a zero here is not inert: it
-    # makes `sizing_block` render *"lists no phases"*, which withholds the
-    # `(~Nh total · ~Nh to-do)` template that block otherwise supplies — so the
-    # run falls back to copying its target file's neighbours and writes whatever
-    # shape they carry. **That is exactly how `~128h sized ·` reached MDC PR
-    # #171**: not a tool ignoring the convention, a tool with nothing to say.
+    # A ZERO HERE IS NOT INERT: `sizing_block` renders "lists no phases" and so
+    # withholds the `(~Nh total · ~Nh to-do)` template it otherwise hands the run,
+    # which then copies its target file's neighbours instead. The sprint header's
+    # shape therefore depends on this counter finding phases.
     #
-    # ALTERNATIVES, NOT ADDITIVE, and the fallback is deliberate rather than a
-    # merge. Rule 4's migration clause converts a roadmap as a unit, so the two
-    # shapes are successive states of one file rather than a mixture. Reading
-    # both and merging would need a dedupe key, and the only exact one is the
-    # phase-doc name, which the rule-8 path does not capture.
-    #
-    # A HALF-CONVERTED ROADMAP THEREFORE UNDERCOUNTS — and that failure is
-    # already caught: `sizing_floor` counts phase-doc FILES ON DISK, so fewer
-    # phases than docs fails loudly there. Undercounting announces itself; the
-    # silent case this whole function exists to prevent is the wrong count.
+    # ALTERNATIVES, NOT ADDITIVE — a mid-conversion file holds both notations for
+    # one phase, and summing them doubles its hours. Undercounting is the chosen
+    # trade because `sizing_floor` counts phase-doc FILES ON DISK and fails loudly
+    # on a short read, where a doubled total is silent.
     if not rows:
         starts = [n for n, line in enumerate(text) if _CHECKBOX_PHASE.match(line)]
         for i, n in enumerate(starts):

@@ -7,7 +7,7 @@
 #
 # Usage:
 #   ./triage_candidates.sh --verbose
-#   ./triage_candidates.sh --candidates docs/standards/architecture/research/candidates.md
+#   ./triage_candidates.sh --candidates tracked/candidates
 #   ./triage_candidates.sh --pr 42 --verbose
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

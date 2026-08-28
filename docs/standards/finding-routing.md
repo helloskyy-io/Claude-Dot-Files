@@ -84,7 +84,7 @@ Filing authority for **defects** sits with the reviewer, not the discoverer, and
 
 **That argument does not reach proposals.** A proposal is capability that does not exist, so **by construction it is not work the run was asked to do and not scope it could be dodging.** The asymmetry the rule rests on is simply absent.
 
-**Therefore: a producing run MAY place its own proposals, in its own PR.** It has the commit mechanism, the proposal lands in the same artifact the human reviews, and the reviewer retains the authority that matters — **ruling whether the classification was right**, and holding the PR if a proposal was a defect in disguise.
+**SUPERSEDED 2026-08-27.** This subsection concluded that a producing run MAY place its own proposals. **The rule is uniform: `review-pr` files into all three autonomous stores; a producing run surfaces its finding in the PR and files nothing.** The argument above fails on its premise — it treats the disposal chute as the only thing the reviewer protects, when *defect-or-proposal* is itself a call the run has an interest in.
 
 ## 5 · `INTERFACE` — The gates, in order, before anything is filed
 
@@ -170,8 +170,8 @@ These are **vendored MIRROR** copies. **They win where they overlap this documen
 |---|---|---|---|
 | change record | PR thread | **API** | every PR-producing run; `review-pr` posts the disposition |
 | **DEFECT** | [`tracked/issues/`](../../tracked/issues/) | **COMMIT**, or **INTAKE** | **`review-pr` only.** A PR-producing run never files its own defect — that is the disposal chute below |
-| **PROPOSAL** | [`tracked/candidates/`](../../tracked/candidates/) | **COMMIT**, or **INTAKE** | the **producing run**, in its own PR (§4). `review-pr` by intake **only** for a proposal the run never surfaced |
-| **STANDARDS AMENDMENT** | [`tracked/standards/`](../../tracked/standards/) | **COMMIT**, or **INTAKE** | any run that surfaces one. **Filing is surfacing, not editing** — Governance permits it. `ratification` is the operator's alone |
+| **PROPOSAL** | [`tracked/candidates/`](../../tracked/candidates/) | **COMMIT**, or **INTAKE** | **`review-pr` only** — same rule as a defect. A producing run SURFACES the proposal in its PR and files nothing |
+| **STANDARDS AMENDMENT** | [`tracked/standards/`](../../tracked/standards/) | **COMMIT**, or **INTAKE** | **`review-pr` only.** A producing run surfaces it in its PR. `ratification` is the operator's alone |
 | **OPERATING STATE** | [`tracked/operations/`](../../tracked/operations/) | **COMMIT** | **operator and PM sessions only** — no autonomous run, ever (Tracked Items §1.2) |
 
 > **THE RULING CLASS HAS NO SURFACE OF ITS OWN, AND THAT IS THE 2026-08-26 CORRECTION.** It had one: `direction.md`, a table beside the research pool with its own `D-NNN` series. **Deleted.** Every row it held pointed at a source candidate that still existed carrying `decision: requires review, status: open` — which IS the signal "a human owes a ruling", in a store that already has a triage cadence and a named runner. The second surface added an id and nothing else, and in three weeks **nobody ruled a single row on it**: it had a reader (`/standup` rotated it) and no ruler, which is [§0](documentation/tracked_items_standard.md)'s second property failing in the open. **A `requires review` candidate IS the ruling queue.** Do not give this class a surface again; §8 names a second surface for a class that already has one as a violation.
@@ -193,7 +193,8 @@ These are **vendored MIRROR** copies. **They win where they overlap this documen
 - A proposal parked on the continuity surface, whose own rules forbid it
 - A finding routed to a surface its named writer cannot mechanically write
 - A new container opened without the four gates, or without both lens verdicts recorded
-- A run declining to place a proposal because no actor is permitted to — **that is a defect in this standard, and it is filed against this standard**
+- A **producing run** filing into `tracked/` at all — it surfaces in the PR; `review-pr` files
+- `review-pr` ending a review with a surfaced finding it neither filed nor explicitly rejected
 
 ---
 

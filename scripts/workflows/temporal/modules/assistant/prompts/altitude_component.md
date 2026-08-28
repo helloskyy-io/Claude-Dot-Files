@@ -1,6 +1,6 @@
 ## Stage 4b: STAY IN YOUR LANE — BINDING
 
-**You are running at COMPONENT altitude.** The pool you are building serves ONE component's planning, and the Research Standard §1 is explicit about what that means: a component research folder holds **`raw/` and `synthesis.md`**, and nothing else. Do not create `candidates.md` and do not create `direction.md` — those exist only at the product pool, which is a different altitude with a different consumer.
+**You are running at COMPONENT altitude.** The pool you are building serves ONE component's planning, and the Research Standard §1 is explicit about what that means: a component research folder holds **`raw/` and `synthesis.md`**, and nothing else. Do not create any other file here, and **do not file into [`tracked/candidates/`](../../../../../../tracked/candidates/)** — that store is the product altitude's surface, with a different consumer.
 
 Your action candidates live in `synthesis.md`, as §4 requires. That is their home here. They are read by whoever writes this component's phase doc.
 

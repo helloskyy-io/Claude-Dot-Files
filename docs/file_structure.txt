@@ -624,6 +624,10 @@ claude-dot-files/
 │                   │                                #   that exist in this tree — a word-keyed pattern would fail three correct runs
 │                   ├── test_phase_sizing.py         # The sprint header's TOTAL and TO-DO — the two figures
 │                   │                                #   4042357 shipped with no test at all
+│                   ├── test_phase_sizing_reads_the_pre_rule_8_checkbox_form.py
+│                   │                                # Rule 8 obliges every phase-entry reader to accept the
+│                   │                                #   checkbox list until the corpus converts; a zero here
+│                   │                                #   withholds the sprint header's own template
 │                   ├── test_recurrence.py           # The ranking, and the ruling it REFUSES to make — this
 │                   │                                #   module ranks and the filer rules, because a wrong merge
 │                   │                                #   buries a finding where a duplicate costs one ruling
