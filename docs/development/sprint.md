@@ -171,14 +171,15 @@ Taking apart the long-running workflows that already existed, so each boundary i
 
 ## Sprint: Persistent Memory Protocol — Part 1
 
-🟡 IN PROGRESS
+🟡 IN PROGRESS · (~168h total · ~132h to-do)
 
-All of memory in this fleet — the framework and the protocol. Every run writes a folder; the folder is the truth, and every other store is rebuilt from it. The phases in this part have no external gate and depend only on each other. **One run, one identity** builds second, straight after the run bag, and ahead of the content store.
+All of memory in this fleet — the framework and the protocol. Every run writes a folder; the folder is the truth, and every other store is rebuilt from it. The phases in this part have no external gate and depend only on each other. **One run, one identity** builds second, straight after the run bag, and ahead of the content store. Across both parts the component is ~258h total, ~222h to-do.
 
 - [x] **Persistent Memory Protocol · The journal root and the run bag** · ([roadmap](persistent-memory-protocol/roadmap.md) · [phase](persistent-memory-protocol/phase1_the_run_bag.md)) — one configurable root per machine, one folder per run keyed by `run_id`, a valid BagIt bag with a manifest a validator re-checksums
 - [ ] **Persistent Memory Protocol · One run, one identity** · ([roadmap](persistent-memory-protocol/roadmap.md) · [phase](persistent-memory-protocol/phase9_one_run_one_identity.md)) — one authority names a run, the name is handed TO the journal rather than made by it, and every shape an invocation can take resolves to one bag under one name
 - [ ] **Persistent Memory Protocol · The content store** · ([roadmap](persistent-memory-protocol/roadmap.md) · [phase](persistent-memory-protocol/phase2_content_store.md)) — every cited artifact stored by checksum, and a `verify` that resolves every citation with the network disabled
 - [ ] **Persistent Memory Protocol · The emit rule** · ([roadmap](persistent-memory-protocol/roadmap.md) · [phase](persistent-memory-protocol/phase3_the_emit_rule.md)) — every write path emits the authored content verbatim with the destination as a field; a failed journal write is never silent
+- [ ] **Persistent Memory Protocol · The model-issued harvest** · ([roadmap](persistent-memory-protocol/roadmap.md) · [phase](persistent-memory-protocol/phase10_the_model_issued_harvest.md)) — what a run wrote to its GitHub surfaces after it exits, fetched by run id and emitted verbatim, with a standing check that goes red when the harvest is disabled
 - [ ] **Persistent Memory Protocol · Rebuildability is a test** · ([roadmap](persistent-memory-protocol/roadmap.md) · [phase](persistent-memory-protocol/phase4_rebuild_is_a_test.md)) — replay reproduces the `tracked/` stores; deleting one emit makes the test fail
 - [ ] **Sprint close-out** · ([checks](close_out/sprint_end_recurring.md)) — recurring checks run for this sprint and every finding dispositioned (fixed / rejected-with-reasoning / placed); no open issue belongs to this sprint's work
 
@@ -201,7 +202,7 @@ The port to durable execution. Phases are listed in BUILD order, which is not th
 
 ## Sprint: Persistent Memory Protocol — Part 2
 
-🟠 PLANNED
+🟠 PLANNED · (~90h total · ~90h to-do)
 
 The four phases that wait on something that does not exist yet.
 
