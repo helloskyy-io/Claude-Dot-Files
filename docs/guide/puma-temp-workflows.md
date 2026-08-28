@@ -82,12 +82,11 @@ then planning till satisfied, then building the plan.
 ```
 project-manager                                      PARENT OF PARENTS — the project as a whole, research through build
 │
-├── research --project                               PARENT
+├── research --project-large or --project-small      PARENT
 │   ├── research-write │ research-write --minor      large project │ small project
 │   ├── research-verify
-│   │   └── (loop as allowed)
 │   ├── review-pr
-│   │   └── (loop as allowed)
+│   ├── (loop as allowed)
 │   └── ◆ HiL — repeat until happy
 │
 ├── merge-pr                                         Merge PR, and proceed to next workflow (based on logic)
@@ -113,8 +112,8 @@ project-manager                                      PARENT OF PARENTS — the p
 │   │
 │   ├── merge-pr                                     Merge PR, and proceed to next workflow (based on logic)
 │   │
-│   ├── plan-feature --feature                       PARENT — pointed at the feature (or its stub) and the research. Research not required
-│   │   ├── plan --feature                           plans the feature: roadmap + phases (epics), referenced onto the sprint
+│   ├── plan --feature                               PARENT — pointed at the feature (or its stub) and the research. Research not required
+│   │   ├── plan-write                               plans the feature: roadmap + phases (epics), referenced onto the sprint
 │   │   ├── plan-verify                              checks the planning, fixes issues, sizes each phase in hours from its complexity
 │   │   ├── plan-sprint                              adds the new feature if any; a changed phase estimate re-totals the sprint. New sprints are
 │   │   │                                            calculated at creation time
@@ -123,8 +122,8 @@ project-manager                                      PARENT OF PARENTS — the p
 │   │
 │   ├── merge-pr                                     Merge PR, and proceed to next workflow (based on logic)
 │   │
-│   ├── build-feature                                PARENT (potentially several passes here)
-│   │   ├── build
+│   ├── build --feature                              PARENT (potentially several passes here)
+│   │   ├── build-write
 │   │   ├── build-refine
 │   │   ├── review-pr
 │   │   └── ◆ HiL — repeat until happy

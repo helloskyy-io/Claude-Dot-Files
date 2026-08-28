@@ -20,7 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from preflight import RepoPathParser, preflight  # noqa: E402
+from preflight import RepoPathParser  # noqa: E402
 from dispatch_identity import add_identity_arguments, resolve_identity  # noqa: E402
 from modules.assistant import assistant_activities as act  # noqa: E402
 from modules.journal import journal_activities as journal  # noqa: E402
@@ -31,7 +31,7 @@ DEFAULT_CANDIDATES = "tracked/candidates"
 DEFAULT_SPRINT = "docs/development/sprint.md"
 
 
-def parse_args(argv: list[str] | None = None):
+def _parser() -> RepoPathParser:
     p = RepoPathParser(prog="plan",
                        description="Plan ONE component end to end: write, verify, size, "
                                    "reconcile the sprint, disposition.")
@@ -48,30 +48,35 @@ def parse_args(argv: list[str] | None = None):
     p.add_argument("--dry-run", action="store_true",
                    help="resolve and print the chain; no child runs, no spend")
     add_identity_arguments(p)
-    return p.parse_args(argv)
+    return p
 
 
 def main(argv: list[str] | None = None) -> int:
-    a = parse_args(argv)
+    p = _parser()
     try:
-        repo_root = preflight(a.repo_target)
+        # ONE CALL, NOT THREE. `parse_with_preflight` runs preflight, RESOLVES
+        # every declared repo path against the repo root and refuses one that
+        # escapes it. Doing those by hand is what broke this runner on its first
+        # live run: the component arrived repo-RELATIVE, went to the children
+        # as-is, and their `relative_to(repo_root)` raised
+        # "not in the subpath of ..." — a failure naming the wrong cause.
+        a, repo_root, resolved = p.parse_with_preflight(argv)
+        # READ INSIDE THIS try, so a bad `--task-file` prints the same one-line
+        # diagnostic as a bad `--repo` rather than a traceback. Both are
+        # operator input and neither has created anything yet.
+        context = act.task_context(repo_root, a.task_file)
     except RuntimeError as exc:
+        # Nothing has been created yet — that is the point of preflight.
         print(f"\n✗ {exc}", file=sys.stderr)
         return 1
-
-    component = Path(a.component)
-    # ANCHORED, NOT `Path()`-ed. A relative `--task-file` resolves against the
-    # REPO ROOT, never the process cwd — `act.anchor_task_source` is the only
-    # statement of that rule and restating it here is what it exists to prevent.
-    context = ""
-    if a.task_file:
-        context = act.anchor_task_source(repo_root, a.task_file).read_text()
+    component, cands, sprint = (resolved["component"], resolved["candidates"],
+                                resolved["sprint"])
 
     if a.dry_run:
         print(f"{BANNER}\n  DRY RUN — no child runs, nothing posted\n{BANNER}")
-        print(f"  Component  : {component}")
-        print(f"  Sprint     : {a.sprint}")
-        print(f"  Candidates : {a.candidates}")
+        print(f"  Component  : {component.relative_to(repo_root)}")
+        print(f"  Sprint     : {sprint.relative_to(repo_root)}")
+        print(f"  Candidates : {cands.relative_to(repo_root)}")
         print(f"  PR         : {a.pr_number or '(a new one will be opened)'}")
         print(f"  Context    : {len(context.encode())} bytes from --task-file"
               if context else "  Context    : none")
@@ -92,7 +97,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         pr_url, verdict, notes = run_plan(
             component=component, repo_root=repo_root, worktree_name=worktree_name,
-            sprint_path=Path(a.sprint), candidates_path=Path(a.candidates),
+            sprint_path=sprint, candidates_path=cands,
             context=context, pr_number=a.pr_number, repo_target=a.repo_target,
             verbose=a.verbose,
         )
