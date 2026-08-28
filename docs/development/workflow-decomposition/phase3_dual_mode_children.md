@@ -1,4 +1,4 @@
-# Phase 3 — Dual-mode children
+# Dual-mode children
 
 **Component:** [Workflow Decomposition](roadmap.md) · **Status:** not started · **Gate:** none — the ruling this phase waited on was made on 2026-08-19
 
@@ -33,7 +33,7 @@ This phase was planned on 2026-08-18 as a roadmap entry with no phase doc, becau
 3. **The shim-naming guard covers all twenty**, extended in the same change that adds the nine. `test_shim_usage_names_itself.py` exists because three earlier entry scripts shipped with usage text copied from whichever script they were cloned from. Adding nine adapters without extending the guard risks that defect at three times today's scale.
 4. **`research_refresh_parent` has an entrypoint of its own.** Not "becomes invocable" — it already is. See § *The roadmap checkbox's premise is wrong as measured*.
 5. **Each of the nine is DEMONSTRATED to run alone, end to end**, with the invocation and what came back recorded. Constructing a runner is not the deliverable; the deliverable is a child a person can exercise, and only running it shows that. This is the phase's end-to-end proof and requirements 1–4, 6 and 7 are not complete without it.
-6. **The nine adapters are ruled as ONE family, once, before the first is written** — not pair-by-pair afterwards. [Phase 2](phase2_family_alignment.md) shipped with its per-pair ruling procedure measured at **κ = 0.000** and demoted to advisory; per-FAMILY ruling is the granularity that replaced it. Nine near-identical runners written from one template in one sitting are a single category of guidance, and this phase inherits the obligation to rule them that way. See § *What this phase inherits from Phase 2's blind trial*.
+6. **The nine adapters are ruled as ONE family, once, before the first is written** — not pair-by-pair afterwards. [Family alignment](phase2_family_alignment.md) shipped with its per-pair ruling procedure measured at **κ = 0.000** and demoted to advisory; per-FAMILY ruling is the granularity that replaced it. Nine near-identical runners written from one template in one sitting are a single category of guidance, and this phase inherits the obligation to rule them that way. See § *What this phase inherits from the blind trial in *Family alignment**.
 7. **The mechanism the nine share is EXTRACTED before they are written**, not detected afterwards. **No guard in this repo can see duplication in a Python runner** — the fact that makes requirement 6 cost a design decision rather than a lookup. See § *The runner corpus has no duplication guard, and this phase's own notes assume one*.
 
 ---
@@ -77,21 +77,21 @@ The pre-existing checkbox says *"`research_refresh_parent` has no entrypoint —
 
 **The checkbox is carried verbatim into [`roadmap.md`](roadmap.md) anyway**, because a planning run does not reword a completion criterion. This paragraph is the correction, and requirement 4 is what a builder works from. Source: [`raw/invocation_contract.md`](research/raw/invocation_contract.md) §5.1.
 
-### What this phase inherits from Phase 2's blind trial
+### What this phase inherits from the blind trial in *Family alignment*
 
-[`sprint.md`](../sprint.md) records that [Phase 2](phase2_family_alignment.md) shipped with an open question **"which Phase 3 inherits"**, and until 2026-08-28 the inheritance existed only in that sentence. It is named here because it changes how the nine get built.
+[`sprint.md`](../sprint.md) records that [Family alignment](phase2_family_alignment.md) shipped with an open question this phase inherits, and until 2026-08-28 the inheritance existed only in that sentence. It is named here because it changes how the nine get built.
 
-**What was measured.** [`fork_vs_parameterize_blind_trial.md`](fork_vs_parameterize_blind_trial.md) scored two blind raters against revealed history at **κ = 0.000**, against the field's benchmark of 0.271. Phase 2's requirement named that threshold in advance as the trigger to change granularity, so it fired: **ruling moved from per-pair to per-family**, a per-pair verdict is now advisory, and the rulings that emptied the frozen duplication baseline live as `FAMILY_RULINGS` — *one per category of guidance, not one per pair*.
+**What was measured.** [`fork_vs_parameterize_blind_trial.md`](fork_vs_parameterize_blind_trial.md) scored two blind raters against revealed history at **κ = 0.000**, against the field's benchmark of 0.271. *Family alignment*'s requirement named that threshold in advance as the trigger to change granularity, so it fired: **ruling moved from per-pair to per-family**, a per-pair verdict is now advisory, and the rulings that emptied the frozen duplication baseline live as `FAMILY_RULINGS` — *one per category of guidance, not one per pair*.
 
 **Why it lands on THIS phase and not on whichever happens to be next.** This phase's own § Notes already says the nine adapters are *"a copying event waiting to happen … written in one sitting, from one template, by one run."* That is the exact population the demoted procedure would otherwise be asked to rule on afterwards — **and it would rule at chance.** The remedy is not a better reviewer; it is **ruling the category before the copies exist**, which is what per-family granularity means in practice and is the only order in which it is cheap.
 
-**Concretely, requirement 6 is satisfied when** the nine adapters carry ONE ruling naming which parts of a runner are family-invariant — argument parsing shape, exit-code translation, the `resolve_repo_root` call, the usage block's self-naming — and which are legitimately per-child, with each deliberate variant carrying Phase 2's `differs from <sibling> because <reason>` line. **Nine separate rulings is the failure, not the fallback.**
+**Concretely, requirement 6 is satisfied when** the nine adapters carry ONE ruling naming which parts of a runner are family-invariant — argument parsing shape, exit-code translation, the `resolve_repo_root` call, the usage block's self-naming — and which are legitimately per-child, with each deliberate variant carrying *Family alignment*'s `differs from <sibling> because <reason>` line. **Nine separate rulings is the failure, not the fallback.**
 
 **What this does NOT claim.** κ = 0.000 came from seven pairs and two LLM raters, and the trial names both limits itself. It is not evidence that per-pair ruling is impossible — it is the reason this phase does not *depend* on per-pair ruling being reproducible, which is a weaker and sufficient claim.
 
 ### The runner corpus has no duplication guard, and this phase's own notes assume one
 
-**Measured 2026-08-28, and both halves of [Phase 2](phase2_family_alignment.md)'s alignment apparatus are scoped to prompt markdown.**
+**Measured 2026-08-28, and both halves of [Family alignment](phase2_family_alignment.md)'s alignment apparatus are scoped to prompt markdown.**
 
 1. **The duplication ratchet reads `ASSISTANT.rglob("prompts/*.md")`** (`tests/unit/test_prompt_blocks_are_shared_not_copied.py:137`). Its population is prompt blocks under `modules/assistant/**/prompts/`. **A Python file under `scripts/` is not in it, cannot add a row to the frozen baseline, and cannot turn the module red.**
 2. **`FAMILY_RULINGS` is keyed on prompt-fragment stems** (`tests/unit/fork_vs_parameterize.py`), and its validator rejects any ruling naming no category from the `_minor` tier contract. All eight of those categories are categories of *prompt guidance*, so **a ruling covering nine Python runners cannot be expressed in that mechanism at all.**
@@ -104,7 +104,7 @@ The pre-existing checkbox says *"`research_refresh_parent` has no entrypoint —
 
 Three remedies were on the table ([`C-7q2m4xzb`](../../../tracked/candidates/C-7q2m4xzb.md)). **This phase adopts two of them and rejects one, and the rejection is the part worth reading.**
 
-- **ADOPTED — share the mechanism before the copies exist (requirement 7).** [`C-8tv8ewto`](../../../tracked/candidates/C-8tv8ewto.md)'s `parse_or_exit(parser, argv)` in `preflight.py` is the concrete first instance, and promoting it *before* the nine are written fixes the existing seven at the same time. This is [Phase 2](phase2_family_alignment.md)'s own promotion rule — *the consumer count decides, never taste* — applied to a population that rule's mechanism cannot see.
+- **ADOPTED — share the mechanism before the copies exist (requirement 7).** [`C-8tv8ewto`](../../../tracked/candidates/C-8tv8ewto.md)'s `parse_or_exit(parser, argv)` in `preflight.py` is the concrete first instance, and promoting it *before* the nine are written fixes the existing seven at the same time. This is [Family alignment](phase2_family_alignment.md)'s own promotion rule — *the consumer count decides, never taste* — applied to a population that rule's mechanism cannot see.
 - **ADOPTED — say plainly that the corpus is unguarded**, which is this section. Requirement 6's family ruling is therefore **prose a reviewer applies, not something a suite holds**, and a builder must not read a green suite as coverage here.
 - **REJECTED — extending a similarity ratchet to `run_*.py` with a frozen baseline.** It is the obvious move and it measures the wrong thing. **The nine runners are *supposed* to be near-identical** — that is what a family is — so a magnitude-based ratchet over them either freezes an enormous baseline or fires constantly, and this component's own research is explicit that *"when ruling on a drifted pair, check fit-to-referent and drift pattern, not inter-copy similarity magnitude"* ([`research/synthesis.md`](research/synthesis.md) § *What this means for us — Phase 2*). **Detection is not available on this corpus; prevention is.** *(This rejection is a ruling, not a closed question: if the shared mechanism turns out not to cover the next duplicated block, a guard becomes worth re-opening — and the reasoning above is what it would have to beat.)*
 
@@ -117,6 +117,18 @@ Requirement 2 says the five divergences are ruled once and written down, without
 **The mechanism is: SURFACE it, do not file it, and never edit the standard.** [`finding-routing.md` § 7](../../standards/finding-routing.md) is explicit that a **producing run surfaces a standards amendment in its PR body and `review-pr` files it** into [`tracked/standards/`](../../../tracked/standards/); `ratification` is the operator's alone. A build dispatch for this phase is a producing run, so it writes the amendment into its PR with the target document and an anchor precise enough to act on, and stops there.
 
 **Until it is ratified the ruling still binds this phase** — it is recorded in this doc and the nine adapters are built against it. What surfacing buys is that the ruling survives this phase closing, rather than living only in nine source files that whoever writes the tenth has to re-derive.
+
+### Where the family ruling lands
+
+**Requirement 6's ruling needs its own address, and it is not the same one.** Requirement 2 rules five *behavioural divergences between standalone and parent-driven invocation*; requirement 6 rules *what is invariant across a family of nine runners*. They are different artifacts answering different questions, and giving the second no destination is the failure the section above describes — with a sharper edge, because the invariants outside those five divergences are the ones nothing else records. **When this phase closes, the twenty-first runner's author re-derives them.**
+
+**The destination is [`workflow-scripts.md`](../../standards/workflow-scripts.md) § *Required Features*.** That section already enumerates what every workflow script must carry — the verbose flag, the JSONL logging, the `run_claude` helper, repo-root operation — which *is* the fleet's existing statement of runner invariants. The family ruling extends it with the invariants this phase settles: argument-parsing shape, exit-code translation, the `resolve_repo_root` call, and the usage block's self-naming. **The anchor is that section's scope paragraph**, which today splits task-execution from analysis workflows and is where a third distinction — invariant versus legitimately per-child — belongs.
+
+**It does NOT go where [Family alignment](phase2_family_alignment.md)'s rulings go, and that is the whole point of requirement 7's section above.** `FAMILY_RULINGS` in `tests/unit/fork_vs_parameterize.py` is keyed on prompt-fragment stems and its validator rejects any ruling naming no category from the `_minor` tier contract — all eight of those categories are categories of *prompt guidance*. **A ruling about nine Python runners cannot be expressed in that mechanism at all**, so a build dispatch must not try to file it there and read the resulting silence as coverage.
+
+**The mechanism is the same as requirement 2's: SURFACE it, do not file it, never edit the standard.** [`finding-routing.md` § 7](../../standards/finding-routing.md) gives a producing run the surfacing and `review-pr` the filing. **Two amendments, two anchors, surfaced as two items** — bundling them into one is a defect, because a reviewer would have to rule on both together and they can be ratified independently.
+
+**Until it is ratified the ruling still binds this phase**, exactly as requirement 2's does: it is recorded in this doc and the nine adapters are built against it.
 
 ### What this phase does not do
 
@@ -131,7 +143,7 @@ Requirement 2 says the five divergences are ruled once and written down, without
 
 - [ ] Read the two-entrypoints-one-core shape off an existing pair before writing any of the nine — the runner owns the CLI, the shim resolves the interpreter and passes everything through, and the core function stays the parent's path.
 - [ ] Rule the five divergences in § *The five places standalone and parent-driven diverge* once, written down, before the first adapter — nine adapters each answering these independently is exactly the drift [Phase 2](phase2_family_alignment.md) exists to stop.
-- [ ] **Write that ruling as ONE family ruling covering all nine, per requirement 6** — naming what is invariant across the nine and what is legitimately per-child, and giving each deliberate variant Phase 2's `differs from <sibling> because <reason>` line. Do this before the first adapter is written; ruling nine copies afterwards is the granularity Phase 2's trial measured at chance.
+- [ ] **Write that ruling as ONE family ruling covering all nine, per requirement 6** — naming what is invariant across the nine and what is legitimately per-child, and giving each deliberate variant *Family alignment*'s `differs from <sibling> because <reason>` line. Do this before the first adapter is written; ruling nine copies afterwards is the granularity that phase's trial measured at chance.
 - [ ] **Extract the shared mechanism BEFORE writing any of the nine, per requirement 7** — starting with [`C-8tv8ewto`](../../../tracked/candidates/C-8tv8ewto.md)'s `parse_or_exit(parser, argv)` in `preflight.py`, which fixes the existing seven at the same time. **Do not wait for a guard to catch the duplication; no guard on this corpus can.**
 - [ ] Re-run § *Re-verification — 2026-08-28*'s inventory commands and confirm the arithmetic still reads 20 − 11 = 9 before building anything; a workflow added since the last dating changes the scope this phase is sized on.
 - [ ] Confirm requirement 3's ruling with [Phase 4](phase4_nothing_invisible.md)'s echo contract if that phase has landed; if it has not, record the answer here so [Phase 4](phase4_nothing_invisible.md) inherits it rather than contradicting it.
@@ -143,6 +155,7 @@ Requirement 2 says the five divergences are ruled once and written down, without
 - [ ] **Demonstrate requirement 5:** run each of the nine standalone, with the cheapest invocation that reaches real work, and record the command and what came back. A child that constructs but does not run has not met this phase's bar.
 - [ ] Verify each parent still invokes its children unchanged, with the existing parent-path tests green.
 - [ ] **Surface the five-divergence ruling in the PR body as a standards amendment** against [`workflow-scripts.md`](../../standards/workflow-scripts.md) § *Composition*, with the target and anchor named. **Do not edit the standard and do not file the item** — a producing run surfaces and `review-pr` files. See § *Where the divergence ruling lands*.
+- [ ] **Surface requirement 6's family ruling in the PR body as a SECOND, separate standards amendment** against [`workflow-scripts.md`](../../standards/workflow-scripts.md) § *Required Features*, naming what is invariant across the nine runners and what is legitimately per-child. **Two anchors, two items — do not bundle it with the step above**, and do not attempt to file it into `FAMILY_RULINGS`, which structurally cannot hold a ruling about Python. See § *Where the family ruling lands*.
 - [ ] Run the full suite.
 
 ---

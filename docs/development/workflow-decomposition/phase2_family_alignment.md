@@ -1,4 +1,4 @@
-# Phase 2 — Family alignment
+# Family alignment
 
 **Component:** [Workflow Decomposition](roadmap.md) · **Status:** complete — all five requirements delivered; requirement 3 was allowed to fail and did (κ = 0.000), so ruling is per-family · **Gate:** none
 

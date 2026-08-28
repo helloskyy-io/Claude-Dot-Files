@@ -1,10 +1,10 @@
-# Phase 6 — Every producer names its consumer
+# Every producer names its consumer
 
 **Component:** [Workflow Decomposition](roadmap.md) · **Status:** not started · **Gate:** none live — the mechanism it generalises is already running in one directory
 
-> **This phase was split out of [Phase 4](phase4_nothing_invisible.md) on 2026-08-28, and it is where that phase's *produced* half went.** It is not new work: requirements 1 and 3 below are carried verbatim from Phase 4's requirements 4 and 5, and requirement 5 carries the second clause of Phase 4's requirement 6. **The number is 6 because it is the next free one** — [Phase 4](phase4_nothing_invisible.md) keeps its number and its filename, since a number is identity and never rollout order. See [`roadmap.md`](roadmap.md) § *Phases*.
+> **This phase was split out of [Nothing a run relies on is invisible](phase4_nothing_invisible.md) on 2026-08-28, and it is where that phase's *produced* half went.** It is not new work: requirements 1 and 3 below are carried verbatim from that phase's requirements 4 and 5, and requirement 5 carries the second clause of its requirement 6. **The number is 6 because it is the next free one** — [Nothing a run relies on is invisible](phase4_nothing_invisible.md) keeps its number and its filename, since a number is identity and never rollout order. See [`roadmap.md`](roadmap.md) § *Phases*.
 >
-> **Why the split, in one sentence:** Phase 4's outcome could only be stated with the word *and* — *a wrong derivation is visible before it costs anything* **and** *a producer with no consumer turns the suite red* — so whichever half finished first could not be shown as finished. Full reasoning and its recurrence history: [`C-v4k9pz2h`](../../../tracked/candidates/C-v4k9pz2h.md).
+> **Why the split, in one sentence:** [Nothing a run relies on is invisible](phase4_nothing_invisible.md)'s outcome could only be stated with the word *and* — *a wrong derivation is visible before it costs anything* **and** *a producer with no consumer turns the suite red* — so whichever half finished first could not be shown as finished. Full reasoning and its recurrence history: [`C-v4k9pz2h`](../../../tracked/candidates/C-v4k9pz2h.md).
 
 ## What this phase does
 
@@ -20,24 +20,24 @@ A gate exists for exactly one directory. This phase decides what the rule actual
 
 ## Requirements for completion
 
-1. **"Producer" is defined**, in a sentence a check can be built from, and the definition names what it deliberately excludes. *(Carried verbatim from [Phase 4](phase4_nothing_invisible.md) requirement 4.)* **This requirement stays unchecked and the definition does not exist as a check today** — what changed since it was written is that it no longer has to be invented from priors. See § *The stores supplied the definition this phase was missing*.
+1. **"Producer" is defined**, in a sentence a check can be built from, and the definition names what it deliberately excludes. *(Carried verbatim from [Nothing a run relies on is invisible](phase4_nothing_invisible.md) requirement 4.)* **This requirement stays unchecked and the definition does not exist as a check today** — what changed since it was written is that it no longer has to be invented from priors. See § *The stores supplied the definition this phase was missing*.
 
-2. **The definition gives an explicitly-ruled answer for a surface whose named reader is invoked ON DEMAND**, with no cadence and no termination. **This requirement stays UNCHECKED and this plan does not rule it** — it is an input to the build, named here at the phase that consumes it, because ruling it from a planning run would be deciding a design question on one instance. [Phase 5](phase5_configuration_a_run_absorbed.md)'s two-bag reader is the named test case and it is the one both phase docs hold up as the exemplar. See § *The fifth shape, and why this plan does not rule it*.
+2. **The definition gives an explicitly-ruled answer for a surface whose named reader is invoked ON DEMAND**, with no cadence and no termination. **This requirement stays UNCHECKED and this plan does not rule it** — it is an input to the build, named here at the phase that consumes it, because ruling it from a planning run would be deciding a design question on one instance. [What configuration a run absorbed](phase5_configuration_a_run_absorbed.md)'s two-bag reader is the named test case. **Both phase docs USED TO hold that pairing up as the exemplar of doing it right; both were corrected in place on 2026-08-28** and now name it as this phase's test case. See § *The fifth shape, and why this plan does not rule it*.
 
-3. **The gate reaches producers outside `scripts/helpers/measure/`**, with the population read **off disk, never off a hand-kept list**, and **every exclusion named and asserted** by name in the check itself. *(Carried verbatim from [Phase 4](phase4_nothing_invisible.md) requirement 5.)* The first extension target is named rather than left as a direction — see § *The first extension target, counted off disk*.
+3. **The gate reaches producers outside `scripts/helpers/measure/`**, with the population read **off disk, never off a hand-kept list**, and **every exclusion named and asserted** by name in the check itself. *(Carried verbatim from [Nothing a run relies on is invisible](phase4_nothing_invisible.md) requirement 5.)* The first extension target is named rather than left as a direction — see § *The first extension target, counted off disk*.
 
 4. **`tracked/operations/` is excluded by name, with the exclusion asserted in the check** and the reason recorded beside it. Its consumer is a human, no autonomous run may write to it, and **no check can assert that a person read something.** See § *The one exclusion the stores force*.
 
 5. **An unread producer is DEMONSTRATED to turn the suite red.** Add a producer with no named consumer and watch it fail; add one whose consumer cell is empty and watch that fail too. Requirements 1–4 are not complete without it, and none of it is asserted from reading the code.
 
-**Requirement 2 is this phase's one open question and it is deliberately left open.** Both answers are defensible — the cadence clause may be required only of surfaces that *accumulate*, leaving an on-demand reader conformant; or an on-demand reader may be non-conformant, in which case [Phase 5](phase5_configuration_a_run_absorbed.md)'s reader needs a stated invoker. **What is not defensible is discovering the question while building the second of the two phases**, which is why it is a requirement here rather than a note.
+**Requirement 2 is this phase's one open question and it is deliberately left open.** Both answers are defensible — the cadence clause may be required only of surfaces that *accumulate*, leaving an on-demand reader conformant; or an on-demand reader may be non-conformant, in which case [What configuration a run absorbed](phase5_configuration_a_run_absorbed.md)'s reader needs a stated invoker. **What is not defensible is discovering the question while building the second of the two phases**, which is why it is a requirement here rather than a note.
 
 ---
 
 ## Dependencies
 
-- **[Phase 4](phase4_nothing_invisible.md)** — sibling, not a gate. Phase 4's echo is itself a producer, and this gate is what should catch it if it is ever removed. Neither blocks the other.
-- **[Phase 5](phase5_configuration_a_run_absorbed.md) — not a gate, but this phase is deliberately sequenced AFTER it.** Phase 5 ships one producer and one consumer in the same phase, which is the shape this gate exists to keep honest when the two halves are *not* planned together. **Rolling out second means the on-demand shape requirement 2 must rule on exists in the tree as a worked instance rather than as a hypothetical.** See § *The fifth shape*.
+- **[Nothing a run relies on is invisible](phase4_nothing_invisible.md)** — sibling, not a gate. That phase's echo is itself a producer, and this gate is what should catch it if it is ever removed. Neither blocks the other.
+- **[What configuration a run absorbed](phase5_configuration_a_run_absorbed.md) — not a gate, but this phase is deliberately sequenced AFTER it.** That phase ships one producer and one consumer in the same phase, which is the shape this gate exists to keep honest when the two halves are *not* planned together. **Rolling out second means the on-demand shape requirement 2 must rule on exists in the tree as a worked instance rather than as a hypothetical.** See § *The fifth shape*.
 - **[Tracked Items Standard](../../standards/documentation/tracked_items_standard.md) — read-only, and vendored.** This phase borrows §0's property as a definition and rules the fleet against it. It does not amend the standard, and it does not own the stores, their triage or their cadences. Amendments go upstream.
 - **Nothing outside this component.** No sibling component and no external system gates this.
 
@@ -63,9 +63,9 @@ When the produced half was planned on 2026-08-18 it rested on priors plus two lo
 
 ### The fifth shape, and why this plan does not rule it
 
-The definition above is **strictly stronger** than the one the shapes below were originally ruled against, which asked only whether a reader was named. **Apply the stronger one to [Phase 5](phase5_configuration_a_run_absorbed.md)'s deliverable and it fails.** The sixth `Journal-` tag is the producer; the two-bag comparison reader is the consumer. The reader is **named** ✅. It is invoked on a **named cadence** ❌ — nothing schedules it; a person runs it when two runs are suspected to disagree. The surface **empties or terminates** ❌ — bags accumulate and are never edited after sealing.
+The definition above is **strictly stronger** than the one the shapes below were originally ruled against, which asked only whether a reader was named. **Apply the stronger one to [What configuration a run absorbed](phase5_configuration_a_run_absorbed.md)'s deliverable and it fails.** The sixth `Journal-` tag is the producer; the two-bag comparison reader is the consumer. The reader is **named** ✅. It is invoked on a **named cadence** ❌ — nothing schedules it; a person runs it when two runs are suspected to disagree. The surface **empties or terminates** ❌ — bags accumulate and are never edited after sealing.
 
-**That is the pairing both phase docs cite as the exemplar of doing it right**, and both sentences were written against the weaker definition and never re-checked. Source: [`C-k3nd8vwp`](../../../tracked/candidates/C-k3nd8vwp.md), reached by a cold read.
+**That is the pairing both phase docs USED TO cite as the exemplar of doing it right.** Both sentences were written against the weaker definition, and **both were corrected in place on 2026-08-28** — [What configuration a run absorbed](phase5_configuration_a_run_absorbed.md) § *Notes and gotchas* and [Nothing a run relies on is invisible](phase4_nothing_invisible.md) § *Dependencies* now name the pairing as this phase's unruled test case rather than its exemplar. **The correction is to the record, not to the requirement: the shape below still needs ruling, and requirement 2 stays unchecked.** Source: [`C-k3nd8vwp`](../../../tracked/candidates/C-k3nd8vwp.md), reached by a cold read.
 
 The shapes to rule on, and the fifth is the one nothing covers:
 
@@ -75,7 +75,7 @@ The shapes to rule on, and the fifth is the one nothing covers:
 | A record a run writes for a later run | a run bag's tags, a typed exit record | **probably in**, and this is where the real value is |
 | A declaration module | code defining a surface's shape, loaded rather than run | **out, by name** |
 | A surface whose only legitimate consumer is a human | [`tracked/operations/`](../../../tracked/operations/) | **out, by name** — see below |
-| **A surface read ON DEMAND by a named machine reader** | **[Phase 5](phase5_configuration_a_run_absorbed.md)'s two-bag reader** | **UNRULED — requirement 2** |
+| **A surface read ON DEMAND by a named machine reader** | **[What configuration a run absorbed](phase5_configuration_a_run_absorbed.md)'s two-bag reader** | **UNRULED — requirement 2** |
 
 **Why §0's own wording does not settle it.** §0's three properties govern **stores** — surfaces that accumulate items awaiting a decision — and its exit clause is about items reaching a terminal state. This phase generalises them to **producers**, a wider class that includes surfaces nothing accumulates in. The generalisation is a good one and requirement 2 does not reopen it; the gap is that the wider class contains a member the narrower one never had to cover.
 
@@ -101,21 +101,21 @@ Get this wrong in the permissive direction and the gate red-flags the operator's
 
 ### Why prose beside a hand-kept table is not enough, stated once
 
-The rule this phase generalises was already written, in prose, in the directory it governs. **Nothing enforced it and a tool shipped unread anyway.** That is the argument for a gate rather than a convention, and it is the same argument the duplication ratchet in [Phase 2](phase2_family_alignment.md) rests on. **Two independent occurrences of one shape** is why this survived the 2026-08-18 merge as its own requirement set rather than becoming a note — and why it is now its own phase.
+The rule this phase generalises was already written, in prose, in the directory it governs. **Nothing enforced it and a tool shipped unread anyway.** That is the argument for a gate rather than a convention, and it is the same argument the duplication ratchet in [Family alignment](phase2_family_alignment.md) rests on. **Two independent occurrences of one shape** is why this survived the 2026-08-18 merge as its own requirement set rather than becoming a note — and why it is now its own phase.
 
 ### What this phase does not do
 
-- **It does not touch derived values, the enumeration or the echo.** That is [Phase 4](phase4_nothing_invisible.md), and the split is what makes each of them closable.
+- **It does not touch derived values, the enumeration or the echo.** That is [Nothing a run relies on is invisible](phase4_nothing_invisible.md), and the split is what makes each of them closable.
 - **It does not delete an unread producer.** Finding one is the output; ruling what happens to it is a separate decision with its own criteria, and an automated remedy here would delete a surface whose consumer simply has not been built yet.
 - **It does not check that a consumer is any good.** Naming a reader is a much weaker claim than the reader being correct, and this gate makes only the weaker one. **Say so where the check lives**, so nobody over-reads a green suite.
 - **It does not amend the Tracked Items Standard.** That standard is vendored (MIRROR) and its amendments go upstream. This phase reads §0 and rules against it.
-- **It does not build a config digest.** That is [Phase 5](phase5_configuration_a_run_absorbed.md), whose pair is this phase's test case.
+- **It does not build a config digest.** That is [What configuration a run absorbed](phase5_configuration_a_run_absorbed.md), whose pair is this phase's test case.
 
 ---
 
 ## Implementation steps
 
-- [ ] **Rule requirement 2 FIRST, before the definition is finalised** — does the cadence clause bind every producer, or only surfaces that accumulate? Use [Phase 5](phase5_configuration_a_run_absorbed.md)'s two-bag reader as the worked test case, and record the ruling and its reasoning here. Nothing below is safe until this is answered.
+- [ ] **Rule requirement 2 FIRST, before the definition is finalised** — does the cadence clause bind every producer, or only surfaces that accumulate? Use [What configuration a run absorbed](phase5_configuration_a_run_absorbed.md)'s two-bag reader as the worked test case, and record the ruling and its reasoning here. Nothing below is safe until this is answered.
 - [ ] Start from [Tracked Items Standard §0](../../standards/documentation/tracked_items_standard.md)'s three properties rather than from a blank page — admission test, named cadence with a named runner, exit — and read `modules/assistant/tracked/intake.py`'s docstring for the worked instance before writing a word of the definition.
 - [ ] Write the definition of a producer with its exclusions, and check it against the existing gate's population — **if the definition would not have caught the three observables that motivated the gate, the definition is wrong.** This step is requirement 1.
 - [ ] **Add the second honest test: the definition must catch an intake surface whose harvest stopped being invoked.** If it does not, it is too weak, and the failure it misses is one Tracked Items §8 calls a violation.
@@ -126,7 +126,7 @@ The rule this phase generalises was already written, in prose, in the directory 
 - [ ] Write down what this gate does NOT look at, beside the check, so a future reader does not over-read a green suite.
 - [ ] **Demonstrate requirement 5 by mutation:** add a producer with no named consumer, confirm the suite goes red, and record what was added and what the failure said.
 - [ ] Add the mutation in reverse — a producer whose row exists but whose consumer cell is empty — and confirm it also fails. Two ways to be wrong, two checks.
-- [ ] Confirm [Phase 4](phase4_nothing_invisible.md)'s echo is caught by this gate if it has landed; if it has not, record here that the echo is a producer this gate is expected to cover, so Phase 4 inherits it rather than rediscovering it.
+- [ ] Confirm [Nothing a run relies on is invisible](phase4_nothing_invisible.md)'s echo is caught by this gate if it has landed; if it has not, record here that the echo is a producer this gate is expected to cover, so [Nothing a run relies on is invisible](phase4_nothing_invisible.md) inherits it rather than rediscovering it.
 - [ ] **Surface, in the PR body, any standards amendment this phase's definition implies** — with the target document and an anchor precise enough to act on. **Do not edit a standard, and do not file the item yourself:** a producing run surfaces and `review-pr` files. See § *The ruling needs an address, and the address is not this document*.
 - [ ] Run the full suite and confirm nothing that depended on an unguarded surface broke.
 
@@ -154,8 +154,8 @@ Whatever requirement 1 and requirement 2 settle is a **rule other work will be j
 
 ## Notes and gotchas
 
-- **A gate that reports many findings at once gets suppressed.** If the ruled-in population turns out to be large and mostly unread, **that is a finding for the operator before it is a red suite.** Freezing a baseline the way [Phase 2](phase2_family_alignment.md)'s ratchet does is the pattern that already worked in this repo, and it may be the right shape here — a ratchet that can only shrink converts a wall of failures into a backlog with a direction.
+- **A gate that reports many findings at once gets suppressed.** If the ruled-in population turns out to be large and mostly unread, **that is a finding for the operator before it is a red suite.** Freezing a baseline the way [Family alignment](phase2_family_alignment.md)'s ratchet does is the pattern that already worked in this repo, and it may be the right shape here — a ratchet that can only shrink converts a wall of failures into a backlog with a direction.
 - **The line to hold while ruling:** a producer is defined by *something is meant to read this*, **not** by *this writes to a file*. A check keyed on the second catches every temp file in the tree and gets disabled within a month.
 - **The definition being ratified elsewhere is a borrowing, not a delegation.** [Tracked Items Standard §0](../../standards/documentation/tracked_items_standard.md) governs stores. Nothing in it says the property generalises to every producer — this phase claims that, and the claim is this phase's to defend. **Do not cite §0 as though it already ruled the fleet.**
-- **Requirement 2's two answers have different costs and the cheaper one is not automatically right.** Exempting on-demand readers is one clause; requiring a cadence means [Phase 5](phase5_configuration_a_run_absorbed.md) needs a stated invoker for its comparison reader, which is real work in another phase. **Pick on which produces the more honest gate, not on which is cheaper to write** — a definition weakened to avoid work in a sibling phase is the exact shape that gets a gate routed around.
-- **This phase inherits [Phase 4](phase4_nothing_invisible.md)'s worked example of getting the population right.** The existing gate's disk-side population read and its named-and-asserted exclusion are both deliberate and both easy to drop while generalising. Read the existing gate before extending it.
+- **Requirement 2's two answers have different costs and the cheaper one is not automatically right.** Exempting on-demand readers is one clause; requiring a cadence means [What configuration a run absorbed](phase5_configuration_a_run_absorbed.md) needs a stated invoker for its comparison reader, which is real work in another phase. **Pick on which produces the more honest gate, not on which is cheaper to write** — a definition weakened to avoid work in a sibling phase is the exact shape that gets a gate routed around.
+- **This phase inherits [Nothing a run relies on is invisible](phase4_nothing_invisible.md)'s worked example of getting the population right.** The existing gate's disk-side population read and its named-and-asserted exclusion are both deliberate and both easy to drop while generalising. Read the existing gate before extending it.
