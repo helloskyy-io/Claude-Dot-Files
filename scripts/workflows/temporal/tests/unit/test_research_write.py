@@ -43,17 +43,16 @@ from assembled_prompt import assembled
 
 from modules.assistant.research import research_activities as act
 from modules.assistant.research.research import research_workflow as full_parent
-from modules.assistant.research.research_minor import research_minor_workflow as parent
 from modules.assistant.research.research_verify import research_verify_workflow as verify
-from modules.assistant.research.research_write_minor import (
-    research_write_minor_workflow as child,
+from modules.assistant.research.research_write import (
+    research_write_workflow as child,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 CONFIG = REPO_ROOT / "config.yaml"
 _RESEARCH = Path(__file__).resolve().parents[2] / "modules" / "assistant" / "research"
 
-MINOR_PROMPT = _RESEARCH / "research_write_minor" / "prompts" / "write_minor.md"
+MINOR_PROMPT = _RESEARCH / "research_write" / "prompts" / "write.md"
 FULL_PROMPT = _RESEARCH / "research_write" / "prompts" / "write.md"
 
 # EVERY ASSERTION BELOW READS THE ASSEMBLED PROMPT, never the raw file. These
@@ -108,8 +107,16 @@ def _fans_out_per_topic(text: str) -> bool:
     return re.search(r"For each\b[^.\n]*\btopic\b[^.\n]*\bdispatch\b", text) is not None
 
 
-# (label, predicate) — each must be FALSE for the minor prompt and TRUE for the
-# full one. The pairing is the evidence; either half alone proves nothing.
+# (label, predicate) — each must now be TRUE. This list used to assert the
+# OPPOSITE, paired against the full prompt to prove the two differed: the minor
+# cycle's value was that the machinery was absent.
+#
+# THE MERGE REMOVED THE PREMISE, NOT THE TEST'S SUBJECT. There is one write
+# child now. It sizes its own cycle, so the machinery is the capability rather
+# than the distinction, and a paired control against a prompt that no longer
+# exists would assert nothing. The predicates are unchanged and still exact —
+# only the expected answer flipped, which is why they are worth keeping: a
+# reworded stage heading or a moved artifact path still turns them false.
 MACHINERY = [
     ("topics.md-as-a-write-target",
      lambda t: _writes_artifact_at_contract_path(t, "topics.md")),
@@ -119,28 +126,38 @@ MACHINERY = [
 
 
 @pytest.mark.parametrize(("label", "predicate"), MACHINERY, ids=[m[0] for m in MACHINERY])
-def test_the_minor_prompt_does_not_carry(label: str, predicate) -> None:
-    assert predicate(assembled(MINOR_PROMPT)) is False, (
-        f"write_minor.md carries {label}. The minor cycle's entire value is that "
-        "this machinery is absent — a one-paper run that still sizes, fans out or "
-        "emits a topic list is the full cycle wearing a smaller name. The SYNTHESIS is NOT in this list: see the test below."
-    )
+def test_the_write_child_CARRIES_the_sizing_machinery(label: str, predicate) -> None:
+    """The child sizes its own cycle; without these it cannot.
 
-
-@pytest.mark.parametrize(("label", "predicate"), MACHINERY, ids=[m[0] for m in MACHINERY])
-def test_the_full_prompt_still_carries_it(label: str, predicate) -> None:
-    """THE CONTROL, and it is the load-bearing half.
-
-    Without it, every assertion above is satisfied by a predicate that stopped
-    matching anything — a reworded stage heading or a moved artifact path turns
-    the whole section into a permanent pass while the machinery it names could
-    quietly return to the minor prompt.
+    Each is load-bearing on its own. Without `topics.md` a later run cannot tell
+    a short list from an unfinished one. Without a SIZE stage nothing decides how
+    many topics a subject needs. Without the per-topic fan-out the child covers
+    one topic and silently narrows anything larger — the measured failure that
+    produced 1,055 lines covering a quarter of the ground.
     """
-    assert predicate(assembled(FULL_PROMPT)) is True, (
-        f"the predicate for {label} no longer fires on research_write's own "
-        "prompt, so it can no longer prove that prompt's absence from the minor "
-        "one. The check has gone blind, not green."
+    assert predicate(assembled(MINOR_PROMPT)) is True, (
+        f"the write child no longer carries {label}, so it cannot size its own "
+        f"cycle. This absorbed `research-write` and `research-refresh`; dropping "
+        f"the machinery leaves a one-paper child wearing the merged name."
     )
+
+
+def test_the_three_row_states_each_NAME_THEIR_AGENT() -> None:
+    """Sizing without routing is half the merge.
+
+    The child decides how many topics AND which agent each one gets. A due paper
+    handed to `research-analyst` is rewritten rather than diffed, and the delta —
+    what changed, what is now wrong, what is missing — is what made revalidation
+    worth a separate workflow before this absorbed it.
+    """
+    text = assembled(MINOR_PROMPT)
+    for token, why in [
+        ("not yet written", "the state that dispatches an analyst"),
+        ("research-analyst", "the agent for an uncovered topic"),
+        ("research-currency", "the agent for a due one — the half absorbed from `research-refresh`"),
+        ("current", "the state that dispatches nothing, which is the common case"),
+    ]:
+        assert token in text, f"the row-state table lost `{token}` — {why}"
 
 
 def test_the_minor_cycle_writes_a_SYNTHESIS() -> None:
@@ -169,28 +186,51 @@ def test_the_minor_cycle_writes_a_SYNTHESIS() -> None:
     )
 
 
-def test_the_minor_cycle_has_exactly_four_stages() -> None:
-    """Discover -> one paper -> synthesize -> submit. Nothing between.
+def test_the_write_cycle_has_exactly_FIVE_stages() -> None:
+    """FOUR became FIVE when this child absorbed `research-write`'s sizing stage.
 
-    Counted rather than named so a renamed stage does not silently become a
-    fourth: the shape is the claim, and a fourth stage in a workflow whose
-    premise is 'fewer artifacts' is the regression worth catching.
+    It ran VERIFY+DISCOVER, RESEARCH, SYNTHESIZE, SUBMIT — four, because a
+    one-topic child has nothing to size. The merged child sizes its own cycle,
+    so SIZE is stage 2 and the count is the full cycle's five.
+
+    THE COUNT IS THE CHECK, not a description of it. A stage silently added or
+    dropped changes what the run does and nothing else would notice: the prompt
+    still reads coherently, and `stage_order_is_mandatory` enforces the ORDER of
+    whatever stages exist rather than which exist.
     """
     titles = _stage_titles(assembled(MINOR_PROMPT))
-    assert len(titles) == 4, f"expected 4 stages, found {len(titles)}: {titles}"
-    assert len(_stage_titles(assembled(FULL_PROMPT))) == 5, (
-        "research_write no longer has 5 stages — the comparison this suite draws "
-        "between the two shapes is against a moved reference"
+    assert len(titles) == 5, (
+        f"the write cycle has {len(titles)} stages, expected five: {titles}. "
+        f"If a stage was added or removed deliberately, say so here — the number "
+        f"is what makes the change a decision rather than a drift."
+    )
+    assert titles[1].startswith("SIZE"), (
+        f"SIZE must be stage 2 — the topic list has to exist before anything is "
+        f"dispatched against it. Got: {titles}"
     )
 
+def test_the_child_dispatches_ONE_ANALYST_PER_TOPIC() -> None:
+    """The bound is per TOPIC, and it is a bound rather than a total.
 
-def test_the_minor_child_dispatches_exactly_one_analyst() -> None:
-    """The fan-out is the cost, and one analyst is the whole point."""
+    IT USED TO READ "ONE analyst. Not two" AND THAT WAS RIGHT FOR A ONE-TOPIC
+    CHILD. This child now sizes its own cycle, so a total of one would forbid
+    the fan-out it exists to do. What the original was protecting is unchanged
+    and still stated: a topic's facets are covered by ONE analyst in ONE paper.
+    Splitting a topic across analysts is the measured failure — 1,055 lines
+    covering a quarter of the ground for the cost of covering all of it.
+
+    Absence of a per-topic loop is not the same as a stated ceiling: a model
+    handed a two-part question will split it into two analysts unless told not
+    to, which is why the bound is written and not merely implied.
+    """
     text = assembled(MINOR_PROMPT)
-    assert "ONE analyst. Not two" in text, (
-        "write_minor.md lost its explicit one-analyst bound. Absence of a "
-        "per-topic loop is not the same as a stated ceiling: a model handed a "
-        "two-part question will split it into two analysts unless told not to."
+    assert "ONE ANALYST PER TOPIC" in text, (
+        "the prompt lost its per-topic analyst bound"
+    )
+    assert "never one per sub-question" in text, (
+        "the bound must forbid splitting a TOPIC across analysts, which is the "
+        "failure it was written for — a per-topic ceiling that permits "
+        "per-facet dispatch protects nothing."
     )
 
 
@@ -297,7 +337,7 @@ def test_the_minor_child_supplies_no_altitude_machinery() -> None:
 
 
 def _render_write_minor(monkeypatch, tmp_path: Path) -> str:
-    """Drive the REAL run_write_minor and return the merged prompt it built.
+    """Drive the REAL run_write and return the merged prompt it built.
 
     THE PROMPT FILE IS NOT THE PROMPT. Every other check in this module reads
     `write_minor.md` in isolation, and `${CONTEXT_BLOCK}` is assembled in Python
@@ -321,10 +361,10 @@ def _render_write_minor(monkeypatch, tmp_path: Path) -> str:
 
     captured = _CapturedPrompt()
     monkeypatch.setattr(act, "run_claude", captured)
-    child.run_write_minor(
+    child.run_write(
         research_dir=research_dir, repo_root=tmp_path, worktree=tmp_path,
     )
-    assert captured.prompt is not None, "run_write_minor never reached run_claude"
+    assert captured.prompt is not None, "run_write never reached run_claude"
     return captured.prompt
 
 
@@ -601,21 +641,31 @@ def test_verify_has_no_minor_specific_stage() -> None:
 
 # --- 4. The parent's shape matches the family ---------------------------------
 
-def test_the_loop_back_bound_matches_the_full_cycle() -> None:
-    assert parent.MAX_LOOPS == full_parent.MAX_LOOPS == 1, (
-        f"research_minor caps loop-backs at {parent.MAX_LOOPS} against the full "
-        f"cycle's {full_parent.MAX_LOOPS}. Self-correction plateaus at 3-5 passes; "
-        "the bound is a property of that plateau, not of the cycle's size."
+def test_the_research_parent_caps_loop_backs_at_ONE() -> None:
+    """One, where the rest of the fleet allows three — and that is deliberate.
+
+    IT USED TO COMPARE TWO PARENTS. `research_minor` had its own, and the test
+    existed so the cheaper tier could not quietly acquire a different bound.
+    There is one research parent now, so the check is the value itself: a
+    research loop is the most expensive dispatch in this fleet, and
+    self-correction plateaus at 3-5 passes counting BOTH children — verify=1,
+    review-pr=2, then loop, verify=3, review-pr=4. Two loop-backs would put the
+    fourth pass past the plateau at the highest per-pass cost the fleet has.
+    """
+    assert full_parent.MAX_LOOPS == 1, (
+        f"the research parent caps loop-backs at {full_parent.MAX_LOOPS}, not 1. "
+        f"`routing.MAX_LOOPS` is 3 for every other family; this one keeps its own "
+        f"because the per-pass cost is different, not because the loop is."
     )
 
 
-def test_the_parent_calls_no_model() -> None:
+def test_the_research_parent_calls_no_model() -> None:
     """A parent is pure decision plus children. It has no prompt and no cap."""
-    source = inspect.getsource(parent)
-    assert "run_claude" not in source, "research_minor calls a model directly"
+    source = inspect.getsource(full_parent)
+    assert "run_claude" not in source, "the research parent calls a model directly"
     assert "MODEL_KEY" not in source and "MAX_TURNS" not in source, (
-        "research_minor declares a model key or turn cap. A parent that needs "
-        "either has stopped being a parent."
+        "the research parent declares a model key or turn cap. A parent that "
+        "needs either has stopped being a parent."
     )
 
 
@@ -632,12 +682,12 @@ def test_the_parent_reuses_the_shared_children() -> None:
     caught fabrications — is the reason it was rejected. It reaches this cycle
     through `research_verify`, so reusing that child IS keeping the gate.
     """
-    source = inspect.getsource(parent)
-    assert "research_verify_workflow" in source, "research_minor forked verification"
-    assert "review_pr_workflow" in source, "research_minor has no disposition stage"
+    source = inspect.getsource(full_parent)
+    assert "research_verify_workflow" in source, "the research parent forked verification"
+    assert "review_pr_workflow" in source, "the research parent has no disposition stage"
     assert "ReviewType.RESEARCH" in source, (
-        "research_minor no longer dispositions as a research PR — candidates would "
-        "be read as findings rather than as cargo"
+        "the research parent no longer dispositions as a research PR — candidates "
+        "would be read as findings rather than as cargo"
     )
 
 
@@ -652,105 +702,77 @@ def test_research_critic_reaches_the_minor_cycle_unchanged() -> None:
 # --- 5. The turn cap is declared, resolvable, and records its measurement ------
 
 def test_the_turn_cap_resolves() -> None:
-    assert act.max_turns("research-write-minor") == 80, (
-        f"config.yaml max_turns.research-write-minor is now "
-        f"{act.max_turns('research-write-minor')}, this suite expected 80. If it "
+    """The merged child keeps the FULL tier's cap, not the minor one's.
+
+    `research-write-minor: 80` is deleted with the tier it sized. This child now
+    sizes its own cycle and may dispatch several analysts, so 80 would truncate
+    the work it does rather than bound it.
+    """
+    assert act.max_turns("research-write") == 150, (
+        f"config.yaml max_turns.research-write is now "
+        f"{act.max_turns('research-write')}, this suite expected 150. If it "
         "changed deliberately, update the expectation here WITH a reason."
     )
 
 
-def test_the_cap_is_below_its_full_size_sibling() -> None:
-    """The claim the workflow makes about itself, checked.
+def test_the_cap_is_NOT_keyed_off_the_model() -> None:
+    """Two keys, deliberately, and the reason is recorded in the workflow itself.
 
-    A minor cycle is a strict subset of a full one — no topics.md, no fan-out,
-    no synthesis. A cap at or above research-write's would mean the subtraction
-    was never made, or was never believed.
+    The model is `research` — shared with `research-verify` and the parent — and
+    the cap is keyed by WORKFLOW because the turn budgets were measured
+    separately. Keying the cap off the model would silently hand this child the
+    parent's 250, which an earlier version of that file did and carried a
+    paragraph warning about.
+
+    THIS TEST USED TO ASSERT THE CAP SAT BELOW A FULL-SIZE SIBLING. There is no
+    sibling now — the two tiers merged — so the property that survives is the
+    one that was always doing the work: cap and model are keyed apart.
     """
+    assert child.MODEL_KEY == "research"
+    assert child.WORKFLOW_KEY == "research-write"
     caps = yaml.safe_load(CONFIG.read_text())["max_turns"]
-    assert caps["research-write-minor"] < caps["research-write"], (
-        f"research-write-minor is capped at {caps['research-write-minor']} against "
-        f"research-write's {caps['research-write']}"
+    assert caps["research-write"] != caps["research"], (
+        "the child's cap has drifted onto the parent's. They are separate "
+        "measurements and the workflow key exists to keep them separate."
     )
 
 
 def test_the_measurement_is_recorded() -> None:
     """An unlabelled number is indistinguishable from a measured one.
 
-    `plan-sprint` sets the precedent — 'NOT measured — an estimate, stated as
-    one' — and the reason is that the next reader of this map has no other way to
-    tell which values may be revised freely and which encode a real observation.
+    `plan-sprint` sets the precedent — "NOT measured — an estimate, stated as
+    one" — because the next reader has no other way to tell which values may be
+    revised freely and which encode a real observation.
 
-    THIS ASSERTION INVERTED ON 2026-08-12 and the reason is worth keeping. The
-    cap WAS unmeasured, and this test held that label in place. The first live
-    `research_minor` dispatch then ran — 31 turns, `stop_reason: end_turn` — so
-    the label became false, and a test asserting a false statement is worse than
-    no test: it holds the falsehood on `main` while reading as coverage. The
-    property this test defends is unchanged (the reader can tell an estimate
-    from an observation); only which side of it the file sits on has moved.
-
-    A measurement is asserted WITH its run identity, not as a bare word. A cap
-    comment can say "MEASURED" and cite nothing, which is the same failure the
-    original label existed to prevent, one level up.
-
-    SCOPED TO THE CAP'S OWN COMMENT BLOCK BY STRUCTURE, NOT BY A DELIMITER.
-    The first version narrowed with `split("\\n  research", 1)` — the next
-    `research*` key — and `research-write-minor` is the LAST key under
-    `max_turns:`, so that delimiter never matched and the search ran to EOF.
-    Caught by mutation: stripping the label from this cap while any later line
-    in the file said "NOT MEASURED" left all 40 tests green. A check that reads
-    a neighbour's evidence is not scoped, and the docstring claiming otherwise
-    is what makes it dangerous. Continuation lines are `#`-only, so the block
-    ends at the first line that is not one — a property of the file's shape
-    rather than of which key happens to come next.
+    IT PINNED `research-write-minor: 80`, WHICH IS DELETED WITH ITS TIER. The
+    surviving cap carries its own measurement and this now pins that.
     """
-    lines = CONFIG.read_text().splitlines()
-    starts = [i for i, ln in enumerate(lines) if ln.strip().startswith("research-write-minor: 80")]
-    assert len(starts) == 1, "the research-write-minor cap is no longer declared exactly once as 80"
-
-    block = [lines[starts[0]]]
-    for ln in lines[starts[0] + 1:]:
-        if not ln.strip().startswith("#"):
-            break
-        block.append(ln)
-
-    text = "\n".join(block)
-
-    assert "MEASURED:" in text.upper(), (
-        "the research-write-minor cap no longer records that its value has been "
-        "measured. A real run produced 31 turns on 2026-08-12; a bare integer "
-        "here reads as a guess and invites someone to revise it freely."
+    caps = CONFIG.read_text()
+    line = next((l for l in caps.splitlines()
+                 if re.match(r"\s+research-write:\s*\d+", l)), None)
+    assert line, "config.yaml no longer declares max_turns.research-write"
+    assert "MEASURED" in line.upper(), (
+        f"the research-write cap carries no measurement label: {line.strip()!r}. "
+        f"An unlabelled figure cannot be told from an estimate by the next reader."
     )
+def test_the_model_key_is_SHARED_and_the_workflow_key_is_NOT() -> None:
+    """The inverse of what this asserted, and the inversion is the merge.
 
-    assert "NOT MEASURED" not in text.upper(), (
-        "the research-write-minor cap still claims to be unmeasured. The first "
-        "live research_minor dispatch ran on 2026-08-12, so that label is now "
-        "false — and a false label on the default branch is what this test "
-        "was inverted to prevent."
-    )
-
-    assert "5bd8b513a50a49d186b054e3c6c11e77" in text, (
-        "the research-write-minor cap claims a measurement without naming the "
-        "run it came from. An uncitable measurement cannot be re-checked, which "
-        "makes it an assertion wearing a measurement's label."
-    )
-
-
-def test_the_model_key_is_its_own() -> None:
-    """Keyed separately from `research`, which is the point of the cheap shape.
-
-    `test_model_keys_resolve.py` already proves the key resolves. This proves it
-    is a DIFFERENT key — sharing `research` would tie the minor cycle's cost to
-    the full one's opus, and cost is the entire reason this workflow exists.
+    It read: the key must DIFFER from `research`, because sharing it would tie
+    the cheap tier's cost to the full one's opus, and cost was the entire reason
+    that workflow existed. That tier is gone. This child IS the full cycle, so it
+    takes the full cycle's model — and keeps its own WORKFLOW key so its
+    separately-measured turn cap survives.
     """
-    assert child.MODEL_KEY == "research-write-minor"
-    models = yaml.safe_load(CONFIG.read_text())["models"]
-    assert models["research-write-minor"] != models["research"], (
-        "research-write-minor resolves to the same model as the full research "
-        "cycle, so the scaled-down shape costs the same per turn as the shape it "
-        "was built to replace"
+    assert child.MODEL_KEY == "research", (
+        "the merged child no longer shares the research model. It sizes its own "
+        "cycle and dispatches analysts; the cheap tier's model was sized for one "
+        "paper and no fan-out."
     )
-
-
+    assert child.WORKFLOW_KEY != child.MODEL_KEY, (
+        "cap and model are keyed together again — see the workflow's own comment "
+        "on why that silently reverts 150 to the parent's 250."
+    )
 def test_the_DUE_LIST_reaches_the_write_child_and_costs_nothing_when_empty() -> None:
     """The merge of `research-refresh` into the write child, held at its seam.
 
@@ -785,7 +807,7 @@ def test_the_DUE_LIST_reaches_the_write_child_and_costs_nothing_when_empty() -> 
 def test_the_write_child_WIRES_the_due_list_rather_than_discarding_it() -> None:
     """The other half: computing it and dropping it is what the fleet did before."""
     wf = (Path(__file__).resolve().parents[2] / "modules" / "assistant" / "research"
-          / "research_write_minor" / "research_write_minor_workflow.py").read_text()
+          / "research_write" / "research_write_workflow.py").read_text()
     assert "currency, due = act.paper_currency(pool)" in wf, (
         "the due list is being discarded again (`currency, _due = ...`). The table "
         "alone tells a run what is stale without telling it to act."

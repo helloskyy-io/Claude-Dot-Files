@@ -649,7 +649,7 @@ claude-dot-files/
 │                   │                                #   SHARED placement instruction unfollowable
 │                   ├── test_plan_revision_v1_parity.py # Prompt text is BYTE-IDENTICAL to plan-revision.sh — re-extracts the heredocs
 │                   │                                #   and both PROMPT= strings on every run. Catches the ~935-byte drop-the-stages failure
-│                   ├── test_research_minor.py       # The minor cycle is genuinely SMALLER, and a subtraction is what a green suite cannot
+│                   ├── test_research_write.py        # The write child sizes its own cycle; the machinery it once lacked is what a green suite cannot
 │                   │                                #   notice: every "absent from write_minor.md" check is paired with the SAME predicate
 │                   │                                #   run against research_write's live prompt, which must still fire. Plus the reused
 │                   │                                #   verify child's cycle-shape block RENDERED (not grepped) and an AST walk proving its

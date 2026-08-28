@@ -294,7 +294,7 @@ Reach exactly ONE verdict:
   **CONVERGENCE RULE — severity, not count.** **The floor is COMPARATIVE and checkable: *would this finding have blocked on pass 1's own bar?*** Answer it against the prior pass's `pr_review:` block, which is durable — *"is it preventive"* is a judgement made alone, and a falling count reads as convergence when it is not. A flat open-item count reads as a stall when it is actually convergence: measured across three passes the count sat at 1 while severity fell live-bug → diagnostics-bug → preventive-only. **The first pass whose findings are ALL preventive (no live defect, no incorrect behaviour, nothing user- or security-visible — only 'a future change could regress this') IS convergence: return MERGE**, and say so ('converged: this pass's only findings are preventive'). List the preventive items as recommendations in the body so they are visible without holding the PR. Do not HOLD a PR whose remaining findings would never have blocked it on pass 1.
 
 - **HOLD** — the catch-all: ANYTHING still needs something to be right before this can merge. HOLD is NOT a rejection of the PR — it is a **runway**: the explicit, ordered list of what must happen so the NEXT pass is a MERGE. Every HOLD next-step is exactly one of two shapes:
-  1. **redispatch** — the correction is obvious and known. You write a scoped `dispatch_context` (which findings to fix, what to change, what NOT to touch) and NAME THE TOOL that should carry it, sized to the work AND MATCHED TO THE PR'S TYPE. Every tool below takes `--pr ${PR_NUMBER}` and updates the PR in place: `build_minor.sh` for a scoped correction that needs no review cycle (the common case — a known fix to known lines), `build.sh` when the correction is substantial enough that it should itself be reviewed by a fresh context before merging, `plan_revision.sh` when the real home is a doc/plan edit, `research_minor.sh` or `research.sh` on a RESEARCH PR. A human fires it now; a parent workflow fires it once earned. Sizing the dispatch is part of the decision — an under-sized tool stalls at its turn cap, an over-sized one spends a review cycle on a one-line fix.
+  1. **redispatch** — the correction is obvious and known. You write a scoped `dispatch_context` (which findings to fix, what to change, what NOT to touch) and NAME THE TOOL that should carry it, sized to the work AND MATCHED TO THE PR'S TYPE. Every tool below takes `--pr ${PR_NUMBER}` and updates the PR in place: `build_minor.sh` for a scoped correction that needs no review cycle (the common case — a known fix to known lines), `build.sh` when the correction is substantial enough that it should itself be reviewed by a fresh context before merging, `plan_revision.sh` when the real home is a doc/plan edit, `research.sh` or `research.sh` on a RESEARCH PR. A human fires it now; a parent workflow fires it once earned. Sizing the dispatch is part of the decision — an under-sized tool stalls at its turn cap, an over-sized one spends a review cycle on a one-line fix.
 
 **THE TIERS DIFFER IN THREE WAYS AND YOU CANNOT SIZE WITHOUT ALL THREE:**
 
@@ -307,9 +307,8 @@ Reach exactly ONE verdict:
 | `plan_verify.sh` | opus | 150 | **one** — a cold read of a plan it did not write |
 | `plan_sprint.sh` | opus | 100 | none — it places what is already decided |
 | `research.sh` | **opus** (both children) | 150 + 200 | **one** — research-critic, which FETCHES every cited source |
-| `research_minor.sh` | **sonnet** to write, **opus** to verify | 80 + 200 | **the same one** — the cheap tier does not skip the critic |
 
-**MATCH THE PR'S TYPE FIRST, THEN SIZE.** BUILD → `build_minor.sh` / `build.sh`; RESEARCH → `research_minor.sh` / `research.sh`; PLANNING → **`plan_feature.sh`, then `plan_verify.sh`, then `plan_sprint.sh` — all three, in order**, which corrects ANY planning PR — its scope is planning docs generally, not only phase docs. **One carve-out: `sprint.md` is operator-only, so a finding whose remedy is a sprint-file edit is needs-assistance, never redispatch.**
+**MATCH THE PR'S TYPE FIRST, THEN SIZE.** BUILD → `build_minor.sh` / `build.sh`; RESEARCH → `research.sh`; PLANNING → **`plan_feature.sh`, then `plan_verify.sh`, then `plan_sprint.sh` — all three, in order**, which corrects ANY planning PR — its scope is planning docs generally, not only phase docs. **One carve-out: `sprint.md` is operator-only, so a finding whose remedy is a sprint-file edit is needs-assistance, never redispatch.**
 
 **A PLANNING HOLD LOOPS BACK THROUGH ALL THREE, NOT INTO ONE.** `plan_revision.sh` re-enters at DRAFT and runs neither `plan-verify` nor `plan-sprint`, so a roadmap edit lands phase changes that **nothing re-sizes and nothing re-totals** — the sizing floor and the phase-link guard exist to catch exactly that. Name all three, in order, with the findings each is to address.
 
@@ -405,7 +404,7 @@ pr_review:
       issue_repo: <owner/repo — where the WORK lives, not centralized>
       qualified: unrelated + substantial + not-already-covered   # state how each of the three was met
       # kind: redispatch — the correction is obvious/known:
-      dispatch_tool: <build_minor.sh | build.sh | research_minor.sh | research.sh
+      dispatch_tool: <build_minor.sh | build.sh | research.sh
                      | plan_feature.sh | plan_verify.sh | plan_sprint.sh>
                                      # A PLANNING hold names ALL THREE, in that order.
                                      # TYPE-MATCHED FIRST, then sized (see Stage 4).

@@ -145,7 +145,6 @@ models:
   review-sprint: opus           # holistic end-of-sprint judgment
   review-runs: sonnet           # CPI log analysis — mechanical + pattern work
   research: opus                # research pool creation — orchestration + synthesis authorship
-  research-write-minor: sonnet  # research-minor's ONE-paper child. Sonnet deliberately, and it is
                                 #   not a downgrade of the research itself: the paper is authored by
                                 #   research-analyst, which pins opus in its own frontmatter and is
                                 #   untouched by this key. What runs here is pure orchestration —
@@ -308,7 +307,6 @@ max_turns:
                               #   89-turn peak — a pre-split number does not transfer.
   research-verify: 200        # MEASURED: cycle 4 used 68 first pass, 48 on correction.
                               #   3x observed peak: headroom rather than a budget.
-  research-write-minor: 80    # MEASURED: 31 turns on the first live research_minor
                               #   dispatch, 2026-08-12 — run_id
                               #   5bd8b513a50a49d186b054e3c6c11e77, terminal_reason
                               #   "completed", stop_reason "end_turn". The run ended

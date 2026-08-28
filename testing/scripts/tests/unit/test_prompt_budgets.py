@@ -501,8 +501,17 @@ BUDGETS: dict[str, int] = {
     # OPERATOR carry the sizing decision — remember that a five-phase feature needs
     # the bigger instrument. Now 5 sources and ~60 body lines per FACET, which is
     # the unit Research Standard §3 already uses, so it scales with the feature.
-    "research/research_write_minor/prompts/write_minor.md": 16_236,
-    "research/research_write/prompts/write.md": 11_669,
+    # RAISED 16_236 -> 20_100 on 2026-08-28 (+3_864): this child absorbs
+    # `research-write` and `research-refresh`. It gains Stage 1b — the topic
+    # list, the sizing rubric, the binding ~5-per-cycle ceiling, retire-don't-
+    # delete, and the three row states that decide which agent each topic
+    # gets. Against Prompt economy: it changes what the model DOES (how many
+    # analysts it dispatches and which agent per topic); a capable reasoner
+    # cannot infer a per-cycle cap calibrated on a $58 run, nor that a due
+    # paper wants `research-currency` rather than `research-analyst`; and no
+    # harness can enforce either. The two prompts it replaces are deleted in
+    # the same change, so the fleet's total prompt bytes FALL.
+    "research/research_write/prompts/write.md": 20_100,
     "build/build_draft_minor/prompts/update_pr.md": 10_675,
     # SHARED FRAGMENTS ARE THE EXPENSIVE ONES — every workflow that includes one
     # pays for it, so a byte here costs more than a byte in any single prompt.

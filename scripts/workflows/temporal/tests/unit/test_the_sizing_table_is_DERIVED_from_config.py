@@ -63,7 +63,6 @@ _TOOL_CHILDREN = {
     "build_minor.sh":    ("build-draft-minor", "build-refine-minor"),
     "plan_revision.sh":  ("plan-revision",),
     "research.sh":       ("research-write", "research-verify"),
-    "research_minor.sh": ("research-write-minor", "research-verify"),
 }
 
 

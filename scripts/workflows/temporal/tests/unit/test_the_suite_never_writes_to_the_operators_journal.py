@@ -4,7 +4,7 @@ HOW THIS WAS FOUND, because it is the reason the check is shaped the way it is:
 not by a failing assertion — every assertion passed throughout — but by looking
 at `~/.local/state/claude-dot-files/journal/` after a suite run and finding
 **twenty-four bags accumulated in one day**, one per `pytest` invocation. PR #99
-wired bag-open into all twelve entrypoints, the unit modules that drive an
+wired bag-open into all eleven entrypoints, the unit modules that drive an
 entrypoint's `main()` run it to test its preconditions, and nothing stood
 between the two. Three consequences, none of which could go red:
 

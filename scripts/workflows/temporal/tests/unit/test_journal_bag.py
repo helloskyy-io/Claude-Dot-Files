@@ -325,7 +325,7 @@ def test_a_line_that_is_neither_a_label_nor_a_continuation_raises(root: Path) ->
 
 
 def test_BagError_is_a_RuntimeError() -> None:
-    """Same contract as JournalRootError: twelve entrypoints print these."""
+    """Same contract as JournalRootError: eleven entrypoints print these."""
     assert issubclass(BagError, RuntimeError)
 
 

@@ -597,8 +597,13 @@ def test_the_pr_url_completion_patterns_are_ONE_string_plus_ONE_declared_wider()
     )
     ordinals = ", ".join(f"#{len(referencing) + i} {name}"
                          for i, name in enumerate(others, start=1))
-    assert len(referencing) == 12, (
-        f"expected 12 V2 workflows referencing the shared PR completion ERE, found "
+    # 12 -> 11 on 2026-08-28: `research_write_minor` merged INTO `research_write`,
+    # so one workflow left the census without any workflow ceasing to reference
+    # the shared ERE. The census is a completeness check, not a target — it
+    # exists so a workflow that quietly stops sharing the pattern is noticed, and
+    # a number moved for a deletion has to say so or it reads as that failure.
+    assert len(referencing) == 11, (
+        f"expected 11 V2 workflows referencing the shared PR completion ERE, found "
         f"{len(referencing)}: {referencing}. The others declare a completion "
         f"contract of their own and are outside this census — {ordinals}."
     )
