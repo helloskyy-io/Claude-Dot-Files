@@ -55,7 +55,7 @@ A run in this fleet depends on two classes of thing it never announces.
 
 > **This requirement is half of a sentence, and the other half went with the split.** The 2026-08-18 wording was: *"A wrong derivation and an unread producer are both DEMONSTRATED to be visible. Point a run at the wrong component, capture the echo, and show the output names what it derived before the run costs anything. Add a producer with no named consumer and watch the suite go red."* **Its second clause is [Every producer names its consumer](phase6_every_producer_names_its_consumer.md)'s requirement 5, verbatim.** Separating the conjuncts is the split; **no requirement was weakened, added or dropped**, and this is the only completion criterion in this component that a planning run has reworded.
 
-**Requirement 3 carries an unresolved trade, and it stays unchecked until somebody rules it.** Echoing costs output; the parent that wants silence is the one that needs the echo most. Nobody has measured the cost, and the evidence is explicit that this is argued convention across every source found, not data. **Rule it in this phase, in one sentence, and record the ruling** — do not let it be decided implicitly by whichever stream the first implementation happens to write to.
+**Requirement 3 carries an unresolved trade, and it stays unchecked until somebody rules it.** Echoing costs output; the parent that wants silence is the one that needs the echo most. Nobody has measured the cost, and the evidence is explicit that this is argued convention across every source found, not data. **Rule it in this phase, in one sentence, and record the ruling** — do not let it be decided implicitly by whichever stream the first implementation happens to write to. **The ruling lands in [`workflow-scripts.md`](../../standards/workflow-scripts.md) § Composition, beside the VERDICT-over-stdout contract it constrains**, on the same principle § *Where the enumeration is published* applies to requirement 1: an address-less ruling is one the build picks silently. It is surfaced for `review-pr` to file as a `tracked/standards/` amendment; this phase does not write a standard.
 
 ---
 
@@ -71,7 +71,14 @@ A run in this fleet depends on two classes of thing it never announces.
 
 ## What this phase decides
 
+> **⚠ THIS PHASE'S OWN PRE-SCHEDULING CHECK HAS FIRED, AND IT RETURNED BRANCH B.** Run cold by `plan-verify` on 2026-08-28, before scheduling: **three of the six named derived values reach none of the five resolvers.** The worktree name is assembled inline in eight runners; `pr_number_from_url` (`routing.py:212`) and `due_papers` (`research_refresh_workflow.py:36`) share no convention with them; and the four marker patterns return **0 hits across 225 Python files**.
+>
+> **So requirement 1 resolves on the expensive branch** — a marker convention has to be introduced, not discovered. The estimate in [`roadmap.md`](roadmap.md) already covers that branch. **This is recorded here because a build dispatch opens this file, not the roadmap**, and a phase that pre-commits to a check must carry the check's result where the builder will read it.
+
 ### The five properties, and which two are already satisfied
+
+**The five-property frame is CONVENTION, not measurement, and the paper it rests on says so.** [`research/synthesis.md`](research/synthesis.md) records that the industry position on facet 2 is *"argued by convention across five sources, never evidenced by data"*, and states it as a gap (§6.2). The table below is still the right frame to build against — five sources agreeing is worth acting on — but a requirement derived from it inherits that prior, and nothing downstream should read the ✅/❌ column as measured.
+
 
 | Property | State today | What this phase does |
 |---|---|---|
