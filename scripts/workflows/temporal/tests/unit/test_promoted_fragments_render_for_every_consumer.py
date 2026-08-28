@@ -860,6 +860,7 @@ _FRAGMENT_FLOOR = {
     "orchestrator_executes_agents_read": 3,
     "research_stage_1_verify_and_discover": 1,
     "resolve_apply_the_remedy_you_wrote": 4,
+    "resolve_sweep_the_class": 4,
     "resolve_rejecting_is_legitimate": 1,
     "resolve_your_own_dispositions_too": 1,
     "stage_order_is_mandatory": 1,
@@ -1049,3 +1050,64 @@ def test_the_needles_are_real() -> None:
         assert (_SHARED / f"{stem}.md").is_file(), f"prompts/{stem}.md is missing"
         n = _needle(stem)
         assert len(n) > 40, f"{stem}.md yielded a {len(n)}-char needle: {n!r}"
+
+
+def test_the_class_SWEEP_reaches_every_child_that_closes_a_finding() -> None:
+    """A fragment that reaches some consumers and not others IS the failure it describes.
+
+    THE SWEEP IS THE REMEDY TO THE DOMINANT COST IN THE REVIEW LOOP, found by
+    two independent RCAs on two PRs on 2026-08-28: a fix lands where the finding
+    pointed while the same claim lives at N other sites, so every unfixed sibling
+    is a guaranteed finding next pass. One claim was fixed at 4 sites, then 4
+    more, then 3 more — 11 total, across three passes.
+
+    IT MUST REACH EVERY ACTOR THAT CLOSES A FINDING, because the evidence is that
+    knowing about it does not help: the same omission hit an autonomous dispatch,
+    an operator working by hand, and a session that had written the finding up an
+    hour earlier. A child left unwired is a child that will regenerate the class.
+    """
+    root = Path(__file__).resolve().parents[2] / "modules" / "assistant"
+    consumers = {
+        "plan_feature":       (root/"plan/plan_feature/plan_feature_workflow.py",
+                               root/"plan/plan_feature/prompts/plan_feature.md"),
+        "plan_verify":        (root/"plan/plan_verify/plan_verify_workflow.py",
+                               root/"plan/plan_verify/prompts/plan_verify.md"),
+        "build_refine":       (root/"build/build_refine/build_refine_workflow.py",
+                               root/"build/build_refine/prompts/refine.md"),
+        "build_refine_minor": (root/"build/build_refine_minor/build_refine_minor_workflow.py",
+                               root/"build/build_refine_minor/prompts/refine.md"),
+        "research_verify":    (root/"research/research_verify/research_verify_workflow.py",
+                               root/"research/research_verify/prompts/verify.md"),
+    }
+    assert len(consumers) >= 5, "vacuity floor: the consumer set emptied"
+    missing = []
+    for name, (wf, prompt) in consumers.items():
+        if 'act.shared_prompt("resolve_sweep_the_class")' not in wf.read_text():
+            missing.append(f"{name}: workflow does not load the fragment")
+        if "${SWEEP_THE_CLASS}" not in prompt.read_text():
+            missing.append(f"{name}: prompt has no ${{SWEEP_THE_CLASS}} placeholder")
+    assert not missing, (
+        "the class sweep does not reach every finding-closing child:\n  "
+        + "\n  ".join(missing)
+        + "\n\nBoth halves are required — a workflow that loads the fragment into a "
+          "prompt with no placeholder renders nothing, and a placeholder with no "
+          "value left in the values dict fails the render's no-placeholders check."
+    )
+
+
+def test_the_sweep_fragment_demands_a_COUNT_and_a_SCOPE_not_an_intention() -> None:
+    """What makes it a step rather than an aspiration.
+
+    "Sweep for other instances" is advice. "State the site count, and say whether
+    your sweep was exhaustive or a sample" is checkable by the next reader, which
+    is the whole difference — the reviewer's half of the same RCA is that a
+    finding naming 4 sites implies a closure nobody established.
+    """
+    frag = (Path(__file__).resolve().parents[2] / "modules" / "assistant"
+            / "prompts" / "resolve_sweep_the_class.md").read_text()
+    for needed, why in [
+        ("site count", "the run must report a NUMBER, or nothing distinguishes a sweep from an intention"),
+        ("EXHAUSTIVE", "an unbounded sweep must say so — 'four sites' asserts a closure it did not establish"),
+        ("SAMPLE", "the other half of the same statement"),
+    ]:
+        assert needed in frag, f"the fragment no longer demands `{needed}` — {why}"

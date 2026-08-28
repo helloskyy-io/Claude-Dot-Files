@@ -333,7 +333,16 @@ BUDGETS: dict[str, int] = {
     # removed the same day by operator ruling — a producing run SURFACES and
     # `review-pr` files. A MAY-row promising a write the grant refuses is the
     # contradiction class this repo has paid for three times today.
-    "plan/plan_feature/prompts/plan_feature.md": 24_049,
+    # RAISED 24_049 -> 24_075 on 2026-08-28 (+26): the ${SWEEP_THE_CLASS}
+    # placeholder and its blank line. The fragment behind it is the post-fix
+    # same-claim sweep -- two independent RCAs on two PRs the same day found
+    # this the dominant generator of review passes, and a search over every
+    # prompt showed it had never been written down. Against Prompt economy: it
+    # changes what the model DOES (runs a search and reports a count before
+    # closing); a capable reasoner demonstrably does NOT do it anyway -- the
+    # same omission hit a dispatch, an operator by hand, and a session that had
+    # written the finding up an hour earlier; and no harness can enforce it.
+    "plan/plan_feature/prompts/plan_feature.md": 24_075,
     # 15_510 -> 13_204: the `research-analyst` re-dispatch is gone. The verify
     # child holds Write/Edit and applies the critic's findings itself, so the
     # rules that existed only to coordinate a second writing agent went with it
