@@ -2,7 +2,7 @@
 id: C-ffmdiiv6
 title: Each planning stage appends its own PR-body section and none retracts an earlier one, so a multi-stage PR reliably tells its reviewer two contradictory facts about its own contents
 status: open
-count: 2
+count: 3
 filed: 2026-08-28
 filed_by: review-pr
 component: 
@@ -32,3 +32,4 @@ decision:
 ## Recurrences
 
 - 2026-08-28 · 2026-08-28: second sighting, our own PR #145, and it caught the REVIEWER this time. `review-pr` pass 1 prescribed a fix for the stale body total; the fix landed exactly as written and `plan-verify` invalidated it fifteen minutes later by re-sizing. Pass 2 named the gap in its own prompt: *a prescription that lands correctly and is then invalidated by a later stage of the same dispatch has no name in this prompt.* Its remedy sharpens the candidate's: the fix is to REMOVE the literal, not to re-type it — re-typing is what put it back. Applied to #145's body on 2026-08-28.
+- 2026-08-28 · 2026-08-28: third sighting, and the first from another repo. MDC PM3's PR #171 RCA files it as RC4 with two flagged instances (passes 3 and 5): `plan-feature` wrote 'No hours, no days, no points, anywhere in this PR' — correct, it does not size — and `plan-verify` then appended ten hour figures with nothing retracting the claim. Their remedy matches ours exactly: the stage that falsifies an earlier claim retracts it, cheapest at `plan-verify`.
