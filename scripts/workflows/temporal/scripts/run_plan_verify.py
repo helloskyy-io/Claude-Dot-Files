@@ -362,9 +362,16 @@ def main(argv=None) -> int:
 
     print(f"\n{BANNER}\n  {url}\n{BANNER}")
     print(f"\nSIZED — the estimates are in {component_rel}/{own.ROADMAP} and nowhere else.")
-    print("`plan-sprint` does NOT read them today: its prompt states it never opens a")
-    print("phase doc, and nothing in it reads a roadmap or an hour figure. Closing that")
-    print("handoff is a change to plan-sprint and is not made from here.\n")
+    # THE HANDOFF IS WIRED, AND THIS LINE USED TO SAY IT WAS NOT. It read
+    # "`plan-sprint` does NOT read them today ... nothing in it reads a roadmap
+    # or an hour figure", which is false: `plan_sprint_workflow` calls
+    # `act.phase_sizing` and injects `SIZING_BLOCK`. The claim was true of the
+    # MODEL — plan-sprint's prompt does forbid opening a phase doc — and was
+    # generalised to the workflow, which computes the figures in its parent.
+    # Held by `test_plan_sprint_IS_HANDED_the_estimates_plan_verify_writes`.
+    print("`plan-sprint` reads them from there in code — its parent computes them with")
+    print("`phase_sizing` and injects the total as `${SIZING_BLOCK}`, so the model never")
+    print("opens the roadmap itself. Run plan_sprint.sh against this component next.\n")
     return 0
 
 

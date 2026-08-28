@@ -300,3 +300,34 @@ def test_a_phase_declaring_NOT_SIZED_is_unsized_even_though_it_quotes_a_figure(t
         f"the NOT SIZED phase must appear in `unsized`: {sizing.unsized}. That "
         f"list is the only signal an operator gets that a phase still needs a figure."
     )
+
+
+def test_plan_sprint_IS_HANDED_the_estimates_plan_verify_writes() -> None:
+    """The check that holds `run_plan_verify.py`'s closing message.
+
+    That epilogue asserted the opposite for two `plan-verify` passes on PR #145
+    — *"`plan-sprint` does NOT read them today ... nothing in it reads a roadmap
+    or an hour figure"* — and an operator acting on it would build a handoff that
+    already exists. The claim was true of the MODEL (plan-sprint's prompt does
+    forbid opening a phase doc) and generalised to the WORKFLOW, whose parent
+    computes the figures before the model is called.
+
+    `C-zwzepum0`'s rule: a sentence asserting how another file behaves either
+    names the check that holds it, or is not written. This is that check.
+    """
+    root = Path(__file__).resolve().parents[2] / "modules" / "assistant" / "plan"
+    wf = (root / "plan_sprint" / "plan_sprint_workflow.py").read_text()
+    assert "act.phase_sizing(" in wf, (
+        "plan_sprint_workflow no longer calls `phase_sizing`. If the handoff was "
+        "deliberately removed, correct `run_plan_verify.py`'s closing message in "
+        "the same commit — it tells the operator this wiring exists."
+    )
+    assert '"SIZING_BLOCK"' in wf, (
+        "plan_sprint_workflow no longer injects SIZING_BLOCK, so the computed "
+        "total never reaches the model even though it is calculated."
+    )
+    prompt = (root / "plan_sprint" / "prompts" / "plan_sprint.md").read_text()
+    assert "${SIZING_BLOCK}" in prompt, (
+        "the prompt dropped its ${SIZING_BLOCK} placeholder, so the parent "
+        "computes the figures and renders them nowhere."
+    )
