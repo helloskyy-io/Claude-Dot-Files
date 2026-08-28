@@ -61,7 +61,23 @@ _OPEN_BOX = re.compile(r"^\s*[-*]\s*\[ \]\s*(.+)$")
 #: A numbered requirement in a phase doc — the other shape a phase's obligations
 #: take. `phase4_rebuild_is_a_test.md` carries its requirements this way, and its
 #: requirement 1 is the instance that produced this module.
-_NUMBERED_REQ = re.compile(r"^\s*\d+\.\s+\*\*(.+?)\*\*")
+#:
+#: **The bold segment IDENTIFIES the requirement; the WHOLE LINE is the promise.**
+#: The first cut captured only `\*\*(.+?)\*\*` and so read a requirement's title
+#: while ignoring its body — which is where the surface name usually sits, after
+#: the em-dash. That let requirement 6 of `phase4_rebuild_is_a_test.md` pass:
+#: *"**The change in authority is documented …** — `candidates.md` and
+#: `direction.md` are now rebuilt from the journal"*. Title clean, body naming two
+#: deleted files, gate green. Matched on the bold opener, measured on the line.
+_NUMBERED_REQ = re.compile(r"^\s*\d+\.\s+\*\*")
+
+#: A numbered item's `[x]`. The checkbox path gets its record/obligation
+#: discriminator from the box; a numbered requirement has no box, and the corpus
+#: marks a settled one by opening its bold segment with `✅` — **8 occurrences
+#: across two components, and no other status marker is used this way.** Same
+#: rule as the checkbox, same reason: a record describes the tree as it stood and
+#: rewriting it would falsify it.
+_NUMBERED_RECORD = re.compile(r"^\s*\d+\.\s+\*\*✅")
 
 _SURFACE = re.compile(r"`?\b(candidates|direction)\.md\b`?")
 
@@ -109,13 +125,19 @@ def test_no_OPEN_obligation_names_a_deleted_surface(doc: Path) -> None:
     """
     offences: list[str] = []
     for n, line in enumerate(doc.read_text().splitlines(), 1):
-        m = _OPEN_BOX.match(line) or _NUMBERED_REQ.match(line)
-        if not m:
+        box = _OPEN_BOX.match(line)
+        if box:
+            promise = box.group(1)
+        elif _NUMBERED_RECORD.match(line):
+            continue                # a settled item — a RECORD, left alone
+        elif _NUMBERED_REQ.match(line):
+            promise = line          # title AND body — see `_NUMBERED_REQ`
+        else:
             continue
         # ONE ENTRY PER LINE, not per surface name: a criterion naming both
         # deleted files is one defect with one remedy, and reporting it twice
         # makes a two-line failure read as four.
-        if _SURFACE.search(m.group(1)):
+        if _SURFACE.search(promise):
             offences.append(f"    :{n}  {line.strip()[:110]}")
 
     assert not offences, (
@@ -128,4 +150,60 @@ def test_no_OPEN_obligation_names_a_deleted_surface(doc: Path) -> None:
           "nothing to test, and either fakes it or stalls. Repoint the criterion "
           "at what replaced the surface. **A CHECKED box naming the same file is "
           "a RECORD and is left alone** — this gate does not touch those."
+    )
+
+
+def test_a_requirements_BODY_is_read_not_just_its_bold_title() -> None:
+    """POSITIVE CONTROL for the widening. Without it the narrowing is invisible.
+
+    `_NUMBERED_REQ` used to capture the bold title alone, so a requirement whose
+    title was clean and whose BODY named a deleted surface passed. That is the
+    shape requirement 6 of `phase4_rebuild_is_a_test.md` actually had, and the
+    gate was green on it for a day. If someone re-narrows the key to the title,
+    every other test here still passes — this one is what fails.
+    """
+    title_clean_body_dirty = (
+        "6. **The change in authority is documented where readers will find it** "
+        "— `candidates.md` and `direction.md` are now rebuilt from the journal"
+    )
+    assert _NUMBERED_REQ.match(title_clean_body_dirty), "the line is a requirement"
+    assert _SURFACE.search(title_clean_body_dirty), (
+        "the surface name is in the BODY, past the em-dash. A key that stops at "
+        "the closing `**` cannot see it — which is the bug this control holds."
+    )
+
+    title_dirty = "1. **Replay reproduces `candidates.md`** — byte-identical"
+    assert _SURFACE.search(title_dirty), "titles are still read"
+
+    prose = "3. Two hundred rows were migrated on 2026-08-26."
+    assert not _NUMBERED_REQ.match(prose), (
+        "an ordinary numbered sentence is NOT a requirement — the bold opener is "
+        "what distinguishes an obligation from a prose enumeration, and widening "
+        "the measurement must not widen the match."
+    )
+
+
+def test_a_SETTLED_numbered_item_is_a_record_and_is_left_alone() -> None:
+    """The numbered path's record/obligation split, held the same way as the box.
+
+    Widening the measurement to the whole line exposed that the numbered path had
+    NO discriminator — it had merely been hidden, because a title alone rarely
+    names a surface. `mmf/roadmap.md:8` is the real instance: a `✅`-marked entry
+    recording a 2026-08-10 correction, which the widened key flagged as a broken
+    promise. It is a record. Rewriting it would falsify it.
+    """
+    record = (
+        "8. **✅ THE ROW-PRESENCE HALF IS ALREADY RECONCILED — corrected "
+        "2026-08-10.** `architectural_standard.md` now carries a `direction.md` note"
+    )
+    assert _NUMBERED_REQ.match(record), "it is still shaped like a requirement"
+    assert _SURFACE.search(record), "and it does name a deleted surface"
+    assert _NUMBERED_RECORD.match(record), (
+        "but `✅` marks it settled, so it is a RECORD and this gate skips it — "
+        "the same rule `- [x]` gets, applied to the shape that has no box."
+    )
+
+    obligation = "6. **The change in authority is documented** — `candidates.md` is rebuilt"
+    assert not _NUMBERED_RECORD.match(obligation), (
+        "an unmarked numbered requirement is an OPEN promise and stays in scope"
     )

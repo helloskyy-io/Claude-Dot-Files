@@ -79,61 +79,72 @@ wrong from here down!
 run on the project as a whole, either initial planning or a follow up to previous with additional info/ideas. This is for a small project. It exemplifies researching will satisfied,
 then planning till satisfied, then building the plan. 
 
-research --project: (parent)
-- research-write or research-write --minor: (large or small project)
-- research-verify
-- review-pr
-(usually HiL at this point, repeat till happy)
+```
+project-manager                                      PARENT OF PARENTS — the project as a whole, research through build
+│
+├── research --project                               PARENT
+│   ├── research-write │ research-write --minor      large project │ small project
+│   ├── research-verify
+│   │   └── (loop as allowed)
+│   ├── review-pr
+│   │   └── (loop as allowed)
+│   └── ◆ HiL — repeat until happy
+│
+├── merge-pr                                         Merge PR, and proceed to next workflow (based on logic)
+│   
+├── plan-project --project                           PARENT — runs on the research above, "the project as a whole"
+│   │                                                or rejects them with reasoning, and if candidates are labeled for integration plans them.
+│   ├── triage-candidates                            triages the candidate list: labels each for a sprint/feature/phase,
+│   ├── plan-candidates                              ACTIVITY, not a child workflow — scaffolds the items triage just admitted
+│   ├── review-pr
+│   │   └── (loop as allowed)
+│   └── ◆ HiL — repeat until happy
+│
+├── merge-pr                                         Merge PR, and proceed to next workflow (based on logic)
+│
+├── feature-manager                                  PARENT OF PARENTS — cron, most likely fired by expired research
+│   │                                                runs on the research above, "the project as a whole", including candidates
+│   ├── research --feature                           PARENT
+│   │   ├── research-write --minor                   targets the feature
+│   │   ├── research-verify                          targets the feature
+│   │   ├── review-pr
+│   │   │   └── (loop as allowed)
+│   │   └── ◆ HiL — repeat until happy
+│   │
+│   ├── merge-pr                                     Merge PR, and proceed to next workflow (based on logic)
+│   │
+│   ├── plan-feature --feature                       PARENT — pointed at the feature (or its stub) and the research. Research not required
+│   │   ├── plan --feature                           plans the feature: roadmap + phases (epics), referenced onto the sprint
+│   │   ├── plan-verify                              checks the planning, fixes issues, sizes each phase in hours from its complexity
+│   │   ├── plan-sprint                              adds the new feature if any; a changed phase estimate re-totals the sprint. New sprints are
+│   │   │                                            calculated at creation time
+│   │   ├── review-pr
+│   │   └── ◆ HiL — repeat until happy
+│   │
+│   ├── merge-pr                                     Merge PR, and proceed to next workflow (based on logic)
+│   │
+│   ├── build-feature                                PARENT (potentially several passes here)
+│   │   ├── build
+│   │   ├── build-refine
+│   │   ├── review-pr
+│   │   └── ◆ HiL — repeat until happy
+│   │
+│   ├── merge-pr                                     Merge PR, and proceed to next workflow (based on logic)
+│   │
+│   └── ◆ HiL — repeat until happy
+│
+└── ◆ HiL — repeat until happy
+```
 
-plan-project --project(flag): (parent) (run on the reasearch that was previously ran "project as a whole")
-- triage-candidates (triage of candidate list and labels correctly the candidates for inclusion in sprints/features/phases or rejects them with reasoning)
-- plan-candidates (activity NOT child workflow!) (Creates scaffolding for missing items recently triaged)
-- research-write: (if research is missing or stale, run research, targeting the sprint/feature or scaffolding)
-- research-verify: (if above ran, run verify, targeting the sprint/feature)
 
-wrong from here down!
-- plan-feature: (plans the feature/roadmap/phases (epics) that are referenced onto the sprint)
-- plan-verify: (checks and verifies the planning, fixes issues, assignes an estimated hours value based on the complexity of each phase)
-- plan-sprint: (adds the new feature from above (if any), any changes to the phase hour estimates triggers a change to the total in the sprint, new sprints are calculated at the time of creation)
-- review-pr
-(usually HiL at this point, repeat till happy)
-
-
-
-### Scenario: Feature creation and expansion
-run on an identified feature with either a stub or a fully developed feature. For all sizes of projects
-
-feature-manager: (parent of a parent, most likely cron based on expired research)
-   |  
-   ├─research --feature: (parent)
-   |  ├─research-write --minor: (targeting feature)
-   |  ├─research-verify: (targeting feature)
-   |  ├─review pr
-   |  └─(usually HiL at this point, repeat till happy)
-   |
-   ├─plan-feature --feature(flag): (parent) (pointed at the feature, or feature stub, and the research. research not required)
-   |  ├─plan --feature: (plans the feature/roadmap/phases (epics) that are referenced onto the sprint)
-   |  ├─plan-verify: (checks and verifies the planning, fixes issues, assignes an estimated hours value based on the complexity of each phase)
-   |  ├─plan-sprint: (adds the new feature from above (if any), any changes to the phase hour estimates triggers a change to the total in the sprint, new sprints are calculated at the time of creation)
-   |  ├─review-pr
-   |  └─(usually HiL at this point, repeat till happy)
-   |
-   ├─build-feature: (parent)
-   |  ├─build: 
-   |  ├─build-refine:
-   |  ├─review-pr
-   |  └─(usually HiL at this point, repeat till happy)
-   |
-   └─(usually HiL at this point, repeat till happy)
-
-### Scenario4: 
-run a targeted security audit on a design
+### Scenario: 
+run a targeted security audit on a design (needs designing)
 
 security-audit: (parent)
 
 
 
-### Scenario5:
+### Scenario:
 run a build on a targeted design phase: 
 
 build --what flags? if any?: (parent)
