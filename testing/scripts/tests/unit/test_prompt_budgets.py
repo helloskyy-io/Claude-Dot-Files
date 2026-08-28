@@ -125,7 +125,20 @@ BUDGETS: dict[str, int] = {
     # changes what the model DOES (runs a command instead of grepping a store);
     # a capable reasoner cannot infer a script it has never been told exists;
     # and the harness cannot enforce it.
-    "review_pr/prompts/disposition.md": 82831,
+    # RAISED 82831 -> 83700 on 2026-08-28 (+869): the tier table had NO ROW for
+    # `plan_feature.sh`, `plan_verify.sh` or `plan_sprint.sh` while the prompt
+    # instructed the reviewer to size every redispatch — so it could name three
+    # tools it had no figures for. All three have had `config.yaml` caps all
+    # along (250 / 150 / 100). Added, plus the ruling that a PLANNING hold loops
+    # back through all three rather than into `plan_revision.sh`, which
+    # re-enters at DRAFT and skips the two children that size and total a plan.
+    # Against § Prompt economy: it changes what the model DOES (which tool it
+    # names, and at what cap); a capable reasoner cannot infer caps from a config
+    # file it never reads, and two runs followed the old routing; the harness
+    # enforces a cap but cannot choose the tool. The dates and run evidence are
+    # in the commit, not here — the paragraph carries the rule and the mechanism
+    # only, and the MDC anecdote that first justified it was cut for that reason.
+    "review_pr/prompts/disposition.md": 83700,
     "plan/plan_revision/prompts/stages_1_to_5.md": 22_506,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-f0lfdhmm's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the
@@ -212,7 +225,16 @@ BUDGETS: dict[str, int] = {
     # had a reason to touch, `operations/` included, which §1.2 reserves to
     # humans. A prohibition naming a retired surface reads as permission for
     # what replaced it.
-    "plan/plan_sprint/prompts/plan_sprint.md": 9914,
+    # RAISED 9914 -> 10500 on 2026-08-28 (+586): the prompt authorised "this
+    # component's hour total" and was silent on per-ITEM hours, so a run copied
+    # a neighbouring section's estimates onto seven open bullets. Documentation
+    # Standard § What a sprint entry may contain reserves the per-item slot for
+    # the delivered stamp -- ACTUAL hours on a closed item, the plan's only
+    # estimate-versus-actual signal -- so an estimate there destroys the signal
+    # rather than adding detail. Against Prompt economy: it changes what the
+    # model WRITES; a capable reasoner cannot infer it (the file's own examples
+    # argue the other way, 7 of them); and no harness reads sprint.md at all.
+    "plan/plan_sprint/prompts/plan_sprint.md": 10500,
     # RATCHETED DOWN 16_060 -> 9_919: the mutation discipline moved to the shared
     # prompts/mutation_discipline.md, budgeted below. Content did not shrink, it
     # MOVED — so both lines exist and neither absorbs growth silently.

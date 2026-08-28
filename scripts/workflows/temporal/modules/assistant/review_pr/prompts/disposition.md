@@ -303,10 +303,15 @@ Reach exactly ONE verdict:
 | `build.sh` | **opus** | 250 + 300 | **two, parallel** — code-reviewer (correctness + structure) and quality-control (standards + coarse security). No sequential third pass. **A HOLD loops to `build-refine-minor`, not to the full tier** |
 | `build_minor.sh` | **opus — same as `build.sh`** | 200 + 200 | **one** — code-reviewer |
 | `plan_revision.sh` | opus | 300 | doc/plan edits |
+| `plan_feature.sh` | opus | 250 | none — it authors |
+| `plan_verify.sh` | opus | 150 | **one** — a cold read of a plan it did not write |
+| `plan_sprint.sh` | opus | 100 | none — it places what is already decided |
 | `research.sh` | **opus** (both children) | 150 + 200 | **one** — research-critic, which FETCHES every cited source |
 | `research_minor.sh` | **sonnet** to write, **opus** to verify | 80 + 200 | **the same one** — the cheap tier does not skip the critic |
 
-**MATCH THE PR'S TYPE FIRST, THEN SIZE.** BUILD → `build_minor.sh` / `build.sh`; RESEARCH → `research_minor.sh` / `research.sh`; PLANNING → `plan_revision.sh`, which corrects ANY planning PR — its scope is planning docs generally, not only phase docs. **One carve-out: `sprint.md` is operator-only, so a finding whose remedy is a sprint-file edit is needs-assistance, never redispatch.**
+**MATCH THE PR'S TYPE FIRST, THEN SIZE.** BUILD → `build_minor.sh` / `build.sh`; RESEARCH → `research_minor.sh` / `research.sh`; PLANNING → **`plan_feature.sh`, then `plan_verify.sh`, then `plan_sprint.sh` — all three, in order**, which corrects ANY planning PR — its scope is planning docs generally, not only phase docs. **One carve-out: `sprint.md` is operator-only, so a finding whose remedy is a sprint-file edit is needs-assistance, never redispatch.**
+
+**A PLANNING HOLD LOOPS BACK THROUGH ALL THREE, NOT INTO ONE.** `plan_revision.sh` re-enters at DRAFT and runs neither `plan-verify` nor `plan-sprint`, so a roadmap edit lands phase changes that **nothing re-sizes and nothing re-totals** — the sizing floor and the phase-link guard exist to catch exactly that. Name all three, in order, with the findings each is to address.
 
 **The tiers run the SAME MODEL — `-minor` is smaller, not weaker** (ruled 2026-08-18). So size on SCOPE and on how much review the change warrants, and stop treating `-minor` as the tier for easy work: a small task can need judgement, and this tier can now carry it. **Reach for `build.sh` when the change should be seen by two lenses rather than one, or when it will not fit in 200 turns** — not when it merely looks hard.
   2. **needs-assistance** — human-in-the-loop is genuinely required. Use this when: you cannot confidently resolve an item; a follow-up has no home and where it belongs is a judgment call; the fix's economics/scope is the operator's call; the review uncovered something BIGGER than the PR (**a gap in the architecture or the plan**); or the PR's inputs include research artifacts and you find a **research defect** — apply the materiality test: *does correcting the defect change the outcome of the decision built on it?* NO → it rides the scheduled revalidation sweep (note it, do not hold on it). YES → needs-assistance with why_human `research-defect`: the research must be re-validated (a research-currency re-run) and any dependent planning re-run before this can merge. For each needs-assistance item, present your best RECOMMENDED resolution reasoned through /decide + /best-practices — and print the working: a one-line `reframe:` (the /decide reframed question) and a one-line `bp:` (the best-practice alignment) BEFORE the recommendation, so the operator audits your judgment at standup speed instead of trusting lens-flavored prose. Surfacing a real gap and asking for direction is a success, not a failure.
@@ -400,7 +405,9 @@ pr_review:
       issue_repo: <owner/repo — where the WORK lives, not centralized>
       qualified: unrelated + substantial + not-already-covered   # state how each of the three was met
       # kind: redispatch — the correction is obvious/known:
-      dispatch_tool: <build_minor.sh | build.sh | plan_revision.sh | research_minor.sh | research.sh>
+      dispatch_tool: <build_minor.sh | build.sh | research_minor.sh | research.sh
+                     | plan_feature.sh | plan_verify.sh | plan_sprint.sh>
+                                     # A PLANNING hold names ALL THREE, in that order.
                                      # TYPE-MATCHED FIRST, then sized (see Stage 4).
       dispatch_context: |
         <the exact scoped task that dispatch_tool --pr ${PR_NUMBER} would carry:

@@ -331,3 +331,40 @@ def test_plan_sprint_IS_HANDED_the_estimates_plan_verify_writes() -> None:
         "the prompt dropped its ${SIZING_BLOCK} placeholder, so the parent "
         "computes the figures and renders them nowhere."
     )
+
+
+def test_REWORDING_a_checked_bullet_is_not_a_flip(tmp_path) -> None:
+    """Editing a checked item's text must not read as erasing and re-ticking it.
+
+    MEASURED ON PR #145. `plan-sprint` appended `· **~34h**` to two already-checked
+    sprint bullets and the guard reported *"flipped 4 completion checkbox(es)"* —
+    two ERASED, two TICKED, the same two items. `- [x]` before, `- [x]` after.
+
+    A guard that cannot tell a reworded item from a fabricated completion spends
+    its credibility on the wrong alarm, and the real prohibition — do not claim
+    work nobody did — is the one that stops being believed.
+    """
+    before = tmp_path / "before.md"
+    after = tmp_path / "after.md"
+    before.write_text(
+        "- [x] **Decompose the build families** · ([roadmap](r.md)) — the shape written down\n"
+        "- [ ] **Dual-mode children** · ([roadmap](r.md)) — nine children run alone\n")
+    after.write_text(
+        "- [x] **Decompose the build families** · ([roadmap](r.md)) · **~34h** — the shape written down\n"
+        "- [ ] **Dual-mode children** · ([roadmap](r.md)) · **~30h** — nine children run alone\n")
+    assert own.checked_boxes(before) == own.checked_boxes(after), (
+        "rewording a checked bullet registered as a checkbox flip. Only the "
+        "bullet's text changed; its state did not."
+    )
+
+
+def test_an_ACTUAL_flip_is_still_caught(tmp_path) -> None:
+    """The control. Keying on identity must not blind the guard to a real tick."""
+    before = tmp_path / "b.md"; after = tmp_path / "a.md"
+    before.write_text("- [ ] **Dual-mode children** — nine children run alone\n")
+    after.write_text("- [x] **Dual-mode children** — nine children run alone\n")
+    moved = own.checked_boxes(after) - own.checked_boxes(before)
+    assert list(moved.elements()) == ["Dual-mode children"], (
+        f"a genuine tick was not detected: {moved}. Identity keying must narrow "
+        f"WHAT is compared, never WHETHER a flip is seen."
+    )

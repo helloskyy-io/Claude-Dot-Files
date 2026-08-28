@@ -188,13 +188,13 @@ All of memory in this fleet — the framework and the protocol. Every run writes
 
 The port to durable execution. Phases are listed in BUILD order, which is not their numeric order — `review-runs` was split out late and lands between the retry boundary and the `claude_cli` domain.
 
-- [ ] **Temporal Integration · The starter control plane** · ([roadmap](temporal-integration/roadmap.md) · [phase](temporal-integration/phase1_the_starter_control_plane.md)) · **~16h**
-- [ ] **Temporal Integration · Durable dispatch identity, and the recovery contract** · ([roadmap](temporal-integration/roadmap.md) · [phase](temporal-integration/phase2_durable_dispatch_identity.md)) · **~22h**
-- [ ] **Temporal Integration · The retry boundary, and a `gh` failure that carries its own verdict** · ([roadmap](temporal-integration/roadmap.md) · [phase](temporal-integration/phase3_the_retry_boundary.md)) · **~16h**
-- [ ] **Temporal Integration · `review-runs`, written in the Python tree** · ([roadmap](temporal-integration/roadmap.md) · [phase](temporal-integration/phase9_review_runs_in_the_python_tree.md)) · **~20h**
-- [ ] **Temporal Integration · The `claude_cli` activity domain** · ([roadmap](temporal-integration/roadmap.md) · [phase](temporal-integration/phase4_the_claude_cli_activity.md)) · **~28h**
-- [ ] **Temporal Integration · The first dispatch, end to end** · ([roadmap](temporal-integration/roadmap.md) · [phase](temporal-integration/phase5_the_first_dispatch.md)) · **~26h**
-- [ ] **Temporal Integration · The rest of the fleet, and the two that never ran** · ([roadmap](temporal-integration/roadmap.md) · [phase](temporal-integration/phase6_the_rest_of_the_fleet.md)) · **~31h**
+- [ ] **Temporal Integration · The starter control plane** · ([roadmap](temporal-integration/roadmap.md) · [phase](temporal-integration/phase1_the_starter_control_plane.md))
+- [ ] **Temporal Integration · Durable dispatch identity, and the recovery contract** · ([roadmap](temporal-integration/roadmap.md) · [phase](temporal-integration/phase2_durable_dispatch_identity.md))
+- [ ] **Temporal Integration · The retry boundary, and a `gh` failure that carries its own verdict** · ([roadmap](temporal-integration/roadmap.md) · [phase](temporal-integration/phase3_the_retry_boundary.md))
+- [ ] **Temporal Integration · `review-runs`, written in the Python tree** · ([roadmap](temporal-integration/roadmap.md) · [phase](temporal-integration/phase9_review_runs_in_the_python_tree.md))
+- [ ] **Temporal Integration · The `claude_cli` activity domain** · ([roadmap](temporal-integration/roadmap.md) · [phase](temporal-integration/phase4_the_claude_cli_activity.md))
+- [ ] **Temporal Integration · The first dispatch, end to end** · ([roadmap](temporal-integration/roadmap.md) · [phase](temporal-integration/phase5_the_first_dispatch.md))
+- [ ] **Temporal Integration · The rest of the fleet, and the two that never ran** · ([roadmap](temporal-integration/roadmap.md) · [phase](temporal-integration/phase6_the_rest_of_the_fleet.md))
 - [ ] **Temporal Integration · The three-node cluster** · ([roadmap](temporal-integration/roadmap.md)) — gated; inherited from MDC when its procedure exists. No phase doc by design
 - [ ] **Temporal Integration · The pivot, and the starter is destroyed** · ([roadmap](temporal-integration/roadmap.md)) — gated; the upstream procedure does not exist yet. No phase doc by design
 - [ ] **Sprint close-out** · ([checks](close_out/sprint_end_recurring.md)) — recurring checks run for this sprint and every finding dispositioned (fixed / rejected-with-reasoning / placed); no open issue belongs to this sprint's work

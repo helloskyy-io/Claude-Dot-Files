@@ -710,6 +710,23 @@ def ids_deleted(before: dict[str, str], after: dict[str, str]) -> list[str]:
 # A completed checkbox in any of the markdown dialects this tree writes.
 _CHECKED = re.compile(r"^\s*[-*]\s*\[[xX]\]\s*(.+?)\s*$", re.M)
 
+#: A checked item's IDENTITY, so a box is tracked by WHICH item it is rather than
+#: by the whole line. A sprint bullet leads with its bolded name; that name is
+#: what makes it the same item across an edit.
+#:
+#: WITHOUT THIS, EDITING A CHECKED BULLET READS AS TWO FLIPS. `plan-sprint`
+#: appended `· **~34h**` to two already-checked bullets on PR #145 and the guard
+#: reported *"flipped 4 completion checkbox(es)"* — the same two items, counted
+#: once as ERASED under their old text and once as TICKED under their new text.
+#: Neither box moved: `- [x]` before, `- [x]` after.
+#:
+#: The guard's own comment had ruled this acceptable — *"a reworded box was never
+#: legitimate, so symmetry adds no new false positive"* — which was true when
+#: `plan-sprint` wrote no per-bullet figures. It writes them now. **Whether it
+#: SHOULD is a live house-style question for the operator; conflating it with
+#: fabricating a completion is a separate defect and this is that fix.**
+_ITEM_ID = re.compile(r"\*\*(.+?)\*\*")
+
 
 def checked_boxes(path: Path) -> Counter:
     """The completed checkboxes in a planning file, counted by their text.
@@ -757,7 +774,15 @@ def checked_boxes(path: Path) -> Counter:
     """
     if not path.exists():
         return Counter()
-    return Counter(_CHECKED.findall(path.read_text()))
+    # KEYED ON IDENTITY, NOT ON THE WHOLE LINE — see `_ITEM_ID`. An item with no
+    # bolded name falls back to its full text, which is the pre-existing
+    # behaviour and is right for a phase doc's completion criteria: those are
+    # sentences, and the sentence IS the identity.
+    def _identity(text: str) -> str:
+        m = _ITEM_ID.search(text)
+        return m.group(1) if m else text
+
+    return Counter(_identity(t) for t in _CHECKED.findall(path.read_text()))
 
 
 # What a phase doc might be NAMED, which is deliberately wider than what one may
