@@ -32,10 +32,9 @@ links a `phaseN_*.md`"* — INFERRED a phase from a citation and found 12 in
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
-
-import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "modules"))
 
@@ -163,22 +162,39 @@ def test_the_RULE_8_FORM_WINS_when_a_file_carries_both(tmp_path: Path) -> None:
     )
 
 
-@pytest.mark.parametrize("component,expected", [
-    ("memory-management-framework", 124.0),
-    ("persistent-memory-protocol", 187.0),
-    ("temporal-integration", 193.0),
-    ("workflow-decomposition", 73.0),
-])
-def test_this_repos_own_roadmaps_are_UNCHANGED(component: str, expected: float) -> None:
-    """A positive control on the live corpus, not on a fixture.
+def test_the_checkbox_KEY_IS_INERT_on_this_repos_real_roadmaps() -> None:
+    """The property: adding a fallback must not change what the primary reads.
 
-    Adding a second key to a counter is exactly the change that quietly moves a
-    number somewhere else. These four are the figures the sprint file carries,
-    and they were measured before the key was added.
+    THE FIRST VERSION OF THIS TEST PINNED FOUR ABSOLUTE TOTALS — 124 / 187 / 193
+    / 73 h — measured the day the key was added. It was a positive control keyed
+    to **mutable planning artifacts**, so `plan-verify` re-sizing this repo's own
+    roadmap from 73 h to 175 h turned it red on PR #145. **A correct plan change
+    failed a test about a parser.** Reported by the run that hit it, which could
+    not fix it: the file was outside its write grant.
+
+    The property was never about the numbers. It is that the checkbox key is
+    UNREACHABLE on a rule-8 roadmap, because the fallback runs only when the
+    primary pass found nothing. So this compares the parser against itself with
+    the key disabled — exact, and it cannot go stale when a plan is re-sized.
     """
     repo = Path(__file__).resolve().parents[5]
-    sizing = A.phase_sizing(repo / "docs" / "development" / component)
-    assert sizing.total == expected, (
-        f"{component} totals {sizing.total} h, was {expected} h before the "
-        f"checkbox key existed. The key must be inert on a rule-8 roadmap."
-    )
+    roadmaps = sorted(p.parent for p in (repo / "docs" / "development").glob("*/roadmap.md"))
+    assert len(roadmaps) >= 4, f"vacuity floor: found {len(roadmaps)} roadmaps"
+
+    disabled = re.compile(r"(?!x)x")          # matches nothing
+    live = A._CHECKBOX_PHASE
+    try:
+        for comp in roadmaps:
+            with_key = A.phase_sizing(comp)
+            A._CHECKBOX_PHASE = disabled
+            without_key = A.phase_sizing(comp)
+            A._CHECKBOX_PHASE = live
+            assert with_key == without_key, (
+                f"{comp.name}: the checkbox key CHANGED the result on a rule-8 "
+                f"roadmap.\n  with:    {with_key.total}h / {len(with_key.rows)} phases"
+                f"\n  without: {without_key.total}h / {len(without_key.rows)} phases\n"
+                f"The fallback must be unreachable when the primary pass finds "
+                f"phases; if it is not, both keys are matching the same document."
+            )
+    finally:
+        A._CHECKBOX_PHASE = live
