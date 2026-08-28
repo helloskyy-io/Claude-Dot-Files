@@ -2,7 +2,7 @@
 id: C-ffmdiiv6
 title: Each planning stage appends its own PR-body section and none retracts an earlier one, so a multi-stage PR reliably tells its reviewer two contradictory facts about its own contents
 status: open
-count: 1
+count: 2
 filed: 2026-08-28
 filed_by: review-pr
 component: 
@@ -28,3 +28,7 @@ decision:
 **Remedy (PM3's, and it is the cheapest):** the stage that falsifies an earlier claim strikes it. For sizing that is `plan-verify`, since writing the figures is what makes the NOT-SIZED section false.
 
 **Distinct from the stale-restatement class we deliberately did NOT fix.** There, restating a format in a prompt would have drifted from the file it described. Here the false claim is already written into a durable artifact and needs withdrawing by whoever falsified it — no prompt restates anything.
+
+## Recurrences
+
+- 2026-08-28 · 2026-08-28: second sighting, our own PR #145, and it caught the REVIEWER this time. `review-pr` pass 1 prescribed a fix for the stale body total; the fix landed exactly as written and `plan-verify` invalidated it fifteen minutes later by re-sizing. Pass 2 named the gap in its own prompt: *a prescription that lands correctly and is then invalidated by a later stage of the same dispatch has no name in this prompt.* Its remedy sharpens the candidate's: the fix is to REMOVE the literal, not to re-type it — re-typing is what put it back. Applied to #145's body on 2026-08-28.

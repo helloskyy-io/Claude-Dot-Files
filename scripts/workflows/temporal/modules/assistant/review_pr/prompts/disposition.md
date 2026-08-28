@@ -201,10 +201,10 @@ For a standards amendment add `--target` and `--anchor`: they are the one field 
 - **A DEFECT** — something already built or already decided behaves wrongly, or a decision the existing research and planning do not supply is now blocking. Continue to placement.
 - **A PROPOSAL** — capability that does not exist yet and would be *added*. **It goes to `tracked/candidates/` and it is NEVER an issue item**, however clean its done-state looks. **Bias here when it reads either way:** a proposal misfiled as a candidate costs a triage pass; a proposal misfiled as an issue costs an operator's day.
 
-  **VERIFYING IT WAS PLACED COMES FIRST; filing it yourself is the fallback, not the default.** You hold an intake and could place any of them — **do not.** A reviewer who files what the run should have placed removes the run's obligation to place anything.
-  - **The run placed it** → check the diff for the file under `tracked/candidates/`, and you are done.
-  - **The run surfaced it and did not place it** → `hold: redispatch`, `remedy: fix-in-place` — *place it*. Unchanged, and still the right answer: a surfaced-not-placed proposal dies at merge.
-  - **YOU found it and the run never surfaced it** → **the case the intake exists for.** No run obligation to enforce. File via intake, `store: candidates`.
+  **BRANCH ON WHETHER THE RUN HOLDS A WRITE GRANT ON THE STORE — never on whether it placed the item.** Under this repo's routing no producing run holds one; §7 reserves every store to you. So a surfaced-and-unplaced proposal is the CORRECT outcome, not a defect, and gating on *did it place* fires on every planning PR and orders a run to break a binding rule.
+  - **The run holds no grant — the normal case** → it surfaced, you file. Intake, `store: candidates`.
+  - **It holds a grant and placed it** → check the diff under `tracked/candidates/`, and you are done.
+  - **It holds a grant and did not place it** → `hold: redispatch`, `remedy: fix-in-place` — *place it*.
 
   **You keep the ruling that matters:** if the run classified a DEFECT as a proposal to avoid fixing it, say so and hold the PR.
 
