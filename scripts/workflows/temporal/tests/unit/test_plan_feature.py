@@ -390,7 +390,6 @@ def test_the_boundary_grants_the_component_and_denies_its_SIBLING(tree: Path) ->
         "docs/development/beta/roadmap.md": "a",
         "docs/development/sprint.md": "a",
         "docs/development/alpha/research/synthesis.md": "a",
-        "tracked/candidates/C-d1uhacwn.md": "a",
         "docs/standards/architecture/problem-statement.md": "a",
     })
     after = {k: "CHANGED" for k in before}
@@ -486,7 +485,6 @@ def test_every_granted_path_is_also_watched_for_DELETION(tree: Path) -> None:
     permitted = wf.permitted_paths(Path("docs/development/alpha"), Path("tracked/candidates"))
     before = _state({
         "docs/development/alpha/roadmap.md": "a",
-        "tracked/candidates/C-d1uhacwn.md": "a",
     })
     after = {k: act.ABSENT for k in before}
     assert act.boundary_crossings(before, after, wf.FORBIDDEN_PATHS, permitted) == [], (
@@ -494,7 +492,6 @@ def test_every_granted_path_is_also_watched_for_DELETION(tree: Path) -> None:
         "that blindness is the reason the check below must exist")
     assert act.grants_that_vanished(before, after, permitted) == [
         "docs/development/alpha/roadmap.md",
-        "tracked/candidates/C-d1uhacwn.md",
     ]
 
 

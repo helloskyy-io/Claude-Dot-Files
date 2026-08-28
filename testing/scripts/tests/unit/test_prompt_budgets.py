@@ -306,7 +306,12 @@ BUDGETS: dict[str, int] = {
     # that unchecked boxes are watched too — while the next sentence tells them
     # adding unchecked boxes is their whole job. C-zwzepum0's class, third
     # instance in the plan family today. Found by `review-pr` on PR #144.
-    "plan/plan_feature/prompts/plan_feature.md": 24008,
+    # 24_008 -> 24_049 (+41) on 2026-08-26: the MAY column said "append a
+    # proposal row to the candidates file" and the grant that permitted it was
+    # removed the same day by operator ruling — a producing run SURFACES and
+    # `review-pr` files. A MAY-row promising a write the grant refuses is the
+    # contradiction class this repo has paid for three times today.
+    "plan/plan_feature/prompts/plan_feature.md": 24_049,
     # 15_510 -> 13_204: the `research-analyst` re-dispatch is gone. The verify
     # child holds Write/Edit and applies the critic's findings itself, so the
     # rules that existed only to coordinate a second writing agent went with it
@@ -479,7 +484,13 @@ BUDGETS: dict[str, int] = {
     # file per item, where it named `candidates.md` and "append a row with the
     # next free C-NNN". Both halves of that were wrong after the flip — there is
     # no row to append and ids are not sequential.
-    "prompts/decision_log_and_reflection.md": 9_815,
+    # 9_815 -> 9_960 (+145) on 2026-08-26: this fragment is injected into EVERY
+    # producing workflow and said "PLACE IT YOURSELF, IN THIS PR — do not merely
+    # surface it." That instruction is now false everywhere it renders. It says
+    # SURFACE, and names what a surfaced finding must carry — the reviewer files
+    # from those words, so anything missing is lost. Changes what every
+    # producing run DOES; no reasoner infers a boundary the text contradicts.
+    "prompts/decision_log_and_reflection.md": 9_960,
     # 8,106 not 8,057 — the first draft of this budget counted CHARACTERS and
     # this file is full of em-dashes. The test caught it on its first run,
     # which is the cheapest possible demonstration that byte counts are not

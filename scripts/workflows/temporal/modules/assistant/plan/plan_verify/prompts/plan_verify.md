@@ -28,12 +28,12 @@ ${PLAN_INVENTORY}
 | **Correct a DETERMINED defect in a phase doc** — see below | **Rename, renumber or delete a phase doc** — the number is IDENTITY |
 | Report a phase boundary you believe is wrong | **Reword a completion criterion** — a checkbox is the author's sentence |
 | Report a phase resting on evidence that does not support it | Write or edit anything under ANOTHER component, or under this one's `research/` |
-| File a proposal into `tracked/candidates/` | **WRITE or edit `sprint.md`** — read it (Stage 1), never touch it |
-| Name the `component` on an item YOU file | |
+| **SURFACE** a proposal in your report — `review-pr` files it | **WRITE or edit `sprint.md`** — read it (Stage 1), never touch it |
+| Name the `component` you believe a surfaced proposal belongs to | |
 | | **Tick a completion checkbox** — nothing has been built |
-| | Set `decision`, `size`, `status`, or another filer's `component` on an item |
+| | Write ANY `tracked/` store — you surface, `review-pr` files |
 | | Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/` |
-| | **Delete anything** — a candidate item, a phase doc, or the roadmap |
+| | **Delete anything** — a phase doc or the roadmap |
 | | Decide WHEN this component gets built, or where it sits against other work |
 
 ${FILING_A_CANDIDATE_ROW}
@@ -71,13 +71,13 @@ The sprint plan is the operator's cross-domain sequencing surface. `plan-sprint`
 
 ${WORKTREE_IS_COMPARED_TO_A_SNAPSHOT}
 
-- **Every path outside your authorization** — another component, this component's `research/`, the sprint plan, anything under `docs/standards/` other than the candidates store — is compared by content. Renaming or deleting one counts as editing it.
+- **Every path outside your authorization** — another component, this component's `research/`, the sprint plan, and anything under `tracked/` — is compared by content. Renaming or deleting one counts as editing it.
 - **Which phase docs `roadmap.md` references** is counted before and after, in both directions.
 - **Which phase docs EXIST on disk** is compared separately, so a doc that vanishes is named as a deletion rather than reaching you as some other guard's message.
 - **The roadmap must carry AT LEAST AS MANY hour estimates as the component has phase docs** when you finish, or the run fails as unsized. **Read that literally: it is a TOTAL against a TOTAL.** Nothing in code knows which phase an estimate sits beside, so two figures written against one phase will satisfy the count while another phase has none — the check passes and the plan is still unsized. **Nothing catches that but you.** Write exactly one estimate per phase, and if you add a sizing note, keep a second hour figure out of it.
 - **Completion checkboxes** in the roadmap are counted before and after by their text. Adding a tick fails the run, and so does erasing one.
-- **Every candidate field** — `decision`, `size`, `status`, `component` — is compared on every item that already existed. An item you file is exempt, because filing one requires you to write `status: open` and to name where it goes.
-- **Deleting anything** fails the run, at both altitudes: items are compared by id, and the store itself is checked for still existing.
+- **Every candidate field** — `decision`, `size`, `status`, `component` — is compared on every item. You file none, so any change to one is a crossing.
+- **Deleting anything** fails the run: phase docs are compared by name, and every granted path is watched for disappearance.
 
 Any one of these **fails the whole run** — including the work you did correctly.
 

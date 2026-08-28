@@ -192,7 +192,26 @@ def permitted_paths(component_rel: Path, candidates_rel: Path) -> tuple[str, ...
     """
     return (
         rf"^{re.escape(component_rel.as_posix())}/[^/]+\.md$",
-        rf"^{re.escape(candidates_rel.as_posix())}/[^/]+\.md$",
+        # THE CANDIDATES GRANT IS GONE, 2026-08-26, BY OPERATOR RULING. This
+        # workflow used to write `tracked/candidates/` directly, under a
+        # "proposals only" carve-out in the vendored Documentation Standard. The
+        # carve-out was written on 2026-08-09 for one reason: `review-pr` is
+        # decide-only and could not write a FILE surface at all, so the producing
+        # run was the only actor who could. **INTAKE removed that constraint**,
+        # and a workaround outliving its cause is the thing this repo keeps
+        # paying for.
+        #
+        # THE RULE IS NOW ONE RULE WITH NO EXCEPTION: a producing run SURFACES a
+        # finding in its report and stops; `review-pr` files it. Two of the three
+        # autonomous stores already worked that way — `issues/` and `standards/`
+        # were never reachable from here — and candidates was the odd one out.
+        #
+        # WHY THE REVIEWER AND NOT THE AUTHOR, in the operator's own framing: the
+        # second set of eyes is not invested in defending the suggestion. And the
+        # cost is asymmetric in a way the old design missed — if the reviewer can
+        # only HOLD the PR, rejecting a bad candidate costs a correction dispatch
+        # and a re-review; if the reviewer is the filer, a bad candidate costs
+        # nothing, because it is simply never written.
         r"^docs/file_structure\.txt$",
     )
 

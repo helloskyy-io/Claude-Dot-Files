@@ -213,7 +213,26 @@ def permitted_paths(component_rel: Path, candidates_rel: Path) -> tuple[str, ...
         # there; an exact match on the directory would grant a path nothing
         # writes and fail every correct placement at the last guard. Same shape
         # as the component grant above, and `[^/]+` for the same reason.
-        rf"^{re.escape(candidates_rel.as_posix())}/[^/]+\.md$",
+        # THE CANDIDATES GRANT IS GONE, 2026-08-26, BY OPERATOR RULING. This
+        # workflow used to write `tracked/candidates/` directly, under a
+        # "proposals only" carve-out in the vendored Documentation Standard. The
+        # carve-out was written on 2026-08-09 for one reason: `review-pr` is
+        # decide-only and could not write a FILE surface at all, so the producing
+        # run was the only actor who could. **INTAKE removed that constraint**,
+        # and a workaround outliving its cause is the thing this repo keeps
+        # paying for.
+        #
+        # THE RULE IS NOW ONE RULE WITH NO EXCEPTION: a producing run SURFACES a
+        # finding in its report and stops; `review-pr` files it. Two of the three
+        # autonomous stores already worked that way — `issues/` and `standards/`
+        # were never reachable from here — and candidates was the odd one out.
+        #
+        # WHY THE REVIEWER AND NOT THE AUTHOR, in the operator's own framing: the
+        # second set of eyes is not invested in defending the suggestion. And the
+        # cost is asymmetric in a way the old design missed — if the reviewer can
+        # only HOLD the PR, rejecting a bad candidate costs a correction dispatch
+        # and a re-review; if the reviewer is the filer, a bad candidate costs
+        # nothing, because it is simply never written.
     )
 
 
@@ -313,17 +332,19 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
         "clause: prose inside a granted file cannot be told from a correction "
         "by any comparator, and it is held by the report's integrity clause — "
         "every correction named, with whether it moved an estimate",
-    "Set `decision`, `size`, `status`, or another filer's `component` on an item":
-        "act.candidate_decisions, act.candidate_sizes, act.candidate_statuses and "
-        "act.candidate_components snapshotted either side of the run, compared by "
-        "act.decisions_this_run_had_no_right_to, act.sizes_this_run_had_no_right_to, "
-        "act.statuses_this_run_had_no_right_to and "
-        "act.components_this_run_had_no_right_to — one comparator per column, "
-        "because each column is prohibited for a different reason and the "
-        "comparator docstring is where that reason is recorded",
+    "Write ANY `tracked/` store — you surface, `review-pr` files":
+        "FORBIDDEN_PATHS `^tracked/` with NO grant carved back, via "
+        "act.worktree_state / act.boundary_crossings — the whole tree is a "
+        "crossing now. The four per-field comparators this row used to name "
+        "(act.decisions_this_run_had_no_right_to and its siblings) answered a "
+        "narrower question: did a run that MAY write the store change a field "
+        "it does not own. This workflow may not write the store at all, so the "
+        "path check answers it one altitude up and the field checks have no "
+        "subject here. Operator ruling 2026-08-26: a producing run surfaces and "
+        "`review-pr` files, for all three autonomous stores, no exception",
     "Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/`":
         "FORBIDDEN_PATHS `^docs/standards/` less permitted_paths, same mechanism",
-    "**Delete anything** — a candidate item, a phase doc, or the roadmap":
+    "**Delete anything** — a phase doc or the roadmap":
         "act.ids_deleted over the candidate id snapshots for a ROW, "
         "act.ids_deleted over own.phase_docs_of for a PHASE DOC, and "
         "act.grants_that_vanished over permitted_paths for the two files this "

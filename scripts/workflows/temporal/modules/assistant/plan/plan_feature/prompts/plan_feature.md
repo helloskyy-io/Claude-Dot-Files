@@ -23,8 +23,8 @@ ${RESEARCH_INVENTORY}
 | Create a NEW `phaseN_<name>.md` in `${COMPONENT_PATH}/` | **Rename, renumber or delete an existing phase doc** — the number is IDENTITY |
 | Edit a phase doc **you created in this run** | Give a NEW phase doc a name outside `phaseN_<name>.md` |
 | Re-order phase entries **within `roadmap.md`** | Give a NEW phase a number already used in this component |
-| Append a proposal row to the candidates file | **WRITE or edit `sprint.md`** — read it, never touch it |
-| Name the `component` on a row YOU append | Write or edit anything under ANOTHER component, or under your own `research/` |
+| **SURFACE** a proposal in your report — `review-pr` files it | **WRITE or edit `sprint.md`** — read it, never touch it |
+| Name the `component` you believe a surfaced proposal belongs to | Write or edit anything under ANOTHER component, or under your own `research/` |
 | | **Tick a completion checkbox** — you have built nothing |
 | | Set `decision`, `size`, `status`, or another filer's `component` in the candidates file |
 | | Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/` |

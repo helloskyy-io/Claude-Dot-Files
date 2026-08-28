@@ -82,14 +82,50 @@ def _workflow_module_of(runner: Path) -> str | None:
     return None
 
 
+#: Distinctive enough that it cannot appear in another grant by accident, and
+#: free of regex metacharacters — every grant runs its segment through
+#: `re.escape`, so a hyphenated marker comes back as `THE\-CANDIDATES` and no
+#: longer matches itself. That cost one debug cycle here; it would have cost a
+#: silently empty population if this check had no vacuity floor.
+_MARKER = "THECANDIDATESSTORE"
+
+
 def _runners_exposing_candidates() -> list[tuple[str, str]]:
-    """(runner name, workflow module) for every entrypoint declaring `--candidates`."""
+    """(runner name, workflow module) for every entrypoint that WRITES the store.
+
+    KEYED ON THE GRANT, NOT ON THE FLAG, since 2026-08-26. Declaring
+    `--candidates` used to imply writing it — every runner that took the flag
+    also held the grant, so either key selected the same set. The operator's
+    ruling separated them: `plan-feature` and `plan-verify` still take the flag
+    because they READ the store, and they no longer write it. The property here
+    is *a grant must follow the path its run was handed*, which is vacuous for a
+    run holding no grant — so the population is the runs that hold one.
+
+    A reader keyed on the flag would now fail those two for correctly granting
+    nothing, which is the guard punishing the ruling it was never about.
+    """
     out = []
     for runner in _RUNNERS:
         if '"--candidates"' not in runner.read_text():
             continue
         module = _workflow_module_of(runner)
-        if module:
+        if not module:
+            continue
+        import importlib
+        grant = getattr(importlib.import_module(module), "permitted_paths", None)
+        if grant is None:
+            continue
+        # A MARKER IN THE CANDIDATES PARAMETER, so the answer cannot come from
+        # another grant that happens to contain the word. Passing a uniform
+        # dummy path made every pattern identical and matched nothing, which
+        # would have emptied the population and reported green.
+        params = inspect.signature(grant).parameters
+        try:
+            pats = grant(*[Path(_MARKER if "candidates" in n else "other")
+                           for n in params])
+        except TypeError:
+            continue
+        if any(_MARKER in p for p in pats):
             out.append((runner.name, module))
     return out
 
@@ -105,12 +141,21 @@ def test_the_sweep_finds_the_runners_that_expose_the_flag() -> None:
     reader broke and every assertion below is passing over nothing.
     """
     # FOUR -> THREE on 2026-08-19. `plan-sprint` dropped `--candidates` when the
-    # rebuild took away the job that needed it, so the population this floor
-    # bounds genuinely shrank. The floor is a POSITIVE CONTROL on the sweep — a
-    # discovery that matched nothing would make every assertion below vacuous —
-    # so it tracks the real count rather than pinning a number the tree has left.
-    assert len(_SUBJECTS) >= 3, (
-        f"expected at least three runners exposing `--candidates`; found "
+    # rebuild took away the job that needed it.
+    #
+    # THREE -> ONE on 2026-08-26, and this one is a RULING rather than a rebuild.
+    # `plan-feature` and `plan-verify` still take the flag — they READ the store
+    # — and no longer WRITE it: a producing run surfaces a finding and
+    # `review-pr` files it, with no exception for any of the three autonomous
+    # stores. `triage-candidates` keeps its grant because its job is ruling
+    # `decision` on items that already exist, which is not filing.
+    #
+    # SO THE FLOOR IS ONE, AND ONE IS NOT A WEAKENED FLOOR. It still fails the
+    # moment the reader stops matching — the failure this exists to catch — and
+    # the population it bounds is now genuinely one workflow. Lowering it to
+    # zero would be the weakening; the check would then pass over nothing.
+    assert len(_SUBJECTS) >= 1, (
+        f"expected at least one runner that WRITES the candidates store; found "
         f"{[name for name, _ in _SUBJECTS]}. Fix the reader, do not weaken this.")
 
 

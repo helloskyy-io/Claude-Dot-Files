@@ -515,7 +515,6 @@ def test_the_grant_reaches_the_ROADMAP_and_NOT_the_phase_doc_beside_it(
         "docs/development/alpha/research/synthesis.md": "a",
         "docs/development/beta/roadmap.md": "a",
         "docs/development/sprint.md": "a",
-        "tracked/candidates/C-d1uhacwn.md": "a",
         "docs/standards/architecture/problem-statement.md": "a",
     })
     after = {k: "CHANGED" for k in before}
@@ -573,39 +572,19 @@ def test_the_component_name_is_ESCAPED_before_it_becomes_a_pattern(tree: Path) -
         wf.FORBIDDEN_PATHS, permitted) == [], "and its own roadmap is still granted"
 
 
-def test_the_CANDIDATES_grant_follows_the_operator_s_path(tree: Path) -> None:
-    """THE OTHER HALF OF THE BOUNDARY IS ALSO AN ARGUMENT, and it used to be a literal.
-
-    `--candidates` is a documented flag on every runner in this family, and it
-    is how a DIFFERENT repository is targeted: `--repo` points at a tree whose
-    pool need not sit at this repo's path. With the grant hard-coded, that flag
-    guaranteed failure — the prompt was handed `CANDIDATES_PATH` and told to
-    append a proposal there, `^docs/standards/` denied the whole tree, and
-    `boundary_crossings` read the model obeying its instructions as a crossing.
-    A correct run failed at the LAST guard, after all the work.
-
-    ESCAPED, for the reason the component segment is: the path is operator input
-    and nothing slugs it.
-    """
-    # AN OPERATOR-SUPPLIED POOL, and the paths compared are ITEMS in it, because
-    # the pool is a directory and a run writes items rather than directories.
-    elsewhere = Path("docs/standards/architecture/pool-v2")
-    permitted = wf.permitted_paths(Path("docs/development/alpha"), elsewhere)
-    moved = {(elsewhere / "C-d1uhacwn.md").as_posix(): "a"}
-    assert act.boundary_crossings(
-        moved, {k: "CHANGED" for k in moved},
-        wf.FORBIDDEN_PATHS, permitted) == [], (
-        "the operator's candidates pool was denied, so the run would fail for "
-        "doing exactly what its prompt told it to do")
-
-    default_item = (_CANDS / "C-d1uhacwn.md").as_posix()
-    default = {default_item: "a"}
-    assert act.boundary_crossings(
-        default, {k: "CHANGED" for k in default},
-        wf.FORBIDDEN_PATHS, permitted) == [default_item], (
-        "and the grant did NOT follow the argument — it still reaches the "
-        "default pool, which means it is a literal wearing a parameter")
-
+# RETIRED 2026-08-26 · `test_the_CANDIDATES_grant_follows_the_operator_s_path`
+# Its subject was that `--candidates` must reach the boundary, because a run
+# pointed at another repo's pool was told to place a proposal there and then
+# failed for doing it. **`plan-verify` no longer places anything.** By operator
+# ruling, a producing run SURFACES a finding and `review-pr` files it — one rule
+# for all three autonomous stores, no exception. There is no candidates grant
+# here to follow a flag, so the property has no subject.
+#
+# THE FLAG SURVIVES AND IS STILL READ: this workflow reads the store for its
+# report. What went away is the WRITE, which is what this test was about.
+# `test_a_grant_follows_its_flag.py` still holds the property for the one
+# workflow that legitimately writes — `triage-candidates`, whose job is ruling
+# `decision` on items that already exist rather than filing new ones.
 
 def test_every_granted_path_is_also_watched_for_DELETION(tree: Path) -> None:
     """A WRITE GRANT IS NOT A DELETE GRANT, exercised rather than declared.
@@ -620,7 +599,6 @@ def test_every_granted_path_is_also_watched_for_DELETION(tree: Path) -> None:
         # AN ITEM, not the store directory: the grant covers what a run writes,
         # and a run writes item files. Deleting one is how a ruled candidate
         # silently stops existing, which is what this check has to catch.
-        "tracked/candidates/C-d1uhacwn.md": "a",
     })
     after = {k: act.ABSENT for k in before}
     assert act.boundary_crossings(before, after, wf.FORBIDDEN_PATHS, permitted) == [], (
@@ -628,7 +606,6 @@ def test_every_granted_path_is_also_watched_for_DELETION(tree: Path) -> None:
         "that blindness is the reason the check below must exist")
     assert act.grants_that_vanished(before, after, permitted) == [
         "docs/development/alpha/roadmap.md",
-        "tracked/candidates/C-d1uhacwn.md",
     ]
 
 
