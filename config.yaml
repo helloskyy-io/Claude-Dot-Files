@@ -163,7 +163,6 @@ models:
                                 #   anything. Decide with that number in hand. Keying it to
                                 #   `research` (opus) would tie the cheap cycle's cost to the
                                 #   expensive one, which is the thing this workflow exists to avoid.
-  research-refresh: opus        # research revalidation — orchestration + synthesis diff
   review-pr: opus               # PR disposition engine (was fable — 2026-07-27 economics retier; re-test candidate first when headroom returns)
 
   # Agent-tier canon (DOCUMENTATION ONLY — agents pin models in their own
@@ -288,12 +287,6 @@ max_turns:
                               #   with three phases is a different measurement from one
                               #   with eight, so one run does not settle it.
   research: 250               # pool creation — orchestration + synthesis authorship
-  research-refresh: 250       # ⚠ CONVERGED 2026-08-10, FLAGGED FOR REVIEW. The two
-                              #   fleets disagreed — research-refresh.sh said 200, the
-                              #   Python said 250 — and NEITHER recorded a reason. Took
-                              #   the higher: a cap below an observed successful run has
-                              #   already cost a full budget once, so converging upward
-                              #   is the non-destructive direction. Not a measurement.
   review-pr: 120              # PR disposition engine
   review-runs: 100            # CPI log analysis
   review-sprint: 600          # holistic end-of-sprint judgment

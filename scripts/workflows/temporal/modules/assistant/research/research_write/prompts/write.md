@@ -119,6 +119,10 @@ Write (or fully rewrite) `${RESEARCH_DIR}/synthesis.md` per the Research Standar
 - **Ends in action candidates** — adopt / change direction / new concept / no change, sized for a standup. **A candidate with no home is named as homeless HERE**; you surface it, you do not file it
 - **EXCLUDES retired papers** — a paper marked `Revalidate: retired` is provenance, not input
 
+**IF THIS CYCLE REVALIDATED ANYTHING, THE PR BODY CARRIES A SYNTHESIS DIFF.** Any topic that was `due` had a paper before you ran, so the synthesis you just rewrote has a prior version — and the reader who needs this is at standup, not in the diff. State, concisely: **new, changed and removed action candidates, and any conclusion that shifted.** Not a changelog of the papers; a roll-up of what the pool now says that it did not say before.
+
+**A cycle with nothing due writes no diff**, and that is not an omission — there was no prior version of the rolled-up view to differ from.
+
 **KEEP IT SHORT, and that is the whole point of it existing.** The consumer is told not to read raw papers wholesale; a synthesis that restates the paper hands them the paper again under a different name and the saving evaporates. Roll up and point.
 
 ## Stage 5: SUBMIT

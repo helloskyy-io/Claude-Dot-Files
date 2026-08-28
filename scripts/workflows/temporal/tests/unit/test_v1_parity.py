@@ -140,9 +140,27 @@ def test_every_bash_workflow_cap_resolves_to_a_real_key() -> None:
     bad = []
     for p in WORKFLOWS.rglob("*.sh"):
         for key in re.findall(r'config-value\.sh" max_turns ([\w-]+)', p.read_text()):
-            if key not in caps:
+            if key not in caps and key not in _RETIRED_KEYS:
                 bad.append((p.relative_to(REPO_ROOT), key))
-    assert not bad, f"bash workflows reference max_turns keys that do not exist: {bad}"
+    assert not bad, (
+        f"bash workflows reference max_turns keys that do not exist: {bad}. "
+        f"If the V2 workflow behind the key was RETIRED, declare the key in "
+        f"`_RETIRED_KEYS` with the date and what absorbed it — the bash fleet is "
+        f"frozen reference and is never edited to satisfy this check."
+    )
+
+
+#: Keys a V1 script still names because its V2 counterpart was RETIRED. The bash
+#: fleet is FROZEN REFERENCE — it is never edited, not to fix a defect and not
+#: to keep it in sync — so a workflow that no longer exists in V2 leaves a
+#: dangling key here rather than a change there. Declared, dated, and with what
+#: absorbed it, so the entry can be removed when the operator deletes the script.
+_RETIRED_KEYS = {
+    # 2026-08-28: `research-refresh` merged into `research-write`, which now
+    # computes the due set in code and routes each due topic to
+    # `research-currency` itself. No V2 workflow owns this key.
+    "research-refresh",
+}
 
 
 def test_hardcoded_cap_predicate_positive_control() -> None:

@@ -457,7 +457,7 @@ def test_the_review_dispatcher_census_reaches_ALL_THREE_FAMILIES() -> None:
     A count alone would not have caught it (two IS a non-zero count), so this
     floor asserts the FAMILIES, which is the thing that was missing.
     """
-    assert len(REVIEW_DISPATCHERS) >= 6, (
+    assert len(REVIEW_DISPATCHERS) >= 5, (   # 6 -> 5: `research_refresh_parent` merged away 2026-08-28
         f"only {len(REVIEW_DISPATCHERS)} review dispatchers discovered; the walk "
         f"has stopped matching and the guard below is vacuous: "
         f"{[p.name for p in REVIEW_DISPATCHERS]}"

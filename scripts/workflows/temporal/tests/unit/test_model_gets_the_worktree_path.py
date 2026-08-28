@@ -94,8 +94,8 @@ def test_every_workflow_that_renders_the_key_also_anchors_it() -> None:
     # `research_write` MERGED into one child, so the population lost a member
     # without any workflow ceasing to anchor. Lowered here rather than left to
     # fail, because a floor nobody adjusts is a floor somebody deletes.
-    assert len(rendering) >= 3, (
-        f"only {len(rendering)} research workflows render {KEY}; three do. If one "
+    assert len(rendering) >= 2, (
+        f"only {len(rendering)} research workflows render {KEY}; two do. If one "
         f"legitimately stopped, lower the floor deliberately — do not let the "
         f"parametrised check pass by skipping everything."
     )

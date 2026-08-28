@@ -511,7 +511,13 @@ BUDGETS: dict[str, int] = {
     # paper wants `research-currency` rather than `research-analyst`; and no
     # harness can enforce either. The two prompts it replaces are deleted in
     # the same change, so the fleet's total prompt bytes FALL.
-    "research/research_write/prompts/write.md": 20_100,
+    # RAISED AGAIN 20_100 -> 20_600 (+500) when `research-refresh` was absorbed:
+    # its one distinct DELIVERABLE was a synthesis diff for the PR body — what
+    # changed in the rolled-up view relative to its prior version. Only a cycle
+    # that revalidated something has a prior version, so the block is
+    # conditional and a fresh pool pays nothing for it. Deleting the refresh
+    # prompt in the same change removes far more than this adds.
+    "research/research_write/prompts/write.md": 20_600,
     "build/build_draft_minor/prompts/update_pr.md": 10_675,
     # SHARED FRAGMENTS ARE THE EXPENSIVE ONES — every workflow that includes one
     # pays for it, so a byte here costs more than a byte in any single prompt.

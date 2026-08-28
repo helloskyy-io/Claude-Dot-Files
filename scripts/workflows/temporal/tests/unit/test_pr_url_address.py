@@ -404,8 +404,6 @@ _SLUG_BEFORE_CHILD = [
     # which is the entire window the ordering protects.
     ("plan/plan_project/plan_project_workflow.py", "run_plan_project", "run_triage_candidates"),
     ("research/research/research_workflow.py", "run_research", "run_write"),
-    ("research/research_refresh_parent/research_refresh_parent_workflow.py",
-     "run_research_refresh", "run_refresh"),
 ]
 
 
@@ -597,13 +595,14 @@ def test_the_pr_url_completion_patterns_are_ONE_string_plus_ONE_declared_wider()
     )
     ordinals = ", ".join(f"#{len(referencing) + i} {name}"
                          for i, name in enumerate(others, start=1))
-    # 12 -> 11 on 2026-08-28: `research_write_minor` merged INTO `research_write`,
+    # 12 -> 10 on 2026-08-28, in two steps: `research_write_minor` merged INTO
+    # `research_write`, and `research_refresh` merged in behind it —
     # so one workflow left the census without any workflow ceasing to reference
     # the shared ERE. The census is a completeness check, not a target — it
     # exists so a workflow that quietly stops sharing the pattern is noticed, and
     # a number moved for a deletion has to say so or it reads as that failure.
-    assert len(referencing) == 11, (
-        f"expected 11 V2 workflows referencing the shared PR completion ERE, found "
+    assert len(referencing) == 10, (
+        f"expected 10 V2 workflows referencing the shared PR completion ERE, found "
         f"{len(referencing)}: {referencing}. The others declare a completion "
         f"contract of their own and are outside this census — {ordinals}."
     )
