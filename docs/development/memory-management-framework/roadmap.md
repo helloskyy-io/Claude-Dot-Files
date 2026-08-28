@@ -35,7 +35,9 @@ The test this plan applies: **a phase ends where something works end-to-end, and
 
 ## Phases
 
-### [Phase 1 — Measure the channel before designing it](phase1_measure_the_channel.md) ✅ COMPLETE
+### Measure the channel before designing it ✅ COMPLETE
+
+**Implementation:** [`phase1_measure_the_channel.md`](phase1_measure_the_channel.md)
 
 **Est: ~18 hours** *(re-sized cold by `plan-verify`, 2026-08-26 — hours of focused development, not elapsed time; the 2026-08-20 retrospective figure is CONFIRMED unchanged, which is the only one of the six that is)* — thirteen live CLI invocations forcing six failure modes in the real child shape, two replay tools kept rather than thrown away (`replay_completion_predicate.py`, `replay_pr_review_blocks.py`, 465 lines between them), hand-adjudication of ~50 archived logs and 25 added finding ids across 195, and 13 written rulings propagated as amendments into three downstream phase docs. **Confirmed rather than raised because the deliverable is the ruling, not a mechanism** — measurement buys more per hour than build, and that holds even against the re-take that reversed E7's consequence.
 
@@ -48,7 +50,9 @@ Establishes, by experiment against the pinned `claude` CLI and the archived run 
 - [x] The union of values every branch point in the bash and Python parents reads is enumerated — the envelope's field list is derived from it, not from a guess
 - [x] Each experiment ends in an explicit ruling recorded in the phase doc: *changes the design / confirms the design / no-op*
 
-### [Phase 2 — Document Kind 1 as a framework](phase2_kind1_framework.md) ✅ COMPLETE
+### Document Kind 1 as a framework ✅ COMPLETE
+
+**Implementation:** [`phase2_kind1_framework.md`](phase2_kind1_framework.md)
 
 **Est: ~10 hours** *(re-sized cold by `plan-verify`, 2026-08-26; revised up from the 2026-08-20 retrospective figure)* — `memory-model.md` is 451 lines of specification, not a summary: a consumer map, a field-by-field interface sourced from the emitting script, a retrievability convention and the inherit/re-implement table. **What the prior figure did not price is the ground-truth pass**, which measured four asserted premises false and took three passes to clear one of them — the deliverable is authoring, but establishing what to author was measurement.
 
@@ -64,7 +68,9 @@ Turns the memory model from prose that describes behaviour into a stated interfa
 
 > **The count reached five in two steps, and the second step is the one worth remembering.** The build pass measured `direction.md` and reported *four, not three* — against [`operations.md`](../../guide/operations.md), a guide doc. The binding [Architecture Standard](../../standards/architecture/architectural_standard.md) § 4 had said **four** all along, with a **different** fourth member, and no pass had opened it. A count is decided by the binding artifact, not by the nearest one already in context; checking the sibling file and not the standard is how a corrected number stayed wrong for four commits. Candidate **8** carries the remaining half of the disagreement.
 
-### [Phase 3 — The typed exit record: schema, fail-safe contract, one pair proven](phase3_typed_exit_record.md) ✅ COMPLETE
+### The typed exit record: schema, fail-safe contract, one pair proven ✅ COMPLETE
+
+**Implementation:** [`phase3_typed_exit_record.md`](phase3_typed_exit_record.md)
 
 **Est: ~32 hours** *(re-sized cold by `plan-verify`, 2026-08-26; revised up sharply from the 2026-08-20 retrospective figure, and this is the largest correction of the six)* — `exit_record.py` is 606 lines against a 2,417-line test suite; the contract itself lands in `exit-protocol.md` §2–§5 as nine ordered rules; and the phase additionally ships channel identity, the shadow comparator and the write-time render↔record invariant. **Two costs the prior figure omitted:** the run set is nine live dispatches at real budget with independent log extraction and three-way reconciliation, and the correction and review passes closed eleven defects **as classes** — AST scans, enumerated tables, a protocol table parsed out of markdown — which is strictly more work than closing the instances found.
 
@@ -79,7 +85,9 @@ Adopts arrangement A — the child writes a small typed record at exit to a chan
 
 **✅ COMPLETE 2026-08-10 — BUILT AND PROVEN ON ONE PAIR.** All eight of the phase doc's completion requirements are met and verifiable from the artifacts; the last closed on the run set cited by the requirement-6 line above, and the counts are not repeated here. *(This paragraph read "🔨 BUILT 2026-08-09, NOT YET PROVEN … seven of eight" for the length of the pass that flipped the two lines above it — a third copy of the phase's status, four lines below the checkbox that falsified it, and precisely the mechanism [C-523klr8n](../../../tracked/candidates/) is open to collect.)* **The measurement that changed the build:** `--json-schema` replaces `.result` with the serialised structured output, so adding the transport without moving `run-claude.sh`'s completion read would have silently deleted the fleet's only write-time gate — the one Phase 1 E5 established and candidate 1 / `S-fnpuwoy4` both turn on. Two roadmap candidates (**6** and **7**) were applied to the draft protocol; the protocol remains **unratified**.
 
-### [Phase 4 — Migrate the fleet](phase4_fleet_migration.md) ✅ COMPLETE
+### Migrate the fleet ✅ COMPLETE
+
+**Implementation:** [`phase4_fleet_migration.md`](phase4_fleet_migration.md)
 
 **Est: ~26 hours** *(re-sized cold by `plan-verify`, 2026-08-26; revised up from the 2026-08-20 retrospective figure, which priced the phase as mechanical breadth)* — **it is not breadth: the scope re-cut took it to two surfaces, and the cost moved into verification.** The §Capability Parity audit is 21 rows, each stating a floor *and* a ceiling and each citing a named test; `pr_number_from_url` gained a required `expected_repo` gated across six call sites by an AST scan; rule R5b, the collapsed PR-URL declaration and four prompt-correspondence checks each carry their own test family. **And the refine pass found two behaviours the draft pass had BROKEN** (parity rows 17 and 18) plus an R5b payload that never reached an operator — rework the mechanical framing cannot see.
 
@@ -95,7 +103,9 @@ Rolls the proven record out across every child **in the V2 Python tree** and ret
 - [x] `is_error` and `num_turns`-against-cap are routed per the Phase 3 rule, or closed as a no-op against their own measurement; **`permission_denials[]` is recorded and surfaced on every run regardless** — it is safety observability, not a routing option. **All three done 2026-08-10, each on its own evidence and each re-verified against the tree rather than cited.** `is_error`: no-op on E1(a) — **zero readers** in the tree, every occurrence a comment. `num_turns`: no-op on E1(b) — every reader is telemetry and the branch is on `subtype`; the cap binds a **unit**, not an aggregate. `permission_denials[]`: surfaced in `activities/run-claude.sh`, which **both fleets source**, so V1 gains the observability rather than losing it — printing the count, tool name and `tool_use_id`, never `tool_input`, and asserted structurally to contain no `return`/`exit`/`&&`/`||` so it routes nothing. *(The hit COUNTS behind the two no-ops are deliberately not restated here. The copy this line used to carry said "three hits" and was **already wrong when it shipped** — the same PR's own diff added a fourth comment — which is C-523klr8n's mechanism in a spelled-out form the restated-figure gate cannot see. They live, with their commands and their date, at [Phase 4 step 3](phase4_fleet_migration.md).)*
 - [x] A `§Capability Parity` audit maps every behaviour of the prose channel to ported or consciously-dropped, with no silent drops. **Recorded 2026-08-10 and extended 2026-08-11, at [Phase 4 § Capability Parity](phase4_fleet_migration.md#capability-parity) — every row with a floor and, where meaningful, a measured ceiling. Nothing is dropped; ONE row needs operator sign-off** (the PR-URL pattern narrows to two explicit path segments, which is what makes owner/repo readable and therefore makes the identity check possible; the real URL shapes measured to survive are enumerated there). *(Row count and shape count not restated here — they moved between the two passes, which is the drift C-523klr8n names.)* The gate itself is byte-unchanged, both branches, and V1's command line is still byte-identical when `EXIT_RECORD_SCHEMA` is unset — **including `activities/run-claude.sh`'s completion gate**, which is V2 infrastructure and the write-time gate `S-fnpuwoy4` turns on
 
-### [Phase 5 — Convergence-based stopping](phase5_convergence_stopping.md) ✅ COMPLETE
+### Convergence-based stopping ✅ COMPLETE
+
+**Implementation:** [`phase5_convergence_stopping.md`](phase5_convergence_stopping.md)
 
 **Est: ~20 hours** *(re-sized cold by `plan-verify`, 2026-08-26; revised up from the 2026-08-20 retrospective figure)* — `convergence.py` 468 lines, `test_convergence.py` 1,506, `replay_convergence_predicate.py` 331. Six ordered rules, three states, five indeterminate reasons, and five false-convergence modes whose four checks each carry mutation evidence in **both** directions, with successive passes finding survivors the pass before did not. **Two items the prior figure did not price:** the corpus was re-measured rather than quoted after E7's headline went stale in a day, and a review pass found the finding-scan anchoring defect — which would have destroyed completed reviews and left a PR permanently indeterminate.
 
@@ -108,7 +118,9 @@ Replaces a model-asserted convergence flag with a computed one. `review-pr` alre
 - [x] Each documented false-convergence mode is named with its check, and each check has a test proven able to fail — **five modes, four checks, and mutation evidence in both directions for each; the counts and what survived are in [Phase 5 step 4](phase5_convergence_stopping.md).** Successive passes found survivors the earlier ones did not, so a count quoted here would be a count of the last pass to look. One mode is named as having NO check: a reviewer marking `fixed` what is not fixed, which a second review is the only thing that separates
 - [x] The rule is measured before it gates anything live, and the bound stays in force — **it gates NOTHING, and `MAX_LOOPS` is byte-unchanged and test-enforced.** Replayed over the whole archive; the firing count, the denominators and the early-fire figure are in [Phase 5 § Measurement](phase5_convergence_stopping.md) with the date each was taken. **The early-fire rate in particular is UNMEASURED rather than zero** — the self-reported counter is circular and the observed one has an empty denominator — and it is the figure requirement 5 would need to license replacing the bound. Two positives is not a rate and the phase refuses to quote one
 
-### [Phase 6 — Read what the component writes](phase6_read_what_it_writes.md) ✅ COMPLETE
+### Read what the component writes ✅ COMPLETE
+
+**Implementation:** [`phase6_read_what_it_writes.md`](phase6_read_what_it_writes.md)
 
 **Est: ~18 hours** *(re-sized cold by `plan-verify`, 2026-08-26; revised up from the 2026-08-20 retrospective figure)* — the three readers are 945 lines and `run_log.py`'s surface declaration another 470, against 1,338 lines of test. **"Over observables the parents already write" is what the prior figure priced and it was not true of two of the three:** the payload needed `workflow_key` added as a required keyword and `run_id` corrected before any join worked, and `subagents_spawned` was structurally incapable of moving — fixed at the emitter *and* recomputed at the reader so the existing archive still yields the figure. Requirement 4 then carried the ceiling retraction across five in-tree sites and a control-arm migration into `config.yaml`.
 

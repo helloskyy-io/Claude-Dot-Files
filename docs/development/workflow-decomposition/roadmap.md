@@ -38,7 +38,7 @@ A third thing follows that is easy to miss. Once a workflow can be started by a 
 
 **Phases are listed in logical rollout order, and at creation the numbering was made to match it** — 2 → 3 → 4 → 5. **From here the numbers are IDENTITY, not order**: a number names a phase for life, the way a ticket number does, so a later re-sequencing moves a phase's entry and never its number. Execution order across components lives in [`sprint.md`](../sprint.md).
 
-### Phase 1 — Decompose the build families and codify the shape ✅ COMPLETE
+### Decompose the build families and codify the shape ✅ COMPLETE
 
 Take the monoliths apart, then write down what the shape is.
 
@@ -50,7 +50,9 @@ Take the monoliths apart, then write down what the shape is.
 - [x] Extract the activities layer — `run-claude`, `wait-for-ci`, `require-environment`
 - [x] Write it down — [`workflow-scripts.md` § Composition](../../standards/workflow-scripts.md)
 
-### [Phase 2 — Family alignment](phase2_family_alignment.md) ✅ COMPLETE
+### Family alignment ✅ COMPLETE
+
+**Implementation:** [`phase2_family_alignment.md`](phase2_family_alignment.md)
 
 *Children in a family do not diverge except where they need to.*
 
@@ -67,7 +69,9 @@ The mechanism shipped, the ratchet worked, and the baseline is now EMPTY — 48 
 - [x] **The ruling method is validated before it is trusted** — classify a sample blind, then reveal the history, and record the disagreement
 - [x] **What a `_minor` tier's prompt is FOR is written down where a guard can cite it** — the contract no test can supply
 
-### [Phase 3 — Dual-mode children](phase3_dual_mode_children.md) ⬜
+### Dual-mode children 🟠 PLANNED
+
+**Implementation:** [`phase3_dual_mode_children.md`](phase3_dual_mode_children.md)
 
 *Every child runs standalone and under a parent, equally well.*
 
@@ -83,7 +87,9 @@ Twenty workflows exist; **eleven can be started by a person and nine cannot.** T
 
 *Two notes on the second box, kept out of its text because a planning run does not reword a completion criterion.* **“The box above”** in it means the managed-config box, which now lives at [Phase 5](phase5_configuration_a_run_absorbed.md). And its premise is **wrong as measured**: `research_refresh_parent` *is* invocable — `run_research.py --refresh` and `research.sh <dir> --refresh` both reach it (verified 2026-08-19 at `scripts/workflows/temporal/scripts/run_research.py:10,70`). The real defect is narrower: it has no entrypoint **of its own**, no `research_refresh.sh` beside the other shims. A run that decomposes the box as written will scope the wrong fix. Source: [`research/raw/invocation_contract.md`](research/raw/invocation_contract.md) §5.1.
 
-### [Phase 4 — Nothing a run relies on is invisible](phase4_nothing_invisible.md) ⬜
+### Nothing a run relies on is invisible 🟠 PLANNED
+
+**Implementation:** [`phase4_nothing_invisible.md`](phase4_nothing_invisible.md)
 
 *A wrong flag fails at parse time; a wrong derivation runs competently against the wrong thing, and a surface nobody reads never goes red at all.*
 
@@ -103,7 +109,9 @@ A run depends on two classes of thing it never announces: what it worked out for
 
 *This phase is a merge of two that were planned separately on 2026-08-18 — a derivation audit and a producer/consumer gate. They share one shape and neither carried enough work to be its own document. **The definition in the fifth box does not exist yet and this plan does not supply it**; it is the phase's weakest point and its own doc says so.*
 
-### [Phase 5 — What configuration a run absorbed](phase5_configuration_a_run_absorbed.md) ⬜
+### What configuration a run absorbed 🟠 PLANNED
+
+**Implementation:** [`phase5_configuration_a_run_absorbed.md`](phase5_configuration_a_run_absorbed.md)
 
 *A dispatch reads agents, skills, rules and hooks from `~/.claude/`, so an interactive edit silently changes what every later dispatch on that machine does.*
 

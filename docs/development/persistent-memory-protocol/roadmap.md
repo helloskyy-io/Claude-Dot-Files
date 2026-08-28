@@ -244,7 +244,9 @@ Everything above is planned. This section says only *when*, and every gate below
 
 ## Phases
 
-### [Phase 1 — The journal root and the run bag](phase1_the_run_bag.md) ✅ COMPLETE
+### The journal root and the run bag ✅ COMPLETE
+
+**Implementation:** [`phase1_the_run_bag.md`](phase1_the_run_bag.md)
 
 **~0 hrs remaining — COMPLETE, so there is no work left to forecast.** The figure is stated as zero rather than omitted so a reader adding the phases up is not left wondering whether it was forgotten; the cost this phase actually took is history, not a forecast, and it belongs to no total.
 
@@ -259,7 +261,9 @@ Stands up the folder structure everything else writes into. One configurable roo
 - [x] The root is created `0700` with payload files `0600`, resolution **refuses** a group- or world-writable root or an out-of-path symlink, and **an unresolvable root means the run does not start**
 - [x] **Opening the bag is an activity a parent invokes as its first step, and a test enumerates every parent and fails when one does not** — the activity boundary alone does not make the call happen
 
-### [Phase 9 — One run, one identity, one bag](phase9_one_run_one_identity.md)
+### One run, one identity, one bag 🟡 IN PROGRESS
+
+**Implementation:** [`phase9_one_run_one_identity.md`](phase9_one_run_one_identity.md)
 
 **~10 hrs, and it is a RESIDUAL rather than the whole phase** — this phase was built on 2026-08-24 with r1, r3, r4, r5 and r6 met. What is left is r2's reconciliation with whatever the orchestrator ends up calling a dispatch, and r7's mutual-exclusion mechanism. Basis: r2 is a parameter change if the orchestrator's workflow id can BE the run id and a migration if a second name has to be joined to it — that fork is the whole spread; r7 is a create-then-rename or a lock across the three tag-line composers, plus its battery. Gated on the port naming a dispatch, and on whichever carrier `C-zhdm5gh1` resolves to.
 
@@ -275,7 +279,9 @@ Settles who names a run. [Phase 1](phase1_the_run_bag.md) keyed the bag by a run
 - [x] The caller-supplied run id is validated against a **stated permitted-character set**, expressed in one named function and held by a sweep — the id reaches a tag-line composer today with no check at all
 - [ ] Mutual exclusion between two **simultaneous** openers of one bag — **unchecked, and its carrier does not exist yet**: the Temporal addendum has no identity section, tracked as [`C-zhdm5gh1`](../../../tracked/candidates/)
 
-### [Phase 2 — The content store and offline checksum verification](phase2_content_store.md)
+### The content store and offline checksum verification 🟠 PLANNED
+
+**Implementation:** [`phase2_content_store.md`](phase2_content_store.md)
 
 **~14 hrs.** Basis: one new package — the citation record, a content-addressed layout, a capture path, one re-hashing resolver and a three-exit-code `verify` — plus two activities and a unit-and-integration tier. Most of it is new mechanism rather than applying an existing one. The spread lives in r7(c): teeing an existing tool's output is the low end; a new fetcher carrying its own https-only, redirect-revalidation, private-address-refusal and size-cap policy is the high one, and that sub-decision is unmade.
 
@@ -288,7 +294,9 @@ Stores the bytes behind every claim, named by checksum, and ships a `verify` tha
 - [ ] Code diffs are carried as a commit SHA and fetched from git, never copied into the store
 - [ ] **Capture and resolve are activities**, so storing a source's bytes is not something a caller can forget to do
 
-### [Phase 3 — The emit rule: every write to any store also emits](phase3_the_emit_rule.md)
+### The emit rule: every write to any store also emits 🟠 PLANNED
+
+**Implementation:** [`phase3_the_emit_rule.md`](phase3_the_emit_rule.md)
 
 **~45 hrs, and the size is itself a finding rather than just a number.** Basis: thirteen requirements; an inventory whose two halves need *different mechanisms* (a call-site wrapper, and a post-exit harvest that has no wrapper to be); write-ahead ordering carried as intent-plus-completion, which is two events per paired write and a store-side idempotency key; four write-failure cases each demonstrated against a real journal; six new event fields; a capture-time secret filter; the tag-namespace ruling; the run-log cut-over, where a join key changes meaning; and then wiring every inventoried path. That is roughly half again as large as the biggest phase sized anywhere else in this repo's sprint plan, and this component's own run-identity doc already observes that adding a fourth concern here "makes the phase a project" — it carries considerably more than four.
 
@@ -306,7 +314,9 @@ The core rule, and it is absolute: if any store gets it, the journal gets it, ve
 - [ ] **The emit is an activity**, not a call a prompt asks a model to remember
 - [ ] Measured against the synthesis's 39,772-byte baseline for one `research_minor` cycle, with the observed figure reported with its denominator
 
-### [Phase 4 — Rebuildability is a test](phase4_rebuild_is_a_test.md)
+### Rebuildability is a test 🟠 PLANNED
+
+**Implementation:** [`phase4_rebuild_is_a_test.md`](phase4_rebuild_is_a_test.md)
 
 **~28 hrs.** Basis: a replay engine written as a pure event→tree function with a path-containment contract that binds every replay target rather than a directory name; a versioned two-section snapshot; a stated and justified normalisation set; a separately-contained restore resolving its destination through an allowlist, with a dry-run; a committed synthetic fixture; and two CI arms, neither of which may skip when its input is absent. Roughly a third of it is verification work rather than mechanism, which is the point of the phase.
 
@@ -320,7 +330,9 @@ Replays the journal into a scratch directory and diffs the result against the li
 - [ ] **Restoring a store from the journal is built and contained** — `destination` resolved through an allowlist, never taken from the event — because that is the capability this component is sold on
 - [ ] **A rebuilt store carries the journal's provenance forward**, so every consumer of one is bound by the rules that govern reading the journal
 
-### [Phase 5 — Snapshots, then retention](phase5_snapshots_then_retention.md)
+### Snapshots, then retention 🟠 PLANNED
+
+**Implementation:** [`phase5_snapshots_then_retention.md`](phase5_snapshots_then_retention.md)
 
 **~22 hrs.** Basis: a five-step pass with a terminal state; carry-with-compaction that preserves event class and originating run id; the sealed-only and whole-folder rules; a demonstration of the pass running concurrently with a live run; a dry-run refusal proven against a real journal; and a conditional content-store reachability pass whose existence depends on a ruling another phase has not made. Only the recurrence needs the gate below — the bulk of this is a policy and a command and can land first.
 
@@ -337,7 +349,9 @@ Records what every store held at a point in time into the journal, and only then
 - [ ] A rebuild from the last snapshot forward still passes Phase 4's test after a deletion pass
 - [ ] A retention pass emits its own journal events, carried into the snapshot **preserving event class and originating `run_id`**, and a bag that is both incomplete and redacted stays distinguishable as both
 
-### [Phase 6 — CPI reads the journal](phase6_cpi_reads_the_journal.md)
+### CPI reads the journal 🟠 PLANNED
+
+**Implementation:** [`phase6_cpi_reads_the_journal.md`](phase6_cpi_reads_the_journal.md)
 
 **~18 hrs, and this figure EXCLUDES the port it is gated on** — that work is sized inside the component that owns it, and adding it here would count it twice. Basis: a storage interface, repointing the sweep, and the producer/consumer table with every blank cell resolved. The expensive part is r2's dual run over one overlapping window with every disagreement explained rather than averaged away, because that is bounded by how much the two sweeps actually disagree and nobody has looked.
 
@@ -352,7 +366,9 @@ Moves the continuous-improvement evidence sweep onto the journal, so it reads on
 - [ ] The sweep reaches its evidence through one storage interface (r7), so pointing it at object storage later is a change of input rather than a rewrite
 - [ ] Cross-machine CPI is explicitly not built here
 
-### [Phase 7 — Cross-machine aggregation, writing locally first](phase7_s3_aggregation.md)
+### Cross-machine aggregation, writing locally first 🟠 PLANNED
+
+**Implementation:** [`phase7_s3_aggregation.md`](phase7_s3_aggregation.md)
 
 **~34 hrs, and the size confirms what the synthesis already said** — it called this "a couple of phases or its own sprint", and the number agrees. Basis: an asynchronous shipper with a bounded, observable backlog and retries; post-transfer manifest validation plus a demonstrated corrupted transfer; prefix-scoped storage credentials and origin derivation with disagreement reporting; the bucket's own posture; and a real bucket to test all of it against, which is infrastructure work this component has not done before. The three seams this phase names are where it splits, and splitting it is a mechanical act rather than a fresh planning exercise.
 
@@ -367,7 +383,9 @@ Folders sync to object storage under machine id and run id. The local file is th
 - [ ] Origin is derived from the prefix an object was found under, never from a field inside the object, and a disagreement between the two is reported
 - [ ] The bucket blocks public access, encrypts at rest and is reached over TLS, and its credential lives outside the repo and outside the journal
 
-### [Phase 8 — The poller](phase8_the_poller.md)
+### The poller 🟠 PLANNED
+
+**Implementation:** [`phase8_the_poller.md`](phase8_the_poller.md)
 
 **~16 hrs.** Basis: a scheduled workflow, a fixed cue→dispatch table, an origin filter built and tested against a synthetic non-local origin even while it is a live no-op, and a failure path with a named escalation surface. Little of it is bulk; the cost concentrates in r3, where a dispatch identity has to be derived from named fields with a stated reason why an edit to the others does not re-fire, and the already-fired marker has to live somewhere that outlives both Temporal's retention and the journal's.
 

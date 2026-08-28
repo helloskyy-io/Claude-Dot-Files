@@ -147,6 +147,9 @@ claude-dot-files/
 │   │       └── review-skyy-command-2026-07-24.md
 │   │
 │   ├── guide/                                       # USER-FACING — operating manuals
+│   │   ├── puma-temp-workflows.md                   # THE OPERATOR'S OWN WORKING DOC — hand-written, not fleet output.
+│   │   │                                            #   Mapped so the completeness gate is green; whether it stays, moves
+│   │   │                                            #   or is untracked is the operator's call and is not made here
 │   │   ├── deployment.md                            # DEPLOYMENT — install/sync model, prerequisites, local + VM + Ansible paths, services, troubleshooting
 │   │   ├── operations.md                            # THE OPERATING MANUAL — memory model orientation, daily loop, and the single roster of every workflow/agent/command/skill/rule
 │   │   ├── memory-model.md                          # THE MEMORY FRAMEWORK — the working record as a substrate-free interface, this fleet's five-surface binding, per-field consumer lists, the addressing convention

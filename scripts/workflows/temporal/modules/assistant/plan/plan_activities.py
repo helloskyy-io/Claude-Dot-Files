@@ -147,6 +147,14 @@ _CONSTRAINED_CELLS = _HEADER.count("|") - 2
 # §2's identity shape, checked by the reader — see `candidate_rows`.
 _ID_SHAPE = re.compile(r"[A-Z]-[0-9a-z]{8}")
 
+#: The four markers `sprint.md`'s legend defines, used one level down on a
+#: phase heading with the same meanings. No fifth state.
+_PHASE_MARKER = re.compile(r"(?:✅ COMPLETE|🟡 IN PROGRESS|🟠 PLANNED|🔵 NOT SCHEDULED)\s*$")
+#: The labelled line beneath a heading that names the phase doc. Present
+#: exactly when a doc exists — MDC measured 4 occurrences against 4 phases in
+#: `dev_ui`, and it is in use across ten of their roadmaps with no false hit.
+_IMPLEMENTATION = re.compile(r"^\*\*Implementation:\*\*", re.M)
+
 # THE CLOSED VOCABULARIES. `decision` is the store's own: *"Every candidate ends
 # at exactly one of these. There is no fourth"* — `ship` / `requires review` /
 # `reject`, plus blank for not-yet-triaged.
@@ -1288,7 +1296,34 @@ def phase_sizing(component: Path) -> PhaseSizing:
     rows: list[tuple[str, float | None]] = []
     for n in heading_at:
         line = text[n]
-        if not re.search(r"\bPhase\s+\d+", line, re.I):
+        nxt = next((k for k in heading_at if k > n), len(text))
+        # A PHASE HEADING CARRIES A STATUS MARKER; ITS SECTION MAY NAME A DOC.
+        # Either signal identifies one, and both are EXACT rather than heuristic.
+        #
+        # THIS USED TO REQUIRE A LITERAL `Phase <digit>` IN THE HEADING, and
+        # `documentation_standard.md` rule 4 binds the opposite — *"a phase is
+        # CITED BY NAME, never by number"* — naming roadmap headings as a surface
+        # that CONVERTS. A roadmap written to the standard was invisible to the
+        # counter that reads it. Reported three times on one MDC PR; measured
+        # here at the moment of conversion, when all four roadmaps went to 0
+        # phases / 0 h at once.
+        #
+        # AND THE FAILURE IS NOT LOUD, which is why the signals had to be exact:
+        # `sizing_block` renders an authoritative *"counted in code, do not
+        # recount — lists no phases"* over a fully sized component, and the one
+        # run that survived it did so by overriding the block and saying so.
+        #
+        # A LOOSER PREDICATE WAS TRIED FIRST AND REJECTED ON MEASUREMENT. Reading
+        # "any `phaseN_*.md` named in the heading's section" miscounted both
+        # corpora — ours 5 -> 7, MDC's 5 -> 12, picking up *"Page 1"* and
+        # *"Research posture"* — because a section that CITES a phase doc is not
+        # a phase section. Three window widths were measured; none separated
+        # them. **A parser that finds seven phases where there are five is worse
+        # than one that finds none**, because a wrong count is summed into a
+        # sprint header while a zero announces itself.
+        marker = _PHASE_MARKER.search(line)
+        impl = _IMPLEMENTATION.search("\n".join(text[n:nxt]))
+        if not (marker or impl or re.search(r"\bPhase\s+\d+", line, re.I)):
             continue
 
         # ONE WINDOW PER PHASE, STARTING AT THE HEADING ITSELF, so an estimate
@@ -1315,7 +1350,19 @@ def phase_sizing(component: Path) -> PhaseSizing:
         # signal anyone gets that it was missed. A GATED phase — a roadmap entry
         # with no doc and often no body — is exactly that shape.
         nxt = next((k for k in heading_at if k > n), len(text))
-        m = HOUR_ESTIMATE.search("\n".join(text[n:min(n + 6, nxt)]))
+        # THE WHOLE SECTION, BOUNDED BY THE NEXT HEADING — not a fixed line
+        # count. It was six lines, chosen when an estimate sat four lines under
+        # the heading. Adding the `**Implementation:**` line on 2026-08-28 moved
+        # every estimate down two and pushed seven of them out of the window:
+        # `temporal-integration` read 34 h against 193, and
+        # `workflow-decomposition` read ZERO with all five phases unsized.
+        #
+        # A LINE COUNT WAS ALWAYS A PROXY FOR *"inside this phase's own text"*,
+        # and `nxt` expresses that exactly, so the proxy is gone rather than
+        # retuned — a wider fixed window would break again on the next line
+        # anyone adds. The prompt already forbids a second hour figure in a
+        # sizing note, which is what keeps one section to one estimate.
+        m = HOUR_ESTIMATE.search("\n".join(text[n:nxt]))
         hours = float(next(g for g in m.groups() if g)) if m else None
         rows.append((line.lstrip("# ").strip(), hours))
 

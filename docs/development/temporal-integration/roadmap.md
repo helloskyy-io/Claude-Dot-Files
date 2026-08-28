@@ -34,7 +34,9 @@ The second of those is where most of the design is. The rest is a port.
 
 ## Phases
 
-### [Phase 1 — The starter control plane](phase1_the_starter_control_plane.md) ⬜
+### The starter control plane 🟠 PLANNED
+
+**Implementation:** [`phase1_the_starter_control_plane.md`](phase1_the_starter_control_plane.md)
 
 *Every other phase assumes a control plane that exists, so this one goes first.*
 
@@ -48,7 +50,9 @@ One node, one Temporal control plane, reachable from this workstation. **This ph
 - [ ] **§A3 is closed for QUEUE NAMING** — machine-axis task-queue naming decided and written into the addendum, including the no-fallback-queue rule. **It does not discharge the run-identity entry** two planning documents also nominate §A3 to carry; that widening is human-in-the-loop and is tracked as C-zhdm5gh1 (see § *What is deliberately not built*)
 - [ ] **The node was stood up by a script that can stand up the next one** — even a rough one; the automation is the artifact
 
-### [Phase 2 — Durable dispatch identity, and the recovery contract](phase2_durable_dispatch_identity.md) ⬜
+### Durable dispatch identity, and the recovery contract 🟠 PLANNED
+
+**Implementation:** [`phase2_durable_dispatch_identity.md`](phase2_durable_dispatch_identity.md)
 
 *An identity minted inside the thing that retries becomes a new identity on every attempt.*
 
@@ -64,7 +68,9 @@ A retry is only safe if the work it repeats is the *same* work. Today a dispatch
 - [ ] **Re-dispatching the same logical id is demonstrated to reuse one identity**, and a duplicate launch while one is live fails loudly rather than starting a second run against the same worktree. **The loud-failure half depends on [PMP Phase 9](../persistent-memory-protocol/phase9_one_run_one_identity.md) r7** — the mutual-exclusion mechanism is not built in this component, and a *sequential* second launch demonstrates the ruling rather than the mechanism
 - [ ] **Nothing Temporal replaces is built** — no claim/lease/TTL, no boot reconciler, no retry bookkeeping
 
-### [Phase 3 — The retry boundary, and a `gh` failure that carries its own verdict](phase3_the_retry_boundary.md) ⬜
+### The retry boundary, and a `gh` failure that carries its own verdict 🟠 PLANNED
+
+**Implementation:** [`phase3_the_retry_boundary.md`](phase3_the_retry_boundary.md)
 
 *Temporal retries an activity; `gh()` retries a call. Nested, a brief outage becomes a long stall.*
 
@@ -78,7 +84,9 @@ A retry is only safe if the work it repeats is the *same* work. Today a dispatch
 - [ ] **`preflight` is demonstrably outside** — it runs before any workflow exists, so no retry policy reaches it
 - [ ] **The three cases are demonstrated**: a transient failure on a read retries at one layer only, a terminal failure does not retry at all, and a mutating call is bounded
 
-### [Phase 9 — `review-runs`, written in the Python tree](phase9_review_runs_in_the_python_tree.md) ⬜
+### `review-runs`, written in the Python tree 🟠 PLANNED
+
+**Implementation:** [`phase9_review_runs_in_the_python_tree.md`](phase9_review_runs_in_the_python_tree.md)
 
 *A deliverable with a consumer already waiting, gated behind a server it does not need.*
 
@@ -98,7 +106,9 @@ A retry is only safe if the work it repeats is the *same* work. Today a dispatch
 - [ ] **Nothing here needs a server, a worker or a schedule** — demonstrated by running it from a shell
 - [ ] **`review-runs.sh` keeps working** until [Phase 6](phase6_the_rest_of_the_fleet.md) orchestrates the replacement
 
-### [Phase 4 — The `claude_cli` activity domain](phase4_the_claude_cli_activity.md) ⬜
+### The `claude_cli` activity domain 🟠 PLANNED
+
+**Implementation:** [`phase4_the_claude_cli_activity.md`](phase4_the_claude_cli_activity.md)
 
 *The one part of this port that is not a port.*
 
@@ -116,7 +126,9 @@ Every upstream Temporal activity runs for seconds to minutes and returns a struc
 - [ ] **The CLI's maximum inter-line interval is measured across ≥20 real runs** — the number *and* its spread — **before** the cadence is chosen
 - [ ] **The worker's activity slot count comes from the host's concurrency budget**, not the SDK default of 100, and the executor is at least as wide
 
-### [Phase 5 — The first dispatch, end to end](phase5_the_first_dispatch.md) ⬜
+### The first dispatch, end to end 🟠 PLANNED
+
+**Implementation:** [`phase5_the_first_dispatch.md`](phase5_the_first_dispatch.md)
 
 *One family, all the way through, before anything else moves.*
 
@@ -131,7 +143,9 @@ This is the strangler fig: one worker, one family's activities, one parent as a 
 - [ ] **One dispatch produces one PR end to end**, and survives a worker restart mid-run
 - [ ] **[Phase 2](phase2_durable_dispatch_identity.md)'s *parent sequencing* recovery row is read here** — a parent that dies between children resumes knowing the earlier ones succeeded
 
-### [Phase 6 — The rest of the fleet, and the two that never ran](phase6_the_rest_of_the_fleet.md) ⬜
+### The rest of the fleet, and the two that never ran 🟠 PLANNED
+
+**Implementation:** [`phase6_the_rest_of_the_fleet.md`](phase6_the_rest_of_the_fleet.md)
 
 *The port stops being a demonstration and becomes the way work happens.*
 
@@ -145,7 +159,7 @@ With one family proven, the rest follow the same shape. Two workflows do not get
 - [ ] **Schedules replace timers** — consumers are [PMP Phase 8](../persistent-memory-protocol/phase8_the_poller.md) and [Autonomous Operation](../autonomous-operation/autonomous-operation.md)
 - [ ] **The worker inventory is accurate** — every worker, its queue, and its registered activities, per the vendored standard's same-PR obligation
 
-### Phase 7 — The three-node cluster
+### The three-node cluster 🟠 PLANNED
 
 *Gated on work another project owns. No phase doc, deliberately.*
 
@@ -159,7 +173,7 @@ The starter is one node and is meant to be. **That the permanent clustered contr
 - [ ] **The wireguard layer is designed here** — it is the part MDC does not supply
 - [ ] **A phase doc is written when the gate opens**, not before
 
-### Phase 8 — The pivot, and the starter is destroyed
+### The pivot, and the starter is destroyed 🟠 PLANNED
 
 *Gated on [Phase 7](#phase-7--the-three-node-cluster). No phase doc, deliberately.*
 
