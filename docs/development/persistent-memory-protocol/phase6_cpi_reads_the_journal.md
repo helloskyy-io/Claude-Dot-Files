@@ -1,4 +1,4 @@
-# Phase 6 — CPI reads the journal
+# CPI reads the journal — Persistent Memory Protocol
 
 **Component:** [Persistent Memory Protocol](roadmap.md) · **Status:** not started · **Gate:** Phase 4, and *Port `review-runs`* ([`sprint.md`](../sprint.md) § *Sprint: Temporal Integration*)
 

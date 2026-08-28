@@ -1,4 +1,4 @@
-# Phase 5 — Snapshots, then retention
+# Snapshots, then retention — Persistent Memory Protocol
 
 **Component:** [Persistent Memory Protocol](roadmap.md) · **Status:** not started · **Gate:** the Temporal server, for the recurring half only
 
@@ -20,7 +20,7 @@ So this phase builds a **snapshot** first — a record of what every store held 
 
 **Every other requirement here is a policy and a command, and each is labelled `(ungated)` below so a dispatch can act on the trigger rather than stall on the phase.** That matters because two other docs name pulling this phase forward as an evidence-driven action ([Phase 4](phase4_rebuild_is_a_test.md) § Notes and [Phase 6](phase6_cpi_reads_the_journal.md) § Dependencies) — and a trigger that fires against a phase whose scope nobody has divided is a trigger nobody can act on. **The window this closes is real:** after Phase 4, removing a payload file is a merge-gate change, so a fleet with no retention mechanism accumulates a permanently unbounded store until an out-of-component gate opens.
 
-**It is not a reason the snapshot mechanism waits.** [Phase 4](phase4_rebuild_is_a_test.md) requirement 2 already builds a one-off snapshot, because its rebuild test has no baseline without one — `candidates.md` carries rows that predate the journal by months, so replaying only what Phase 3 emitted forward reproduces a store that starts empty and never matches. **This phase adds the recurring pass and the deletion; it does not invent the snapshot.**
+**It is not a reason the snapshot mechanism waits.** [Phase 4](phase4_rebuild_is_a_test.md) requirement 2 already builds a one-off snapshot, because its rebuild test has no baseline without one — [`tracked/candidates/`](../../../tracked/candidates/) carries items that predate the journal by months, so replaying only what Phase 3 emitted forward reproduces a store that starts empty and never matches. **This phase adds the recurring pass and the deletion; it does not invent the snapshot.**
 
 *(One-way constraint, stated because reading it symmetrically once parked the snapshot mechanism behind rotation's scheduler and made Phase 4 unclosable: "rotation must not ship without a snapshot to stop at" constrains **rotation**. It says nothing about snapshots needing rotation.)*
 
@@ -59,7 +59,7 @@ A snapshot is a full materialization: every store in the test set, written into 
 
 **Stated the way that decides the rest of this phase: a deletion behind a snapshot costs the ability to *replay from before that point*. It does not cost the state.** The stores still hold what they held; a rebuild still reaches the same result; what is gone is the intermediate history and the reasoning inside the deleted run folders.
 
-**What a snapshot does not cover.** It records what stores held, not what the deleted runs said about how they got there. A run's transcript is not reconstructible from a snapshot of `candidates.md`, and it never will be. That is the accepted cost of any retention at all, stated here rather than discovered later: **rotating a run out loses the ability to diagnose that run, and keeps the ability to answer what the fleet currently knows.**
+**What a snapshot does not cover.** It records what stores held, not what the deleted runs said about how they got there. A run's transcript is not reconstructible from a snapshot of a `tracked/` store, and it never will be. That is the accepted cost of any retention at all, stated here rather than discovered later: **rotating a run out loses the ability to diagnose that run, and keeps the ability to answer what the fleet currently knows.**
 
 ### One budget, and nothing is exempt from it — requirement 2
 

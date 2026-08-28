@@ -1,4 +1,4 @@
-# Phase 2 — The content store and offline hash verification
+# The content store and offline hash verification — Persistent Memory Protocol
 
 **Component:** [Persistent Memory Protocol](roadmap.md) · **Status:** not started · **Gate:** none — unblocked today, and it is the cheapest item in this component
 
@@ -16,7 +16,7 @@ This phase fixes that by keeping the bytes. When a run reads a source, the sourc
 
 [`bernstein_capability_mining.md`](../../standards/architecture/research/raw/bernstein_capability_mining.md) §4.6 ranked this **Tier 1**, costed it **S–M**, named its roadmap home, and called it *"the item with the shortest path from 'read about it' to 'we are using it.'"*
 
-**It was never placed** — not in `candidates.md`, not `direction.md`, not a roadmap, not an issue. The fleet then spent 2026-08-12 bounding by hand the exact cost it solves. That is the reason it is second rather than sixth: it is small, it is unblocked, and it has already been lost once by not being written into a plan.
+**It was never placed** — not in `candidates.md`, not `direction.md`, not a roadmap, not an issue. *(Those two files are named as they stood in August 2026; both were deleted by the four-store migration on 2026-08-26. The sentence is a record of what happened, not a description of surfaces that exist.)* The fleet then spent 2026-08-12 bounding by hand the exact cost it solves. That is the reason it is second rather than sixth: it is small, it is unblocked, and it has already been lost once by not being written into a plan.
 
 Three payoffs from one mechanism, and they are independent of each other:
 

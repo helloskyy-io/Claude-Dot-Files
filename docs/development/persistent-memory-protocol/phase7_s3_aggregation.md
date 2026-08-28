@@ -1,4 +1,4 @@
-# Phase 7 — Cross-machine aggregation, writing locally first
+# Cross-machine aggregation, writing locally first — Persistent Memory Protocol
 
 **Component:** [Persistent Memory Protocol](roadmap.md) · **Status:** not started · **Gate:** a second machine that produces runs
 
@@ -96,7 +96,7 @@ So the control this phase supplies instead is topological: **each machine's stor
 
 **Both postures would change, and the disclosure one is bigger than the surface-count framing suggests.** It is true that the *authored* half of the journal was deliberately written to a durable surface and is mostly already public in a GitHub pull request — **and that half is 0.8% of the bytes.** The other 99.2% is the CLI transcript: captured rather than authored, public nowhere, and carrying the literal input of every command the fleet ran under bypassed permissions. **So *what may leave* does not answer itself; it is essentially the transcript question and nothing else.**
 
-**The evidence, because it is stronger than intuition suggests.** The [heartbeat pollution paper](https://arxiv.org/pdf/2603.23064) measured pollution reaching durable memory at rates up to **91%**, and **prompt injection was not required — ordinary misinformation sufficed.** Under [Phase 4](phase4_rebuild_is_a_test.md) the stores are things the journal rebuilds, so a polluted record does not merely sit in a bucket being wrong; it **replays into `candidates.md` and `direction.md`** the next time anything rebuilds them, and [Phase 8](phase8_the_poller.md) may then start a run off the result.
+**The evidence, because it is stronger than intuition suggests.** The [heartbeat pollution paper](https://arxiv.org/pdf/2603.23064) measured pollution reaching durable memory at rates up to **91%**, and **prompt injection was not required — ordinary misinformation sufficed.** Under [Phase 4](phase4_rebuild_is_a_test.md) the stores are things the journal rebuilds, so a polluted record does not merely sit in a bucket being wrong; it **replays into the [`tracked/`](../../../tracked/) stores** the next time anything rebuilds them, and [Phase 8](phase8_the_poller.md) may then start a run off the result.
 
 **So the three things a shared-bucket build would state, in order:** what a reader may *act on* versus merely display; whether records are origin-authenticated beyond prefix scoping; and whether the transcript is shipped at all. **The fields those answers range over already exist** ([Phase 1](phase1_the_run_bag.md) r7's per-field classification, [Phase 3](phase3_the_emit_rule.md) r7's provenance class), which is the whole reason they are built early.
 

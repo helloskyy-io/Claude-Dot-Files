@@ -1,4 +1,4 @@
-# Phase 9 — One run, one identity, one bag
+# One run, one identity, one bag — Persistent Memory Protocol
 
 **Component:** [Persistent Memory Protocol](roadmap.md) · **Status:** built 2026-08-24 — r1, r3, r4, r5, r6 met; **r2 and r7 remain open by design** (see § Where each requirement stands) · **Gate:** none. It depends on [Phase 1](phase1_the_run_bag.md), which is complete.
 
