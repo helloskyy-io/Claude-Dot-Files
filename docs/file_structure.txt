@@ -93,7 +93,7 @@ claude-dot-files/
 │   │   │                                            #   docs get NO per-file line, and adding one is a defect rather than an
 │   │   │                                            #   improvement. Their per-phase detail is maintained in the component's own
 │   │   │                                            #   roadmap.md; a second copy here is a source of truth kept by an actor that
-│   │   │                                            #   cannot read it, since `plan-feature`'s write grant is
+│   │   │                                            #   cannot read it, since `plan-draft`'s write grant is
 │   │   │                                            #   `docs/development/<component>/[^/]+\.md` and excludes THIS file. Writing a
 │   │   │                                            #   phase doc is that workflow's entire job, so every plan it produced landed a
 │   │   │                                            #   RED map-coverage suite it was structurally forbidden to fix — measured on
@@ -304,13 +304,13 @@ claude-dot-files/
 │           │                                        #   child loads it, by §10.1's promotion rule applied to prose. Deliberately rolled up
 │           │                                        #   here: a fragment is reached through shared_prompt("<stem>"), never through this map
 │           │                                        #   plan/ holds plan_project (parent) and its wired children in order:
-│           │                                        #   triage_candidates rules the candidates, plan_feature writes ONE component's
+│           │                                        #   triage_candidates rules the candidates, plan_draft writes ONE component's
 │           │                                        #   roadmap.md and numbered phaseN_*.md docs from its research, plan_sprint places
 │           │                                        #   what they ruled — split apart so planning could sit between the first and last.
-│           │                                        #   plan_feature is the WRITE half only: it sizes NOTHING and writes no sprint.md.
+│           │                                        #   plan_draft is the WRITE half only: it sizes NOTHING and writes no sprint.md.
 │           │                                        #   plan_verify is the READ half and runs immediately after it, per component: it
 │           │                                        #   reads the roadmap and phase docs COLD, puts an hour estimate on every phase in
-│           │                                        #   roadmap.md and nowhere else, and answers the question plan_feature's own report
+│           │                                        #   roadmap.md and nowhere else, and answers the question plan_draft's own report
 │           │                                        #   must ask and cannot answer — where is this plan weakest. plan-sprint does NOT
 │           │                                        #   read those estimates yet; it never opens a roadmap.
 │           │                                        #   Ahead of the research step sits plan-candidates — an ACTIVITY, not a child: no
@@ -332,11 +332,13 @@ claude-dot-files/
 │           │                                        #   convergence.py — MMF Phase 5's computed stopping predicate: the open/closed
 │           │                                        #   partition over `disposition`, six ordered rules, a named recorded residual arm.
 │           │                                        #   RECORDED, ROUTED ON BY NOTHING — MAX_LOOPS is still the only stopping authority
-│           │                                        #   research/ holds TWO parents over a shared set of children: research (full pool —
-│           │                                        #   research_write, then verify, then review-pr) and research_minor (ONE paper —
-│           │                                        #   research_write_minor, then THE SAME verify and review-pr). The minor cycle drops
-│           │                                        #   topics.md, the sizing assessment, the fan-out and the synthesis; it drops NONE of
-│           │                                        #   Research Standard §3's per-paper rigor, and research-critic still gates it
+│           │                                        #   research/ holds ONE parent over three children: research (research_draft,
+│           │                                        #   then research_verify, then review-pr). The draft child SIZES ITS OWN CYCLE —
+│           │                                        #   it discovers the pool, decides how many topics need writing and which are
+│           │                                        #   stale, and does only that. The research_minor parent and its research_write_minor
+│           │                                        #   child were deleted 2026-08-28: the split asked the operator to size the work
+│           │                                        #   before reading it, which the child does better from the pool itself. Per-paper
+│           │                                        #   rigor is untouched and research-critic still gates every paper
 │           ├── modules/journal/                    # PMP Phase 1 — WHERE a run's record goes and WHAT SHAPE it takes. One BagIt bag per
 │           │                                        #   run under a configurable root, keyed by run_id and never by path (Claude Code keys
 │           │                                        #   by mangled path, which makes every worktree its own project — the one place this
@@ -358,9 +360,9 @@ claude-dot-files/
 │           │                                        #   side rather than inside retried work
 │           │                                        #   research.sh / research_minor.sh are SIBLING entries, not one script with a flag —
 │           │                                        #   different parents, different model keys, separately-budgeted turn caps
-│           │                                        #   triage_candidates.sh / plan_feature.sh / plan_verify.sh / plan_sprint.sh are
+│           │                                        #   triage_candidates.sh / plan_draft.sh / plan_verify.sh / plan_sprint.sh are
 │           │                                        #   siblings for the same reason: four jobs, four model keys, four turn caps. Each
-│           │                                        #   runs standalone AND is called in order by plan_project.sh. plan_feature.sh and
+│           │                                        #   runs standalone AND is called in order by plan_project.sh. plan_draft.sh and
 │           │                                        #   plan_verify.sh take ONE component directory, which is also the cheap way to
 │           │                                        #   exercise them; plan_verify.sh REFUSES a component with no roadmap.md rather
 │           │                                        #   than dispatching against nothing, since writing the plan is not its job. On a
@@ -451,7 +453,7 @@ claude-dot-files/
 │                                                                           #   decision point. Measured: one chain reached $82.13 in two
 │                                                                           #   hours with nothing surfacing it. Reporting, not a gate
 │                   │                                #   comparator must name one the workflow CALLS — resolving is not wiring, and both
-│                   │                                #   plan-feature and plan-verify claimed the `size` guard without having one
+│                   │                                #   plan-draft and plan-verify claimed the `size` guard without having one
 │                   ├── test_prompt_completeness.py  # Every ${VAR} in a shipped prompt has a supplier (data-driven over prompts/*.md)
 │                   ├── test_delegated_contract.py   # The five env vars run-claude.sh asserts at SOURCE time, and their ordering
 │                   ├── fork_vs_parameterize.py     # THE RULING PROCEDURE for a drifted pair, in a HELPER module beside the guards that
@@ -529,7 +531,7 @@ claude-dot-files/
 │                   │                                #   spelling at a time three times — plan_revision's STOP, build_from_plan's BUILD-PHASE,
 │                   │                                #   review_pr's dispatch_tool enum — so the check keys on resolution, not on a name list
 │                   ├── test_no_prose_claims_a_shipped_workflow_is_UNBUILT.py # No prose says a workflow does not exist
-│                   │                                #   when its module is on disk. plan-feature said it in three places — a docstring, a prompt sent
+│                   │                                #   when its module is on disk. plan-draft said it in three places — a docstring, a prompt sent
 │                   │                                #   to the model, an operator banner — and the PR that built plan-verify falsified all three and
 │                   │                                #   updated none. The shipped set is derived from the tree, so a workflow landing retires every
 │                   │                                #   claim about it that day; historical phrasings are exempted deliberately
@@ -618,7 +620,7 @@ claude-dot-files/
 │                   ├── test_plan_project_loop.py     # The plan parent's bounded loop-back and its fail-safe-to-human routing, plus the
 │                   │                                #   Step 1b wiring that gave the research step a reachable input again, and that
 │                   │                                #   every field of `Scaffolded` reaches the operator as its own note
-│                   ├── test_plan_feature.py         # plan-feature's four OWN prohibitions, each exercised where the guards disagree: a
+│                   ├── test_plan_draft.py         # plan-draft's four OWN prohibitions, each exercised where the guards disagree: a
 │                   │                                #   renumber is caught as a DELETION (both name guards pass it), a gap is not a free
 │                   │                                #   number, and the hour detector does NOT fire on the three prose uses of "hours"
 │                   │                                #   that exist in this tree — a word-keyed pattern would fail three correct runs
@@ -649,14 +651,11 @@ claude-dot-files/
 │                   │                                #   SHARED placement instruction unfollowable
 │                   ├── test_plan_revision_v1_parity.py # Prompt text is BYTE-IDENTICAL to plan-revision.sh — re-extracts the heredocs
 │                   │                                #   and both PROMPT= strings on every run. Catches the ~935-byte drop-the-stages failure
-│                   ├── test_research_minor.py       # The minor cycle is genuinely SMALLER, and a subtraction is what a green suite cannot
-│                   │                                #   notice: every "absent from write_minor.md" check is paired with the SAME predicate
-│                   │                                #   run against research_write's live prompt, which must still fire. Plus the reused
-│                   │                                #   verify child's cycle-shape block RENDERED (not grepped) and an AST walk proving its
-│                   │                                #   parameter reaches no `if` — a value, never a behavioural branch inside a prompt.
-│                   │                                #   BOTH children's prompts are rendered end-to-end: the prompt FILE is not the prompt,
-│                   │                                #   and ${CONTEXT_BLOCK} is assembled from pieces write_minor.md does not author — which
-│                   │                                #   is exactly where the one live defect this suite's file-only checks all missed lived
+│                   ├── test_research_draft.py         # The draft child sizes its own cycle, and the machinery it once lacked is
+│                   │                                #   green suite could not notice: a subtraction is invisible to every auto-discovering
+│                   │                                #   sweep. Renders BOTH children's prompts end to end — the prompt FILE is not the
+│                   │                                #   prompt — plus an AST walk proving the verify child's cycle-shape value reaches no
+│                   │                                #   `if`: a value, never a behavioural branch inside a prompt
 │                   ├── test_runner_discovery.py     # An orphaned test file FAILS the suite — runs python.sh against a synthetic tree
 │                   ├── test_turn_cap_banner_reads_the_worktree.py # The turn-cap banner reports the tree it can SEE (#65): worktree_delivery_state
 │                   │                                #   extracted from run-claude.sh and run against real git fixtures under BOTH caller shapes —
@@ -825,7 +824,7 @@ claude-dot-files/
 │   │       │                                        #   test module importing a test module, and names this as the remedy
 │   │       ├── test_planning_directories_are_ROLLED_UP_in_the_map.py # The OTHER end of the rule above: a
 │   │       │                                        #   docs/development/ component on the roadmap+phases shape must be SUMMARISED here,
-│   │       │                                        #   never listed file by file. Adding a phase doc is plan-feature's whole job and this
+│   │       │                                        #   never listed file by file. Adding a phase doc is plan-draft's whole job and this
 │   │       │                                        #   map is outside its write grant, so a per-file row made every plan it produced land
 │   │       │                                        #   a red suite it was forbidden to fix (C-pky2l2b6, measured on PR #111 and again on #123).
 │   │       │                                        #   The planning set is DERIVED from the tree; reproduces the red-on-add and pairs it

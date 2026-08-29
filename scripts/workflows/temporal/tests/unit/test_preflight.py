@@ -145,7 +145,7 @@ def test_no_entrypoint_INLINES_the_operator_path_escape_check() -> None:
     READ BY AST, NOT BY SUBSTRING, AND THAT IS NOT FASTIDIOUSNESS. This check
     was first written as `"is_relative_to" in text and "resolve_operator_paths"
     not in text`, and a mutation control put the inline block back into
-    `run_plan_feature.py` and the sweep STAYED GREEN — because the comment above
+    `run_plan_draft.py` and the sweep STAYED GREEN — because the comment above
     the call still said *"see `resolve_operator_paths` for why two copies of a
     boundary check drift"*. The prose explaining the rule satisfied the check for
     the rule. A guard reading a region that includes its own documentation

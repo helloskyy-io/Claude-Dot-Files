@@ -95,7 +95,7 @@ Report what you found: how many candidates are untriaged, and anything in the ev
 | `size` | When | What it becomes downstream |
 |---|---|---|
 | **`feature`** | Its own component — worth a roadmap, numbered phases and a sprint section of its own | `plan-candidates` scaffolds the component; the full research-and-planning chain follows |
-| **`phase`** | ONE new phase inside a component that already exists | No scaffold. `plan-feature` extends that component's roadmap |
+| **`phase`** | ONE new phase inside a component that already exists | No scaffold. `plan-draft` extends that component's roadmap |
 | **`checkboxes`** | One or a few completion criteria added to a phase that already exists | No scaffold, no new phase — the criteria go into the phase doc that owns them |
 
 **Name the component in the `component` cell** for all three, and for `phase` and `checkboxes` say in the Note which phase you mean. **If you cannot name an existing component for a `phase` or `checkboxes` sizing, it is a `feature`** — the size and the target have to agree.

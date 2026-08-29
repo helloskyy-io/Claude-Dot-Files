@@ -108,7 +108,7 @@ def main(argv=None) -> int:
 
         # A `--pr` PASS MUST START FROM THE WORK IT IS CORRECTING. Hard-coding
         # "HEAD" put the run on `main`, so a correction pass opened a worktree
-        # with none of the PR's files in it. Measured on plan-feature's first
+        # with none of the PR's files in it. Measured on plan-draft's first
         # correction pass: the counted-in-code block reported "0 phase doc(s)"
         # — true of the worktree it was handed, false of the four docs it was
         # told to correct — and the run spent turns fetching and checking out

@@ -40,7 +40,7 @@ from ... import routing
 from ...assistant_activities import ci_verdict, wait_for_ci
 from ...review_pr import review_pr_workflow as review_pr
 from ...review_pr.review_pr_helper import ReviewInput, ReviewType
-from ..plan_feature import plan_feature_workflow as plan_write
+from ..plan_draft import plan_draft_workflow as plan_write
 from ..plan_sprint import plan_sprint_workflow as sprint
 from ..plan_verify import plan_verify_workflow as plan_verify
 
@@ -68,7 +68,7 @@ def run_plan(*, component: Path, repo_root: Path, worktree_name: str,
     # when none was given, so its return value is the only place the number
     # exists — `plan-project` resolves it the same way, one line after its own
     # first child.
-    pr_url = plan_write.run_plan_feature(
+    pr_url = plan_write.run_plan_draft(
         repo_root=repo_root, worktree=worktree, component=component,
         candidates_path=candidates_path, pr_number=pr,
         context=context, verbose=verbose,
@@ -91,10 +91,16 @@ def run_plan(*, component: Path, repo_root: Path, worktree_name: str,
     while routing.should_loop_back(verdict, loops):
         loops += 1
         notes.append(f"HOLD (redispatch): loop-back {loops} of {routing.MAX_LOOPS}.")
-        plan_write.run_plan_feature(
+        # `correction_pass=True` — THE LOOP USED TO SAY NOTHING, AND THE CHILD
+        # SPENT A FULL DISPATCH REDISCOVERING THAT. It was re-entered with the
+        # ORIGINAL brief and a PR number, so a run whose re-plan had already
+        # landed re-established that fact and reported it: "the re-plan had
+        # already landed when this ran", three times on PR #145. Every other
+        # looped producer in the fleet already carried this flag.
+        plan_write.run_plan_draft(
             repo_root=repo_root, worktree=worktree, component=component,
             candidates_path=candidates_path, pr_number=pr,
-            context=context, verbose=verbose,
+            context=context, correction_pass=True, verbose=verbose,
         )
         verdict = _verify_size_and_dispose(
             component=component, repo_root=repo_root, worktree=worktree,

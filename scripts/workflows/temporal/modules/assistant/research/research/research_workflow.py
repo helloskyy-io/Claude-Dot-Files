@@ -20,7 +20,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .. import research_activities as act
-from ..research_write import research_write_workflow as write
+from ..research_draft import research_draft_workflow as draft
 from ..research_verify import research_verify_workflow as verify
 from ...review_pr import review_pr_workflow as review_pr
 from ...review_pr.review_pr_helper import ReviewInput, ReviewType, Verdict
@@ -46,7 +46,7 @@ def run_research(*, research_dir: Path, repo_root: Path, worktree_name: str,
     # produced nothing rather than one that has already written a paper.
     slug = repo_slug(repo_root)
 
-    pr_url = write.run_write(
+    pr_url = draft.run_research_draft(
         research_dir=research_dir, repo_root=repo_root, worktree=worktree,
         context=context, pr_number=pr_number, verbose=verbose,
     )

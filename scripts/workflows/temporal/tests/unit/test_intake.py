@@ -241,3 +241,46 @@ def test_the_closing_comment_points_AT_the_file(
     # record, which is condition 2 of the exemption.
     assert not comment.split("`")[1].startswith("/"), (
         f"absolute path in a public comment: {comment.split('`')[1]}")
+
+
+def test_a_RECURRENCE_intake_INCREMENTS_rather_than_duplicating(tmp_path) -> None:
+    """`count` is the whole reason this path exists, and re-filing destroys it.
+
+    A decide-only reviewer cannot increment a `count` — that is a file write and
+    it has no commit — so it says RECURRENCE in the intake title and the harvest
+    does the write. Without this the harvest files a SECOND item describing the
+    first, which Tracked Items §3.1 forbids in as many words: *"Increment its
+    `count` and append a dated recurrence line. Do not open a second item."*
+
+    MEASURED: two intakes (#146, #149) were open in exactly this shape when the
+    gap was found. Harvesting them as written would have produced two duplicates
+    and lost both recurrence signals — and recurrence outranks age in triage, so
+    the loss is of the signal that decides what gets looked at first.
+    """
+    from modules.assistant.tracked import intake as own_intake
+    from modules.assistant.tracked import tracked_items as ti
+
+    root = tmp_path / "tracked"
+    store = ti.STORES["candidates"]
+    path = ti.file_item(root, store, title="A thing that keeps happening",
+                        filed_by="review-pr", status="open", body="Body.\n",
+                        extras={"component": "", "size": "", "decision": ""})
+    item_id = path.stem
+
+    assert own_intake._recurrence_target(root, f"RECURRENCE on {item_id} — again") == path
+    assert own_intake._recurrence_target(root, "An ordinary new finding") is None, (
+        "a normal intake must not be read as a recurrence — that would silently "
+        "drop a genuinely new item into an unrelated one"
+    )
+    assert own_intake._recurrence_target(root, "RECURRENCE on C-00000000 — gone") is None, (
+        "an id that resolves nowhere must fall through to normal filing rather "
+        "than raise; the finding is real even when the pointer is wrong"
+    )
+
+    before, _ = ti.parse(path)
+    ti.increment(path, "2026-08-28: reported again via intake `#1`")
+    after, _ = ti.parse(path)
+    assert int(after["count"]) == int(before["count"]) + 1, (
+        "the recurrence path must move `count`; that number is what makes a "
+        "pattern distinguishable from noise at triage"
+    )

@@ -31,10 +31,10 @@ root that cannot be resolved means *the run does not start*, and that is only
 literally true before the first side effect. FIVE of this fleet's eleven
 entrypoints call `act.worktree_add` themselves and hand the workflow module an
 already-cut worktree, and THREE more hand off by name to a `*_workflow` module
-that cuts one — so in eight of eleven a bag opened inside the workflow module
+that cuts one — so in nine of eleven a bag opened inside the workflow module
 would fire after a worktree existed on disk. (This paragraph said "six … more
 than half" through three passes; the count is five, the argument survives on
-eight of eleven, and `test_the_worktree_cutting_count_this_argument_RESTS_ON` now
+nine of eleven, and `test_the_worktree_cutting_count_this_argument_RESTS_ON` now
 pins both numbers so the next reader who counts finds the prose true.)
 The entrypoint is where
 `preflight` already lives for exactly this reason. At port time the entrypoint
@@ -111,7 +111,7 @@ def load_journal_config(config_path: Path | None = None) -> Mapping[str, object]
 
     A PARSE FAILURE IS RERAISED AS `JournalRootError`, WHICH IS THE MODULE'S
     DOCUMENTED CONTRACT. `yaml.YAMLError` is not a `RuntimeError`, so letting it
-    escape would give all twelve entrypoints a raw traceback for the one class of
+    escape would give all eleven entrypoints a raw traceback for the one class of
     problem r9 exists to diagnose cleanly — a misconfiguration. The refusal names
     the file and the parser's own message, which is what an operator needs when
     the journal that would have recorded the failure is the thing that failed.
@@ -158,7 +158,7 @@ def load_journal_config(config_path: Path | None = None) -> Mapping[str, object]
     # `YAMLError` fix above missed. A truncated or garbled file that yields a
     # scalar or a list parses perfectly and is truthy, so it sails past the
     # `or {}` guard and raises `AttributeError` on the first `.get` — which is
-    # not a `RuntimeError`, so none of the twelve entrypoint handlers catches it
+    # not a `RuntimeError`, so none of the eleven entrypoint handlers catches it
     # and the operator gets a traceback for exactly the misconfiguration r9
     # exists to report cleanly. Same failure, adjacent branch.
     if not isinstance(loaded, Mapping):
@@ -295,7 +295,7 @@ def open_run_bag(*, run_id: str, writer: str | None, repo_root: Path,
     component — which is the first-run case. From the second run onward the root
     already exists, `os.access` answers about permission and not about space, and
     the first call that actually fails on a full disk is `open_bag`'s own `mkdir`
-    or tag-file write, raising a bare `OSError`. Eleven of the twelve entrypoints
+    or tag-file write, raising a bare `OSError`. Ten of the eleven entrypoints
     catch `(RuntimeError, FileNotFoundError[, ValueError])`, so the operator got a
     traceback for precisely the steady-state failure — a full journal — that r9's
     whole argument is built on being diagnosable without a working journal.

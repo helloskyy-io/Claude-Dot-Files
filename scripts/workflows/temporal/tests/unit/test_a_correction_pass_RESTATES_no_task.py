@@ -19,7 +19,7 @@ family is required to read (`fidelity_read_and_compare.md` makes
 `gh pr view --json body,comments` mandatory and warns that the bare form
 truncates).
 
-THE SWEEP, BEFORE GENERALISING. `run_research_minor.py` and `run_plan_feature.py`
+THE SWEEP, BEFORE GENERALISING. `run_research_minor.py` and `run_plan_draft.py`
 impose no task-source rule at all. Only `BuildInput` did, and exactly two runners
 share it — `run_build.py` and `run_build_minor.py`. `run_plan_revision.py` has the
 same SYMPTOM through a different mechanism (a required positional `description`)

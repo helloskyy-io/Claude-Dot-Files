@@ -126,6 +126,37 @@ def open_intakes(cwd: Path | None = None) -> list[dict]:
     return sorted(issues, key=lambda i: i["createdAt"])
 
 
+
+#: A recurrence intake — a decide-only pass reporting that an EXISTING item
+#: happened again. `review-pr` cannot increment a `count` itself: incrementing is
+#: a file write and a decide-only reviewer has no commit. So it says so in the
+#: title, and the harvest does the write.
+#:
+#: WITHOUT THIS THE HARVEST DUPLICATES THE ITEM IT NAMES, which is precisely what
+#: `count` was introduced to stop — Tracked Items §3.1: "Increment its `count`
+#: and append a dated recurrence line. Do not open a second item." Measured: two
+#: intakes (#146, #149) were sitting open in exactly this shape, and harvesting
+#: them as written would have filed two duplicates and lost both signals.
+#:
+#: RECURRENCE OUTRANKS AGE IN TRIAGE, so a lost increment is not a cosmetic miss:
+#: a `count: 3` filed last week is a pattern and a `count: 1` from June may be
+#: noise, and the harvest is the only writer that can tell them apart.
+_RECURRENCE = re.compile(r"^\s*RECURRENCE\s+on\s+([A-Z]-[0-9a-z]{8})\b", re.I)
+
+
+def _recurrence_target(root: Path, title: str) -> Path | None:
+    """The item a recurrence intake names, if it resolves in any store."""
+    m = _RECURRENCE.match(title or "")
+    if not m:
+        return None
+    item_id = m.group(1)
+    for store in ti.STORES.values():
+        candidate = root / store.name / f"{item_id}.md"
+        if candidate.is_file():
+            return candidate
+    return None
+
+
 def harvest(root: Path, *, cwd: Path | None = None,
             dry_run: bool = False) -> tuple[list[tuple[int, Path]], list[tuple[int, str]]]:
     """Move every open intake into its store and close it. Returns (moved, failed).
@@ -148,8 +179,18 @@ def harvest(root: Path, *, cwd: Path | None = None,
             store, fields, body = parse_intake(issue["body"] or "")
 
             existing = _already_filed(root, number)
+            recurred = _recurrence_target(root, issue["title"])
             if existing is not None:
                 path = existing
+            elif recurred is not None:
+                # INCREMENT, NEVER RE-FILE — see `_RECURRENCE`.
+                if dry_run:
+                    moved.append((number, recurred))
+                    continue
+                ti.increment(recurred,
+                             f"{date.today().isoformat()}: reported again via intake "
+                             f"`#{number}` — {issue['title']}")
+                path = recurred
             else:
                 status = fields.pop("status", "open")
                 filed_by = fields.pop("filed_by", "review-pr")

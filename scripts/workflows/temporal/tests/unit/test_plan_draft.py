@@ -1,4 +1,4 @@
-"""`plan-feature`'s four own prohibitions, and the readers that observe them.
+"""`plan-draft`'s four own prohibitions, and the readers that observe them.
 
 WHAT IS AND IS NOT COVERED HERE, because two other modules already cover half of
 this workflow and duplicating them would be worse than a gap. The registries are
@@ -41,8 +41,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from modules.assistant.plan import plan_activities as act  # noqa: E402
-from modules.assistant.plan.plan_feature import plan_feature_activities as own  # noqa: E402
-from modules.assistant.plan.plan_feature import plan_feature_workflow as wf  # noqa: E402
+from modules.assistant.plan.plan_draft import plan_draft_activities as own  # noqa: E402
+from modules.assistant.plan.plan_draft import plan_draft_workflow as wf  # noqa: E402
 
 
 @pytest.fixture
@@ -549,10 +549,10 @@ def test_the_shim_invokes_its_OWN_runner() -> None:
     it — a shim that runs a DIFFERENT workflow has a different model key and a
     different turn budget.
     """
-    shim = Path(__file__).resolve().parents[2] / "scripts" / "plan_feature.sh"
+    shim = Path(__file__).resolve().parents[2] / "scripts" / "plan_draft.sh"
     text = shim.read_text()
-    assert "run_plan_feature.py" in text
-    assert re.search(r"^#\s+\./plan_feature\.sh", text, re.M), (
+    assert "run_plan_draft.py" in text
+    assert re.search(r"^#\s+\./plan_draft\.sh", text, re.M), (
         "the usage block must invoke this shim by its own name")
 
 
@@ -572,7 +572,7 @@ def test_the_runner_REFUSES_a_component_outside_the_repo(tmp_path: Path, capsys)
     refusals apart, which is exactly how this passed vacuously.
     """
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
-    import run_plan_feature as runner
+    import run_plan_draft as runner
 
     repo = tmp_path / "repo"
     (repo / "docs" / "development").mkdir(parents=True)
@@ -588,7 +588,7 @@ def test_the_runner_REFUSES_a_component_outside_the_repo(tmp_path: Path, capsys)
 # --- the guard SEQUENCE, driven end to end ---------------------------------
 
 def _harness(monkeypatch: pytest.MonkeyPatch, tree: Path, writes):
-    """Wire `run_plan_feature` to a fake model that mutates the tree; return the call.
+    """Wire `run_plan_draft` to a fake model that mutates the tree; return the call.
 
     THE ONLY TEST HERE THAT GOES THROUGH THE ORCHESTRATOR, and the gap it closes
     is a real one: every other assertion in this module drives a comparator in
@@ -628,7 +628,7 @@ def _harness(monkeypatch: pytest.MonkeyPatch, tree: Path, writes):
     monkeypatch.setattr(act, "run_claude",
                         lambda prompt, **kw: (writes(), "https://github.com/o/r/pull/9")[1])
 
-    return lambda: wf.run_plan_feature(repo_root=tree, worktree=tree,
+    return lambda: wf.run_plan_draft(repo_root=tree, worktree=tree,
                                        component=_component(tree),
                                        candidates_path=cands)
 
@@ -694,7 +694,7 @@ def test_a_PRE_EXISTING_violation_of_a_PROHIBITION_does_not_fail_a_clean_run(
 
     THIS WAS RED, and on exactly one of the four: `hour_estimates` scanned
     post-run STATE, so an estimate somebody else wrote failed the run with a
-    message asserting *"plan-feature wrote 1 hour estimate(s)"*. Reproduced
+    message asserting *"plan-draft wrote 1 hour estimate(s)"*. Reproduced
     against `docs/development/reviews/`, which carries `~7h` and `~12.8 hours`
     today, and against `plan-revision` — the unsplit planner that DOES size work,
     so any component it planned is one this workflow could never extend.
@@ -781,7 +781,7 @@ def test_a_BARE_number_and_a_LETTERED_one_in_one_run_collide(tree: Path) -> None
 # --- the phase precount is over IDENTITIES, not filenames ---------------------
 
 def test_a_phase_named_only_in_the_ROADMAP_is_taken(tmp_path) -> None:
-    """The defect the first-ever plan-feature run hit, reproduced.
+    """The defect the first-ever plan-draft run hit, reproduced.
 
     `workflow-decomposition` had three phases in `roadmap.md` and ZERO phase
     docs, so a filename-only count reported none taken and `planning_state` said
@@ -833,7 +833,7 @@ def test_every_pr_accepting_plan_runner_bases_its_worktree_ON_THE_PR() -> None:
     fresh run and wrong for a correction pass, and nothing distinguished them —
     so `--pr` changed where the run PUSHED and never where it STARTED.
 
-    Measured on plan-feature's first correction pass: the counted-in-code block
+    Measured on plan-draft's first correction pass: the counted-in-code block
     reported "0 phase doc(s)", true of the worktree it was handed and false of
     the four documents it was told to correct. The run detected the mismatch,
     fetched the branch and checked it out itself, and said so in its reflection.

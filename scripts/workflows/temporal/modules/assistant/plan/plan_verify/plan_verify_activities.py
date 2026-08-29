@@ -5,8 +5,8 @@ restates §10.1 rule 3 as BINDING and mechanical — *"consumer count decides, n
 taste"* — and rule 6 gives a workflow folder its place to grow the helpers it has
 earned. Everything below has exactly one consumer: `plan_verify_workflow`.
 
-WHAT THIS MODULE IS FOR, AND WHY IT IS NOT `plan_feature_activities` REVERSED.
-`plan-feature` is forbidden to size, and its readers are shaped for a
+WHAT THIS MODULE IS FOR, AND WHY IT IS NOT `plan_draft_activities` REVERSED.
+`plan-draft` is forbidden to size, and its readers are shaped for a
 PROHIBITION: component-wide, keyed by file, judged as a delta, and answering
 *what did this run write that it should not have*. `plan-verify` produces the
 same shape as its DELIVERABLE, and a deliverable is judged on STATE — the
@@ -24,7 +24,7 @@ fail exactly the pass most likely to be the last one anybody reads.
     plan shape it invented.
 
 The hour PATTERN itself is `plan_activities.HOUR_ESTIMATE` and is deliberately
-shared with `plan-feature`. Two copies would let the write half forbid a shape
+shared with `plan-draft`. Two copies would let the write half forbid a shape
 the read half does not produce, or the read half satisfy itself with a shape the
 write half would have rejected — and neither divergence shows up in a diff.
 
@@ -46,13 +46,13 @@ ROADMAP = "roadmap.md"
 # The phase-doc reader lives on the shared surface — two consumers, per §10.1
 # rule 3. Aliased here so this module reads in one alphabet, and named
 # `phase_docs_of` rather than `phase_docs` so the registry entry beside it cannot
-# be misread as `plan-feature`'s: that workflow GUARDS phase docs, this one only
+# be misread as `plan-draft`'s: that workflow GUARDS phase docs, this one only
 # counts them.
 phase_docs_of = act.phase_docs
 
 # A phase doc REFERENCED from the roadmap — a link target, a bare filename in a
 # table cell, or an inline code span. Deliberately looser than
-# `plan_feature_activities._PHASE_FILE`, which judges whether a name a run WROTE
+# `plan_draft_activities._PHASE_FILE`, which judges whether a name a run WROTE
 # is legal: this one asks which phases the roadmap currently points at, and a
 # non-conformant legacy name it points at is still a phase it points at.
 #
@@ -95,7 +95,7 @@ def roadmap_hours(component: Path) -> Counter:
     which reaches `roadmap.md` and no other file in the component.
 
     THE ROADMAP AND NOT THE PHASE DOCS, and the deciding argument is coverage
-    rather than taste. `plan-feature`'s own prompt is explicit that **a phase
+    rather than taste. `plan-draft`'s own prompt is explicit that **a phase
     gated on something outside the component gets a roadmap entry and NO phase
     doc yet** — so a phase-doc-only sizing structurally cannot size a gated
     phase, which is exactly the phase whose cost an operator most needs before
@@ -155,7 +155,7 @@ def roadmap_phase_links(component: Path) -> Counter:
     WHAT IT CANNOT SEE, STATED SO THE ROW IS NOT READ AS COVERING MORE THAN IT
     DOES. A Counter has no order, so RE-ORDERING the roadmap's phase entries is
     invisible here — deliberately at the margin, since re-ordering within the
-    roadmap is a legitimate act for `plan-feature` and the prohibition this
+    roadmap is a legitimate act for `plan-draft` and the prohibition this
     workflow carries is about *deciding when the component gets built*, whose
     artifact is `sprint.md` and IS observed. And a roadmap that links no phase
     doc at all yields an empty Counter on both sides, which passes vacuously;
@@ -246,7 +246,7 @@ def plan_inventory(component: Path, tree: Path) -> str:
             f"**Counted in code, authoritative — do not recount:** `{rel}/` has "
             f"**no `roadmap.md`**, and {len(docs)} phase doc(s).\n\n"
             f"**THERE IS NO PLAN HERE TO VERIFY.** Do not write one — that is "
-            f"`plan-feature`'s and you hold no grant over a phase doc. Say so "
+            f"`plan-draft`'s and you hold no grant over a phase doc. Say so "
             f"plainly in your report, size nothing, and stop."
         )
 

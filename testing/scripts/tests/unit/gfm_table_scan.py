@@ -338,7 +338,7 @@ def severed_rows(lines: list[str]) -> list[int]:
     MEASURED ON THE TREE, and this is why the port of `stranded_rows` is not a
     copy-paste. Three `|`-opening lines sit outside every block today —
     `research_refresh/prompts/altitude_product.md:56`,
-    `research_write/prompts/altitude_product.md:56` and
+    `research_draft/prompts/altitude_product.md:56` and
     `review_pr/prompts/disposition.md:262` — and NONE is a defect. All three are
     single isolated row-shape illustrations with no delimiter anywhere in their
     run, so GFM never rendered them as rows and nothing is lost. Applying the

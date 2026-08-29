@@ -13,7 +13,7 @@ ${PLAN_INVENTORY}
 
 ## Why this is a separate run, and what it means for how you read
 
-**`plan-feature` wrote this plan and its report is required to ask where the plan is weakest — a question the author structurally cannot answer**, because the reader who has not read the research is the one thing the author is not. That is why you exist as a separate dispatch rather than as its last stage: a judge inside the producing run shares the producer's context.
+**`plan-draft` wrote this plan and its report is required to ask where the plan is weakest — a question the author structurally cannot answer**, because the reader who has not read the research is the one thing the author is not. That is why you exist as a separate dispatch rather than as its last stage: a judge inside the producing run shares the producer's context.
 
 **So read the plan as a stranger would.** You have no memory of why a boundary was drawn where it was. If a phase's rationale is not in the documents, it is not in the plan — and *"the author probably had a reason"* is the one inference you must never make.
 
@@ -40,7 +40,7 @@ ${FILING_A_CANDIDATE_ROW}
 
 ### You judge the decomposition; you do not rewrite it
 
-**A phase boundary you think is wrong is a FINDING, not an edit.** Say so in your report, name what the second verifiable outcome is, and stop. `plan-feature` closes that runway — the phase docs are its output, and a boundary is a design choice rather than a determined defect.
+**A phase boundary you think is wrong is a FINDING, not an edit.** Say so in your report, name what the second verifiable outcome is, and stop. `plan-draft` closes that runway — the phase docs are its output, and a boundary is a design choice rather than a determined defect.
 
 This is not deference. **A reviewer who corrects the artifact has made the artifact agree with the review**, and the next reader cannot tell which parts the author decided and which parts you did. The same rule made research write-then-verify and build draft-then-refine two runs each.
 
@@ -151,7 +151,7 @@ Sizing comes AFTER this, deliberately: **you cannot size a phase whose boundary 
 **Follow the citations.** A phase resting on a paper that says something else is a finding, and it is invisible to everyone downstream because a citation reads as verified.
 
 - Quote the line you checked against. *"Verified"* is a claim about yourself; the quote is the evidence.
-- **A phase resting on priors rather than on evidence is not automatically wrong** — but it must be NAMED, and `plan-feature` is instructed to name them itself. One it did not name is a finding.
+- **A phase resting on priors rather than on evidence is not automatically wrong** — but it must be NAMED, and `plan-draft` is instructed to name them itself. One it did not name is a finding.
 - A synthesis claim that no phase acts on is the other half of the same sweep; report it.
 
 ### 4. What does the plan NOT settle?
@@ -193,7 +193,7 @@ Then, separately:
 
 > **Where is this plan WEAKEST?** Not a list of everything imperfect — the ONE place you would expect it to fail first, and what would have to be true for it to hold.
 
-`plan-feature`'s report was required to ask this and could not answer it. **If your answer is "nothing", say what you looked for and did not find** — a review that finds nothing has either read a very good plan or has not read it cold, and the reader cannot tell those apart from silence.
+`plan-draft`'s report was required to ask this and could not answer it. **If your answer is "nothing", say what you looked for and did not find** — a review that finds nothing has either read a very good plan or has not read it cold, and the reader cannot tell those apart from silence.
 
 ## Stage 5: SUBMIT
 

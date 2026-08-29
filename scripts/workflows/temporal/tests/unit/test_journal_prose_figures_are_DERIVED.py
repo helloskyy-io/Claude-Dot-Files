@@ -216,45 +216,41 @@ _DERIVERS = {
 _BOUND_FIGURES = {
     ("journal_activities.py", "FIVE of this fleet's eleven entrypoints"):
         "cut their own worktree",
-    ("journal_activities.py", "eight of eleven"):
+    ("journal_activities.py", "nine of eleven"):
         "reach a worktree before workflow-module code",
-    ("journal_activities.py", "twelve entrypoints"): "the entrypoint population",
-    ("journal_activities.py", "twelve entrypoint"): "the entrypoint population",
-    ("journal_activities.py", "Eleven of the twelve entrypoints"): "do not catch OSError",
-    ("conftest.py", "twelve entrypoints"): "the entrypoint population",
-    ("test_journal_bag.py", "twelve entrypoints"): "the entrypoint population",
-    ("test_journal_root.py", "Eleven of the twelve entrypoints"): "do not catch OSError",
-    ("phase1_the_run_bag.md", "Eight of the 12 entrypoints"):
-        "return from a dry-run branch before bag-open",
-    ("phase1_the_run_bag.md", "9 of the 12 entrypoints"):
-        "reach a worktree before workflow-module code",
-    ("test_journal_root.py", "eleven of twelve entrypoints"): "do not catch OSError",
-    ("test_every_parent_opens_a_run_bag.py", "TWELVE entrypoints"):
+    ("journal_activities.py", "eleven entrypoints"): "the entrypoint population",
+    ("journal_activities.py", "eleven entrypoint"): "the entrypoint population",
+    ("journal_activities.py", "Ten of the eleven entrypoints"): "do not catch OSError",
+    ("conftest.py", "eleven entrypoints"): "the entrypoint population",
+    ("test_journal_bag.py", "eleven entrypoints"): "the entrypoint population",
+    ("test_journal_root.py", "Ten of the eleven entrypoints"): "do not catch OSError",
+    ("test_journal_root.py", "ten of eleven entrypoints"): "do not catch OSError",
+    ("test_every_parent_opens_a_run_bag.py", "ELEVEN entrypoints"):
         "the entrypoint population",
     ("test_every_parent_opens_a_run_bag.py", "FIVE of those eleven"):
         "cut their own worktree",
-    ("test_every_parent_opens_a_run_bag.py", "EIGHT of the eleven"):
+    ("test_every_parent_opens_a_run_bag.py", "NINE of the eleven"):
         "reach a worktree before workflow-module code",
-    ("test_every_parent_opens_a_run_bag.py", "Eight of the twelve entrypoints"):
+    ("test_every_parent_opens_a_run_bag.py", "Seven of the eleven entrypoints"):
         "return from a dry-run branch before bag-open",
-    ("test_every_parent_opens_a_run_bag.py", "nine of twelve"):
+    ("test_every_parent_opens_a_run_bag.py", "nine of eleven"):
         "inside the ordering check's reach",
-    ("test_every_parent_opens_a_run_bag.py", "8 OF 11"):
+    ("test_every_parent_opens_a_run_bag.py", "9 OF 11"):
         "inside the ordering check's reach",
     ("test_every_parent_opens_a_run_bag.py", "five entrypoints"): "cut their own worktree",
-    ("test_every_parent_opens_a_run_bag.py", "three of the twelve entrypoints"):
+    ("test_every_parent_opens_a_run_bag.py", "two of the eleven entrypoints"):
         "outside the ordering check's reach",
-    ("test_every_parent_opens_a_run_bag.py", "NINE of twelve entrypoints"):
+    ("test_every_parent_opens_a_run_bag.py", "NINE of eleven entrypoints"):
         "reach a worktree before workflow-module code",
-    ("test_the_suite_never_writes_to_the_operators_journal.py", "twelve entrypoints"):
+    ("test_the_suite_never_writes_to_the_operators_journal.py", "eleven entrypoints"):
         "the entrypoint population",
     # MOVED HERE BY THIS PR'S OWN EXTRACTION, from the two modules above.
-    ("journal_entrypoint_facts.py", "8 OF 11"):
+    ("journal_entrypoint_facts.py", "9 OF 11"):
         "inside the ordering check's reach",
     ("journal_entrypoint_facts.py", "five entrypoints"): "cut their own worktree",
     ("phase1_the_run_bag.md", "Seven of the 11 entrypoints"):
         "return from a dry-run branch before bag-open",
-    ("phase1_the_run_bag.md", "8 of the 11 entrypoints"):
+    ("phase1_the_run_bag.md", "9 of the 11 entrypoints"):
         "inside the ordering check's reach",
 }
 
@@ -269,14 +265,14 @@ _DECLARED_NON_DERIVATIONS = {
         "many of the eleven do anything. No deriver could produce it because it "
         "is not a claim about the fleet, and binding it to one would make a "
         "derived number answer a question nobody asked.",
-    ("journal_activities.py", "eleven entrypoints"):
+    ("journal_activities.py", "nine of eleven entrypoints"):
         "the PRE-FIX state inside this PR: how many omitted the then-optional "
         "`worktree_name`. The argument for making it required rests on it, and "
         "the tree no longer holds it — all eleven pass one now.",
     ("journal_activities.py", "nine of eleven"):
         "the same pre-fix figure carried into its consequence — nine of eleven "
         "RUNS would have recorded no worktree. Same absent ground truth.",
-    ("phase1_the_run_bag.md", "eleven entrypoints"):
+    ("phase1_the_run_bag.md", "nine of eleven entrypoints"):
         "the same pre-fix figure, in the doc that records why the 496-byte bag "
         "measurement was superseded. Not derivable for the same reason.",
     ("phase1_the_run_bag.md", "nine of eleven"):
@@ -293,7 +289,7 @@ _DECLARED_NON_DERIVATIONS = {
         "not a population count — `_side_effect_lines` returns the side-effect "
         "lines *in one entrypoint*, i.e. per file. The number binds to a unit "
         "of work, not to how many entrypoints do something.",
-    ("test_a_real_bag_validates.py", "eleven entrypoints"):
+    ("test_a_real_bag_validates.py", "ten of eleven entrypoints"):
         "a HYPOTHETICAL — the fleet this tier would still pass on if bag-open "
         "silently stopped. It describes a fleet that has never existed.",
     ("file_structure.txt", "ten of eleven"):
@@ -493,17 +489,11 @@ def test_the_figure_sweep_CATCHES_a_wrong_count_and_an_unbound_one() -> None:
     """
     total_word = _WORD_OF[_total()]
 
-    # DELIBERATELY WRONG, and it must STAY wrong as the tree grows. It read
-    # "eight" while the deriver said seven; adding the `plan` parent made the
-    # deriver say eight, so the control silently began agreeing with the figure
-    # it exists to contradict. Derived-plus-one can never agree.
-    wrong_shape = (f"{_WORD_OF[_return_from_a_dry_run_before_bag_open() + 1]} "
-                   f"entrypoints return from their dry-run branch")
+    wrong_shape = f"eight entrypoints return from their dry-run branch"
     figures = _figures_in(wrong_shape)
     assert figures, "the sweep must see the shipped form at all"
-    claimed = _claimed_value(figures[0])
-    assert claimed == _return_from_a_dry_run_before_bag_open() + 1
-    assert claimed != _return_from_a_dry_run_before_bag_open(), (
+    assert _claimed_value(figures[0]) == 8
+    assert _return_from_a_dry_run_before_bag_open() != 8, (
         "the deriver must contradict the figure that shipped — if it ever "
         "agrees, this control has stopped controlling anything")
 

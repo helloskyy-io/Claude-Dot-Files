@@ -65,7 +65,7 @@ def _is_scanned(p: Path) -> bool:
 # phrase (regex, case-insensitive) -> what replaced it, shown on failure.
 #
 # MATCH THE CLAIM, NEVER THE WORDS. A bare `no synthesis` fails on two innocent
-# lines — `plan_feature.md`'s *"if the pool is EMPTY or has no synthesis, say so"*
+# lines — `plan_draft.md`'s *"if the pool is EMPTY or has no synthesis, say so"*
 # and `write_minor.md`'s explanation of why one is now written. Both describe a
 # real runtime CONDITION a pool can be in; neither asserts a contract. The gate
 # found both on its own first run, which is the whole argument for the

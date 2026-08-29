@@ -8,7 +8,7 @@ module. It says nothing about the workflow, so a mechanism string may name a rea
 comparator that the workflow never invokes, and the registry then reads as
 coverage while the boundary is wide open.
 
-THAT IS NOT HYPOTHETICAL. `plan-feature` and `plan-verify` both declared
+THAT IS NOT HYPOTHETICAL. `plan-draft` and `plan-verify` both declared
 
     "Set `decision`, `size`, `status`, or another filer's `component` ...":
         "act.candidate_decisions, act.candidate_sizes, act.candidate_statuses
@@ -305,7 +305,7 @@ def test_the_extractor_MISSES_NO_COMPARATOR_the_registry_prose_NAMES() -> None:
 
     ITS DISCRIMINATING POWER TODAY IS ZERO, AND THAT IS SAID HERE RATHER THAN
     DISCOVERED LATER. No registry currently names a module-private comparator —
-    measured: `plan-feature` 4/4, `plan-verify` 4/4, `triage-candidates` 2/2,
+    measured: `plan-draft` 4/4, `plan-verify` 4/4, `triage-candidates` 2/2,
     `plan-sprint` 0/0 — so both sets agree whatever `_comparators_named` reads,
     and reverting the widening leaves this green. `test_the_extractor_READS_
     BOTH_SPELLINGS` below is what actually fails on that revert; this one becomes

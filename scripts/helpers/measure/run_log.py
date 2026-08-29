@@ -240,7 +240,7 @@ def stamp_of(path: Path) -> str | None:
 def model_key_of(path: Path) -> str | None:
     """The log name's leading segment, which `claude_log_path` writes as the
     MODEL key. It is NOT the workflow key — `config.yaml`'s comment above
-    `research-write:` states the two are not 1:1 — which is exactly why this
+    `research-draft:` states the two are not 1:1 — which is exactly why this
     phase adds `workflow_key` to the payload instead of parsing harder.
     """
     stamp = stamp_of(path)

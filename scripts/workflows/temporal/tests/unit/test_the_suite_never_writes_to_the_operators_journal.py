@@ -4,7 +4,7 @@ HOW THIS WAS FOUND, because it is the reason the check is shaped the way it is:
 not by a failing assertion — every assertion passed throughout — but by looking
 at `~/.local/state/claude-dot-files/journal/` after a suite run and finding
 **twenty-four bags accumulated in one day**, one per `pytest` invocation. PR #99
-wired bag-open into all twelve entrypoints, the unit modules that drive an
+wired bag-open into all eleven entrypoints, the unit modules that drive an
 entrypoint's `main()` run it to test its preconditions, and nothing stood
 between the two. Three consequences, none of which could go red:
 
@@ -198,9 +198,9 @@ def test_the_population_this_sweeps_MATCHES_THE_TREE() -> None:
 # passing forever against a population that happens to still be five.
 
 _MODULE_LEVEL_IMPORT = """
-import run_plan_feature
+import run_plan_draft
 def test_it(tmp_path):
-    assert run_plan_feature.main(["--dry-run"]) == 0
+    assert run_plan_draft.main(["--dry-run"]) == 0
 """
 
 _FUNCTION_LOCAL_IMPORT = """
@@ -217,9 +217,9 @@ def test_it(tmp_path):
 """
 
 _IMPORTS_BUT_NEVER_DRIVES = """
-import run_plan_feature
+import run_plan_draft
 def test_it():
-    assert run_plan_feature.SOME_CONSTANT == 3
+    assert run_plan_draft.SOME_CONSTANT == 3
 """
 
 _A_BARE_LOCAL_MAIN = """

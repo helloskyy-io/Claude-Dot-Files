@@ -368,3 +368,45 @@ def test_an_ACTUAL_flip_is_still_caught(tmp_path) -> None:
         f"a genuine tick was not detected: {moved}. Identity keying must narrow "
         f"WHAT is compared, never WHETHER a flip is seen."
     )
+
+
+def test_a_component_SPLIT_ACROSS_SECTIONS_reports_all_of_them(tmp_path) -> None:
+    """One section reported as the whole component is a wrong count with authority.
+
+    MEASURED ON PR #150. `persistent-memory-protocol` occupies TWO sprint
+    sections — `— Part 1` and `— Part 2`, an established shape in that file —
+    and the counter's `next(...)` returned the first. The run was told, under a
+    block reading *"authoritative — do not recount"*, that the component had ONE
+    section carrying six bullets. It never learned the second existed, and the
+    second is where the gated phases live.
+
+    A WRONG COUNT IS WORSE THAN A ZERO because it announces authority: a zero
+    says "I found nothing" and a run checks, while this says "I counted" and a
+    run believes it. That is the same failure `phase_sizing` was fixed for.
+    """
+    sprint = tmp_path / "sprint.md"
+    sprint.write_text(
+        "## Sprint: Alpha\n\n- [ ] **Alpha · one**\n\n"
+        "## Sprint: Widget Thing — Part 1\n\n- [x] **Widget Thing · a**\n- [ ] **Widget Thing · b**\n\n"
+        "## Sprint: Widget Thing — Part 2\n\n- [ ] **Widget Thing · c**\n")
+    out = own.sprint_state(sprint, Path("widget-thing"))
+    assert "SPLIT ACROSS 2 SECTIONS" in out, f"reported only one section: {out}"
+    assert "Part 1" in out and "Part 2" in out, "both sections must be named"
+    assert "2 bullet(s)" in out and "1 bullet(s)" in out, (
+        "each section's own bullet count must be reported — a total across both "
+        "would hide which section a phase belongs to"
+    )
+    assert "operator's split, not yours" in out, (
+        "the run must be told NOT to move a phase between sections; doing so "
+        "re-sequences the plan, which is the operator's decision"
+    )
+
+
+def test_a_component_in_ONE_section_still_reads_as_one(tmp_path) -> None:
+    """The control: widening the match must not turn every component into a split."""
+    sprint = tmp_path / "sprint.md"
+    sprint.write_text("## Sprint: Alpha\n\n- [ ] **Alpha · one**\n\n"
+                      "## Sprint: Widget Thing\n\n- [ ] **Widget Thing · a**\n")
+    out = own.sprint_state(sprint, Path("widget-thing"))
+    assert "SPLIT ACROSS" not in out, f"a single-section component read as split: {out}"
+    assert "HAS a section" in out and "1 phase bullet(s)" in out

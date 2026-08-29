@@ -120,13 +120,13 @@ BUDGETS: dict[str, int] = {
     # RAISED 82627 -> 82831 on 2026-08-26 (+204): the recurrence check shipped
     # the same day as an INSTRUCTION to "read the two or three closest items in
     # full" with no tool to produce that shortlist -- a hand search over 122
-    # files. `plan-feature` and `review-pr` flagged it independently on PR #144.
+    # files. `plan-draft` and `review-pr` flagged it independently on PR #144.
     # The line now names `similar-candidates.py`. Against § Prompt economy: it
     # changes what the model DOES (runs a command instead of grepping a store);
     # a capable reasoner cannot infer a script it has never been told exists;
     # and the harness cannot enforce it.
     # RAISED 82831 -> 83700 on 2026-08-28 (+869): the tier table had NO ROW for
-    # `plan_feature.sh`, `plan_verify.sh` or `plan_sprint.sh` while the prompt
+    # `plan_draft.sh`, `plan_verify.sh` or `plan_sprint.sh` while the prompt
     # instructed the reviewer to size every redispatch — so it could name three
     # tools it had no figures for. All three have had `config.yaml` caps all
     # along (250 / 150 / 100). Added, plus the ruling that a PLANNING hold loops
@@ -240,7 +240,7 @@ BUDGETS: dict[str, int] = {
     # MOVED — so both lines exist and neither absorbs growth silently.
     "build/build_draft/prompts/stages_1_to_4.md": 9_919,
     # SET AT ITS SIZE ON THE DAY IT LANDED, not on 2026-08-14: this prompt was
-    # in flight on `build/plan-feature` when the budget test was written on
+    # in flight on `build/plan-draft` when the budget test was written on
     # `main`, so it is the first file to meet this gate rather than be measured
     # into it. Same rule, one commit later — the number is today's size and its
     # job is to make the NEXT addition a trade.
@@ -342,7 +342,17 @@ BUDGETS: dict[str, int] = {
     # closing); a capable reasoner demonstrably does NOT do it anyway -- the
     # same omission hit a dispatch, an operator by hand, and a session that had
     # written the finding up an hour earlier; and no harness can enforce it.
-    "plan/plan_feature/prompts/plan_feature.md": 24_075,
+    # +2 on 2026-08-29 for `${CORRECTION_NOTE}` — a 20-byte slot, less 18 saved
+    # by PLAN-FEATURE -> PLAN-DRAFT in the opening line. Against Prompt economy:
+    # it changes what the model DOES (close a reviewer's scoped runway rather
+    # than re-derive whether the plan already landed); a capable reasoner
+    # demonstrably does NOT do it anyway, and this is the rare case with the
+    # counterfactual actually measured — PR #145 re-entered this child three
+    # times with only the ORIGINAL brief and reported "the re-plan had already
+    # landed" on every one, a full opus dispatch each; and no harness can enforce
+    # it, because only the parent knows which pass this is. It renders EMPTY on
+    # a first pass, so the cost lands only where the instruction is true.
+    "plan/plan_draft/prompts/plan_draft.md": 24_077,
     # 15_510 -> 13_204: the `research-analyst` re-dispatch is gone. The verify
     # child holds Write/Edit and applies the critic's findings itself, so the
     # rules that existed only to coordinate a second writing agent went with it
@@ -355,7 +365,7 @@ BUDGETS: dict[str, int] = {
     # explicit DO-NOT-TOUCH. The block carries its own exit: report it, do not fix
     # it, because a boundary with no route turns a real finding into a silent drop.
     "research/research_verify/prompts/verify.md": 15_084,
-    # SET AT ITS SIZE ON THE DAY IT LANDED, like `plan_feature.md` above and for
+    # SET AT ITS SIZE ON THE DAY IT LANDED, like `plan_draft.md` above and for
     # the same reason: this prompt is new, so it MEETS this gate rather than
     # being measured into it. Measured in BYTES with `wc -c`, never eyeballed —
     # the first draft of this table counted characters and was wrong by 49 on a
@@ -386,11 +396,11 @@ BUDGETS: dict[str, int] = {
     # engineering-quality.md names. Fixing a determined defect is now in scope;
     # re-planning is not, and the observers that always enforced that half do it.
     # +8 on 2026-08-19, the same `size` in the same MAY NOT column as
-    # `plan_feature.md` above, for the same 8 bytes.
-    # +7 on 2026-08-20, the same corrected sentence as `plan_feature.md` above
+    # `plan_draft.md` above, for the same 8 bytes.
+    # +7 on 2026-08-20, the same corrected sentence as `plan_draft.md` above
     # and for the same reason, byte for byte.
     # RATCHETED DOWN 18142 -> 18137 on 2026-08-20: -4 for the same dropped
-    # numeral as `plan_feature.md` above ("All four candidate columns" ->
+    # numeral as `plan_draft.md` above ("All four candidate columns" ->
     # "Every candidate column") and -1 for the same agreement fix. Ratcheted
     # rather than left slack, because a budget five bytes loose is exactly the
     # room the next unrecorded addition slips into.
@@ -501,8 +511,23 @@ BUDGETS: dict[str, int] = {
     # OPERATOR carry the sizing decision — remember that a five-phase feature needs
     # the bigger instrument. Now 5 sources and ~60 body lines per FACET, which is
     # the unit Research Standard §3 already uses, so it scales with the feature.
-    "research/research_write_minor/prompts/write_minor.md": 16_236,
-    "research/research_write/prompts/write.md": 11_669,
+    # RAISED 16_236 -> 20_100 on 2026-08-28 (+3_864): this child absorbs
+    # `research-draft` and `research-refresh`. It gains Stage 1b — the topic
+    # list, the sizing rubric, the binding ~5-per-cycle ceiling, retire-don't-
+    # delete, and the three row states that decide which agent each topic
+    # gets. Against Prompt economy: it changes what the model DOES (how many
+    # analysts it dispatches and which agent per topic); a capable reasoner
+    # cannot infer a per-cycle cap calibrated on a $58 run, nor that a due
+    # paper wants `research-currency` rather than `research-analyst`; and no
+    # harness can enforce either. The two prompts it replaces are deleted in
+    # the same change, so the fleet's total prompt bytes FALL.
+    # RAISED AGAIN 20_100 -> 20_600 (+500) when `research-refresh` was absorbed:
+    # its one distinct DELIVERABLE was a synthesis diff for the PR body — what
+    # changed in the rolled-up view relative to its prior version. Only a cycle
+    # that revalidated something has a prior version, so the block is
+    # conditional and a fresh pool pays nothing for it. Deleting the refresh
+    # prompt in the same change removes far more than this adds.
+    "research/research_draft/prompts/draft.md": 20_600,
     "build/build_draft_minor/prompts/update_pr.md": 10_675,
     # SHARED FRAGMENTS ARE THE EXPENSIVE ONES — every workflow that includes one
     # pays for it, so a byte here costs more than a byte in any single prompt.

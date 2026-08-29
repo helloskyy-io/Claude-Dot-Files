@@ -393,7 +393,7 @@ def test_every_way_the_config_can_fail_is_a_RuntimeError(tmp_path: Path) -> None
     Three separate fixes landed on `load_journal_config` in three passes — the
     `yaml.YAMLError`, then the parses-to-a-scalar `AttributeError`, then the
     `PermissionError` from `read_text` — each correct, each written as though it
-    were the last one. Eleven of the twelve entrypoints catch
+    were the last one. Ten of the eleven entrypoints catch
     `(RuntimeError, FileNotFoundError[, ValueError])`, so any fourth branch that
     raises something else is a raw traceback for precisely the misconfiguration
     r9 exists to report cleanly, and it is `open_run_bag`'s FIRST call, so
@@ -430,7 +430,7 @@ def test_an_UNREADABLE_config_names_the_file_and_does_not_traceback(tmp_path: Pa
     Reachable on the systemd deployment shape this plan explicitly targets: the
     service account and the checkout's owner can differ, and `config.yaml` is
     read from the fleet's own repo root. Before this, `path.read_text` raised a
-    bare `PermissionError` — not a `RuntimeError`, so eleven of twelve entrypoints
+    bare `PermissionError` — not a `RuntimeError`, so ten of eleven entrypoints
     printed a traceback instead of the refusal.
     """
     if os.geteuid() == 0:

@@ -1,7 +1,7 @@
 """Shared I/O for the planning family — promoted per §10.1 rule 3.
 
 Sits at module level because more than one workflow uses it: `plan_sprint`,
-`triage_candidates`, `plan_feature` and `plan_revision` today, `plan_tech_stack`
+`triage_candidates`, `plan_draft` and `plan_revision` today, `plan_tech_stack`
 when it lands. The promotion rule was anticipatory when this file was written and
 is now satisfied outright.
 
@@ -20,7 +20,7 @@ its consumer count puts it:
   * `candidate_statuses` — both workflows, each to prove it did not touch the one
     column neither of them owns. Two consumers, so it stays.
   * `candidate_decisions` — one consumer at the split, so it MOVED to
-    `plan_sprint_activities`. **It came back when `plan_feature` landed**, which
+    `plan_sprint_activities`. **It came back when `plan_draft` landed**, which
     holds the same `candidates.md` write grant for the same reason — the shared
     `decision_log_and_reflection` instruction requires every producing run to
     APPEND a proposal there — and therefore owes the same proof that it did not
@@ -31,7 +31,7 @@ its consumer count puts it:
     that a second could never exist: *"every checkbox-bearing file in this tree is
     a sprint plan or a phase doc, and [triage-candidates'] path boundary forbids
     both outright."* True of the workflow it reasoned about, and one workflow too
-    general. `plan_feature` WRITES phase docs, so it reaches the surface the
+    general. `plan_draft` WRITES phase docs, so it reaches the surface the
     argument called unreachable. Two consumers, so it is here — and the lesson is
     narrower than "the argument was wrong": **a claim that no second consumer CAN
     exist is a claim about every workflow not yet written.**
@@ -544,7 +544,7 @@ def candidate_statuses(candidates_path: Path) -> dict[str, str]:
 
     `decision` moved from `plan-sprint` to `triage-candidates`; `status` moved
     nowhere, because it was never either workflow's. `candidates.md` gives it to
-    "a later process" — `plan-feature`, or the build that completes the item —
+    "a later process" — `plan-draft`, or the build that completes the item —
     and both prompts list it under MAY NOT.
 
     It is here rather than in one workflow's folder because BOTH snapshot it, for
@@ -562,7 +562,7 @@ def candidate_decisions(candidates_path: Path) -> dict[str, str]:
 
     PROMOTED HERE WHEN IT EARNED A SECOND CONSUMER, which is the whole of the
     test. It lived in `plan_sprint_activities` while `plan_sprint` was the only
-    workflow proving it had not written the transferred column; `plan_feature`
+    workflow proving it had not written the transferred column; `plan_draft`
     holds the same `candidates.md` write grant, for the same reason — the shared
     `decision_log_and_reflection` instruction requires every producing run to
     APPEND a proposal there — and therefore owes the same proof. Two consumers,
@@ -606,7 +606,7 @@ def candidate_sizes(candidates_path: Path) -> dict[str, str]:
 
     Guarded exactly like `decision`: snapshotted either side of every run whose
     prompt puts this column in its `You MAY NOT` table, and compared. That is
-    `plan-feature` and `plan-verify`, and it is NOT the same set as "every run
+    `plan-draft` and `plan-verify`, and it is NOT the same set as "every run
     holding a write grant on this file" — `triage-candidates` holds one and is
     the run that RULES this column, so it is guarded on `status` and `component`
     and deliberately not on `size`. Same reason as `decision`, too: a run that
@@ -733,7 +733,7 @@ def checked_boxes(path: Path) -> Counter:
 
     A CHECKBOX MEANS *SHIPPED AND VALIDATED*, and no workflow that reads this has
     validated anything — `plan-sprint` places work decided elsewhere, and
-    `plan-feature` writes the plan for work nobody has started. The Documentation
+    `plan-draft` writes the plan for work nobody has started. The Documentation
     Standard's § *Completion checkboxes* rule is the authority and it is exact:
     a dispatch may flip a box **for work it completed in that PR**, and *built is
     not proven*. Neither of these workflows completes any.
@@ -742,7 +742,7 @@ def checked_boxes(path: Path) -> Counter:
     for it argued at length that one never could: *"every checkbox-bearing file in
     this tree is a sprint plan or a phase doc, and [triage-candidates'] path
     boundary forbids both outright."* That was true of the workflow it was
-    reasoning about and it generalised one workflow too far. `plan-feature` WRITES
+    reasoning about and it generalised one workflow too far. `plan-draft` WRITES
     phase docs — checkbox-bearing by construction, since a roadmap phase entry is
     3-5 completion criteria — so the surface the argument called unreachable is
     the new consumer's primary output. The lesson is narrower than "the argument
@@ -750,7 +750,7 @@ def checked_boxes(path: Path) -> Counter:
     every workflow not yet written.
 
     THE PARAMETER IS `path`, NOT `sprint_path`, and the rename is the promotion.
-    `plan-feature` hands it a `roadmap.md` and each phase doc in turn; a parameter
+    `plan-draft` hands it a `roadmap.md` and each phase doc in turn; a parameter
     named for one caller's file is how a shared helper acquires a phantom scope.
 
     COUNTED BY TEXT rather than diffed by line number, because a caller may
@@ -788,7 +788,7 @@ def checked_boxes(path: Path) -> Counter:
 # What a phase doc might be NAMED, which is deliberately wider than what one may
 # be named. This answers *which files are phase docs*, never *which files may
 # this run write* — the grammar that judges a NEW name lives in
-# `plan_feature_activities._PHASE_FILE`, beside the only workflow that writes one.
+# `plan_draft_activities._PHASE_FILE`, beside the only workflow that writes one.
 #
 # THE SUFFIX IS PART OF THE QUESTION. `^phase` alone admits `phase_notes.txt` and
 # `phase9_x.md.bak`, and two consumers then read those as phase docs: a
@@ -805,10 +805,10 @@ def phase_docs(component: Path) -> dict[str, str]:
     """Every phase-doc-shaped file directly in the component dir, name -> content hash.
 
     PROMOTED HERE WHEN `plan-verify` LANDED, per §10.1 rule 3 — *consumer count
-    decides, never taste*. `plan-feature` asks it *did a phase doc VANISH?*, which
+    decides, never taste*. `plan-draft` asks it *did a phase doc VANISH?*, which
     is what a rename or a renumber looks like from outside; `plan-verify` asks it
     *what am I reading, and how many phases must I size?*. Two consumers, so the
-    definition sits here and `plan_feature_activities` reaches it by alias. A
+    definition sits here and `plan_draft_activities` reaches it by alias. A
     second hand-written `phase*.md` sweep is precisely the drift `normalise_cell`
     exists to record — and the two questions are far enough apart that the copies
     would have looked reasonable side by side.
@@ -836,7 +836,7 @@ def phase_docs(component: Path) -> dict[str, str]:
 # Version-of-Record Phase A (~30 hrs)`, which the first two alternatives catch.
 #
 # ONE PATTERN, TWO OPPOSITE CONSUMERS, WHICH IS EXACTLY WHY IT IS SHARED.
-# `plan-feature` uses it as a PROHIBITION — an author sizing their own
+# `plan-draft` uses it as a PROHIBITION — an author sizing their own
 # decomposition is defending it — and `plan-verify` uses it as the DELIVERABLE it
 # must produce. Two copies of this regex would let the write half forbid a shape
 # the read half does not produce, or the read half satisfy itself with a shape
@@ -875,7 +875,7 @@ HOUR_ESTIMATE = re.compile(
     re.I | re.X,
 )
 # THE NUMBER IS CAPTURED, and it was not until 2026-08-19. This pattern existed
-# only to DETECT that `plan-feature` had written an hour — a thing it is
+# only to DETECT that `plan-draft` had written an hour — a thing it is
 # forbidden to do — so no caller needed the value and `Est: 8 hours` (with a
 # colon) silently failed to match. Summing makes both matter: an estimate the
 # pattern misses does not raise, it lowers the total, and a total that is quietly
@@ -1125,7 +1125,7 @@ def evidence_block(tree: Path) -> str:
     `tree` IS THE TREE THE RUN CAN SEE, NOT NECESSARILY THE REPO, and the
     parameter is named for that the way `existing_work`'s is — for the same
     reason and after the same near-miss. It was `tree`, and a second caller
-    duly passed one: `plan-feature` runs inside `plan-project` immediately after
+    duly passed one: `plan-draft` runs inside `plan-project` immediately after
     a component was scaffolded and researched IN THE WORKTREE, so a repo-anchored
     enumeration would list every pool except the one the run is planning from,
     and report having seen them all. Caught by the repo-root census rather than
@@ -1506,7 +1506,7 @@ def sprint_state(sprint: Path, component_rel: Path) -> str:
 
     The two cases are different jobs — refresh an entry the operator positioned,
     or add one and inherit a position — and a model reading an unlabelled sprint
-    file will conflate them. `plan_feature.planning_state` states the same kind of
+    file will conflate them. `plan_draft.planning_state` states the same kind of
     fact for the same kind of reason.
     """
     if not sprint.is_file():
@@ -1515,17 +1515,38 @@ def sprint_state(sprint: Path, component_rel: Path) -> str:
     slug = component_rel.name
     words = [w for w in re.split(r"[-_]", slug) if w]
     heads = re.findall(r"^## Sprint: (.+)$", text, re.M)
-    hit = next((h for h in heads
-                if all(w.lower() in h.lower() for w in words)), None)
+    # ALL MATCHING SECTIONS, NOT THE FIRST. A component is legitimately split
+    # across sections — `— Part 1` / `— Part 2` is an established shape in this
+    # file — and `next(...)` reported the first one as though it were the whole
+    # component, under a block that says "authoritative — do not recount".
+    # Measured on PR #150: `persistent-memory-protocol` has TWO sections; the run
+    # was told it had one, carrying 6 bullets, and never learned the second held
+    # the gated phases. A wrong count is worse than a zero because it announces
+    # authority, which is the same failure `phase_sizing` was fixed for.
+    hits = [h for h in heads if all(w.lower() in h.lower() for w in words)]
+    hit = hits[0] if hits else None
     if hit is None:
         return (f"**Counted in code, authoritative — do not recount:** the sprint "
                 f"plan has **{len(heads)} sections** and **none of them is "
                 f"`{slug}`**. This component needs one ADDED, and its position is "
                 f"inherited from what it depends on — not argued from scratch.")
-    body = text.split(f"## Sprint: {hit}", 1)[1].split("\n## Sprint:", 1)[0]
-    bullets = len(re.findall(r"^- \[[ x]\]", body, re.M))
+    def _bullets(head: str) -> int:
+        body = text.split(f"## Sprint: {head}", 1)[1].split("\n## Sprint:", 1)[0]
+        return len(re.findall(r"^- \[[ x]\]", body, re.M))
+
+    if len(hits) > 1:
+        rows = "; ".join(f"`{h}` ({_bullets(h)} bullet(s), "
+                         f"{heads.index(h) + 1} of {len(heads)})" for h in hits)
+        return (f"**Counted in code, authoritative — do not recount:** this "
+                f"component is SPLIT ACROSS {len(hits)} SECTIONS — {rows}. "
+                f"**Update every one of them in place**, and put each phase in "
+                f"the section the operator already placed it in. **Which phase "
+                f"belongs to which part is the operator's split, not yours** — "
+                f"moving one between sections re-sequences the plan, which is a "
+                f"decision this workflow does not make.")
+
     return (f"**Counted in code, authoritative — do not recount:** this component "
-            f"HAS a section — `## Sprint: {hit}` — carrying **{bullets} phase "
+            f"HAS a section — `## Sprint: {hit}` — carrying **{_bullets(hit)} phase "
             f"bullet(s)**. It is **{heads.index(hit) + 1} of {len(heads)}** in the "
             f"file. **Update it in place**: its position is the operator's and "
             f"nothing upstream of you changed it.")

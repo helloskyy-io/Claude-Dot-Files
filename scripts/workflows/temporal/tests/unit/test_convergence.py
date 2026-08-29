@@ -1427,7 +1427,7 @@ def test_the_gated_dispatcher_census_reaches_ALL_THREE_FAMILIES() -> None:
     caught that (one IS a non-zero count), so this floor asserts the FAMILIES,
     matching the floors in `test_a_PARENT_forwards_what_its_CHILD_reads.py`.
     """
-    assert len(GATED_DISPATCHERS) >= 6, (
+    assert len(GATED_DISPATCHERS) >= 5, (   # 6 -> 5: `research_refresh_parent` merged away 2026-08-28
         f"only {len(GATED_DISPATCHERS)} gated review dispatchers discovered "
         f"({sorted(GATED_DISPATCHERS)}); the AST walk has stopped matching and "
         f"the guard below is vacuous"
