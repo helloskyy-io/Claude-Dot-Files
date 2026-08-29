@@ -138,7 +138,31 @@ BUDGETS: dict[str, int] = {
     # enforces a cap but cannot choose the tool. The dates and run evidence are
     # in the commit, not here — the paragraph carries the rule and the mechanism
     # only, and the MDC anecdote that first justified it was cut for that reason.
-    "review_pr/prompts/disposition.md": 83700,
+    # +839 on 2026-08-29 for TWO instructions, both of which name an action the
+    # reviewer could not otherwise take. Against Prompt economy:
+    #
+    #   * the RECURRENCE intake form. `intake.py` has carried `RECURRENCE on <ID>`
+    #     and `tracked_items.increment` since 2026-08-28 and NO review-pr prompt
+    #     mentioned either — the store had the field, the harvest had the verb,
+    #     and the only run that can DETECT a recurrence was never told it could
+    #     RECORD one. Three separate reviews reported the same shape in prose and
+    #     none reached the field. A capable reasoner cannot infer a title format.
+    #   * the INBOUND-CITATION sweep. Two greps, and the one direction the other
+    #     two sweeps structurally cannot reach: they reason outward from the diff
+    #     and this finds a file with NO diff citing into one with a diff. Four
+    #     consecutive reviews approximated it from different angles; it caught
+    #     five dead anchors in `sprint.md` and eight dead links in another repo.
+    #
+    # BOTH DRAFTS WERE 63% LONGER AND THE CUT WAS THE EVIDENCE, not the
+    # instruction. A prompt is re-sent every turn; the measurement belongs in the
+    # commit that argues for the line, not in the line.
+    #   * the WRITE SCOPE column on the dispatch-sizing table, plus one line
+    #     telling the reviewer to check it before naming a tool. The table
+    #     prescribed by TYPE and by SIZE and never by what a tool can REACH, so a
+    #     runway named `plan_revision.sh` while the loop fired a child whose grant
+    #     stops at `<component>/*.md`. Four consecutive passes on one PR surfaced
+    #     the same correction and none could act on it.
+    "review_pr/prompts/disposition.md": 85_151,
     "plan/plan_revision/prompts/stages_1_to_5.md": 22_506,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-f0lfdhmm's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the
@@ -366,7 +390,16 @@ BUDGETS: dict[str, int] = {
     # fix. The rationale is NOT restated here: this prompt already carries a
     # section on why the number is identity, and duplicating it was the first
     # draft's mistake.
-    "plan/plan_draft/prompts/plan_draft.md": 24_083,
+    # +123 on 2026-08-29 for ONE authorization row: the run may add its new phase
+    # docs to `docs/file_structure.txt`. THE GRANT WAS ALREADY IN THE CODE —
+    # `permitted_paths` has carried `^docs/file_structure\.txt$` and its docstring
+    # explains why ("ADDING A PHASE DOC turns the suite red, and the fix sat
+    # outside the grant") — and all three plan prompts named that file as
+    # something to READ. So every planning run added phase docs, left the map
+    # stale, and correctly declined to fix what it believed it had no grant on.
+    # Against Prompt economy: it changes what the model DOES, and no reasoner can
+    # infer a write grant from a prompt that lists the file under reading.
+    "plan/plan_draft/prompts/plan_draft.md": 24_206,
     # 15_510 -> 13_204: the `research-analyst` re-dispatch is gone. The verify
     # child holds Write/Edit and applies the critic's findings itself, so the
     # rules that existed only to coordinate a second writing agent went with it

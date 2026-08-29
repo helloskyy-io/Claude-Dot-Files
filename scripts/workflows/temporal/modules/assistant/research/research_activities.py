@@ -342,8 +342,14 @@ def upstream_block(research_dir: Path, repo_root: Path, *,
 def submit_prompt(pr_number: str | None, label: str) -> str:
     """The SUBMIT stage's two shapes — new PR versus updating one."""
     if pr_number:
+        # THE BODY UPDATE — same omission as the plan family's helper, fixed in
+        # the same pass. A child dispatched with `--pr` pushes commits and leaves
+        # the body describing an earlier pass.
         return (f"- Stage and commit remaining changes with message `{label}`\n"
-                f"- Push to the PR branch and report PR #{pr_number}'s URL as your FINAL line")
+                f"- Push to the PR branch and report PR #{pr_number}'s URL as your FINAL line\n"
+                f"- **Update the PR body so it describes the branch as it now stands** — it was\n"
+                f"  written for an earlier pass and the branch has moved. A reviewer and the\n"
+                f"  merged record both read it. Keep it a scannable index of the diff")
     return (f"- Stage and commit all changes with message `{label}`\n"
             f"- Push the branch and open a PR; report its URL as your FINAL line")
 

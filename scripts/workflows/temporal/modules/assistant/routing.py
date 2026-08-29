@@ -388,8 +388,17 @@ def ci_gate(state: CiVerdict, extra: list[str], *, pr: str,
         # third state the Testing Standard says does not exist. Reported by name,
         # never silently gated — a check the repo has not classified must not halt
         # the fleet, and must not hide either.
+        #
+        # `CI NOTE (not a hold)`, NOT `CI GATE:`, AND THE PREFIX IS THE FIX. This
+        # note opened with the same four characters as the four branches that DO
+        # hold, so an operator reading a run's output could not tell a report from
+        # a stop. MEASURED on skyy-command#281, 2026-08-29: `build` looped three
+        # times, this note printed on every pass, and the analyst reading it
+        # concluded the GATE had held four times and filed a handoff proposing a
+        # routing fix for it. The gate never held — `review-pr` did, on its own
+        # findings — and the whole diagnosis followed from four characters.
         notes.append(
-            f"CI GATE: UNDECLARED CHECKS — {', '.join(extra)} ran and appear in neither "
+            f"CI NOTE (not a hold): UNDECLARED CHECKS — {', '.join(extra)} ran and appear in neither "
             f"the blocking nor the advisory list of {POLICY_PATH}. The Testing Standard "
             "admits no third state; classify them."
         )
@@ -422,7 +431,7 @@ def ci_gate(state: CiVerdict, extra: list[str], *, pr: str,
         # here. The run says so out loud; it does not stop on it, because a repo
         # may legitimately have none.
         notes.append(
-            f"CI GATE: SKIPPED — no check declared blocking in {POLICY_PATH} "
+            f"CI NOTE (not a hold): no check declared blocking in {POLICY_PATH} "
             f"reported on PR {pr}{where}. This is NOT a pass. Either the repo has "
             "no such gate, or its workflows were filtered out of this change."
         )

@@ -1212,8 +1212,19 @@ def evidence_block(tree: Path) -> str:
 
 def submit_prompt(pr_number: str | None, label: str) -> str:
     if pr_number:
+        # THE BODY UPDATE IS THE THIRD INSTRUCTION, AND IT WAS MISSING. This
+        # path emitted commit-and-push only, so every child dispatched with
+        # `--pr` — every loop-back, every correction — left the PR body exactly
+        # as pass 1 wrote it while the branch accumulated commits. MEASURED on
+        # PR #145: 34 commits under a pass-1 body, and FOUR of the eight findings
+        # review-pr held on were the body contradicting the diff, the tree, or
+        # itself. `plan_revision/prompts/update_pr.md` has carried this line all
+        # along; the shared helper its siblings use did not.
         return (f"- Stage and commit your changes with message `{label}`\n"
-                f"- Push to the PR branch and report PR #{pr_number}'s URL as your FINAL line")
+                f"- Push to the PR branch and report PR #{pr_number}'s URL as your FINAL line\n"
+                f"- **Update the PR body so it describes the branch as it now stands** — it was\n"
+                f"  written for an earlier pass and the branch has moved. A reviewer and the\n"
+                f"  merged record both read it. Keep it a scannable index of the diff")
     return (f"- Stage and commit your changes with message `{label}`\n"
             f"- Push the branch and open a PR; report its URL as your FINAL line")
 

@@ -1,8 +1,8 @@
 ---
 id: C-dhot2cyq
-title: Route `plan-project`'s loop-back by WHAT THE RUNWAY NAMES, so a runway against a component's research is not spent on the one child that cannot close it
+title: Route a parent's loop-back by WHAT THE RUNWAY NAMES, so passes are not spent firing a child that cannot reach the correction close it
 status: open
-count: 1
+count: 3
 filed: 2026-08-26
 filed_by: triage-candidates
 component: workflow-decomposition
@@ -13,3 +13,36 @@ component: workflow-decomposition
 **Source:** PR for `plan-candidates` (build-refine pass 2, 2026-08-14)
 
 *Migrated from `docs/standards/architecture/research/candidates.md` on 2026-08-26, preserving its id.*
+
+---
+
+**2026-08-29 — recurrence 2 and 3, and the item's SUBJECT MOVED.** `plan-project` was narrowed
+to `triage-candidates → plan-candidates → review-pr` on 2026-08-29, which leaves it ONE producing
+child and dissolves this item *for that parent*. **The class did not dissolve — it relocated to
+`plan`, which has three producers and a loop that ignores the routing hint the reviewer already
+writes.** An earlier reading of this item as "dissolved by the narrowing" was wrong about the
+class and is corrected here.
+
+Two independent observations, both 2026-08-29:
+
+- **CDF PR #145.** `review-pr` emits a `dispatch_tool` per runway entry and **nothing in the tree
+  reads it** — every reference is a test. `plan_workflow.py` fires `plan-draft` unconditionally.
+  Passes 4, 5 and 6 issued the SAME runway naming `plan_revision.sh`; three full
+  draft→verify→sprint triples ran instead, each touching **zero** runway items. Six of seven
+  redispatch items were structurally unreachable by that child.
+- **MDC PR #173** (PM3). *"The review workflow prescribes dispatch tools by TYPE and by SIZE, but
+  never by WRITE SCOPE, and the type-matched tool was structurally incapable of making the
+  most-repeated correction."* Four passes; the close-out had to split into two dispatches purely
+  on grant boundaries.
+
+**PARTIALLY MITIGATED 2026-08-29, and the operator ruled the remainder deliberately deferred.**
+The cheap half shipped: the dispatch-sizing table now carries a **write scope** column with a line
+telling the reviewer to check reachability before naming a tool, and `plan-draft`'s prompt was
+told about the `docs/file_structure.txt` grant it already held in code. That covers the measured
+cases without changing how any parent routes.
+
+**What is still open is the routing itself** — a parent reading `dispatch_tool` and dispatching
+what it names. **WATCH CRITERIA: ship it on the next occurrence where a runway names a tool the
+loop cannot fire AND the write-scope column did not prevent the wasted pass.** The column is the
+cheaper control and it is now in place; if a pass is still spent on an unreachable correction, the
+column is insufficient and the routing is the remedy.
