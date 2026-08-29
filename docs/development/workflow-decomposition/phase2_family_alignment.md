@@ -1,4 +1,4 @@
-# Phase 2 — Family alignment
+# Family alignment
 
 **Component:** [Workflow Decomposition](roadmap.md) · **Status:** complete — all five requirements delivered; requirement 3 was allowed to fail and did (κ = 0.000), so ruling is per-family · **Gate:** none
 
@@ -33,9 +33,9 @@ What is left is the half a test was never able to decide. A copy that has alread
 ## Dependencies
 
 - **Nothing outside this component.** The mechanism, the ratchet and the standard's wording all shipped.
-- **Inside it:** none. This phase does not need [Phase 4](phase4_nothing_invisible.md), [Phase 3](phase3_dual_mode_children.md) or [Phase 5](phase5_configuration_a_run_absorbed.md), and none of them needs it. **One-way note:** [Phase 3](phase3_dual_mode_children.md) writes nine new runners from one template in one sitting, which is the exact shape this phase's duplication ratchet exists to catch — so it must not hand that baseline nine new rows.
+- **Inside it:** none. This phase does not need [Nothing a run relies on is invisible](phase4_nothing_invisible.md), [Dual-mode children](phase3_dual_mode_children.md) or [What configuration a run absorbed](phase5_configuration_a_run_absorbed.md), and none of them needs it. **One-way note:** [Dual-mode children](phase3_dual_mode_children.md) writes six new runners from one template in one sitting, which is the exact shape this phase's duplication ratchet exists to catch — so it must not hand that baseline six new rows.
 
-**Four open candidates are inputs to this phase and are not re-derived here.** They were filed by build and review passes on PR #100, they are untriaged, and each one names a decision this phase's work runs into: **C-uva9dsox** (a promotion has no fidelity check, and the pool has no content floor after promotion), **C-rm2g8ope** (whether a surfacing-only detector counts as a "test" under the standard's own sentence), **C-at80groo** (nothing defines what a `_minor` tier's prompt should contain — the evidence for requirement 4), **C-yq30mgwd** (a child may hold a drifted near-copy of a *pool* fragment and no guard can see it at any granularity). See [`candidates.md`](../../../tracked/candidates/). **Whoever builds this phase reads those four first**; three of them describe blind spots in the very guards this phase leans on.
+**Four open candidates are inputs to this phase and are not re-derived here.** They were filed by build and review passes on PR #100, they are untriaged, and each one names a decision this phase's work runs into: **C-uva9dsox** (a promotion has no fidelity check, and the pool has no content floor after promotion), **C-rm2g8ope** (whether a surfacing-only detector counts as a "test" under the standard's own sentence), **C-at80groo** (nothing defines what a `_minor` tier's prompt should contain — the evidence for requirement 4), **C-yq30mgwd** (a child may hold a drifted near-copy of a *pool* fragment and no guard can see it at any granularity). See [`tracked/candidates/`](../../../tracked/candidates/). *(Label corrected 2026-08-28: it read `candidates.md`, and no such file exists — the candidates table became a file-per-item store on 2026-08-26 under the [Tracked Items Standard](../../standards/documentation/tracked_items_standard.md). The link target was already right; only its text named the retired shape.)* **Whoever builds this phase reads those four first**; three of them describe blind spots in the very guards this phase leans on.
 
 ---
 
