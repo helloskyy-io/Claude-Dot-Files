@@ -171,9 +171,9 @@ Taking apart the long-running workflows that already existed, so each boundary i
 
 ## Sprint: Persistent Memory Protocol — Part 1
 
-🟡 IN PROGRESS · (~181h total · ~145h to-do)
+🟡 IN PROGRESS · (~183h total · ~147h to-do)
 
-All of memory in this fleet — the framework and the protocol. Every run writes a folder; the folder is the truth, and every other store is rebuilt from it. The phases in this part have no external gate and depend only on each other. **One run, one identity** builds second, straight after the run bag, and ahead of the content store. Across both parts the component is ~295h total, ~259h to-do.
+All of memory in this fleet — the framework and the protocol. Every run writes a folder; the folder is the truth, and every other store is rebuilt from it. The phases in this part have no external gate and depend only on each other. **One run, one identity** builds second, straight after the run bag, and ahead of the content store. Across both parts the component is ~297h total, ~261h to-do.
 
 - [x] **Persistent Memory Protocol · The journal root and the run bag** · ([roadmap](persistent-memory-protocol/roadmap.md) · [phase](persistent-memory-protocol/phase1_the_run_bag.md)) — one configurable root per machine, one folder per run keyed by `run_id`, a valid BagIt bag with a manifest a validator re-checksums
 - [ ] **Persistent Memory Protocol · One run, one identity** · ([roadmap](persistent-memory-protocol/roadmap.md) · [phase](persistent-memory-protocol/phase9_one_run_one_identity.md)) — one authority names a run, the name is handed TO the journal rather than made by it, and every shape an invocation can take resolves to one bag under one name
