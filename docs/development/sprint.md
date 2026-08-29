@@ -160,7 +160,7 @@ Evidence, prior art and the plateau correction: [`cpi-decisions.md`](cpi-decisio
 
 🟡 IN PROGRESS · (~73h total · ~58h to-do)
 
-Taking apart the long-running workflows that already existed, so each boundary is a retry/resume point and children become recombinable rather than copied. **Building the ones that do not exist yet is [Assistant Workflow Design](#sprint-assistant-workflow-design--🔵-not-scheduled-needs-research-then-planning).**
+Taking apart the long-running workflows that already existed, so each boundary is a retry/resume point and children become recombinable rather than copied. **Building the ones that do not exist yet is [Assistant Workflow Design](#sprint-assistant-workflow-design).**
 
 - [x] **Workflow Decomposition · Decompose the build families and codify the shape** · ([roadmap](workflow-decomposition/roadmap.md)) — draft/refine/review-pr, the activities layer, and the composition contract written down
 - [x] **Workflow Decomposition · Family alignment** · ([roadmap](workflow-decomposition/roadmap.md) · [phase](workflow-decomposition/phase2_family_alignment.md)) — children in a family do not diverge except where they need to. Mechanism, standard, fleet backlog and the drifted-copy ruling all shipped; the ruling procedure scored κ = 0.000 in its own blind trial, which Phase 3 inherits as an open question
@@ -220,9 +220,9 @@ The four phases that wait on something that does not exist yet.
 **Named for `modules/assistant/`, which is where every one of these lives.** Decomposition takes apart what already existed; this designs, builds and trains what does not. **A long-running component: it gains phases as the fleet gains capabilities, and those phases land in much later sprints while staying this feature.**
 
 - [ ] **The roster** — what every parent and child IS and what it DOES, as one readable catalog. The set is currently knowable only by reading the tree
-- [ ] **The conditions under which a god-like workflow becomes possible** — long chains with no human behind each parent are the eventual goal, not a prohibition. They are blocked today by child performance, not by design: HiL is load-bearing because the children need it. Name what has to be true — accuracy, measured — before review stops being the thing holding a chain together. Gated on [Self Improvement](#sprint-self-improvement--🔵-not-scheduled-needs-research-then-planning)
+- [ ] **The conditions under which a god-like workflow becomes possible** — long chains with no human behind each parent are the eventual goal, not a prohibition. They are blocked today by child performance, not by design: HiL is load-bearing because the children need it. Name what has to be true — accuracy, measured — before review stops being the thing holding a chain together. Gated on [Self Improvement](#sprint-self-improvement)
 - [ ] **Marketing children** — viability, target audience, opportunities. A loop that revises the *problem statement* rather than building against it: who has this problem, how common is it, can the solution be sold
-- [ ] **Research-children training** — getting a research cycle to produce what was actually wanted, at accuracy. **The prerequisite to [Self Improvement](#sprint-self-improvement--🔵-not-scheduled-needs-research-then-planning), not part of it**
+- [ ] **Research-children training** — getting a research cycle to produce what was actually wanted, at accuracy. **The prerequisite to [Self Improvement](#sprint-self-improvement), not part of it**
 - [ ] **Chain `plan-verify` into `plan-project`** — it exists as a child and appears in all three planning scenarios, and nothing calls it
 - [ ] **Sprint close-out** · ([checks](close_out/sprint_end_recurring.md)) — recurring checks run for this sprint and every finding dispositioned (fixed / rejected-with-reasoning / placed); no open issue belongs to this sprint's work
 
@@ -232,11 +232,11 @@ The four phases that wait on something that does not exist yet.
 
 Making a child better at its job, measured rather than asserted. Today a child's performance is scattered across pull-request comments and log files nothing reads, so there is no baseline to improve against and no way to tell an improvement from a good day.
 
-**Training the children is NOT here** — that is [Assistant Workflow Design](#sprint-assistant-workflow-design--🔵-not-scheduled-needs-research-then-planning), and it is the prerequisite. This component is the system improving itself, which presupposes children that already work.
+**Training the children is NOT here** — that is [Assistant Workflow Design](#sprint-assistant-workflow-design), and it is the prerequisite. This component is the system improving itself, which presupposes children that already work.
 
 **Gated on the journal.** [PMP](persistent-memory-protocol/roadmap.md) Part 1 gives runs a durable record; [Phase 6](persistent-memory-protocol/phase6_cpi_reads_the_journal.md) is what reads it back. Until a child's behaviour is measurable across runs, training is guesswork with a confident voice.
 
-**It sits in front of [Autonomous Operation](#sprint-autonomous-operation--🔵-not-scheduled)** because a loop that dispatches its own work amplifies whatever the children already do — well or badly. Improving them first is cheaper than supervising them later.
+**It sits in front of [Autonomous Operation](#sprint-autonomous-operation)** because a loop that dispatches its own work amplifies whatever the children already do — well or badly. Improving them first is cheaper than supervising them later.
 
 - [ ] **Measure a child's performance** — what a good run looks like, derived from the journal rather than declared
 - [ ] **Decide what generalises** — whether the method transfers to other children or only fit the first one
