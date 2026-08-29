@@ -64,6 +64,26 @@ The one exception is a code change, and it is excluded for a stated reason rathe
 
 ---
 
+## This phase is NOT split again, and this is the ruling that closes the question
+
+**Three independent sizing passes have priced this phase above the largest phase sized anywhere else in this sprint plan, and each named the same three seams: (i) the event contract and its admission fields, (ii) the failure discipline, (iii) the wiring and the cut-over.** None of the three was permitted to act — `plan-verify` may not add, merge or split a phase — so each could only re-report it, and [`roadmap.md`](roadmap.md) grew a paragraph every time. **The ruling is taken here, on 2026-08-28, so a fourth pass does not spend itself reaching the same place.**
+
+**The ruling: the phase stays whole.** The size finding is real and is NOT dismissed; what is rejected is *the split* as its remedy.
+
+**The reason is the boundary test itself — a phase ends where something works end-to-end — and two of the three seams do not.**
+
+- **(i) alone ships a contract nothing emits.** An event schema, an admission contract and a version rule, with no write path wired: a producer with no consumer, on the exact day the component's central discipline is *pair every producer with its consumer*. It would close green while delivering nothing readable.
+- **(ii) alone ships failure handling for writes that do not yet happen.** The four write-failure cases, the six demonstrations § *Why one event per write is not enough* requires, and requirement 11's committed reader are all demonstrated **against emitted writes**. With no wired path they can only be demonstrated against a synthetic harness — and then demonstrated again against the real paths when (iii) lands. **The six demonstrations are the expensive part of this phase's estimate, so the split's effect is to pay for them twice.**
+- **(iii) is the only seam that closes end-to-end, and it consumes the other two.** It is not a third phase; it is the phase.
+
+**So the three seams are a decomposition of EFFORT, not of OUTCOME.** They are a good decomposition of effort — which is why three readers found them — and they are kept, as **named internal checkpoints in § *Implementation checklist* below** rather than as three documents. A build can be paused and resumed at a stated boundary, and a reviewer can see which third is standing, without the plan claiming that a third of the emit rule is a shippable thing.
+
+**The other seam, considered and actively foreclosed by this plan's own history.** The obvious alternative is *"the envelope proven on one path"* then *"every inventoried path emits"*. That is two genuine end-to-end outcomes, and it is still wrong here: **requirement 1 states its bar as *the inventory is complete, and every inventoried path emits*, and it says so that precisely because the one-path/every-path ambiguity already cost the sibling component a measured factor of ten.** Splitting on that seam makes the discarded reading a phase boundary and re-opens the ambiguity requirement 1 exists to close.
+
+**What this ruling does NOT settle, stated rather than buried.** This phase remains the largest in the component, and six of the ten phases sit behind it. **That is a scheduling risk and it is now the sprint's to carry, not a defect in the decomposition** — the remedy for a large phase that has one outcome is to schedule it as one, with the checkpoints below as its progress markers. If a build reaches checkpoint 2 and the remaining work has visibly changed shape, *that* is new evidence and re-opening the boundary on it is legitimate; re-deriving the same three seams from this document is not.
+
+---
+
 ## What this phase decides
 
 ### Completeness is absolute — prose in, code out
@@ -295,6 +315,16 @@ The five working-record surfaces documented in [`memory-model.md`](../../guide/m
 ---
 
 ## Implementation checklist
+
+**Three named checkpoints run through this list, and they are the three seams § *This phase is NOT split again* declined to turn into three phases.** They are progress markers, not closing conditions — **none of them is a state this phase may stop at**, and only the last is a demonstrable outcome. They exist so a paused build resumes at a stated boundary and a reviewer can say which third is standing.
+
+| Checkpoint | Requirements it covers | Reached when |
+|---|---|---|
+| **1 · The contract** | r2, r3, r7, r8 | the event contract is stated as its own contract, every concept shared with the typed exit record is declared once, and the four admission fields are in it |
+| **2 · The failure discipline** | r4, r11, r12 | the four write-failure cases plus the store-write and retried-activity cases are demonstrated, and the unwritable-journal signal has both its committed readers |
+| **3 · The wiring and the cut-over** | r1, r5, r6, r9, r10, r13 | the inventory is complete and every inventoried fleet-code path emits, proven on one real cycle |
+
+**⚠ Checkpoint 2's demonstrations are cheapest run against real wired paths, so the checkpoints are not a strict build order.** Wiring a representative path early and demonstrating the failure cases against it costs less than a synthetic harness that gets re-demonstrated at checkpoint 3 — which is the argument that kept this phase whole in the first place, applied inside it.
 
 - [ ] Enumerate every write path and populate the inventory above with the command used — **split fleet-code from model-issued**, and give every model-issued row [Phase 10](phase10_the_model_issued_harvest.md) as its emit mechanism rather than specifying one here
 - [ ] Specify the third category (out-of-run writes) or hand its exclusion to Phase 4 explicitly
