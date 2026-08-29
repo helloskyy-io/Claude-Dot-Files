@@ -31,10 +31,10 @@ root that cannot be resolved means *the run does not start*, and that is only
 literally true before the first side effect. FIVE of this fleet's eleven
 entrypoints call `act.worktree_add` themselves and hand the workflow module an
 already-cut worktree, and THREE more hand off by name to a `*_workflow` module
-that cuts one — so in eight of eleven a bag opened inside the workflow module
+that cuts one — so in nine of eleven a bag opened inside the workflow module
 would fire after a worktree existed on disk. (This paragraph said "six … more
 than half" through three passes; the count is five, the argument survives on
-eight of eleven, and `test_the_worktree_cutting_count_this_argument_RESTS_ON` now
+nine of eleven, and `test_the_worktree_cutting_count_this_argument_RESTS_ON` now
 pins both numbers so the next reader who counts finds the prose true.)
 The entrypoint is where
 `preflight` already lives for exactly this reason. At port time the entrypoint

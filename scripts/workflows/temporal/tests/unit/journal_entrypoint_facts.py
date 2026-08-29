@@ -35,7 +35,7 @@ BAG_OPEN = "open_run_bag"
 # run stops early*.
 SIDE_EFFECT_ATTRS = ("worktree_add",)
 
-# ⚠ THE ORDERING CHECK'S REAL COVERAGE IS 8 OF 11, AND STATING THE NUMBER IS THE
+# ⚠ THE ORDERING CHECK'S REAL COVERAGE IS 9 OF 11, AND STATING THE NUMBER IS THE
 # POINT. The first version of that check listed `worktree_add` alone, which made
 # the assertion bite on only the five entrypoints that cut their own worktree —
 # the other six had no detectable side effect, so `opens and effects` was False
@@ -49,7 +49,10 @@ SIDE_EFFECT_ATTRS = ("worktree_add",)
 # the bag is opened, so treating any call on them as a side effect would produce
 # false failures. Those three are covered by the presence sweep and by review,
 # not by this ordering check. Named here rather than left as a silent zero.
-ORDERING_UNCOVERED = ("run_research.py", "run_research_minor.py", "run_review_pr.py")
+# `run_research_minor.py` was the third until 2026-08-28, when the research
+# tiers merged and it was deleted. Two remain, and the count this feeds is
+# derived from this tuple rather than restated.
+ORDERING_UNCOVERED = ("run_research.py", "run_review_pr.py")
 
 
 def side_effect_lines(tree: ast.AST) -> list[int]:

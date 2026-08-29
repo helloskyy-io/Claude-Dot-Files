@@ -151,7 +151,7 @@ def test_THE_WALK_HAS_A_POPULATION() -> None:
     This proves the walk reaches the runners that actually cut worktrees.
     """
     sources = {p.name for p in _fleet_sources()}
-    for expected in ("run_plan_feature.py", "run_plan_verify.py",
+    for expected in ("run_plan_draft.py", "run_plan_verify.py",
                      "build_workflow.py", "research_workflow.py"):
         assert expected in sources, (
             f"{expected} is not in the walk's population, so this module is no "

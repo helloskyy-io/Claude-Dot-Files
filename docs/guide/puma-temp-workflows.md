@@ -55,19 +55,19 @@ run on the project as a whole, either initial planning or a follow up to previou
 then planning till satisfied, then building the plan. 
 
 research --project: (parent)
-- research-write
+- research-draft
 - research-verify
 - review-pr
 (usually HiL at this step, repeat till happ
 
 plan-project --project(flag): (parent) (run on the reasearch that was previously ran "project as a whole")
 - triage-candidates (triage of candidate list and labels correctly the candidates for inclusion in sprints/features/phases or rejects them with reasoning)
-- plan-candidates (activity NOT child workflow!) (Creates scaffolding for missing items recently triaged)
-- research-write: (if research is missing or stale, run research, targeting the sprint/feature or scaffolding)
+- scaffold-candidates (activity NOT child workflow!) (Creates scaffolding for missing items recently triaged)
+- research-draft: (if research is missing or stale, run research, targeting the sprint/feature or scaffolding)
 - research-verify: (if above ran, run verify, targeting the sprint/feature)
 
 wrong from here down!
-- plan-feature: (plans the feature/roadmap/phases (epics) that are referenced onto the sprint)
+- plan-draft: (plans the feature/roadmap/phases (epics) that are referenced onto the sprint)
 - plan-verify: (checks and verifies the planning, fixes issues, assignes an estimated hours value based on the complexity of each phase)
 - plan-sprint: (adds the new feature from above (if any), any changes to the phase hour estimates triggers a change to the total in the sprint, new sprints are calculated at the time of creation)
 - review-pr
@@ -80,56 +80,62 @@ run on the project as a whole, either initial planning or a follow up to previou
 then planning till satisfied, then building the plan. 
 
 ```
-project-manager                                      PARENT OF PARENTS — the project as a whole, research through build
+
+cron-job (god workflow)                              🔵 PARENT OF PARENTS OF PARENTS
 │
-├── research --project                               PARENT
-│   ├── research-write │ research-write --minor      large project │ small project
-│   ├── research-verify
-│   │   └── (loop as allowed)
-│   ├── review-pr
-│   │   └── (loop as allowed)
-│   └── ◆ HiL — repeat until happy
-│
-├── merge-pr                                         Merge PR, and proceed to next workflow (based on logic)
-│   
-├── plan-project --project                           PARENT — runs on the research above, "the project as a whole"
-│   │                                                or rejects them with reasoning, and if candidates are labeled for integration plans them.
-│   ├── triage-candidates                            triages the candidate list: labels each for a sprint/feature/phase,
-│   ├── plan-candidates                              ACTIVITY, not a child workflow — scaffolds the items triage just admitted
-│   ├── review-pr
-│   │   └── (loop as allowed)
-│   └── ◆ HiL — repeat until happy
-│
-├── merge-pr                                         Merge PR, and proceed to next workflow (based on logic)
-│
-├── feature-manager                                  PARENT OF PARENTS — cron, most likely fired by expired research
-│   │                                                runs on the research above, "the project as a whole", including candidates
-│   ├── research --feature                           PARENT
-│   │   ├── research-write --minor                   targets the feature
-│   │   ├── research-verify                          targets the feature
-│   │   ├── review-pr
+├── project-manager                                  🔵 PARENT OF PARENTS — the project as a whole, research through build
+│   │
+│   ├── research                                     ✅ PARENT
+│   │   ├── research-draft                           ✅ (self adjusts to sizing requirements)
+│   │   ├── research-verify                          ✅
+│   │   ├── review-pr                                ✅
+│   │   ├── (loop as allowed)                        
+│   │   └── ◆ HiL — repeat until happy
+│   │
+│   ├── merge-pr                                     🔵 Merge PR, and proceed to next workflow (based on logic)
+│   │   
+│   ├── plan-project --project                       ✅ PARENT — runs on the research above, "the project as a whole" or rejects them
+│   │   │                                            with reasoning, and if candidates are labeled for integration plans them.
+│   │   ├── traige-synthesis (future)                🔵 reads revised or new master plannign research, and scafolds features/phases/checkboxes
+│   │   ├── scaffold-synthesis (future)              🔵 (ACTIVITY, not a child workflow) — scafolds features/phases/checkboxes
+│   │   ├── triage-candidates                        ✅ triages the candidate list: labels each for a sprint/feature/phase,
+│   │   ├── plan-candidates                          ✅ (ACTIVITY, not a child workflow) — scaffolds the items triage just admitted
+│   │   ├── review-pr                                ✅
 │   │   │   └── (loop as allowed)
 │   │   └── ◆ HiL — repeat until happy
 │   │
-│   ├── merge-pr                                     Merge PR, and proceed to next workflow (based on logic)
+│   ├── merge-pr                                     🔵 Merge PR, and proceed to next workflow (based on logic)
+│   │ 
+│   └── ◆ HiL — repeat until happy  
+│
+├── feature-manager                                  🔵 PARENT OF PARENTS — cron, most likely fired by expired research
+│   │                                                runs on the research above, "the project as a whole", including candidates
+│   ├── research --feature                           ✅ PARENT
+│   │   ├── research-draft                           ✅ targets the feature
+│   │   ├── research-verify                          ✅ targets the feature
+│   │   ├── review-pr                                ✅
+│   │   │   └── (loop as allowed)
+│   │   └── ◆ HiL — repeat until happy
 │   │
-│   ├── plan-feature --feature                       PARENT — pointed at the feature (or its stub) and the research. Research not required
-│   │   ├── plan --feature                           plans the feature: roadmap + phases (epics), referenced onto the sprint
-│   │   ├── plan-verify                              checks the planning, fixes issues, sizes each phase in hours from its complexity
-│   │   ├── plan-sprint                              adds the new feature if any; a changed phase estimate re-totals the sprint. New sprints are
+│   ├── merge-pr                                     🔵 Merge PR, and proceed to next workflow (based on logic)
+│   │
+│   ├── plan --feature                               ✅ PARENT — pointed at the feature (or its stub) and the research. Research not required
+│   │   ├── plan-draft                               ✅ plans the feature: roadmap + phases (epics), referenced onto the sprint
+│   │   ├── plan-verify                              ✅ checks the planning, fixes issues, sizes each phase in hours from its complexity
+│   │   ├── plan-sprint                              ✅ adds the new feature if any; a changed phase estimate re-totals the sprint. New sprints are
 │   │   │                                            calculated at creation time
-│   │   ├── review-pr
+│   │   ├── review-pr                                ✅
 │   │   └── ◆ HiL — repeat until happy
 │   │
-│   ├── merge-pr                                     Merge PR, and proceed to next workflow (based on logic)
+│   ├── merge-pr                                     🔵 Merge PR, and proceed to next workflow (based on logic)
 │   │
-│   ├── build-feature                                PARENT (potentially several passes here)
-│   │   ├── build
-│   │   ├── build-refine
-│   │   ├── review-pr
-│   │   └── ◆ HiL — repeat until happy
+│   ├── build --feature                              ✅ PARENT (potentially several passes here)
+│   │   ├── build-draft                              ✅
+│   │   ├── build-refine                             ✅
+│   │   ├── review-pr                                ✅
+│   │   └── ◆ HiL — repeat until happy  
 │   │
-│   ├── merge-pr                                     Merge PR, and proceed to next workflow (based on logic)
+│   ├── merge-pr                                     🔵 Merge PR, and proceed to next workflow (based on logic)
 │   │
 │   └── ◆ HiL — repeat until happy
 │

@@ -4,13 +4,13 @@ Folder holds this file plus its own I/O (§10.1 rules 3 and 6); the family's
 shared capability lives in `plan_activities`.
 
 **This is the READ half of the planning split, and it completes a pattern the
-other two families finished first.** Research is `research-write` ->
+other two families finished first.** Research is `research-draft` ->
 `research-verify` because *"a separate fresh-context run verifies it… the run
 that wrote an artifact defends it"*; build is `build-draft` -> `build-refine`
 because *"the fresh context is the point, not an implementation detail."*
-`plan-feature` shipped as the write half with its judge named and unbuilt — its
+`plan-draft` shipped as the write half with its judge named and unbuilt — its
 docstring said outright that this workflow *did not exist yet*. This is that
-reviewer, and that sentence is now corrected at all three places `plan-feature`
+reviewer, and that sentence is now corrected at all three places `plan-draft`
 made it, rather than left standing as the quotation it used to be here. A
 quotation attributed to a file it no longer appears in is the defect C-gbclnzsq
 proposes gating; repeating it to justify this module would have created one.
@@ -18,7 +18,7 @@ proposes gating; repeating it to justify this module would have created one.
 IT IS A SEPARATE WORKFLOW AND NOT A STAGE, on the argument that made
 `triage-candidates` its own run: a judge inside the producing dispatch shares the
 producer's context, which is the one property it exists not to have. Adding a
-sixth stage to `plan-feature` would have produced a review written by the run
+sixth stage to `plan-draft` would have produced a review written by the run
 that had just talked itself into the decomposition.
 
 THE FIVE QUESTIONS, AND THE FIFTH IS THE ONE THE PRODUCER CANNOT ANSWER:
@@ -30,7 +30,7 @@ THE FIVE QUESTIONS, AND THE FIFTH IS THE ONE THE PRODUCER CANNOT ANSWER:
      nothing yet reads is a phase that cannot be demonstrated.
   4. **Does the cited evidence actually support the phase?** Following a citation
      into the pool is work the author, who chose it, will not do again.
-  5. **Where is this plan WEAKEST?** `plan-feature`'s own prompt requires its
+  5. **Where is this plan WEAKEST?** `plan-draft`'s own prompt requires its
      report to ask this — *"where is this plan weakest, and what would a reader
      who has not read your research most likely challenge?"* — and structurally
      cannot answer it, because the reader who has not read the research is the
@@ -40,7 +40,7 @@ HOURS LIVE IN `roadmap.md` AND NOWHERE ELSE, which is a decision this workflow
 makes rather than one it inherits. Two arguments, and the second is the harder
 one:
 
-  * **Coverage.** `plan-feature` writes a roadmap entry and NO phase doc for a
+  * **Coverage.** `plan-draft` writes a roadmap entry and NO phase doc for a
     phase gated on something outside the component. A phase-doc-only sizing
     therefore cannot size a gated phase — the phase whose cost an operator most
     needs before deciding whether to unblock it.
@@ -67,7 +67,7 @@ WHAT IT DELIBERATELY DOES NOT DO:
 
   * **It does not re-plan.** It writes no phase doc, merges no phases, invents
     none. A decomposition it judges wrong is a FINDING, and the runway a finding
-    opens is `plan-feature`'s to close.
+    opens is `plan-draft`'s to close.
   * **It does not write `sprint.md`.** That file is the operator's cross-domain
     sequencing surface and `plan-sprint` carries the single bounded override.
   * **It renames and renumbers nothing.** A phase number is IDENTITY.
@@ -77,7 +77,7 @@ WHAT IT DELIBERATELY DOES NOT DO:
     has made the evidence agree with the review.
 
 WHY IT IS SEPARATELY DISPATCHABLE. The same shape and the same reason as
-`triage_candidates` and `plan_feature`: a shim, a runner, and a workflow function
+`triage_candidates` and `plan_draft`: a shim, a runner, and a workflow function
 a parent calls. Two of this repo's component directories carry a `roadmap.md`
 today — measured with `find docs/development -maxdepth 2 -name roadmap.md` — so
 running this child alone against one is both the cheap test and real work.
@@ -116,7 +116,7 @@ COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 # an allowlist alone would say nothing about the sibling components, and
 # `sprint.md` lives in that same directory.
 #
-# THIS TUPLE IS NOW BYTE-IDENTICAL TO `plan_feature`'s AND `triage_candidates`',
+# THIS TUPLE IS NOW BYTE-IDENTICAL TO `plan_draft`'s AND `triage_candidates`',
 # AND IT IS DELIBERATELY NOT PROMOTED. A review pass raised it as §10.1 rule 3 —
 # three consumers, consumer count decides — and the disposition is REJECTED, with
 # the reasoning recorded here so it is not re-derived every time somebody counts
@@ -157,7 +157,7 @@ FORBIDDEN_PATHS = (
 def permitted_paths(component_rel: Path, candidates_rel: Path) -> tuple[str, ...]:
     """The two grants this run holds, BOTH computed from this run's own arguments.
 
-    A FUNCTION AND NOT A CONSTANT, for the reason `plan_feature.permitted_paths`
+    A FUNCTION AND NOT A CONSTANT, for the reason `plan_draft.permitted_paths`
     states: half of this boundary is an argument, so a module-level tuple would
     either grant every component at once — deleting the boundary — or hard-code
     one, which is worse.
@@ -175,7 +175,7 @@ def permitted_paths(component_rel: Path, candidates_rel: Path) -> tuple[str, ...
     the column guards already do, so the three cannot disagree.
 
     THE GRANT IS ONE FILE, NOT A SHAPE, AND THAT IS THE WHOLE DIFFERENCE FROM THE
-    WRITE HALF. `plan-feature`'s grant is `<component>/[^/]+\\.md$` because it
+    WRITE HALF. `plan-draft`'s grant is `<component>/[^/]+\\.md$` because it
     writes a roadmap and N phase docs; this workflow writes one file. Expressing
     it as `roadmap\\.md$` rather than as a shape is what makes *hours live in one
     place* enforced by the boundary check that already exists, instead of by a
@@ -197,7 +197,7 @@ def permitted_paths(component_rel: Path, candidates_rel: Path) -> tuple[str, ...
     """
     return (
         # WIDENED 2026-08-19 from `roadmap.md` alone to every top-level markdown
-        # file in the component — the same grant `plan_feature.permitted_paths`
+        # file in the component — the same grant `plan_draft.permitted_paths`
         # holds, and for a reason the two now share. This run may CORRECT a
         # determined defect in a phase doc; it may not RE-PLAN. Those were one
         # prohibition enforced by this grant, and separating them moves the
@@ -262,7 +262,7 @@ def prompt_values(rel_component: Path, rel_candidates: Path, tree: Path,
         "EVIDENCE_BLOCK": act.evidence_block(tree),
         # OPAQUE, rendered verbatim. Before this existed `--pr` changed where a
         # run PUSHED and nothing else, so a correction pass could not be told why
-        # it was re-running — the same gap `plan-feature` had until 2026-08-19.
+        # it was re-running — the same gap `plan-draft` had until 2026-08-19.
         "TASK_CONTEXT": (
             "## OPERATOR CONTEXT FOR THIS RUN\n\n"
             "**This is authoritative and overrides your own reading where they "
@@ -276,6 +276,7 @@ def prompt_values(rel_component: Path, rel_candidates: Path, tree: Path,
         "WORKTREE_IS_COMPARED_TO_A_SNAPSHOT": act.shared_prompt("worktree_is_compared_to_a_snapshot"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
         "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
+        "SWEEP_THE_CLASS": act.shared_prompt("resolve_sweep_the_class"),
     }
 
 
@@ -283,7 +284,7 @@ def prompt_values(rel_component: Path, rel_candidates: Path, tree: Path,
 #
 # See `triage_candidates_workflow.MAY_NOT_OBSERVERS` for why this map exists and
 # why it is keyed by the row's exact text — CITED rather than restated, which is
-# the convention `plan_sprint_workflow` and `plan_feature_workflow` both follow,
+# the convention `plan_sprint_workflow` and `plan_draft_workflow` both follow,
 # so a correction to the argument lands in one place instead of drifting across
 # four copies. `test_authorization_is_observed.py` compares these keys against
 # the rendered table, over a DISCOVERED set of workflows, and `JUDGEMENT` is a
@@ -540,7 +541,7 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
                         + [f"DROPPED {n}" for n in dropped])
             + f". You judge the decomposition; you do not rewrite it. A phase "
             f"boundary you believe is wrong is a FINDING — say so in your report "
-            f"and let `plan-feature` close the runway, because the phase docs are "
+            f"and let `plan-draft` close the runway, because the phase docs are "
             f"its output and you hold no grant over them. A dropped reference is "
             f"the worse half: the document is still on disk with nothing pointing "
             f"at it — see {url}"
@@ -571,7 +572,7 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
             f"doc — not to edit one, and least of all to remove one. A phase "
             f"number is IDENTITY, so a deleted doc is not a phase re-scoped, it "
             f"is a phase erased, and `roadmap.md` may still point at it. A "
-            f"decomposition you judge wrong is a FINDING for `plan-feature` to "
+            f"decomposition you judge wrong is a FINDING for `plan-draft` to "
             f"act on — see {url}"
         )
 
@@ -631,7 +632,7 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
             f"from {basis}. What is there:\n  "
             + "\n  ".join(found)
             + f"\nSizing is this workflow's whole load-bearing output — "
-            f"`plan-feature` writes no hours and FAILS ITS RUN on one, so until "
+            f"`plan-draft` writes no hours and FAILS ITS RUN on one, so until "
             f"this lands the number does not exist anywhere. The estimates go in "
             f"`roadmap.md` and nowhere else: it is the only file in the component "
             f"this run may write, it is the only place a GATED phase (a roadmap "
@@ -747,7 +748,7 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
             f"plan-verify edited {len(crossed)} file(s) outside its "
             f"authorization: {', '.join(crossed)}. This workflow READS one "
             f"component's plan and writes one line per phase into its roadmap. A "
-            f"phase doc is `plan-feature`'s output — correcting it here would make "
+            f"phase doc is `plan-draft`'s output — correcting it here would make "
             f"the artifact agree with the review, which is the whole reason the "
             f"author and the judge are separate runs. Its `research/` is the "
             f"evidence you are judging the citations against, and a sprint entry "

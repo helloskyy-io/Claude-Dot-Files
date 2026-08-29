@@ -1742,7 +1742,7 @@ def test_the_hook_stays_fast_on_a_large_command(size: int) -> None:
     than an order of magnitude, so a machine being slow cannot fail it while a
     return of the quantified pattern cannot pass.
     """
-    row = "| `plan_feature` | writes the roadmap and phases | yes |"
+    row = "| `plan_draft` | writes the roadmap and phases | yes |"
     body = ("\n".join([row] * (size // len(row) + 2)))[:size]
     started = time.monotonic()
     result = run_hook(f"cat > /tmp/scratch-note.md <<'MDEOF'\n{body}\nMDEOF")

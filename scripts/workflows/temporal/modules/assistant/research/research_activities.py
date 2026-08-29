@@ -67,6 +67,39 @@ def in_worktree(research_dir: Path, repo_root: Path, worktree: Path) -> Path:
         return research_dir      # already outside the repo; leave it alone
 
 
+def due_block(due: list[Path]) -> str:
+    """The papers `paper_currency` computed as expired, as an instruction block.
+
+    THE TABLE SAYS WHAT IS TRUE; THIS SAYS WHAT TO DO ABOUT IT. `paper_currency`
+    already reaches every research child, and every one of them discarded the due
+    list — so a run could cite a paper's staleness accurately in its synthesis and
+    still leave the paper stale, because nothing told it that was its job.
+
+    RETURNS EMPTY WHEN NOTHING IS DUE, which is the common case and must cost
+    nothing: an empty string drops out of the context block's `if b` filter, so a
+    current pool sends no bytes and reads no instruction it cannot act on.
+    """
+    if not due:
+        return ""
+    names = "\n".join(f"- `{p.name}`" for p in due)
+    return (
+        "**THESE PAPERS ARE PAST THEIR REVALIDATION WINDOW — computed in code from "
+        "each header's `Last validated:` and `Revalidate:`, not judged:**\n\n"
+        f"{names}\n\n"
+        "**Revalidate them in this cycle, with `research-currency` rather than "
+        "`research-analyst`.** The two agents do different jobs: an analyst writes a "
+        "paper, and currency diffs an existing one against a fresh sweep, records what "
+        "changed / is now wrong / is missing, re-examines whether the topic is still the "
+        "right question, and re-sets the interval. Handing a due paper to an analyst "
+        "rewrites what should have been diffed and loses the delta.\n\n"
+        "**If your task tells you to do something else, do that instead — and still "
+        "name these in `topics.md` under the gaps you did not cover this cycle, with "
+        "the reason.** An instruction narrows the work; it does not make the staleness "
+        "stop being true, and a pool that rots faster the more deliberately it is used "
+        "is the failure this block exists to prevent."
+    )
+
+
 def paper_currency(research_dir: Path, today: date | None = None) -> tuple[str, list[Path]]:
     """Compute staleness in code and return (rendered table, due papers).
 
@@ -127,53 +160,6 @@ _IDS_OFFERED = 3
 # rows the moment one survived a migration — and an allocator that cannot SEE an
 # id cannot avoid it. Match the separator and the run, not the alphabet.
 _ANY_ID = re.compile(r"^\|\s*(C-[0-9a-z]+)\s*\|", re.M)
-
-
-def candidate_ceiling(research_dir: Path) -> str:
-    """Fresh candidate ids, MINTED HERE and handed to the run ready to use.
-
-    THERE IS NO CEILING ANY MORE, and the name is kept only because two
-    workflows render it into `CANDIDATE_CEILING`. What it used to compute was
-    `max + 1`, read from the branch's own snapshot of `candidates.md` — and
-    that is the whole defect. Two branches read the same snapshot, both take the
-    same "next free" id, and git merges two rows added at different positions
-    with NO conflict. Nothing is red; the file simply now holds one address
-    naming two proposals. Measured on this file: nine renumbering events across
-    seven rows, then six more collisions, three of them on a single PR.
-
-    A RANDOM id needs no coordination, which is the entire point: there is no
-    "next" to race for. At 36**8 the space is ~2.8e12, so at the thousands this
-    file will ever hold the chance of any collision is under one in a million —
-    and `test_candidate_ids_are_unique.py` still catches the case that does not
-    happen, because a guard that only fires on the impossible is cheap.
-
-    OFFERED IN A BATCH, AND UNUSED ONES ARE SIMPLY DISCARDED. That is only
-    possible because they are random: a skipped sequential id is a permanent hole
-    someone later has to explain in prose, which is exactly the prose this file
-    used to carry. Here, an id nobody writes down never existed.
-    """
-    # THE STORE IS ROOT-RELATIVE, so it is found from the repo root rather than
-    # from the research pool. `research_dir` is `<repo>/docs/standards/architecture/
-    # research` at product altitude, which is three levels down — walking up is
-    # what keeps this working when the pool moves, and the pool has moved once.
-    store = _tracked_candidates(research_dir)
-    taken = {p.stem for p in store.glob("*.md")} if store.is_dir() else set()
-
-    fresh: list[str] = []
-    while len(fresh) < _IDS_OFFERED:
-        new = "C-" + "".join(secrets.choice(_ID_ALPHABET) for _ in range(_ID_LEN))
-        if new not in taken and new not in fresh:
-            fresh.append(new)
-
-    offer = ", ".join(f"`{i}`" for i in fresh)
-    if not store.is_dir():
-        return (f"`tracked/candidates/` does NOT exist yet — create it. "
-                f"Use these ids, in order, for the candidates you file: {offer}.")
-    return (f"`tracked/candidates/` holds **{len(taken)} items**. "
-            f"**Ids are RANDOM, never sequential — do not compute one.** Use these, "
-            f"in order, for the candidates you file: {offer}. Unused ids are discarded, "
-            f"so take only what you need. "
-            f"A restatement of an existing candidate REUSES its ID — do not mint a new one.")
 
 
 def _tracked_candidates(research_dir: Path) -> Path:
@@ -296,8 +282,8 @@ def upstream_block(research_dir: Path, repo_root: Path, *,
 
     THE TWO DIRECTIVES ARE CALLER-SUPPLIED BECAUSE THEY NAME THE CALLER'S OWN
     STAGES, and this block is now injected into two prompts with different ones.
-    Both defaults are `research_write`'s original text verbatim, so the full
-    cycle's prompt is byte-unchanged. `research_write_minor` has no sizing stage
+    Both defaults are `research_draft`'s original text verbatim, so the full
+    cycle's prompt is byte-unchanged. `research_draft_minor` has no sizing stage
     at all — it is a one-paper cycle — so hard-coding "your sizing in Stage 2"
     here sent it an instruction its prompt explicitly forbids obeying. That is a
     cross-file prose claim going stale the moment a second consumer appears,

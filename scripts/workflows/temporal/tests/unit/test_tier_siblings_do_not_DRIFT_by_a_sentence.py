@@ -181,7 +181,11 @@ NEAR = 0.80
 TIER_PAIRS = [
     ("build_draft", "build_draft_minor"),
     ("build_refine", "build_refine_minor"),
-    ("research_write", "research_write_minor"),
+    # ("research_draft", "research_draft_minor") until 2026-08-28. The two tiers
+    # MERGED — the minor prompt was the newer one, carrying six per-paper
+    # obligations the full one never had, so it absorbed the full tier's
+    # sizing stage and took its name. A pair cannot drift when there is one
+    # of it, and a frozen row for a deleted file asserts nothing.
 ]
 
 # How much of a block's opening identifies it here. Long enough to be unique
@@ -267,23 +271,6 @@ ACCEPTED_DRIFT: dict[str, dict[str, str]] = {
             "difference outside the block it keys. Both are fixed; "
             "`_orphan_lines` keys on the class.",
     },
-    "research_write+research_write_minor": {
-        "RULES:\n- This is an EVIDENCE workflow: never fabricate, neve":
-            "0.94 — the evidence rules. Unruled.",
-        "**WRITE BOUNDARY (binding).** You write ONLY inside ${RESEAR":
-            "0.85 — the write boundary. DELIBERATE: differs from "
-            "`research_write` because the full cycle CHOOSES its own topics and "
-            "so writes `topics.md`, while the minor tier is handed one — listing "
-            "`topics.md` here would grant a write it must not have. The "
-            "difference is WRITE SCOPE rather than review depth, which is why it "
-            "is not the shape this check usually catches. The prohibition half — "
-            "the four `tracked/` stores and the intake — is identical in both "
-            "and must stay that way. "
-            "This pair rose to 0.85 on 2026-08-26 when both boundaries were "
-            "renamed off the retired GitHub-Issues surface; it was BELOW the "
-            "threshold before, so the check is firing on texts that got closer "
-            "together, not further apart.",
-    },
 }
 
 
@@ -310,7 +297,6 @@ LINE_PAIRED = 0.60
 ACCEPTED_ORPHAN_LINES: dict[str, dict[tuple[str, str], str]] = {
     "build_draft+build_draft_minor": {},
     "build_refine+build_refine_minor": {},
-    "research_write+research_write_minor": {},
 }
 
 

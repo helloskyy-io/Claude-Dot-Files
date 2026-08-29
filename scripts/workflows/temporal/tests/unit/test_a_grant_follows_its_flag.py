@@ -96,7 +96,7 @@ def _runners_exposing_candidates() -> list[tuple[str, str]]:
     KEYED ON THE GRANT, NOT ON THE FLAG, since 2026-08-26. Declaring
     `--candidates` used to imply writing it — every runner that took the flag
     also held the grant, so either key selected the same set. The operator's
-    ruling separated them: `plan-feature` and `plan-verify` still take the flag
+    ruling separated them: `plan-draft` and `plan-verify` still take the flag
     because they READ the store, and they no longer write it. The property here
     is *a grant must follow the path its run was handed*, which is vacuous for a
     run holding no grant — so the population is the runs that hold one.
@@ -144,7 +144,7 @@ def test_the_sweep_finds_the_runners_that_expose_the_flag() -> None:
     # rebuild took away the job that needed it.
     #
     # THREE -> ONE on 2026-08-26, and this one is a RULING rather than a rebuild.
-    # `plan-feature` and `plan-verify` still take the flag — they READ the store
+    # `plan-draft` and `plan-verify` still take the flag — they READ the store
     # — and no longer WRITE it: a producing run surfaces a finding and
     # `review-pr` files it, with no exception for any of the three autonomous
     # stores. `triage-candidates` keeps its grant because its job is ruling

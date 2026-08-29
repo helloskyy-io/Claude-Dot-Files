@@ -2,7 +2,7 @@
 id: C-umoesnbh
 title: A reviewer's recommended loop-back re-enters at draft and skips the two children that size and total the plan, so a revision lands numbers computed before the edit
 status: open
-count: 1
+count: 2
 filed: 2026-08-28
 filed_by: review-pr
 component: 
@@ -21,3 +21,7 @@ decision:
 **Remedy:** rule what `review-pr` recommends for a plan-stage loop-back — either re-enter through the full child chain, or state in the recommendation which guards the shortcut skips, so the operator is choosing rather than inheriting.
 
 *Surfaced from PR #144's mining pass and independently by MDC PM3 (their A2). Held rather than fixed because what the reviewer recommends is a design call the operator has not made.*
+
+## Recurrences
+
+- 2026-08-28 · 2026-08-28: RULED and FIXED, and the ruling came from both repos. MDC PM3 followed the `plan_revision.sh` recommendation; it skipped plan-verify and plan-sprint and `sprints.md` printed a total measured against a plan that no longer existed. Running the full chain instead closed both stale-figure findings on the next pass. Our operator ruled the same way independently. `disposition.md` now names the chain — plan_feature -> plan_verify -> plan_sprint — as the planning loop-back, in the tier table, the type-match line and the `dispatch_tool` schema field.

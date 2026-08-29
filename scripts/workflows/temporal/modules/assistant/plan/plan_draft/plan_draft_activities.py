@@ -1,9 +1,9 @@
-"""plan-feature's own I/O — one consumer each, so §10.1 rule 3 puts them here.
+"""plan-draft's own I/O — one consumer each, so §10.1 rule 3 puts them here.
 
 [`workflow-scripts.md` § Location](../../../../../../../docs/standards/workflow-scripts.md)
 restates §10.1 rule 3 as BINDING and mechanical — *"consumer count decides, never
 taste"* — and rule 6 gives a workflow folder its place to grow the helpers it has
-earned. Everything DEFINED below has exactly one consumer: `plan_feature_workflow`.
+earned. Everything DEFINED below has exactly one consumer: `plan_draft_workflow`.
 
 TWO SYMBOLS ARE NOW ALIASES RATHER THAN DEFINITIONS, and the rule is what moved
 them. `phase_docs` and the hour pattern acquired a second consumer the day
@@ -14,7 +14,7 @@ shared surface, so their definitions are in `plan_activities` and this module
 reaches them by name. The round trip is the rule working: `checked_boxes` and
 `candidate_decisions` made the same journey when this workflow itself landed.
 
-WHAT THIS MODULE IS FOR. `plan-feature` writes a component's `roadmap.md` and its
+WHAT THIS MODULE IS FOR. `plan-draft` writes a component's `roadmap.md` and its
 numbered phase docs. Three of its four prohibitions are properties of FILENAMES
 and one is a property of PROSE, and none of them is visible to the path- and
 column-comparators the planning family already shares:
@@ -109,7 +109,7 @@ def taken_phase_numbers(component: Path) -> set[int]:
     """Every phase number that is a LIVE IDENTITY here, not just a filename.
 
     A PHASE EXISTS BEFORE ITS DOCUMENT DOES, and reading only `phaseN_*.md` misses
-    that. Measured on the first `plan-feature` run ever executed: the
+    that. Measured on the first `plan-draft` run ever executed: the
     `workflow-decomposition` component had three phases named in `roadmap.md` and
     ZERO phase docs, so this returned empty and `planning_state` told the run
     *"No conformant phase number is in use; a new phase starts at 1."* Under a
@@ -231,10 +231,10 @@ def hour_hits(component: Path) -> Counter:
     do: `docs/development/reviews/` holds `~7h` and `~12.8 hours` today, and
     `plan-revision` — the unsplit planner this workflow is the write half of a
     replacement for — sizes work, so any component it planned carries estimates
-    a `plan-feature` extending it never wrote.
+    a `plan-draft` extending it never wrote.
 
     Scanning post-run STATE made those a permanent failure with a message
-    asserting *"plan-feature wrote N hour estimate(s)"*, which was false, and
+    asserting *"plan-draft wrote N hour estimate(s)"*, which was false, and
     left the component unplannable until a human edited text this workflow is
     not otherwise in the business of touching.
 

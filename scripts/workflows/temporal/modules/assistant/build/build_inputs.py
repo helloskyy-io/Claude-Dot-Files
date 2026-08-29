@@ -54,7 +54,7 @@ class BuildInput:
         # safety property — it is a second copy of the runway that can DISAGREE
         # with the one on the thread, and the thread is the copy every child reads
         # (`fidelity_read_and_compare.md` makes `gh pr view --json body,comments`
-        # mandatory). `run_research_minor.py` and `run_plan_feature.py` never
+        # mandatory). `run_research_minor.py` and `run_plan_draft.py` never
         # imposed this; only the two runners sharing this dataclass did.
         #
         # WHAT IS STILL REFUSED: a run with neither a task source NOR a PR. That

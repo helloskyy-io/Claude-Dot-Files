@@ -162,7 +162,15 @@ _HERE = Path(__file__).resolve().parent
 # tree holds 31 and 20. Resolved by running the census and reading what it found,
 # because a pin is a COUNT OF THE TREE and a conflict here has exactly one
 # correct answer that neither parent knows.
-_PINNED = (31, 20)
+#
+# 31 -> 32 AND 20 -> 21 for `test_plan_project_loop`'s import census, which walks
+# the parent's own source to hold the narrowing: `plan-project` may import
+# `triage-candidates` and `review-pr` and no other child. It arrived WITHOUT a
+# control, this census refused it, and the predicate was split into
+# `_child_workflow_imports` so three literals could drive it — a satisfying
+# shape, a violating one, and a module with no child imports at all. Both numbers
+# move together, which is the shape a correctly-built new guard makes.
+_PINNED = (32, 21)
 
 
 # GRANDFATHERED — walks the tree, has no literal control, PREDATES this rule.

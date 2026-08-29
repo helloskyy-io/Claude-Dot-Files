@@ -90,7 +90,7 @@ def permitted_paths(sprint_rel: str) -> tuple[str, ...]:
     this workflow could place ruled `ship` rows — the job that left when the
     chain was rebuilt around a planned COMPONENT. A grant kept after its job
     moved is a permission nothing needs and everything inherits, so it went with
-    the job. Appending a surfaced proposal is `plan-feature`'s and
+    the job. Appending a surfaced proposal is `plan-draft`'s and
     `plan-verify`'s; ruling one is `triage-candidates`'s; neither is this run's.
     """
     return (rf"^{re.escape(sprint_rel)}$",)
@@ -229,7 +229,7 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
     versus milestone versus not-in-this-file. It had no component input at all.
 
     That is the wrong half. By the time this runs, `triage-candidates` has ruled
-    the candidate, `plan-candidates` has scaffolded it, `plan-feature` has written
+    the candidate, `plan-candidates` has scaffolded it, `plan-draft` has written
     its roadmap and phase docs and `plan-verify` has sized every phase — so
     "does this warrant a sprint section" was answered upstream by the chain
     BUILDING the thing, and re-deciding it here overturns a ruling with less

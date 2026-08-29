@@ -2,7 +2,7 @@
 id: C-hdme5l4k
 title: Trace a paper's corrections into the PR BODY — `research_verify` Stage 2 names the synthesis as the only dependent, so a merge-time reader can be handed the over-claim the correction rounds just removed
 status: open
-count: 1
+count: 2
 filed: 2026-08-26
 filed_by: triage-candidates
 ---
@@ -14,3 +14,7 @@ filed_by: triage-candidates
 **Routing note, for `triage-candidates`.** This reads as a proposed amendment to the TEXT of a named standard, which [§1](../../docs/standards/documentation/tracked_items_standard.md) routes to `tracked/standards/` rather than here. **It was not moved during the migration**: an id is immutable (§2), a prefix change is an id change, and this id may be cited elsewhere in the planning corpus. Rule on it — if it moves, mint a fresh `S-` id, carry the reasoning, and leave a pointer here.
 
 *Migrated from `docs/standards/architecture/research/candidates.md` on 2026-08-26, preserving its id.*
+
+## Recurrences
+
+- 2026-08-28 · 2026-08-28: the recurrence `submit_and_push.md` already records in prose but nobody ever counted. That fragment says this item 'filed it for research_verify' and 'then recurred across a four-run planning chain where EVERY run updated its own artifact correctly'. Counted now, plus a third sighting on CDF PR #145 (held all three passes) and a fourth from MDC PM3's PR #171 RCA (their RC4, two instances). See [[C-ffmdiiv6]] for the general shape and for why the instruction is not the remedy.

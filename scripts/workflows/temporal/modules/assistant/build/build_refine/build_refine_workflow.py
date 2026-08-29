@@ -106,6 +106,7 @@ def run_refine(*, description: str, pr_number: str, repo_root: Path,
         "TELL_EACH_AGENT_WHAT_IT_CAN_RUN": act.shared_prompt("tell_each_agent_what_it_can_run"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
         "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
+        "SWEEP_THE_CLASS": act.shared_prompt("resolve_sweep_the_class"),
     }
 
     output = act.run_claude(

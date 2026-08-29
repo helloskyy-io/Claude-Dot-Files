@@ -47,7 +47,7 @@ def main(argv=None) -> int:
     p.add_repo_path("--candidates", default=DEFAULT_CANDIDATES)
     p.add_argument("--pr", dest="pr_number", help="update an existing plan-verify PR")
     # NOT a repo path, deliberately — operator context from wherever they wrote it,
-    # the same contract run_research_minor.py and run_plan_feature.py use. Without
+    # the same contract run_research_minor.py and run_plan_draft.py use. Without
     # it a `--pr` pass can push and cannot be TOLD why it is re-running.
     p.add_argument("--task-file", dest="task_file",
                    help="operator context or a correction runway, from a file")
@@ -151,7 +151,7 @@ def main(argv=None) -> int:
         # THE DEFAULT REMEDY IS "WRITE IT", which is true of every path that
         # reaches the refusal without a `--pr` answer: no tree this run can see
         # carries a plan, so writing one is the only move.
-        remedy = ("Run plan_feature.sh against this component first — writing "
+        remedy = ("Run plan_draft.sh against this component first — writing "
                   "the plan is its job and this workflow holds no grant over a "
                   "phase doc.")
         if a.pr_number:
@@ -232,7 +232,7 @@ def main(argv=None) -> int:
             # "a tree WITHOUT the plan" and said "the counts below will be 0"
             # over all of them — and a component whose phase docs are here while
             # its roadmap is on the branch, hand-laid-out with its roadmap
-            # written later by `plan-feature` (this runner's own target
+            # written later by `plan-draft` (this runner's own target
             # workflow), printed `Phase docs : 4 of its own` one line under a
             # warning saying that number would be 0. An operator meeting a
             # warning and then a number it said would not exist reads the warning
@@ -331,7 +331,7 @@ def main(argv=None) -> int:
 
         # A `--pr` PASS MUST START FROM THE WORK IT IS CORRECTING. Hard-coding
         # "HEAD" put the run on `main`, so a correction pass opened a worktree
-        # with none of the PR's files in it. Measured on plan-feature's first
+        # with none of the PR's files in it. Measured on plan-draft's first
         # correction pass: the counted-in-code block reported "0 phase doc(s)"
         # — true of the worktree it was handed, false of the four docs it was
         # told to correct — and the run spent turns fetching and checking out
@@ -362,9 +362,16 @@ def main(argv=None) -> int:
 
     print(f"\n{BANNER}\n  {url}\n{BANNER}")
     print(f"\nSIZED — the estimates are in {component_rel}/{own.ROADMAP} and nowhere else.")
-    print("`plan-sprint` does NOT read them today: its prompt states it never opens a")
-    print("phase doc, and nothing in it reads a roadmap or an hour figure. Closing that")
-    print("handoff is a change to plan-sprint and is not made from here.\n")
+    # THE HANDOFF IS WIRED, AND THIS LINE USED TO SAY IT WAS NOT. It read
+    # "`plan-sprint` does NOT read them today ... nothing in it reads a roadmap
+    # or an hour figure", which is false: `plan_sprint_workflow` calls
+    # `act.phase_sizing` and injects `SIZING_BLOCK`. The claim was true of the
+    # MODEL — plan-sprint's prompt does forbid opening a phase doc — and was
+    # generalised to the workflow, which computes the figures in its parent.
+    # Held by `test_plan_sprint_IS_HANDED_the_estimates_plan_verify_writes`.
+    print("`plan-sprint` reads them from there in code — its parent computes them with")
+    print("`phase_sizing` and injects the total as `${SIZING_BLOCK}`, so the model never")
+    print("opens the roadmap itself. Run plan_sprint.sh against this component next.\n")
     return 0
 
 

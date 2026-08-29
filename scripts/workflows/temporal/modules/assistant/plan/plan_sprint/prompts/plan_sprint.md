@@ -61,6 +61,7 @@ Read, in this order:
 **Update it in place. Do not move it, do not re-argue whether it belongs.** Its position was decided by the operator and nothing upstream of you changed that.
 
 - **Refresh the hour total** to the computed figure. **If NO section in the file carries an hour total yet, you are writing the first one** — there is no house style to match for it, so choose a form that reads naturally beside the section's existing lines and say in your report what shape you chose and where you put it. A figure omitted because no precedent existed is the one outcome this run must not produce.
+- **HOURS GO IN THE SECTION HEADER, NEVER ON AN OPEN BULLET.** A per-item figure means one thing in this file and it is the delivered stamp `closed YYYY-MM-DD · ~Nh` — **actual** hours on a shipped item, which is the plan's only estimate-versus-actual signal. Putting an ESTIMATE on an open bullet destroys that signal by occupying the slot the actual belongs in. If a neighbouring section does it, it is wrong; copy the header, not that.
 - **Reconcile the phase bullets against the roadmap** — one bullet per phase, in the roadmap's rollout order, each saying what the phase delivers. A phase the roadmap has and the sprint does not is the whole reason this runs.
 - **Match each bullet's checkbox state to the roadmap's**, and never beyond it: a phase the roadmap shows complete is `[x]` here, and a phase it shows open is `[ ]`. **You are copying a state, not deciding one.**
 

@@ -38,11 +38,10 @@ from modules.assistant.build.build_draft import build_draft_workflow as draft
 from modules.assistant.build.build_draft_minor import build_draft_minor_workflow as draft_minor
 from modules.assistant.build.build_refine import build_refine_workflow as refine
 from modules.assistant.build.build_refine_minor import build_refine_minor_workflow as refine_minor
-from modules.assistant.plan.plan_feature import plan_feature_workflow as pfeat
+from modules.assistant.plan.plan_draft import plan_draft_workflow as pfeat
 from modules.assistant.plan.plan_verify import plan_verify_workflow as pverify
 from modules.assistant.research import research_activities as ract
-from modules.assistant.research.research_refresh import research_refresh_workflow as refresh
-from modules.assistant.research.research_write import research_write_workflow as write
+from modules.assistant.research.research_draft import research_draft_workflow as write
 
 _SHARED = Path(__file__).resolve().parents[2] / "modules" / "assistant" / "prompts"
 
@@ -82,7 +81,7 @@ def _stems_loaded_by(module) -> set[str]:
     """Every pool fragment a consumer LOADS, read from that consumer's own source.
 
     PARSED, NOT GREPPED, and the difference is live in this tree:
-    `research_write_workflow` mentions `shared_prompt("altitude_component")`
+    `research_draft_workflow` mentions `shared_prompt("altitude_component")`
     inside a COMMENT explaining the altitude split. A regex reads that as a
     load; the AST does not see it at all, so the derivation stays about what
     the module DOES rather than about what it talks about.
@@ -139,7 +138,6 @@ def _shared_prompt_stems(tree: ast.Module, where: str) -> set[str]:
 # therefore expects its consumer's loads MINUS its sibling arm's fragment, and
 # asserts that sibling is ABSENT — which is the discriminating half, and the
 # reason a supplier written into the wrong branch cannot pass here.
-_ALTITUDES = {"component": "altitude_component", "product": "altitude_product"}
 
 # Matches `render()`'s own placeholder shape, DIGITS INCLUDED — an earlier
 # `[A-Z_]+` in the renderer silently missed `${STAGES_1_TO_4}` and shipped a
@@ -683,7 +681,7 @@ def test_a_refine_pass_renders_EVERY_shared_disposition_fragment(
 # The parametrize below passes an ENTRY POINT; the deriver needs the module that
 # entry point lives in. Mapped by name rather than reached through `entry` so the
 # association is visible where it is declared.
-_RESEARCH_MODULE = {"research_write": write, "research_refresh": refresh}
+_RESEARCH_MODULE = {"research_draft": write}
 
 
 def _component_pool(tmp_path: Path) -> Path:
@@ -700,68 +698,22 @@ def _product_pool(tmp_path: Path) -> Path:
 
 def _research_prompt(monkeypatch, tmp_path: Path, entry, pool: Path) -> str:
     kwargs = {"research_dir": pool, "repo_root": tmp_path, "worktree": tmp_path}
-    if entry is refresh.run_refresh:
-        kwargs["due"] = [pool / "raw" / "a-paper.md"]
     return _drive(monkeypatch, ract, lambda: entry(**kwargs))
 
 
-@pytest.mark.parametrize(
-    ("name", "entry"),
-    [("research_write", write.run_write), ("research_refresh", refresh.run_refresh)],
-)
-def test_a_COMPONENT_run_renders_the_shared_lane_rules(
-    monkeypatch, tmp_path, name: str, entry
-) -> None:
-    """The branch-placement check this module exists for.
-
-    `ALTITUDE_COMPONENT` is supplied on the `else` arm only. Written into the
-    wrong arm it still satisfies the static supplier check, and the failure
-    surfaces as literal `${ALTITUDE_COMPONENT}` reaching the model, or as
-    `render()` raising at dispatch — never in a suite.
-    """
-    prompt = _research_prompt(monkeypatch, tmp_path, entry, _component_pool(tmp_path))
-    expected = _stems_loaded_by(_RESEARCH_MODULE[name]) - {_ALTITUDES["product"]}
-    missing = sorted(s for s in expected if _needle(s) not in prompt)
-    assert not missing, (
-        f"{name} at COMPONENT altitude renders without {missing}. The lane rules "
-        f"that bound what the run may write are supplied and did not arrive."
-    )
-    assert "${" not in prompt, (
-        f"{name} shipped a literal placeholder — render()'s leftover guard should "
-        f"have raised before this."
-    )
-
-
-@pytest.mark.parametrize(
-    ("name", "entry"),
-    [("research_write", write.run_write), ("research_refresh", refresh.run_refresh)],
-)
-def test_a_PRODUCT_run_renders_NO_component_lane_rules(
-    monkeypatch, tmp_path, name: str, entry
-) -> None:
-    """The discriminating half — without it, an UNCONDITIONAL supplier passes.
-
-    Supplying the component fragment on both arms would satisfy every assertion
-    above and inject a component pool's write boundary into a product run, which
-    is the exact confusion the altitude split exists to prevent. The two
-    altitudes must render DIFFERENT text, and this is the side that says so.
-    """
-    prompt = _research_prompt(monkeypatch, tmp_path, entry, _product_pool(tmp_path))
-    assert _needle(_ALTITUDES["component"]) not in prompt, (
-        f"{name} at PRODUCT altitude renders the COMPONENT lane rules. The "
-        f"supplier has become unconditional."
-    )
-    expected = _stems_loaded_by(_RESEARCH_MODULE[name]) - {_ALTITUDES["component"]}
-    missing = sorted(s for s in expected if _needle(s) not in prompt)
-    assert not missing, (
-        f"{name} at PRODUCT altitude renders without {missing}. Without the "
-        f"positive half this test only says what is ABSENT, so an arm that "
-        f"renders nothing at all passes it."
-    )
-
-
-# --- the guard that makes all of the above meaningful -------------------------
-
+# THE ARM-CONDITIONAL ALTITUDE PAIR LIVED HERE AND ITS SUBJECT IS GONE.
+# Two tests asserted that a COMPONENT run renders `altitude_component` and not
+# `altitude_product`, and the mirror. Both fragments were deleted on 2026-08-28:
+# the research tiers merged, the surviving child had ALWAYS refused to render
+# them — 'not rendering them is what makes the prompt's boundary true by
+# construction rather than by instruction' — and with the other two consumers
+# gone nothing rendered them at all. `altitude_product.md` also still opened
+# with '## Stage 4b: FILE INTO tracked/candidates/ — BINDING', which the
+# 2026-08-27 filing-authority ruling had superseded.
+#
+# ALTITUDE IS STILL DERIVED, IN CODE, by `act.altitude()` from the pool path.
+# What is gone is altitude-conditional PROMPT rendering, which is what these
+# two tests checked. Removed rather than repointed: there is no second arm.
 
 def test_an_UNSUPPLIED_fragment_placeholder_stops_the_dispatch(monkeypatch, tmp_path) -> None:
     """Negative control, derived from the claim the promotion rule makes.
@@ -829,7 +781,6 @@ _FRAGMENT_FLOOR = {
     "resolve_disposition_definitions": 5,
     "resolve_fix_by_default_and_summary": 3,
     "verify_and_ci_gate": 6,
-    "altitude_component": 16,
     "submit_and_push": 5,
     # MEASURED 2026-08-17 by `_substantive_lines`, when `_PROMOTED` stopped being
     # a literal list and these came under the floor for the first time. Each was
@@ -841,7 +792,6 @@ _FRAGMENT_FLOOR = {
     # class it served (a recommendation only the operator can rule on) is a
     # candidate carrying `decision: requires review`, which the fragment now
     # says in three lines instead of twenty-two.
-    "altitude_product": 20,
     "decision_log_and_reflection": 42,   # 43 -> 42 (2026-08-28): the superseded
     # "why you and not the reviewer" argument and the "UNLESS your boundary
     # forbids it" exception merged into one statement of the rule in force.
@@ -852,7 +802,7 @@ _FRAGMENT_FLOOR = {
     # emptied. Each was a block duplicated between two children until this change.
     "agents_have_no_shell": 8,
     # 1 -> 2 on 2026-08-22. The `git ls-files` half of the check joined it: it
-    # lived inline in `plan_feature.md` alone, so the three tiers that render
+    # lived inline in `plan_draft.md` alone, so the three tiers that render
     # this fragment were told to prove a new file is not IGNORED and never to
     # prove it is COMMITTED. Both halves are one paragraph each, so the floor
     # is again the whole fragment and a shrink here is a deletion.
@@ -860,6 +810,7 @@ _FRAGMENT_FLOOR = {
     "orchestrator_executes_agents_read": 3,
     "research_stage_1_verify_and_discover": 1,
     "resolve_apply_the_remedy_you_wrote": 4,
+    "resolve_sweep_the_class": 4,
     "resolve_rejecting_is_legitimate": 1,
     "resolve_your_own_dispositions_too": 1,
     "stage_order_is_mandatory": 1,
@@ -915,7 +866,7 @@ def test_the_supplier_reader_DISCRIMINATES() -> None:
     assert _shared_prompt_stems(ast.parse(loads), "<snippet>") == {"rules"}
 
     # A MENTION IS NOT A LOAD, and this is the arm that made the AST worth the
-    # cost: `research_write_workflow` names a fragment inside a comment, and a
+    # cost: `research_draft_workflow` names a fragment inside a comment, and a
     # regex over the source reads that as a consumer loading it.
     mentioned = '# act.shared_prompt("rules")\nx = "act.shared_prompt(rules)"\n'
     assert _shared_prompt_stems(ast.parse(mentioned), "<snippet>") == set()
@@ -950,7 +901,9 @@ _NOT_RENDER_CHECKED: dict[str, str] = {}
 # render-checked by nothing that rendered it. Clearing a guard's red by widening
 # its population is the move this module's own header records twice; the
 # fixture is `_planning_prompt` below and it cost nine lines.
-_DRIVEN = (draft, draft_minor, refine, refine_minor, write, refresh,
+# `refresh` was the seventh until 2026-08-28: `research-refresh` merged into
+# `research-draft`, which now routes a due topic to `research-currency` itself.
+_DRIVEN = (draft, draft_minor, refine, refine_minor, write,
            pfeat, pverify)
 
 
@@ -976,7 +929,7 @@ def _planning_prompt(tmp_path: Path, module, filename: str) -> str:
 
 @pytest.mark.parametrize(
     ("name", "module", "filename"),
-    [("plan_feature", pfeat, "plan_feature.md"),
+    [("plan_draft", pfeat, "plan_draft.md"),
      ("plan_verify", pverify, "plan_verify.md")],
 )
 def test_a_planning_run_renders_EVERY_fragment_it_loads(
@@ -1049,3 +1002,64 @@ def test_the_needles_are_real() -> None:
         assert (_SHARED / f"{stem}.md").is_file(), f"prompts/{stem}.md is missing"
         n = _needle(stem)
         assert len(n) > 40, f"{stem}.md yielded a {len(n)}-char needle: {n!r}"
+
+
+def test_the_class_SWEEP_reaches_every_child_that_closes_a_finding() -> None:
+    """A fragment that reaches some consumers and not others IS the failure it describes.
+
+    THE SWEEP IS THE REMEDY TO THE DOMINANT COST IN THE REVIEW LOOP, found by
+    two independent RCAs on two PRs on 2026-08-28: a fix lands where the finding
+    pointed while the same claim lives at N other sites, so every unfixed sibling
+    is a guaranteed finding next pass. One claim was fixed at 4 sites, then 4
+    more, then 3 more — 11 total, across three passes.
+
+    IT MUST REACH EVERY ACTOR THAT CLOSES A FINDING, because the evidence is that
+    knowing about it does not help: the same omission hit an autonomous dispatch,
+    an operator working by hand, and a session that had written the finding up an
+    hour earlier. A child left unwired is a child that will regenerate the class.
+    """
+    root = Path(__file__).resolve().parents[2] / "modules" / "assistant"
+    consumers = {
+        "plan_draft":       (root/"plan/plan_draft/plan_draft_workflow.py",
+                               root/"plan/plan_draft/prompts/plan_draft.md"),
+        "plan_verify":        (root/"plan/plan_verify/plan_verify_workflow.py",
+                               root/"plan/plan_verify/prompts/plan_verify.md"),
+        "build_refine":       (root/"build/build_refine/build_refine_workflow.py",
+                               root/"build/build_refine/prompts/refine.md"),
+        "build_refine_minor": (root/"build/build_refine_minor/build_refine_minor_workflow.py",
+                               root/"build/build_refine_minor/prompts/refine.md"),
+        "research_verify":    (root/"research/research_verify/research_verify_workflow.py",
+                               root/"research/research_verify/prompts/verify.md"),
+    }
+    assert len(consumers) >= 5, "vacuity floor: the consumer set emptied"
+    missing = []
+    for name, (wf, prompt) in consumers.items():
+        if 'act.shared_prompt("resolve_sweep_the_class")' not in wf.read_text():
+            missing.append(f"{name}: workflow does not load the fragment")
+        if "${SWEEP_THE_CLASS}" not in prompt.read_text():
+            missing.append(f"{name}: prompt has no ${{SWEEP_THE_CLASS}} placeholder")
+    assert not missing, (
+        "the class sweep does not reach every finding-closing child:\n  "
+        + "\n  ".join(missing)
+        + "\n\nBoth halves are required — a workflow that loads the fragment into a "
+          "prompt with no placeholder renders nothing, and a placeholder with no "
+          "value left in the values dict fails the render's no-placeholders check."
+    )
+
+
+def test_the_sweep_fragment_demands_a_COUNT_and_a_SCOPE_not_an_intention() -> None:
+    """What makes it a step rather than an aspiration.
+
+    "Sweep for other instances" is advice. "State the site count, and say whether
+    your sweep was exhaustive or a sample" is checkable by the next reader, which
+    is the whole difference — the reviewer's half of the same RCA is that a
+    finding naming 4 sites implies a closure nobody established.
+    """
+    frag = (Path(__file__).resolve().parents[2] / "modules" / "assistant"
+            / "prompts" / "resolve_sweep_the_class.md").read_text()
+    for needed, why in [
+        ("site count", "the run must report a NUMBER, or nothing distinguishes a sweep from an intention"),
+        ("EXHAUSTIVE", "an unbounded sweep must say so — 'four sites' asserts a closure it did not establish"),
+        ("SAMPLE", "the other half of the same statement"),
+    ]:
+        assert needed in frag, f"the fragment no longer demands `{needed}` — {why}"

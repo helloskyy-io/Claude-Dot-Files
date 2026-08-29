@@ -98,7 +98,7 @@ def permitted_paths(candidates_rel: Path, research_rel: Path) -> tuple[str, ...]
     every turn had been spent. It presents as *"the flag is broken"*.
 
 
-    `re.escape` ON BOTH, for the reason `plan_feature.permitted_paths` states at
+    `re.escape` ON BOTH, for the reason `plan_draft.permitted_paths` states at
     length: an operator-supplied segment interpolated raw makes `.` match any
     character, and a boundary silently widening to a sibling is the one failure
     these modules exist to prevent.
@@ -380,7 +380,7 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
             + ", ".join(f"{cid} {before_status[cid]!r}->{after_status[cid]!r}"
                         for cid in flipped)
             + f". Ruling a candidate is not doing it. "
-            f"`status` belongs to a later process — `plan-feature`, or the build that "
+            f"`status` belongs to a later process — `plan-draft`, or the build that "
             f"completes the item — and it did not move in the split — see {url}"
         )
 

@@ -179,7 +179,7 @@ def _counts_a_tree(source: str) -> bool:
     argument class was `[^()]*` for one revision, and that class cannot
     cross a nested call — so it silently stopped seeing
     `len(own.phase_docs(component))`, the very figure that made
-    `run_plan_feature.py` a case in the first place. The regex was written to
+    `run_plan_draft.py` a case in the first place. The regex was written to
     ADD the two research runners and it dropped a member while doing it, which
     is the same class-closure failure this module's subject is about: a key that
     cannot express something it is meant to cover.

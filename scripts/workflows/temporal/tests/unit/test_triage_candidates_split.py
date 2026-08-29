@@ -594,7 +594,7 @@ def test_NEITHER_workflow_may_move_the_status_column(
     """`decision` MOVED between the two; `status` moved nowhere, because it was
     never either one's.
 
-    The store gives `status` to "a later process" — `plan-feature`, or the build
+    The store gives `status` to "a later process" — `plan-draft`, or the build
     that completes the item — and its terminal values are Tracked Items §4's
     `adopted` / `rejected` since the 2026-08-26 flip, not the table's `closed` — and both prompts list it under MAY NOT. Ruling a
     candidate is not doing it, and placing one is not finishing it. Without this,
@@ -1253,7 +1253,7 @@ def _run_entrypoints():
 def test_the_repo_root_census_finds_the_entrypoints_it_is_meant_to() -> None:
     """POSITIVE CONTROL. A census over zero functions declares everything clean."""
     found = {name for name, _p, _n in _run_entrypoints()}
-    assert found == {"triage-candidates", "plan-sprint", "plan-feature",
+    assert found == {"triage-candidates", "plan-sprint", "plan-draft",
                      "plan-verify"}, (
         f"the census found run_* entrypoints in {sorted(found)}; if a workflow "
         f"dropped out, its repo-rooted reads stopped being checked")

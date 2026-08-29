@@ -9,7 +9,6 @@ from dispatch_identity import add_identity_arguments, resolve_identity  # noqa: 
 from modules.assistant import assistant_activities as act_shared  # noqa: E402
 from modules.journal import journal_activities as journal  # noqa: E402
 from modules.assistant.research.research import research_workflow as rw  # noqa: E402
-from modules.assistant.research.research_refresh_parent import research_refresh_parent_workflow as rr  # noqa: E402
 from modules.assistant.research import research_activities as act  # noqa: E402
 
 BANNER = "=" * 64
@@ -29,7 +28,6 @@ def main(argv=None) -> int:
     # behaviour change for a family this PR is not otherwise touching.
     p.add_repo_path("research_dir", kind="dir", must_exist=False,
                     help="research folder, relative to the repo root")
-    p.add_argument("--refresh", action="store_true", help="revalidate DUE papers instead of researching new topics")
     # NOT a repo path, deliberately: a task file is context the operator supplies
     # from wherever they wrote it, routinely /tmp, and is read rather than
     # written. `--phase` on the build runners is the same case. A RELATIVE one is
@@ -74,9 +72,9 @@ def main(argv=None) -> int:
             # `origin/<branch>` so the preview is an actual preview, and earns
             # itself when real operator use appears.
             print(f"  Counted in : this checkout ({repo_root}) — a dry run cuts no worktree")
-            print(f"  Mode      : {'refresh' if a.refresh else 'research'}")
             print(f"  Pool      : {research_dir}")
-            print(f"  Due papers: {len(due)}" + (" — clean no-op exit" if a.refresh and not due else ""))
+            print(f"  Due papers: {len(due)}"
+                  + ("" if due else " — nothing to revalidate this cycle"))
             for d in due:
                 print(f"    - {d.name}")
             return 0
@@ -95,10 +93,13 @@ def main(argv=None) -> int:
                              repo_root=repo_root,
                              workflow_key="research", worktree_name=wt)
 
-        result = rr.run_research_refresh(research_dir=research_dir, repo_root=repo_root,
-                                         worktree_name=wt, verbose=a.verbose) if a.refresh \
-            else rw.run_research(research_dir=research_dir, repo_root=repo_root, worktree_name=wt,
-                                 context=context, pr_number=a.pr_number, verbose=a.verbose)
+        # NO --refresh BRANCH. Revalidation is not a mode of this parent any
+        # more: the write child computes the due set in code and routes each
+        # due topic to `research-currency` itself, so one run covers new topics
+        # and expired ones together instead of two runs over one pool.
+        result = rw.run_research(research_dir=research_dir, repo_root=repo_root,
+                                 worktree_name=wt, context=context,
+                                 pr_number=a.pr_number, verbose=a.verbose)
     except (RuntimeError, FileNotFoundError, ValueError) as exc:
         print(f"\n✗ {exc}", file=sys.stderr)
         return 1

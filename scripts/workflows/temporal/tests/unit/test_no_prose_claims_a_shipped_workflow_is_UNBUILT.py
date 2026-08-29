@@ -1,13 +1,13 @@
 """No prose in the fleet may say a workflow does not exist when its module does.
 
-THE CLASS, AND IT WAS FOUND THREE TIMES IN ONE PR. `plan-feature` shipped naming
+THE CLASS, AND IT WAS FOUND THREE TIMES IN ONE PR. `plan-draft` shipped naming
 its judge and saying it was unbuilt, in three places:
 
-  * `plan_feature_workflow.py`'s docstring — *"it DOES NOT EXIST YET… nothing in
+  * `plan_draft_workflow.py`'s docstring — *"it DOES NOT EXIST YET… nothing in
     this tree calls it. Do not read any reference to it as a dependency."*
-  * `prompts/plan_feature.md` — *"`plan-verify` … does not exist yet"*, which is
-    SENT TO THE MODEL on every `plan-feature` dispatch.
-  * `run_plan_feature.py`'s completion banner — printed at the operator.
+  * `prompts/plan_draft.md` — *"`plan-verify` … does not exist yet"*, which is
+    SENT TO THE MODEL on every `plan-draft` dispatch.
+  * `run_plan_draft.py`'s completion banner — printed at the operator.
 
 The PR that built `plan-verify` falsified all three and updated none. Three
 separate review lenses found them independently, which is the measurement that
@@ -126,7 +126,7 @@ def test_the_reader_can_SEE_the_workflows_and_the_phrases() -> None:
     """
     shipped = _shipped_workflows()
     assert len(shipped) >= 12, f"only found {sorted(shipped)} — the discovery broke"
-    assert "plan-verify" in shipped and "plan-feature" in shipped
+    assert "plan-verify" in shipped and "plan-draft" in shipped
 
     files = _prose_files()
     assert len(files) >= 50, f"the prose sweep found only {len(files)} files"

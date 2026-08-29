@@ -26,7 +26,7 @@ the ones worth attacking:
     disappearance defect one altitude down, and the fixture has to move a link
     rather than change a character.
 
-AND THE BOUNDARY FIXTURE IS NOT THE WRITE HALF'S. `plan-feature`'s grant is a
+AND THE BOUNDARY FIXTURE IS NOT THE WRITE HALF'S. `plan-draft`'s grant is a
 SHAPE — every markdown file directly in the component — so its boundary tests use
 two components, because one component says nothing about a sibling. This
 workflow's grant is ONE NAMED FILE inside a component it may otherwise not touch,
@@ -97,7 +97,7 @@ def _write(component: Path, name: str, body: str = "# x\n") -> Path:
 
 
 def _planned(tree: Path, roadmap: str = _SIZED_ROADMAP) -> Path:
-    """A component as `plan-feature` leaves it, plus whatever roadmap is passed."""
+    """A component as `plan-draft` leaves it, plus whatever roadmap is passed."""
     c = _component(tree)
     _write(c, "phase1_the_first_thing.md", "# Phase 1\n\n- [ ] a step\n")
     _write(c, "phase2_the_gated_one.md", "# Phase 2\n")
@@ -134,7 +134,7 @@ def test_a_SIZED_plan_satisfies_EVERY_reader(tree: Path) -> None:
 ])
 def test_an_hour_estimate_in_the_ROADMAP_counts(
         tree: Path, text: str, matched: str) -> None:
-    """The shape this workflow must PRODUCE is the shape `plan-feature` forbids.
+    """The shape this workflow must PRODUCE is the shape `plan-draft` forbids.
 
     ONE PATTERN, TWO OPPOSITE CONSUMERS. `act.HOUR_ESTIMATE` is shared between
     them for exactly that reason: two copies would let the write half forbid a
@@ -169,7 +169,7 @@ def test_ordinary_prose_about_time_does_NOT_count_as_an_estimate(
         tree: Path, line: str) -> None:
     """The shared pattern's discriminator, exercised from the CONSUMING side too.
 
-    `test_plan_feature.py` owns the argument for the pattern's shape — a
+    `test_plan_draft.py` owns the argument for the pattern's shape — a
     word-keyed guard fires on three real lines in this tree. It matters here for
     the OPPOSITE reason: a roadmap that merely says "hours" somewhere must not
     satisfy this workflow's deliverable guard, or a run could report a sized plan
@@ -391,7 +391,7 @@ def test_writing_only_the_HOURS_moves_no_link(tree: Path) -> None:
 def test_a_legacy_phase_name_is_still_a_reference(tree: Path) -> None:
     """The reader asks *what does the roadmap point at*, not *is that name legal*.
 
-    `plan_feature_activities._PHASE_FILE` judges a name a run WROTE. A
+    `plan_draft_activities._PHASE_FILE` judges a name a run WROTE. A
     non-conformant legacy doc a roadmap already links is still a phase this
     workflow must not drop, so the two classifiers deliberately differ and the
     looser one belongs here.
@@ -669,7 +669,7 @@ def test_the_runner_REFUSES_a_component_with_NO_roadmap(
     repo = _repo(tmp_path)
     assert _runner().main(["docs/development/alpha", "--repo", str(repo)]) == 1
     err = capsys.readouterr().err
-    assert "no roadmap.md" in err and "plan_feature.sh" in err, (
+    assert "no roadmap.md" in err and "plan_draft.sh" in err, (
         f"the refusal must name the missing file AND the workflow that writes "
         f"it; got {err!r}")
 
@@ -1070,7 +1070,7 @@ def test_TWO_estimates_beside_ONE_phase_satisfy_the_floor(
 def test_the_PREFLIGHT_asks_the_PR_BRANCH_for_the_plan_not_just_this_checkout() -> None:
     """A `--pr` pass reads the PR's tree, so the precondition must ask that tree.
 
-    MEASURED ON PR #130. `plan-feature` had written a roadmap and six phase docs
+    MEASURED ON PR #130. `plan-draft` had written a roadmap and six phase docs
     minutes earlier; this preflight asked the local checkout, found none, and
     refused the run — declaring missing the exact plan it had been pointed at.
 
@@ -1225,7 +1225,7 @@ def test_a_PR_pass_is_NOT_refused_when_the_plan_is_only_on_the_PRs_BRANCH(
     or the wrong path still contains every substring that test greps for.
     """
     repo, runner, calls = _repo(tmp_path), _runner(), []
-    _pr_lookup(monkeypatch, "plan-feature-1787204416",
+    _pr_lookup(monkeypatch, "plan-draft-1787204416",
                f"docs/development/alpha/{own.ROADMAP}\n", calls)
     _record_side_effects(monkeypatch, runner, calls)
 
@@ -1238,7 +1238,7 @@ def test_a_PR_pass_is_NOT_refused_when_the_plan_is_only_on_the_PRs_BRANCH(
         "the fixture stopped discriminating: the roadmap is present LOCALLY, so "
         "this run would pass with the PR-branch lookup deleted entirely")
     ls_tree = ("git", "ls-tree", "-r", "--name-only",
-               "origin/plan-feature-1787204416", "--",
+               "origin/plan-draft-1787204416", "--",
                f"docs/development/alpha/{own.ROADMAP}")
     assert "run_plan_verify" in calls, (
         f"the run never reached the dispatch, so the `not in calls` assertions "
@@ -1252,7 +1252,7 @@ def test_a_PR_pass_is_NOT_refused_when_the_plan_is_only_on_the_PRs_BRANCH(
     # otherwise have done the fetching — so an `ls-tree` that overtakes the fetch
     # reads a ref that need not exist yet, and on a repo where an earlier run
     # left one behind it reads a STALE one, which is the worse half.
-    fetch = ("git", "fetch", "-q", "origin", "plan-feature-1787204416")
+    fetch = ("git", "fetch", "-q", "origin", "plan-draft-1787204416")
     assert fetch in calls and calls.index(fetch) < calls.index(ls_tree), (
         f"the PR's ref was queried without being fetched first, or after; the "
         f"calls in order were {calls!r}")
@@ -1279,7 +1279,7 @@ def test_a_PR_pass_IS_refused_when_the_plan_is_on_NEITHER_tree(
     assert "not here and not on PR #132's branch" in err, (
         f"the refusal does not say BOTH trees were checked, so a caller reading "
         f"it goes looking in the wrong one; got {err!r}")
-    assert "plan_feature.sh" in err, (
+    assert "plan_draft.sh" in err, (
         f"the refusal must still name the workflow that writes the plan; got {err!r}")
 
 
@@ -1331,14 +1331,14 @@ def test_a_PR_pass_IS_refused_when_the_plan_is_HERE_but_NOT_on_the_PRs_BRANCH(
         f"{err!r}")
     # AND THE REMEDY IS THE HALF THE DOCSTRING ABOVE CLAIMED AND NOTHING HELD.
     # For one commit the diagnostic branched and the ACTIONABLE sentence did not:
-    # "it IS in this checkout" was printed over a fixed "Run plan_feature.sh
+    # "it IS in this checkout" was printed over a fixed "Run plan_draft.sh
     # against this component first — writing the plan is its job", telling an
     # operator whose only problem is an unpushed commit to re-run the workflow
     # that had already succeeded. The two assertions above could not see it —
     # both read the diagnostic clause, which was correct the whole time. A remedy
     # is the only part of a refusal anyone ACTS on, so this asserts the wrong one
     # is absent as well as the right one being present.
-    assert "plan_feature.sh" not in err, (
+    assert "plan_draft.sh" not in err, (
         f"the refusal diagnosed 'the plan is here but unpushed' and then told "
         f"the operator to run the workflow that WRITES the plan — the remedy "
         f"contradicts the diagnosis one sentence earlier, and the remedy is the "
@@ -1453,7 +1453,7 @@ def test_a_DRY_RUN_on_a_PR_pass_SAYS_the_counts_came_from_a_TREE_WITHOUT_the_pla
     and nothing would guarantee the two answers agreed.
     """
     repo, runner, calls = _repo(tmp_path), _runner(), []
-    _pr_lookup(monkeypatch, "plan-feature-1787204416",
+    _pr_lookup(monkeypatch, "plan-draft-1787204416",
                f"docs/development/alpha/{own.ROADMAP}\n", calls)
     _record_side_effects(monkeypatch, runner, calls)
 
@@ -1477,7 +1477,7 @@ def test_a_DRY_RUN_on_a_PR_pass_SAYS_the_counts_came_from_a_TREE_WITHOUT_the_pla
     assert "does NOT carry docs/development/alpha/roadmap.md" in out, (
         f"the preview does not say this checkout lacks the plan, so the zeros "
         f"above read as a plan that was never written; got {out!r}")
-    assert "origin/plan-feature-1787204416" in out, (
+    assert "origin/plan-draft-1787204416" in out, (
         f"the preview does not name the tree the run will actually read, which "
         f"is the one place the operator can go to check; got {out!r}")
     # AND ABOVE THE ZEROS, NOT UNDER THEM — asserted in the shape this file uses
@@ -1516,7 +1516,7 @@ def test_a_DRY_RUN_still_names_its_tree_and_DROPS_the_caveat_when_the_plan_IS_he
     repo, runner, calls = _repo(tmp_path), _runner(), []
     (repo / "docs" / "development" / "alpha" / own.ROADMAP).write_text(
         "# Alpha\n\n## Phase 1 — a thing (~4 hrs)\n")
-    _pr_lookup(monkeypatch, "plan-feature-1787204416",
+    _pr_lookup(monkeypatch, "plan-draft-1787204416",
                f"docs/development/alpha/{own.ROADMAP}\n", calls)
     _record_side_effects(monkeypatch, runner, calls)
 
@@ -1566,7 +1566,7 @@ def test_a_DRY_RUN_with_NO_pr_still_NAMES_the_tree_it_counted(
     repo, runner, calls = _repo(tmp_path), _runner(), []
     (repo / "docs" / "development" / "alpha" / own.ROADMAP).write_text(
         "# Alpha\n\n## Phase 1 — a thing (~4 hrs)\n")
-    _pr_lookup(monkeypatch, "plan-feature-1787204416",
+    _pr_lookup(monkeypatch, "plan-draft-1787204416",
                f"docs/development/alpha/{own.ROADMAP}\n", calls)
     _record_side_effects(monkeypatch, runner, calls)
 
@@ -1599,7 +1599,7 @@ def test_a_DRY_RUN_caveat_may_NOT_claim_a_count_is_ZERO_when_that_COUNT_IS_NOT(
     absent here" and "the plan is absent here" are the same state in all three
     and no assertion can tell them apart. They are different states, and the
     difference is reachable through this runner's own target workflow: a
-    component laid out by hand with phase docs, whose `roadmap.md` `plan-feature`
+    component laid out by hand with phase docs, whose `roadmap.md` `plan-draft`
     writes later, verified from a checkout predating that PR. Only `phase_docs_of`
     ignores the roadmap, so in that state it prints a NON-ZERO count while
     `roadmap_phase_links`, `roadmap_hours` and `sizing_floor` are all correctly 0.
@@ -1680,7 +1680,7 @@ def test_a_DRY_RUN_caveat_may_NOT_claim_a_count_is_ZERO_when_that_COUNT_IS_NOT(
     # assertion below is what turns that silent pass into a loud failure.
     (component / "phase1_first.md").write_text("# Phase 1\n")
     (component / "phase2_second.md").write_text("# Phase 2\n")
-    _pr_lookup(monkeypatch, "plan-feature-1787204416",
+    _pr_lookup(monkeypatch, "plan-draft-1787204416",
                f"docs/development/alpha/{own.ROADMAP}\n", calls)
     _record_side_effects(monkeypatch, runner, calls)
 

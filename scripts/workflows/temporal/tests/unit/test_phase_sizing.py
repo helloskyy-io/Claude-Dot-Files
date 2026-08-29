@@ -300,3 +300,113 @@ def test_a_phase_declaring_NOT_SIZED_is_unsized_even_though_it_quotes_a_figure(t
         f"the NOT SIZED phase must appear in `unsized`: {sizing.unsized}. That "
         f"list is the only signal an operator gets that a phase still needs a figure."
     )
+
+
+def test_plan_sprint_IS_HANDED_the_estimates_plan_verify_writes() -> None:
+    """The check that holds `run_plan_verify.py`'s closing message.
+
+    That epilogue asserted the opposite for two `plan-verify` passes on PR #145
+    — *"`plan-sprint` does NOT read them today ... nothing in it reads a roadmap
+    or an hour figure"* — and an operator acting on it would build a handoff that
+    already exists. The claim was true of the MODEL (plan-sprint's prompt does
+    forbid opening a phase doc) and generalised to the WORKFLOW, whose parent
+    computes the figures before the model is called.
+
+    `C-zwzepum0`'s rule: a sentence asserting how another file behaves either
+    names the check that holds it, or is not written. This is that check.
+    """
+    root = Path(__file__).resolve().parents[2] / "modules" / "assistant" / "plan"
+    wf = (root / "plan_sprint" / "plan_sprint_workflow.py").read_text()
+    assert "act.phase_sizing(" in wf, (
+        "plan_sprint_workflow no longer calls `phase_sizing`. If the handoff was "
+        "deliberately removed, correct `run_plan_verify.py`'s closing message in "
+        "the same commit — it tells the operator this wiring exists."
+    )
+    assert '"SIZING_BLOCK"' in wf, (
+        "plan_sprint_workflow no longer injects SIZING_BLOCK, so the computed "
+        "total never reaches the model even though it is calculated."
+    )
+    prompt = (root / "plan_sprint" / "prompts" / "plan_sprint.md").read_text()
+    assert "${SIZING_BLOCK}" in prompt, (
+        "the prompt dropped its ${SIZING_BLOCK} placeholder, so the parent "
+        "computes the figures and renders them nowhere."
+    )
+
+
+def test_REWORDING_a_checked_bullet_is_not_a_flip(tmp_path) -> None:
+    """Editing a checked item's text must not read as erasing and re-ticking it.
+
+    MEASURED ON PR #145. `plan-sprint` appended `· **~34h**` to two already-checked
+    sprint bullets and the guard reported *"flipped 4 completion checkbox(es)"* —
+    two ERASED, two TICKED, the same two items. `- [x]` before, `- [x]` after.
+
+    A guard that cannot tell a reworded item from a fabricated completion spends
+    its credibility on the wrong alarm, and the real prohibition — do not claim
+    work nobody did — is the one that stops being believed.
+    """
+    before = tmp_path / "before.md"
+    after = tmp_path / "after.md"
+    before.write_text(
+        "- [x] **Decompose the build families** · ([roadmap](r.md)) — the shape written down\n"
+        "- [ ] **Dual-mode children** · ([roadmap](r.md)) — nine children run alone\n")
+    after.write_text(
+        "- [x] **Decompose the build families** · ([roadmap](r.md)) · **~34h** — the shape written down\n"
+        "- [ ] **Dual-mode children** · ([roadmap](r.md)) · **~30h** — nine children run alone\n")
+    assert own.checked_boxes(before) == own.checked_boxes(after), (
+        "rewording a checked bullet registered as a checkbox flip. Only the "
+        "bullet's text changed; its state did not."
+    )
+
+
+def test_an_ACTUAL_flip_is_still_caught(tmp_path) -> None:
+    """The control. Keying on identity must not blind the guard to a real tick."""
+    before = tmp_path / "b.md"; after = tmp_path / "a.md"
+    before.write_text("- [ ] **Dual-mode children** — nine children run alone\n")
+    after.write_text("- [x] **Dual-mode children** — nine children run alone\n")
+    moved = own.checked_boxes(after) - own.checked_boxes(before)
+    assert list(moved.elements()) == ["Dual-mode children"], (
+        f"a genuine tick was not detected: {moved}. Identity keying must narrow "
+        f"WHAT is compared, never WHETHER a flip is seen."
+    )
+
+
+def test_a_component_SPLIT_ACROSS_SECTIONS_reports_all_of_them(tmp_path) -> None:
+    """One section reported as the whole component is a wrong count with authority.
+
+    MEASURED ON PR #150. `persistent-memory-protocol` occupies TWO sprint
+    sections — `— Part 1` and `— Part 2`, an established shape in that file —
+    and the counter's `next(...)` returned the first. The run was told, under a
+    block reading *"authoritative — do not recount"*, that the component had ONE
+    section carrying six bullets. It never learned the second existed, and the
+    second is where the gated phases live.
+
+    A WRONG COUNT IS WORSE THAN A ZERO because it announces authority: a zero
+    says "I found nothing" and a run checks, while this says "I counted" and a
+    run believes it. That is the same failure `phase_sizing` was fixed for.
+    """
+    sprint = tmp_path / "sprint.md"
+    sprint.write_text(
+        "## Sprint: Alpha\n\n- [ ] **Alpha · one**\n\n"
+        "## Sprint: Widget Thing — Part 1\n\n- [x] **Widget Thing · a**\n- [ ] **Widget Thing · b**\n\n"
+        "## Sprint: Widget Thing — Part 2\n\n- [ ] **Widget Thing · c**\n")
+    out = own.sprint_state(sprint, Path("widget-thing"))
+    assert "SPLIT ACROSS 2 SECTIONS" in out, f"reported only one section: {out}"
+    assert "Part 1" in out and "Part 2" in out, "both sections must be named"
+    assert "2 bullet(s)" in out and "1 bullet(s)" in out, (
+        "each section's own bullet count must be reported — a total across both "
+        "would hide which section a phase belongs to"
+    )
+    assert "operator's split, not yours" in out, (
+        "the run must be told NOT to move a phase between sections; doing so "
+        "re-sequences the plan, which is the operator's decision"
+    )
+
+
+def test_a_component_in_ONE_section_still_reads_as_one(tmp_path) -> None:
+    """The control: widening the match must not turn every component into a split."""
+    sprint = tmp_path / "sprint.md"
+    sprint.write_text("## Sprint: Alpha\n\n- [ ] **Alpha · one**\n\n"
+                      "## Sprint: Widget Thing\n\n- [ ] **Widget Thing · a**\n")
+    out = own.sprint_state(sprint, Path("widget-thing"))
+    assert "SPLIT ACROSS" not in out, f"a single-section component read as split: {out}"
+    assert "HAS a section" in out and "1 phase bullet(s)" in out

@@ -240,10 +240,32 @@ if ! command -v yq &>/dev/null; then
 elif [[ ! -f "$CONFIG" ]]; then
     p3_skip="no config.yaml at ${CONFIG}"
 else
+    # RETIRED KEYS — a V2 workflow was deleted and its config entry went with it,
+    # while the FROZEN bash script that still declares the key stays on disk as
+    # reference. The key genuinely does not resolve and the script genuinely
+    # cannot dispatch; both are correct and neither is a defect to fix, because
+    # nothing dispatches that script any more.
+    #
+    # THIS EXACT SET IS ALREADY DECLARED, DATED AND ARGUED IN
+    # `tests/unit/test_v1_parity.py::_RETIRED_KEYS`, which hit the same wall from
+    # the other side. Kept in step with it by hand — two languages, one fact —
+    # and an entry leaves BOTH places on the day the operator deletes the script.
+    #
+    # IT COST 3.5 HOURS OF RED MAIN TO LEARN THAT THIS PASS NEEDED IT.
+    # `research-refresh` merged into `research-draft` on 2026-08-28; its config
+    # key went, the parity test was taught the retirement, and this linter was
+    # not. Both the master runner and this lint step failed on every push from
+    # 22:50 onward — and a red default branch holds every PR at its parent's CI
+    # gate, so the cost was not the lint line, it was the fleet.
+    retired_keys=" research-refresh "
+
     for f in "$WF_DIR"/*.sh "$WF_DIR"/children/*.sh; do
         [[ -e "$f" ]] || continue
         mk=$(grep -m1 '^MODEL_KEY=' "$f" | sed 's/MODEL_KEY="//;s/"//')
         [[ -n "$mk" ]] || continue
+        if [[ "$retired_keys" == *" ${mk} "* ]]; then
+            continue
+        fi
         p3_seen=$(( p3_seen + 1 ))
         if [[ -z "$(yq -r ".models.\"${mk}\" // \"\"" "$CONFIG")" ]]; then
             echo "✗ ${f#"$WF_DIR"/} — MODEL_KEY '${mk}' has no entry in config.yaml models: — this workflow CANNOT dispatch"

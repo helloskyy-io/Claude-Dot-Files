@@ -12,7 +12,7 @@ condition of the readers being worth writing:
     ADDRESS, in `memory-model.md` §6.1's terms — and a reader written against the
     field name alone got an empty join that read as a corpus with no overlaps.
   * **`workflow_key` is on the payload**, because `model_key` cannot name a
-    workflow: `research-write` and `research-verify` share the model key
+    workflow: `research-draft` and `research-verify` share the model key
     `research`.
 
 The tests below assert both against the shipped appenders, with a control on the

@@ -2,7 +2,7 @@
 id: I-cyavezck
 title: `similar-candidates.py` ranks by rare-term overlap without normalising for length, so the one 4 KB item outranks better matches and the recurrence check points at the wrong candidate
 status: open
-count: 1
+count: 2
 filed: 2026-08-28
 filed_by: review-pr
 repo: claude-dot-files
@@ -17,3 +17,7 @@ repo: claude-dot-files
 **Consequence:** the check exists so a filer finds the item their finding is a recurrence OF. Pointed at the wrong candidate, a filer either opens a duplicate or increments the wrong `count` — and `count` now outranks age in triage, so a wrong increment mis-ranks the queue it was built to rank.
 
 **Remedy:** normalise the score by body length (or cap the per-item term contribution) and re-measure against the same two queries. Shipped `c23a0bd`; this is its first defect from live use.
+
+## Recurrences
+
+- 2026-08-28 · 2026-08-28: second sighting, PR #150. `similar-candidates.py` ranked `C-6i1u3b1f` first for a query about a different subject — `plan-verify` reported it as friction and noted the tool's own output demonstrates the defect this item already describes. Same length-normalisation cause; no new item.

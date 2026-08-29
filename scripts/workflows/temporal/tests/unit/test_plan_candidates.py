@@ -213,7 +213,7 @@ def test_the_seed_names_the_candidate_it_came_from(tree: Path) -> None:
 def test_the_seed_does_NOT_claim_research_or_planning_that_does_not_exist(tree: Path) -> None:
     """It is a HANDOFF, and a handoff that reads as findings is worse than none.
 
-    `plan-candidates` writes no `roadmap.md` and no phase docs — `plan-feature`
+    `plan-candidates` writes no `roadmap.md` and no phase docs — `plan-draft`
     does — and it does no research. A seeded file that did not say so would be
     read by the next pass as a thin synthesis rather than an empty one.
     """
@@ -223,10 +223,10 @@ def test_the_seed_does_NOT_claim_research_or_planning_that_does_not_exist(tree: 
             / "synthesis.md").read_text()
 
     assert "No research has been done yet" in seed
-    assert "roadmap.md" in seed and "plan-feature" in seed, (
+    assert "roadmap.md" in seed and "plan-draft" in seed, (
         "the seed must say who writes the roadmap, or the gap reads as an omission")
     assert not (tree / "docs" / "development" / "new-thing" / "roadmap.md").exists(), (
-        "plan-candidates wrote a roadmap; that is plan-feature's and is out of scope")
+        "plan-candidates wrote a roadmap; that is plan-draft's and is out of scope")
 
 
 def test_it_creates_the_research_pool_and_NOTHING_else(tree: Path) -> None:
@@ -591,7 +591,7 @@ def test_a_SEEDED_but_UNRESEARCHED_pool_is_RESUMED_not_skipped_forever(
         tree: Path) -> None:
     """The redispatch hole: "exists" conflated a live component with an abandoned one.
 
-    `research-write` commits the seed; if `research-verify` then fails, the
+    `research-draft` commits the seed; if `research-verify` then fails, the
     documented `--pr` recovery redispatch would hit the exists-check, skip, and
     report "an empty working set, not a skipped step" over a candidate that is
     stranded forever. A pool still carrying the seed marker is unfinished work,
@@ -623,7 +623,7 @@ def test_a_pool_the_research_child_REWROTE_is_never_resumed(tree: Path) -> None:
 
 
 def test_the_seed_asks_the_next_writer_to_CARRY_THE_ID_FORWARD(tree: Path) -> None:
-    """`research_write` fully rewrites this file, so writing the id down is not keeping it.
+    """`research_draft` fully rewrites this file, so writing the id down is not keeping it.
 
     Its prompt says *"write (or fully rewrite) synthesis.md"* and its synthesis
     contract has no provenance field. The id the docstring calls the load-bearing
@@ -848,7 +848,7 @@ def test_THE_REAL_CANDIDATES_FILE_PARSES_UNDER_THE_TIGHTENED_CHECK() -> None:
 
     A vocabulary tightened against fixtures alone is a guess about the live file,
     and this one gates every planning workflow: if the candidates STORE stopped
-    parsing, `triage-candidates`, `plan-feature`, `plan-verify` and
+    parsing, `triage-candidates`, `plan-draft`, `plan-verify` and
     `plan-candidates` all raise before doing anything. The row count is asserted
     non-zero rather than pinned — a pinned figure goes stale on the next filing,
     and the failure this guards against is the parse returning nothing.

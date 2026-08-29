@@ -216,7 +216,7 @@ _DERIVERS = {
 _BOUND_FIGURES = {
     ("journal_activities.py", "FIVE of this fleet's eleven entrypoints"):
         "cut their own worktree",
-    ("journal_activities.py", "eight of eleven"):
+    ("journal_activities.py", "nine of eleven"):
         "reach a worktree before workflow-module code",
     ("journal_activities.py", "eleven entrypoints"): "the entrypoint population",
     ("journal_activities.py", "eleven entrypoint"): "the entrypoint population",
@@ -229,28 +229,28 @@ _BOUND_FIGURES = {
         "the entrypoint population",
     ("test_every_parent_opens_a_run_bag.py", "FIVE of those eleven"):
         "cut their own worktree",
-    ("test_every_parent_opens_a_run_bag.py", "EIGHT of the eleven"):
+    ("test_every_parent_opens_a_run_bag.py", "NINE of the eleven"):
         "reach a worktree before workflow-module code",
     ("test_every_parent_opens_a_run_bag.py", "Seven of the eleven entrypoints"):
         "return from a dry-run branch before bag-open",
-    ("test_every_parent_opens_a_run_bag.py", "eight of eleven"):
+    ("test_every_parent_opens_a_run_bag.py", "nine of eleven"):
         "inside the ordering check's reach",
-    ("test_every_parent_opens_a_run_bag.py", "8 OF 11"):
+    ("test_every_parent_opens_a_run_bag.py", "9 OF 11"):
         "inside the ordering check's reach",
     ("test_every_parent_opens_a_run_bag.py", "five entrypoints"): "cut their own worktree",
-    ("test_every_parent_opens_a_run_bag.py", "three of the eleven entrypoints"):
+    ("test_every_parent_opens_a_run_bag.py", "two of the eleven entrypoints"):
         "outside the ordering check's reach",
-    ("test_every_parent_opens_a_run_bag.py", "EIGHT of eleven entrypoints"):
+    ("test_every_parent_opens_a_run_bag.py", "NINE of eleven entrypoints"):
         "reach a worktree before workflow-module code",
     ("test_the_suite_never_writes_to_the_operators_journal.py", "eleven entrypoints"):
         "the entrypoint population",
     # MOVED HERE BY THIS PR'S OWN EXTRACTION, from the two modules above.
-    ("journal_entrypoint_facts.py", "8 OF 11"):
+    ("journal_entrypoint_facts.py", "9 OF 11"):
         "inside the ordering check's reach",
     ("journal_entrypoint_facts.py", "five entrypoints"): "cut their own worktree",
     ("phase1_the_run_bag.md", "Seven of the 11 entrypoints"):
         "return from a dry-run branch before bag-open",
-    ("phase1_the_run_bag.md", "8 of the 11 entrypoints"):
+    ("phase1_the_run_bag.md", "9 of the 11 entrypoints"):
         "inside the ordering check's reach",
 }
 

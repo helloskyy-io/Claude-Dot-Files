@@ -301,7 +301,7 @@ def test_an_AMBIGUOUS_model_key_is_excluded_from_the_per_workflow_figure(
     _log(tmp_path, "research-20260811-100000-aaa.jsonl",
          _resources(model_key="research"))
     _log(tmp_path, "research-20260811-110000-bbb.jsonl",
-         _resources(model_key="research", workflow_key="research-write"))
+         _resources(model_key="research", workflow_key="research-draft"))
     _log(tmp_path, "longretired-20260811-120000-ccc.jsonl",
          _resources(model_key="longretired"))
     out = _run(tmp_path, capsys, "replay_run_resources")
@@ -309,7 +309,7 @@ def test_an_AMBIGUOUS_model_key_is_excluded_from_the_per_workflow_figure(
     assert "no workflow module declares that model_key: 1" in out
     assert "research-20260811-100000-aaa.jsonl" in out
     assert "longretired-20260811-120000-ccc.jsonl" in out
-    assert "research-write" in out
+    assert "research-draft" in out
 
 
 # --- replay_convergence_events ----------------------------------------------

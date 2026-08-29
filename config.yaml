@@ -115,7 +115,7 @@ models:
                                 #   MEASURED: 11 turns, $1.12, 100s on the update-an-existing-section
                                 #   path. The place-a-new-section path has not run yet, and a tier
                                 #   change should wait for it rather than rest on the easy half.
-  plan-feature: opus            # writes ONE component's roadmap.md and its numbered phase docs
+  plan-draft: opus            # writes ONE component's roadmap.md and its numbered phase docs
                                 #   from that component's research. Opus deliberately, and the
                                 #   argument is not "planning is hard": the whole quality of this
                                 #   output is WHERE THE PHASE BOUNDARIES FALL, which means holding a
@@ -129,10 +129,10 @@ models:
                                 #   the first draft worth reviewing.
   plan-verify: opus             # reads ONE component's roadmap.md and phase docs COLD,
                                 #   sizes every phase in hours, and answers the question
-                                #   plan-feature's own report is required to ask and
+                                #   plan-draft's own report is required to ask and
                                 #   structurally cannot answer about itself — where is
                                 #   this plan weakest. Opus deliberately, on the same
-                                #   argument as plan-feature above and not a weaker one:
+                                #   argument as plan-draft above and not a weaker one:
                                 #   judging whether a phase boundary is right means
                                 #   holding the synthesis, the thesis and the
                                 #   architectural standard together, which is the same
@@ -145,7 +145,6 @@ models:
   review-sprint: opus           # holistic end-of-sprint judgment
   review-runs: sonnet           # CPI log analysis — mechanical + pattern work
   research: opus                # research pool creation — orchestration + synthesis authorship
-  research-write-minor: sonnet  # research-minor's ONE-paper child. Sonnet deliberately, and it is
                                 #   not a downgrade of the research itself: the paper is authored by
                                 #   research-analyst, which pins opus in its own frontmatter and is
                                 #   untouched by this key. What runs here is pure orchestration —
@@ -164,7 +163,6 @@ models:
                                 #   anything. Decide with that number in hand. Keying it to
                                 #   `research` (opus) would tie the cheap cycle's cost to the
                                 #   expensive one, which is the thing this workflow exists to avoid.
-  research-refresh: opus        # research revalidation — orchestration + synthesis diff
   review-pr: opus               # PR disposition engine (was fable — 2026-07-27 economics retier; re-test candidate first when headroom returns)
 
   # Agent-tier canon (DOCUMENTATION ONLY — agents pin models in their own
@@ -247,7 +245,7 @@ max_turns:
                               #   REVISE FROM THE FIRST REAL RUN — and note the working
                               #   set is variable, so a cycle with 60 untriaged rows is
                               #   a different measurement from one with 5.
-  plan-feature: 250           # NOT MEASURED — an estimate, stated as one. Nothing has
+  plan-draft: 250           # NOT MEASURED — an estimate, stated as one. Nothing has
                               #   run this workflow; it is new, so there is no V1 script
                               #   and no split-sibling to derive a figure from. Basis is
                               #   a stage-by-stage walk of its prompt: read one synthesis
@@ -275,13 +273,13 @@ max_turns:
                               #   pool (~8); size each phase (~5); one edit to one file
                               #   (~3); then the report, the commit and the PR (~15).
                               #   That lands near 45.
-                              #   STRICTLY BELOW plan-feature's 250, and the reason is a
+                              #   STRICTLY BELOW plan-draft's 250, and the reason is a
                               #   real difference rather than a guess: this workflow
-                              #   WRITES ONE FILE and reads N, where plan-feature authors
+                              #   WRITES ONE FILE and reads N, where plan-draft authors
                               #   one roadmap plus one 200-260 line phase doc per phase.
                               #   Reading is cheap in turns; authoring is not.
                               #   150 is roughly 3.3x the estimate as headroom, inside the
-                              #   family's observed band (research-write 150/43 = 3.5x,
+                              #   family's observed band (research-draft 150/43 = 3.5x,
                               #   research-verify 200/68 = 2.9x). A cap is a ceiling, not
                               #   a spend, and a cap set BELOW an observed successful run
                               #   has already cost a full budget once.
@@ -289,33 +287,26 @@ max_turns:
                               #   with three phases is a different measurement from one
                               #   with eight, so one run does not settle it.
   research: 250               # pool creation — orchestration + synthesis authorship
-  research-refresh: 250       # ⚠ CONVERGED 2026-08-10, FLAGGED FOR REVIEW. The two
-                              #   fleets disagreed — research-refresh.sh said 200, the
-                              #   Python said 250 — and NEITHER recorded a reason. Took
-                              #   the higher: a cap below an observed successful run has
-                              #   already cost a full budget once, so converging upward
-                              #   is the non-destructive direction. Not a measurement.
   review-pr: 120              # PR disposition engine
   review-runs: 100            # CPI log analysis
   review-sprint: 600          # holistic end-of-sprint judgment
 
   # ── Python-fleet workflows. NOT a 1:1 mirror of `models:` above, and that is
-  #    the point: `research-write` and `research-verify` share MODEL_KEY
+  #    the point: `research-draft` and `research-verify` share MODEL_KEY
   #    "research" but have DIFFERENT, separately-measured budgets. Keying a turn
   #    cap off the model key would silently collapse them.
-  research-write: 150         # MEASURED: cycle 4 used 43. Deliberately supersedes
+  research-draft: 150         # MEASURED: cycle 4 used 43. Deliberately supersedes
                               #   research.sh's 250, which came from the MONOLITH's
                               #   89-turn peak — a pre-split number does not transfer.
   research-verify: 200        # MEASURED: cycle 4 used 68 first pass, 48 on correction.
                               #   3x observed peak: headroom rather than a budget.
-  research-write-minor: 80    # MEASURED: 31 turns on the first live research_minor
                               #   dispatch, 2026-08-12 — run_id
                               #   5bd8b513a50a49d186b054e3c6c11e77, terminal_reason
                               #   "completed", stop_reason "end_turn". The run ended
                               #   naturally and never approached the cap.
                               #   CAP HELD AT 80 — re-examined against the measurement,
                               #   not left alone. 80 over a measured 31 is 2.6x headroom,
-                              #   inside the family's observed band (research-write
+                              #   inside the family's observed band (research-draft
                               #   150/43 = 3.5x, research-verify 200/68 = 2.9x), so the
                               #   value the estimate picked survives contact with the
                               #   real run and there is nothing to revise.
@@ -329,7 +320,7 @@ max_turns:
                               #   high is nothing at all — it is a ceiling, not an
                               #   allocation — while a cap set below a real run has
                               #   already burned a full budget once. It is strictly
-                              #   below research-write's 150 because this cycle is a
+                              #   below research-draft's 150 because this cycle is a
                               #   subset of that one: no topics.md, no fan-out, no
                               #   synthesis.
 

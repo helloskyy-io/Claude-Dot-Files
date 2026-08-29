@@ -12,7 +12,7 @@ that run was doing something else entirely. A vocabulary enforced by a workflow
 tripping over it is not enforced.
 
 THE ROOT CAUSE WAS A MISSING INSTRUCTION, NOT A MISSING CHECK, and the fix
-shipped alongside this: `plan_feature.md` writes the roadmap and said only
+shipped alongside this: `plan_draft.md` writes the roadmap and said only
 *"current status marked clearly at the top"*, naming no set. A writer told to
 mark a status with no list to choose from composes one. **This test is the
 backstop, not the fix** — it catches the writers the prompt does not bind:

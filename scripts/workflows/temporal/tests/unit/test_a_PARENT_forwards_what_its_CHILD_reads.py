@@ -197,7 +197,7 @@ def test_a_PARENT_forwards_every_task_field_its_CHILD_reads(site: dict) -> None:
 
     SCOPED TO NAME AGREEMENT, DELIBERATELY. A child parameter the parent has no
     value for is not a finding — `run_refresh` takes a `pr_number` its parent
-    never has, and `run_plan_feature` takes a `context` `plan_project` does not
+    never has, and `run_plan_draft` takes a `context` `plan_project` does not
     carry. Only a name the parent demonstrably holds and the child demonstrably
     reads is asserted, which keeps this free of exemptions.
     """
