@@ -93,7 +93,7 @@ So this phase builds a **post-exit harvest**: once a child has finished, fleet c
 - [ ] Build the harvest as an activity a parent invokes, with fail-stop on error (requirement 7)
 - [ ] Emit a typed gap event and mark the bag `incomplete` when a surface cannot be read, and confirm [Rebuildability is a test](phase4_rebuild_is_a_test.md) counts that bag as gapped rather than diffing it (requirement 5)
 - [ ] **Build the standing check** (requirement 4) — decide between the enumerating sweep and the per-run reconciliation, state which and why, and confirm it goes RED when the harvest is disabled
-- [ ] Demonstrate a full `research_minor` cycle whose PR body and every comment appear in its bag verbatim, with the command and the observed byte count
+- [ ] Demonstrate a full component-level `research` cycle whose PR body and every comment appear in its bag verbatim, with the command and the observed byte count
 - [ ] Post a comment *after* the harvest window on that same cycle, and confirm the shortfall appears in the record as a counted gap rather than as silence
 - [ ] Tests per the [Testing Standard](../../standards/testing/README.md): `unit/` for run-id-to-bag resolution, the gap path, and the filter on harvested bytes; `integration/` for one real harvest against a real pull request
 - [ ] Record the window shortfall with its denominator in § *Measurement*
