@@ -158,17 +158,17 @@ Evidence, prior art and the plateau correction: [`cpi-decisions.md`](cpi-decisio
 
 ## Sprint: Workflow Decomposition
 
-🟡 IN PROGRESS · (~183h total · ~121h to-do)
+🟡 IN PROGRESS · (~179h total · ~117h to-do)
 
 Taking apart the long-running workflows that already existed, so each boundary is a retry/resume point and children become recombinable rather than copied. **Building the ones that do not exist yet is [Assistant Workflow Design](#sprint-assistant-workflow-design--🔵-not-scheduled-needs-research-then-planning).**
 
 - [x] **Workflow Decomposition · Decompose the build families and codify the shape** · ([roadmap](workflow-decomposition/roadmap.md)) — draft/refine/review-pr, the activities layer, and the composition contract written down
 - [x] **Workflow Decomposition · Family alignment** · ([roadmap](workflow-decomposition/roadmap.md) · [phase](workflow-decomposition/phase2_family_alignment.md)) — children in a family do not diverge except where they need to. Mechanism, standard, fleet backlog and the drifted-copy ruling all shipped; the ruling procedure scored κ = 0.000 in its own blind trial, which Phase 3 inherits as an open question
+- [ ] **Workflow Decomposition · Nothing a run relies on is invisible** · ([roadmap](workflow-decomposition/roadmap.md) · [phase](workflow-decomposition/phase4_nothing_invisible.md)) — a run's derived values on ONE frozen object, constructed once at the dispatch boundary and passed down, stated on the live path before the first side effect, and a wrong derivation demonstrated visible
 - [ ] **Workflow Decomposition · Dual-mode children** · ([roadmap](workflow-decomposition/roadmap.md) · [phase](workflow-decomposition/phase3_dual_mode_children.md)) — the nine children that cannot be started by a person get a runner of their own, each proven running alone
-- [ ] **Workflow Decomposition · Nothing a run relies on is invisible** · ([roadmap](workflow-decomposition/roadmap.md) · [phase](workflow-decomposition/phase4_nothing_invisible.md)) — every derived value published with its marker, its algorithm, its override and its scope of effect, echoed on the live path, and a wrong derivation demonstrated visible
 - [ ] **Workflow Decomposition · What configuration a run absorbed** · ([roadmap](workflow-decomposition/roadmap.md) · [phase](workflow-decomposition/phase5_configuration_a_run_absorbed.md)) — a sixth `Journal-` tag digesting the config a run ran under, and the reader that answers whether two runs used the same configuration
 - [ ] **Workflow Decomposition · Every producer names its consumer** · ([roadmap](workflow-decomposition/roadmap.md) · [phase](workflow-decomposition/phase6_every_producer_names_its_consumer.md)) — what counts as a producer defined with its exclusions named, and the producer-with-no-consumer gate extended beyond one directory with its population read off disk
-- [ ] **Workflow Decomposition · Managed configuration, and whose tier wins** · ([roadmap](workflow-decomposition/roadmap.md)) — gated on *What configuration a run absorbed* for both its digest evidence and its Managed-tier measurement, plus an operator ruling on precedence direction. No phase doc by design
+- [ ] **Workflow Decomposition · Managed configuration, and whose tier wins** · ([roadmap](workflow-decomposition/roadmap.md)) — gated on *What configuration a run absorbed* for both its digest evidence and its Managed-tier measurement, plus an operator ruling on precedence direction and an unresearched buy-versus-build question. No phase doc by design
 - [ ] **Sprint close-out** · ([checks](close_out/sprint_end_recurring.md)) — recurring checks run for this sprint and every finding dispositioned (fixed / rejected-with-reasoning / placed); no open issue belongs to this sprint's work
 
 ## Sprint: Persistent Memory Protocol — Part 1
