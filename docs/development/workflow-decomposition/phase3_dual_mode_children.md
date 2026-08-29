@@ -135,7 +135,7 @@ Requirement 2 says the five divergences are ruled once and written down, without
 - **It does not change how a parent invokes a child.** A parent imports the core function and calls it. Adding an outer entrypoint does not make that path go through a subprocess, and routing parent calls through the shim would trade a function call for a process spawn and lose the return value's type.
 - **It does not make a child good.** It makes a child *exercisable*, which is the precondition for making it good and is a different claim. Improving what a child produces belongs to Self Improvement.
 - **It does not add TTY detection, or any other implicit mode switch.** See the verbosity bullet above.
-- **It does not touch the eleven that already have pairs**, except to extend the naming guard across all twenty.
+- **It does not touch the eleven that already have pairs, with two named exceptions** — the naming guard is extended across all twenty, and **requirement 7's shared mechanism retrofits the seven runners already carrying the duplicated block.** *(Corrected 2026-08-28 by the `plan-verify` pass that read this doc cold. This bullet predated requirement 7 and still read "except to extend the naming guard", which contradicted the ruling two sections above — § *The ruling, made here so the build does not re-litigate it* adopts promoting `parse_or_exit(parser, argv)` **because** it "fixes the existing seven at the same time", and the implementation step says the same. The answer was already written in this document; only this sentence disagreed with it. A builder working from the exclusion list would have scoped the extraction to touch nothing but the nine, which is the one shape that does not fix the seven.)*
 
 ---
 
