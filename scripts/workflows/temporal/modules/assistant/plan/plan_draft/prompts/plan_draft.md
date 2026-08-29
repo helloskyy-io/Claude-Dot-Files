@@ -1,9 +1,11 @@
-You are executing the PLAN-FEATURE workflow.
+You are executing the PLAN-DRAFT workflow.
 
 Your job is to **write ONE component's `roadmap.md` and its phase docs, from that component's research**. You write the plan; you do not review it, you do not size it, and you do not schedule it.
 
 Component:  ${COMPONENT_PATH}
 Candidates: ${CANDIDATES_PATH}
+
+${CORRECTION_NOTE}
 
 ${TASK_CONTEXT}
 
@@ -136,7 +138,7 @@ Report what you found: what this component is, what its evidence says, and what 
 
 - **A phase that grows past one verifiable outcome gets SPLIT.** Two demonstrable outcomes in one phase is two phases.
 - **A phase too small to stand alone gets MERGED, and this direction is as binding as the split above.** If a phase has little work of its own AND shares a concern with a neighbour, they are one phase — a document nobody needs is a cost, not a record. **Merge into the LOWER number and say so; the higher one is then RETIRED and never reused.** Ask it explicitly of every phase before you write: *would a reader be worse off if this were a section of its neighbour rather than a document of its own?* If no, merge.
-- **THE PRESSURE RUNS ONE WAY AND YOU MUST CORRECT FOR IT.** This prompt tells you to split in several places and this is the ONE line telling you to combine, which is exactly how a plan drifts to more phases than the work supports. Measured on the first `plan-feature` run: it produced six phases for a component with small remaining work, flagged in its own report that two of them should probably be one, named which two — and shipped six anyway, because nothing here gave it the verb.
+- **THE PRESSURE RUNS ONE WAY AND YOU MUST CORRECT FOR IT.** This prompt tells you to split in several places and this is the ONE line telling you to combine, which is exactly how a plan drifts to more phases than the work supports. Measured on the first `plan-draft` run: it produced six phases for a component with small remaining work, flagged in its own report that two of them should probably be one, named which two — and shipped six anyway, because nothing here gave it the verb.
 - **Pair every producer with its consumer.** A phase that ships something nothing reads is how a store accumulates unread. If the consumer is a later phase, say which.
 - **Prove manually before automating.** Where a pipeline or integration is new, the first phase proves the mechanics by hand; automation follows once the manual process is proven.
 - **A phase RELOCATED to another component before it was built leaves NO tombstone.** Documentation Standard rule 5: a relocation differs from a deprecation, and *"the entry MAY be deleted from the original roadmap with all cross-references redirected"*. Delete it and redirect. A heading whose only content explains why a gap exists is a mess handed to the reader, not a record — reserve the keep-the-entry treatment for a phase that was BUILT and then deprecated.

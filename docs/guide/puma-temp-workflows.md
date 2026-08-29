@@ -67,7 +67,7 @@ plan-project --project(flag): (parent) (run on the reasearch that was previously
 - research-verify: (if above ran, run verify, targeting the sprint/feature)
 
 wrong from here down!
-- plan-feature: (plans the feature/roadmap/phases (epics) that are referenced onto the sprint)
+- plan-draft: (plans the feature/roadmap/phases (epics) that are referenced onto the sprint)
 - plan-verify: (checks and verifies the planning, fixes issues, assignes an estimated hours value based on the complexity of each phase)
 - plan-sprint: (adds the new feature from above (if any), any changes to the phase hour estimates triggers a change to the total in the sprint, new sprints are calculated at the time of creation)
 - review-pr

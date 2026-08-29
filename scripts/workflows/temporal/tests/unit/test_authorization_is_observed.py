@@ -90,7 +90,7 @@ def _prompt(mod, name: str) -> str:
     """THE ASSEMBLED PROMPT, NOT THE FILE — the model never reads the file.
 
     This was `read_text()`, and it went wrong the moment a block it sweeps for
-    was PROMOTED to a shared fragment. `plan_feature.md` and `plan_verify.md`
+    was PROMOTED to a shared fragment. `plan_draft.md` and `plan_verify.md`
     still promise a completeness list; the opening anchor now arrives through
     `${WORKTREE_IS_COMPARED_TO_A_SNAPSHOT}` instead of sitting in the file. A
     file-level read sees the promise, misses the list, and drops both prompts
@@ -117,7 +117,7 @@ def test_the_workflow_sweep_finds_the_tables_it_is_meant_to() -> None:
     is the moment somebody confirms its table is now covered.
     """
     found = {p.id for p in WORKFLOWS}
-    assert found == {"triage-candidates", "plan-sprint", "plan-feature",
+    assert found == {"triage-candidates", "plan-sprint", "plan-draft",
                      "plan-verify"}, (
         f"the MAY_NOT_OBSERVERS sweep found {sorted(found)}. If a workflow "
         f"vanished, this module is silently no longer checking its "
@@ -274,7 +274,7 @@ def test_plan_sprint_permits_ONLY_its_override() -> None:
     placing job left in the rebuild, and the grant left with it: a permission kept
     after its purpose is one nothing needs and everything inherits.
 
-    The proposal instruction it was partly held for is `plan-feature`'s and
+    The proposal instruction it was partly held for is `plan-draft`'s and
     `plan-verify`'s to satisfy — both still hold that grant, and both run before
     this one on the same branch.
 
@@ -658,7 +658,7 @@ def test_EVERY_value_guard_NAMES_THE_VALUE_THAT_MOVED() -> None:
 # next member gets missed:
 #
 #   * **A prohibition that is not a COLUMN.** The key is backticked tokens
-#     intersected with `_GUARDED_COLUMNS`, so `plan_feature.md`'s "Estimate
+#     intersected with `_GUARDED_COLUMNS`, so `plan_draft.md`'s "Estimate
 #     hours, or size the work in any unit of time" sits outside it by
 #     construction. A REVIEW PASS FOUND EXACTLY THAT MEMBER, one row over from
 #     the `size` omission this rule was written for.
@@ -766,7 +766,7 @@ def test_the_enforcement_BLOCK_sweep_finds_the_prompts_that_PROMISE_one() -> Non
     here and this assertion is where somebody notices.
     """
     found = {p.id for p in DISCLOSING}
-    assert found == {"plan-feature", "plan-verify", "triage-candidates"}, (
+    assert found == {"plan-draft", "plan-verify", "triage-candidates"}, (
         f"the enforcement-block sweep found {sorted(found)}. If one vanished, "
         f"its prompt's promise is no longer read by anything; if one appeared, "
         f"add its id here to confirm its list is genuinely covered rather than "
@@ -1073,7 +1073,7 @@ def test_the_COLUMN_BULLET_finder_HAS_a_population() -> None:
     found = {name: len(_column_bullets(_enforcement_block(_prompt(mod, prompt))))
              for mod, prompt, name in workflows_declaring("MAY_NOT_OBSERVERS")
              if _enforcement_block(_prompt(mod, prompt)) is not None}
-    assert found == {"plan-feature": 1, "plan-verify": 1, "triage-candidates": 4}, (
+    assert found == {"plan-draft": 1, "plan-verify": 1, "triage-candidates": 4}, (
         f"the column-bullet finder sees {found}. A count that fell to 0 means "
         f"the rule above is judging nothing for that prompt and would stay green "
         f"through any count it grew back; a count that ROSE means the list "

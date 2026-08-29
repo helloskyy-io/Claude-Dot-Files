@@ -146,7 +146,7 @@ def test_empty_output_is_UNREADABLE_CHECKS_not_a_silent_gate(monkeypatch, repo):
 
 
 # `gh`'s exact reply on a branch with no checks, verbatim from the MDC run.
-_NO_CHECKS_STDERR = "no checks reported on the 'plan-feature/mdc-rollout-phase-docs' branch"
+_NO_CHECKS_STDERR = "no checks reported on the 'plan-draft/mdc-rollout-phase-docs' branch"
 
 
 def test_a_repo_with_NO_CI_AT_ALL_is_not_mistaken_for_an_unreadable_reply(

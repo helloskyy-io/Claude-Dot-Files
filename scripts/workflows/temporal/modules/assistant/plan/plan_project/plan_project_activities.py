@@ -38,7 +38,7 @@ true and the parameter live.
 IDEMPOTENT (§7.1) BY CHECK-THEN-ACT, which is the pattern §7.1's own
 `create_folder` example uses and `stateful_patterns.md` §4.1 names. The
 exists-check IS the guard: a replay against an unchanged tree creates nothing,
-and a replay landing after `plan-feature` has filled a component in leaves it
+and a replay landing after `plan-draft` has filled a component in leaves it
 alone. This docstring called it "CONVERGENT rather than idempotent" against a
 definition ("safe to replay against a CHANGED tree") that appears nowhere in
 §7.1, which reads as a conformance deviation on code that is the standard's
@@ -452,7 +452,7 @@ def _seed(row: act.CandidateRow, slug: str) -> str:
         f"(../../../tracked/candidates/{row.id}.md).** It was ruled "
         f"`ship` by `triage-candidates` and scaffolded by `plan-candidates`, which "
         f"creates the folder and this file and nothing else. **No research has been "
-        f"done yet**, and the `roadmap.md` and phase docs that `plan-feature` writes "
+        f"done yet**, and the `roadmap.md` and phase docs that `plan-draft` writes "
         f"do not exist.\n"
         f"\n"
         f"> **Whoever rewrites this file: carry the `{row.id}` line above into what "

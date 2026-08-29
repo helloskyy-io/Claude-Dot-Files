@@ -32,7 +32,7 @@ MISSED BY THE 2026-08-26 SWEEP, and the reason is worth keeping. That sweep
 searched for INSTRUCTIONS naming a deleted store and left RECORDS alone — a
 sound rule that scoped the search to prose. **A completion criterion is neither:
 it is a promise about the future, in a document that also holds records.** It was
-found by a `plan-feature` run reading the component cold, not by the sweep that
+found by a `plan-draft` run reading the component cold, not by the sweep that
 created the problem.
 """
 

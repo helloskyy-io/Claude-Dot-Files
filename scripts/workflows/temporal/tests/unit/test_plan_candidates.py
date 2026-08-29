@@ -213,7 +213,7 @@ def test_the_seed_names_the_candidate_it_came_from(tree: Path) -> None:
 def test_the_seed_does_NOT_claim_research_or_planning_that_does_not_exist(tree: Path) -> None:
     """It is a HANDOFF, and a handoff that reads as findings is worse than none.
 
-    `plan-candidates` writes no `roadmap.md` and no phase docs — `plan-feature`
+    `plan-candidates` writes no `roadmap.md` and no phase docs — `plan-draft`
     does — and it does no research. A seeded file that did not say so would be
     read by the next pass as a thin synthesis rather than an empty one.
     """
@@ -223,10 +223,10 @@ def test_the_seed_does_NOT_claim_research_or_planning_that_does_not_exist(tree: 
             / "synthesis.md").read_text()
 
     assert "No research has been done yet" in seed
-    assert "roadmap.md" in seed and "plan-feature" in seed, (
+    assert "roadmap.md" in seed and "plan-draft" in seed, (
         "the seed must say who writes the roadmap, or the gap reads as an omission")
     assert not (tree / "docs" / "development" / "new-thing" / "roadmap.md").exists(), (
-        "plan-candidates wrote a roadmap; that is plan-feature's and is out of scope")
+        "plan-candidates wrote a roadmap; that is plan-draft's and is out of scope")
 
 
 def test_it_creates_the_research_pool_and_NOTHING_else(tree: Path) -> None:
@@ -848,7 +848,7 @@ def test_THE_REAL_CANDIDATES_FILE_PARSES_UNDER_THE_TIGHTENED_CHECK() -> None:
 
     A vocabulary tightened against fixtures alone is a guess about the live file,
     and this one gates every planning workflow: if the candidates STORE stopped
-    parsing, `triage-candidates`, `plan-feature`, `plan-verify` and
+    parsing, `triage-candidates`, `plan-draft`, `plan-verify` and
     `plan-candidates` all raise before doing anything. The row count is asserted
     non-zero rather than pinned — a pinned figure goes stale on the next filing,
     and the failure this guards against is the parse returning nothing.

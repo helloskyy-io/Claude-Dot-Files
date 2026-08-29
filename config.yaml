@@ -115,7 +115,7 @@ models:
                                 #   MEASURED: 11 turns, $1.12, 100s on the update-an-existing-section
                                 #   path. The place-a-new-section path has not run yet, and a tier
                                 #   change should wait for it rather than rest on the easy half.
-  plan-feature: opus            # writes ONE component's roadmap.md and its numbered phase docs
+  plan-draft: opus            # writes ONE component's roadmap.md and its numbered phase docs
                                 #   from that component's research. Opus deliberately, and the
                                 #   argument is not "planning is hard": the whole quality of this
                                 #   output is WHERE THE PHASE BOUNDARIES FALL, which means holding a
@@ -129,10 +129,10 @@ models:
                                 #   the first draft worth reviewing.
   plan-verify: opus             # reads ONE component's roadmap.md and phase docs COLD,
                                 #   sizes every phase in hours, and answers the question
-                                #   plan-feature's own report is required to ask and
+                                #   plan-draft's own report is required to ask and
                                 #   structurally cannot answer about itself — where is
                                 #   this plan weakest. Opus deliberately, on the same
-                                #   argument as plan-feature above and not a weaker one:
+                                #   argument as plan-draft above and not a weaker one:
                                 #   judging whether a phase boundary is right means
                                 #   holding the synthesis, the thesis and the
                                 #   architectural standard together, which is the same
@@ -245,7 +245,7 @@ max_turns:
                               #   REVISE FROM THE FIRST REAL RUN — and note the working
                               #   set is variable, so a cycle with 60 untriaged rows is
                               #   a different measurement from one with 5.
-  plan-feature: 250           # NOT MEASURED — an estimate, stated as one. Nothing has
+  plan-draft: 250           # NOT MEASURED — an estimate, stated as one. Nothing has
                               #   run this workflow; it is new, so there is no V1 script
                               #   and no split-sibling to derive a figure from. Basis is
                               #   a stage-by-stage walk of its prompt: read one synthesis
@@ -273,9 +273,9 @@ max_turns:
                               #   pool (~8); size each phase (~5); one edit to one file
                               #   (~3); then the report, the commit and the PR (~15).
                               #   That lands near 45.
-                              #   STRICTLY BELOW plan-feature's 250, and the reason is a
+                              #   STRICTLY BELOW plan-draft's 250, and the reason is a
                               #   real difference rather than a guess: this workflow
-                              #   WRITES ONE FILE and reads N, where plan-feature authors
+                              #   WRITES ONE FILE and reads N, where plan-draft authors
                               #   one roadmap plus one 200-260 line phase doc per phase.
                               #   Reading is cheap in turns; authoring is not.
                               #   150 is roughly 3.3x the estimate as headroom, inside the

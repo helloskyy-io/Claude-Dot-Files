@@ -38,7 +38,7 @@ from modules.assistant.build.build_draft import build_draft_workflow as draft
 from modules.assistant.build.build_draft_minor import build_draft_minor_workflow as draft_minor
 from modules.assistant.build.build_refine import build_refine_workflow as refine
 from modules.assistant.build.build_refine_minor import build_refine_minor_workflow as refine_minor
-from modules.assistant.plan.plan_feature import plan_feature_workflow as pfeat
+from modules.assistant.plan.plan_draft import plan_draft_workflow as pfeat
 from modules.assistant.plan.plan_verify import plan_verify_workflow as pverify
 from modules.assistant.research import research_activities as ract
 from modules.assistant.research.research_draft import research_draft_workflow as write
@@ -802,7 +802,7 @@ _FRAGMENT_FLOOR = {
     # emptied. Each was a block duplicated between two children until this change.
     "agents_have_no_shell": 8,
     # 1 -> 2 on 2026-08-22. The `git ls-files` half of the check joined it: it
-    # lived inline in `plan_feature.md` alone, so the three tiers that render
+    # lived inline in `plan_draft.md` alone, so the three tiers that render
     # this fragment were told to prove a new file is not IGNORED and never to
     # prove it is COMMITTED. Both halves are one paragraph each, so the floor
     # is again the whole fragment and a shrink here is a deletion.
@@ -929,7 +929,7 @@ def _planning_prompt(tmp_path: Path, module, filename: str) -> str:
 
 @pytest.mark.parametrize(
     ("name", "module", "filename"),
-    [("plan_feature", pfeat, "plan_feature.md"),
+    [("plan_draft", pfeat, "plan_draft.md"),
      ("plan_verify", pverify, "plan_verify.md")],
 )
 def test_a_planning_run_renders_EVERY_fragment_it_loads(
@@ -1020,8 +1020,8 @@ def test_the_class_SWEEP_reaches_every_child_that_closes_a_finding() -> None:
     """
     root = Path(__file__).resolve().parents[2] / "modules" / "assistant"
     consumers = {
-        "plan_feature":       (root/"plan/plan_feature/plan_feature_workflow.py",
-                               root/"plan/plan_feature/prompts/plan_feature.md"),
+        "plan_draft":       (root/"plan/plan_draft/plan_draft_workflow.py",
+                               root/"plan/plan_draft/prompts/plan_draft.md"),
         "plan_verify":        (root/"plan/plan_verify/plan_verify_workflow.py",
                                root/"plan/plan_verify/prompts/plan_verify.md"),
         "build_refine":       (root/"build/build_refine/build_refine_workflow.py",

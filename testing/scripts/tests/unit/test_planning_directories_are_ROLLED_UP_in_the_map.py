@@ -2,15 +2,15 @@ r"""A planning directory must be SUMMARISED in the map, never listed file by fil
 
 THE DEFECT THIS PINS, C-pky2l2b6, measured three times on independent runs.
 
-  * PR #111 — `plan-feature` added four phase docs to `workflow-decomposition/`;
+  * PR #111 — `plan-draft` added four phase docs to `workflow-decomposition/`;
     `test_a_directory_the_map_ENUMERATES_is_enumerated_COMPLETELY` went red; an
     operator hand-patched `docs/file_structure.txt`.
   * The correction pass on that PR filed C-pky2l2b6 for the general form.
-  * PR #123 — the next `plan-feature` run, on `persistent-memory-protocol/`,
+  * PR #123 — the next `plan-draft` run, on `persistent-memory-protocol/`,
     added ONE phase doc and hit the identical wall.
 
 THE MECHANISM IS A BOUNDARY, NOT A CARELESS RUN, which is why a check belongs
-here rather than a note in a prompt. Writing a phase doc is `plan-feature`'s
+here rather than a note in a prompt. Writing a phase doc is `plan-draft`'s
 ENTIRE JOB. Its write grant is `docs/development/<component>/[^/]+\\.md` plus the
 candidates file, and `docs/file_structure.txt` is in neither — its dispatch prompt
 names the map as out of scope explicitly. So a correct run makes the map
@@ -72,23 +72,23 @@ designed — but it was real, and it is gone.
 NO REPLACEMENT GATE, RULED RATHER THAN OVERLOOKED. Any snapshot predicate strong
 enough to catch a DELETED component row — own-row required, set-equality against
 `docs/development/`, a pinned census — is by construction strong enough to fail a
-`plan-feature` run that CREATES a component, because both are the same tree state
+`plan-draft` run that CREATES a component, because both are the same tree state
 read from opposite directions. That is C-pky2l2b6 exactly: measured on PR #111,
 measured again on PR #123, and re-created once by the first draft of this very
 module. A gate on a repo-wide artifact must not fail a run structurally forbidden
-to repair it, and `plan-feature`'s grant (`^docs/development/<component>/[^/]+\.md$`
+to repair it, and `plan-draft`'s grant (`^docs/development/<component>/[^/]+\.md$`
 plus the candidates file) excludes this map.
 
 "Lost a row" and "never had one" are the same tree state with opposite verdicts,
 so the property is TEMPORAL and no snapshot can carry it. Its home is the diff,
 which is what `review-pr` and a human read. **Do not add a test asserting component
-rows exist, and do not widen `plan-feature`'s grant to reach the map — both were
+rows exist, and do not widen `plan-draft`'s grant to reach the map — both were
 considered, both were rejected, and an executor "improving" on this by adding the
 gate re-ships C-pky2l2b6.**
 
 THE POPULATION IS DERIVED FROM THE TREE, WHICH BOUNDS WHAT THIS MODULE MAY
 ASSERT, and the bound is the reason the check above reads the way it does. A
-`plan-feature` run writes into `docs/development/<component>/` and nowhere else,
+`plan-draft` run writes into `docs/development/<component>/` and nowhere else,
 so anything this module derives from `git ls-files` is under that run's control.
 An assertion of the form *"the map must NOT contain X"* is safe against it —
 adding a phase doc can only make it more true. An assertion of the form *"the map
@@ -204,7 +204,7 @@ def test_a_planning_directory_has_NO_per_file_row_in_the_map() -> None:
         + "\n\nOne such row is enough to make the directory ENUMERATED, and "
           "`test_a_directory_the_map_ENUMERATES_is_enumerated_COMPLETELY` then "
           "demands a row for every phase doc in it — including the ones "
-          "`plan-feature` has not written yet and is not permitted to add here "
+          "`plan-draft` has not written yet and is not permitted to add here "
           "(C-pky2l2b6). Delete the row. The per-phase detail belongs in that "
           "component's roadmap.md, which is the only copy anyone maintains.")
 
@@ -217,7 +217,7 @@ def test_every_planning_directory_is_still_REACHABLE_through_the_map() -> None:
     C-pky2l2b6 one level up — reproduced by execution before it was changed. Staging a
     `roadmap.md` and a `phase1_*.md` into a component directory the map has no row
     for turned this red, on a tree state that was green before this module existed;
-    `plan-feature` creates exactly that pair, its write grant is
+    `plan-draft` creates exactly that pair, its write grant is
     `^docs/development/<component>/[^/]+\\.md$` plus the candidates file, and
     `docs/file_structure.txt` is in neither. A correct run would have shipped a red
     suite it was structurally forbidden to repair, which is the entire defect this
@@ -263,7 +263,7 @@ def test_the_reachability_check_FIRES_only_when_NOTHING_reaches_the_directory() 
 
     THE NEGATIVE HALF IS THE ONE THAT MATTERS HERE, because it is the regression
     this test was relaxed to prevent, pinned as a case rather than as prose. A
-    component directory with NO row of its own — exactly what a `plan-feature` run
+    component directory with NO row of its own — exactly what a `plan-draft` run
     produces when it writes the first `roadmap.md` + `phase1_*.md` into a directory
     the map has not yet been updated for — must NOT fire, because the
     `docs/development/` ancestor reaches it and that run cannot write the map. If
@@ -289,7 +289,7 @@ def test_the_reachability_check_FIRES_only_when_NOTHING_reaches_the_directory() 
     )
     assert not _unreachable(ancestor_only, widget), (
         "the predicate fired on a component reached through its docs/development/ "
-        "ancestor. That is the state a plan-feature run leaves behind when it "
+        "ancestor. That is the state a plan-draft run leaves behind when it "
         "writes the first roadmap.md and phase doc into a directory the map has no "
         "row for yet — and that run's write grant excludes docs/file_structure.txt, "
         "so failing here is C-pky2l2b6 recreated by the module that exists to retire it.")

@@ -1,4 +1,4 @@
-"""plan-feature — write ONE component's `roadmap.md` and its phase docs. Nothing else.
+"""plan-draft — write ONE component's `roadmap.md` and its phase docs. Nothing else.
 
 Folder holds this file plus its own I/O (§10.1 rules 3 and 6); the family's
 shared capability lives in `plan_activities`.
@@ -22,7 +22,7 @@ dispatchable with `review-pr --type planning` as its judge on that path.
 
 *(Left as a correction rather than a rewrite because the false version was
 load-bearing: this same claim was stated in three places — here, in
-`prompts/plan_feature.md`, and in `run_plan_feature.py`'s completion banner — and
+`prompts/plan_draft.md`, and in `run_plan_draft.py`'s completion banner — and
 the PR that built `plan-verify` falsified all three and updated none.
 `test_no_prose_claims_a_shipped_workflow_is_UNBUILT` is what fails now instead of
 a reviewer noticing.)*
@@ -83,23 +83,23 @@ from pathlib import Path
 from ... import routing
 
 from .. import plan_activities as act
-from . import plan_feature_activities as own
+from . import plan_draft_activities as own
 
 _HERE = Path(__file__).resolve().parent
 PROMPTS = _HERE / "prompts"
 
-MODEL_KEY = "plan-feature"
+MODEL_KEY = "plan-draft"
 
 # An ESTIMATE, stated as one — nothing has measured this workflow. The basis and
 # the revise-from-measurement note live with the value in config.yaml.
-WORKFLOW_KEY = "plan-feature"   # NOT MODEL_KEY -- see run_claude's docstring
+WORKFLOW_KEY = "plan-draft"   # NOT MODEL_KEY -- see run_claude's docstring
 MAX_TURNS = act.max_turns(WORKFLOW_KEY)
 
 COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 
 # --- THE PATH BOUNDARY, DECLARED WHERE THE PROMPT'S TABLE CAN BE READ AGAINST IT
 #
-# Every path-scoped `You MAY NOT` row in `prompts/plan_feature.md`, as a pattern.
+# Every path-scoped `You MAY NOT` row in `prompts/plan_draft.md`, as a pattern.
 # `docs/development/` is denied WHOLESALE and the component is granted back below,
 # which is the only ordering that makes a one-component workflow's boundary say
 # what it means: an allowlist alone would say nothing about the fifteen sibling
@@ -217,7 +217,8 @@ def permitted_paths(component_rel: Path, candidates_rel: Path) -> tuple[str, ...
 
 
 def prompt_values(rel_component: Path, rel_candidates: Path, tree: Path,
-                  pr_number: str | None, context: str = "") -> dict[str, str]:
+                  pr_number: str | None, context: str = "",
+                  correction_pass: bool = False) -> dict[str, str]:
     """Every placeholder the prompt takes, assembled ONCE for both callers.
 
     THE DRY RUN AND THE REAL RUN MUST RENDER THE SAME PROMPT, and this exists so
@@ -255,12 +256,28 @@ def prompt_values(rel_component: Path, rel_candidates: Path, tree: Path,
         # merged as a078c41, so the premise expired and the block moved.
         "GITIGNORE_COLLISION_CHECK": act.shared_prompt("gitignore_collision_check"),
         "SUBMIT_PROMPT": act.submit_prompt(
-            pr_number, f"plan-feature: plan {rel_component.name}"),
+            pr_number, f"plan-draft: plan {rel_component.name}"),
         # OPAQUE, and rendered verbatim. Before this existed `--pr` could push to
         # a branch and could not be TOLD why it was re-running, so this child had
         # no correction path at all: `plan_project`'s loop-back goes to
         # `plan-sprint`, which cannot edit a roadmap or a phase doc. A producer
         # nothing can instruct is a producer whose only repair is a full re-plan.
+        # THE CORRECTION SIGNAL, AND ITS ABSENCE IS WHAT THE COMMENT ABOVE
+        # PREDICTED. `plan`'s loop-back re-dispatches this child with the
+        # ORIGINAL brief and a PR number and nothing else, so a run that had
+        # already landed its re-plan re-established that fact from scratch and
+        # reported it — three times on PR #145, a full opus dispatch each, on the
+        # most expensive child in the chain. Every other looped producer in the
+        # fleet carries this flag; this was the one that did not.
+        #
+        # WORDED EXACTLY AS `plan-sprint` AND `research-verify` WORD IT. Six sites
+        # across three families already say this in four different ways, which is
+        # a divergence worth closing on its own; adding a fifth wording here would
+        # make that worse for no gain.
+        "CORRECTION_NOTE": (
+            "This is a CORRECTION PASS. A prior disposition returned HOLD with a "
+            "scoped runway; close it." if correction_pass else ""
+        ),
         "TASK_CONTEXT": (
             "## OPERATOR CONTEXT FOR THIS RUN\n\n"
             "**This is authoritative and overrides your own reading where they "
@@ -288,7 +305,7 @@ def prompt_values(rel_component: Path, rel_candidates: Path, tree: Path,
 #
 # WHAT IS NEW HERE RATHER THAN INHERITED: three of this workflow's prohibitions
 # are properties of FILENAMES and one is a property of PROSE, so several entries
-# below name a reader in `plan_feature_activities` rather than a comparator the
+# below name a reader in `plan_draft_activities` rather than a comparator the
 # family shares. Every one of those readers is scoped by `own.plan_docs` — the
 # write grant's own set — because a guard narrower than the grant leaves a file
 # the run may write and nothing inspects, which is this map's failure mode
@@ -416,9 +433,10 @@ DISAPPEARANCE_OBSERVERS: dict[str, str] = {
 }
 
 
-def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
+def run_plan_draft(*, repo_root: Path, worktree: Path, component: Path,
                      candidates_path: Path, pr_number: str | None = None,
-                     context: str = "", verbose: bool = False) -> str:
+                     context: str = "", correction_pass: bool = False,
+                     verbose: bool = False) -> str:
     """Plan ONE component: its roadmap and its phase docs. Returns the PR URL."""
     # Paths arrive rooted at the REPO because that is where they are configured,
     # but the run reads and writes inside the WORKTREE. Resolve once, count what
@@ -443,10 +461,10 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
     before_tree = act.worktree_state(worktree)
 
     values = prompt_values(rel_component, rel_candidates, worktree, pr_number,
-                           context)
+                           context, correction_pass)
 
     output = act.run_claude(
-        act.render(act.load_prompt(PROMPTS / "plan_feature.md"), values,
+        act.render(act.load_prompt(PROMPTS / "plan_draft.md"), values,
                    opaque=frozenset({"TASK_CONTEXT"})),
         model_key=MODEL_KEY, workflow_key=WORKFLOW_KEY,
         completion_pattern=COMPLETION_PATTERN,
@@ -457,7 +475,7 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
     url = act.extract_pr_url(output)
     if not url:
         raise RuntimeError(
-            f"plan-feature produced no PR URL for `{rel_component}`. Its plan is "
+            f"plan-draft produced no PR URL for `{rel_component}`. Its plan is "
             f"UNREVIEWED and unsubmitted — whatever the exit code says, nothing "
             f"downstream may treat this component as planned. Inspect the worktree "
             f"before re-dispatching; the work may be there."
@@ -486,7 +504,7 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
     lost = act.ids_deleted(before_phase, after_phase)
     if lost:
         raise RuntimeError(
-            f"plan-feature removed {len(lost)} existing phase doc(s): "
+            f"plan-draft removed {len(lost)} existing phase doc(s): "
             f"{', '.join(lost)}. A phase number NAMES the phase for life, the way "
             f"a ticket number does — it is not the order. If a phase's position in "
             f"the rollout changed, the line moves in `roadmap.md` and the file does "
@@ -503,7 +521,7 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
     vanished = act.grants_that_vanished(before_tree, after_tree, permitted)
     if vanished:
         raise RuntimeError(
-            f"plan-feature made {len(vanished)} file(s) it may WRITE cease to "
+            f"plan-draft made {len(vanished)} file(s) it may WRITE cease to "
             f"exist: {', '.join(vanished)}. The permission covers creating and "
             f"editing them and nothing further. Both grants are load-bearing and "
             f"the message names the paths above rather than guessing which: a "
@@ -518,13 +536,13 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
     # and the next step in the chain proceeds on it.
     if not (wt_component / own.ROADMAP).is_file():
         raise RuntimeError(
-            f"plan-feature produced no `{rel_component}/roadmap.md`. That file IS "
+            f"plan-draft produced no `{rel_component}/roadmap.md`. That file IS "
             f"the deliverable — it is what a PM or a new reader opens first, and "
             f"every phase doc is reachable only through it — see {url}"
         )
     if not after_phase:
         raise RuntimeError(
-            f"plan-feature produced no phase doc in `{rel_component}/`. A roadmap "
+            f"plan-draft produced no phase doc in `{rel_component}/`. A roadmap "
             f"with no phases is an overview of nothing: the roadmap says what each "
             f"phase achieves and links to it, and there is nothing to link to — "
             f"see {url}"
@@ -540,7 +558,7 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
     malformed = own.malformed_phase_docs(before_plan, after_plan)
     if malformed:
         raise RuntimeError(
-            f"plan-feature wrote {len(malformed)} plan file(s) whose names are not "
+            f"plan-draft wrote {len(malformed)} plan file(s) whose names are not "
             f"valid: {', '.join(malformed)}. This workflow writes exactly two kinds "
             f"of file: one `roadmap.md`, and one `phaseN_<snake_case>.md` per phase "
             f"— no unnumbered `phase_<name>.md`, no bare `<name>.md`, no "
@@ -551,7 +569,7 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
     reused = own.reused_phase_numbers(before_phase, after_phase)
     if reused:
         raise RuntimeError(
-            f"plan-feature reused {len(reused)} phase number(s) already taken in "
+            f"plan-draft reused {len(reused)} phase number(s) already taken in "
             f"`{rel_component}/`: "
             + ", ".join(f"{name} (phase {num})" for name, num in reused)
             + f". A new phase takes `max(existing) + 1`, and a GAP IS NOT A FREE "
@@ -574,7 +592,7 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
     hours = own.hour_estimates(wt_component, worktree, only=new_hours)
     if hours:
         raise RuntimeError(
-            f"plan-feature wrote {len(hours)} hour estimate(s) into the plan:\n  "
+            f"plan-draft wrote {len(hours)} hour estimate(s) into the plan:\n  "
             + "\n  ".join(hours)
             + f"\nSizing is NOT this workflow's, and that is a design decision "
             f"rather than a division of labour: an author sizing their own "
@@ -593,7 +611,7 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
     erased = before_boxes - after_boxes
     if ticked or erased:
         raise RuntimeError(
-            f"plan-feature changed {sum((ticked + erased).values())} completion "
+            f"plan-draft changed {sum((ticked + erased).values())} completion "
             f"checkbox(es) in `{rel_component}/`: "
             + "; ".join(
                 [f"TICKED {text!r}" for text in sorted(ticked)]
@@ -615,7 +633,7 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
     gone = act.ids_deleted(before_decision, after_decision)
     if gone:
         raise RuntimeError(
-            f"plan-feature deleted {len(gone)} candidate row(s): {', '.join(gone)}. "
+            f"plan-draft deleted {len(gone)} candidate row(s): {', '.join(gone)}. "
             f"No workflow deletes a row — a candidate ruled `reject` stays in the "
             f"file precisely so the next research cycle does not re-propose it, and "
             f"a row that merely disappears is indistinguishable from one that was "
@@ -625,7 +643,7 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
     ruled = act.decisions_this_run_had_no_right_to(before_decision, after_decision)
     if ruled:
         raise RuntimeError(
-            f"plan-feature changed the `decision` column on {len(ruled)} "
+            f"plan-draft changed the `decision` column on {len(ruled)} "
             f"candidate(s): "
             + ", ".join(f"{cid} {before_decision[cid]!r}->{after_decision[cid]!r}"
                         for cid in ruled)
@@ -639,7 +657,7 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
     sized = act.sizes_this_run_had_no_right_to(before_size, after_size)
     if sized:
         raise RuntimeError(
-            f"plan-feature set or changed the `size` column on {len(sized)} "
+            f"plan-draft set or changed the `size` column on {len(sized)} "
             f"pre-existing candidate(s): "
             + ", ".join(f"{cid} {before_size[cid]!r}->{after_size[cid]!r}"
                         for cid in sized)
@@ -657,7 +675,7 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
     flipped = act.statuses_this_run_had_no_right_to(before_status, after_status)
     if flipped:
         raise RuntimeError(
-            f"plan-feature changed the `status` column on {len(flipped)} "
+            f"plan-draft changed the `status` column on {len(flipped)} "
             f"candidate(s): "
             + ", ".join(f"{cid} {before_status[cid]!r}->{after_status[cid]!r}"
                         for cid in flipped)
@@ -670,7 +688,7 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
     named = act.components_this_run_had_no_right_to(before_component, after_component)
     if named:
         raise RuntimeError(
-            f"plan-feature set or changed the `component` column on {len(named)} "
+            f"plan-draft set or changed the `component` column on {len(named)} "
             f"pre-existing candidate(s): "
             + ", ".join(f"{cid} {before_component[cid]!r}->{after_component[cid]!r}"
                         for cid in named)
@@ -689,7 +707,7 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
                                      FORBIDDEN_PATHS, permitted)
     if crossed:
         raise RuntimeError(
-            f"plan-feature edited {len(crossed)} file(s) outside its "
+            f"plan-draft edited {len(crossed)} file(s) outside its "
             f"authorization: {', '.join(crossed)}. This workflow plans ONE "
             f"component. Its own `research/` is evidence and is read-only — a plan "
             f"that edits the evidence it is planning from has made the evidence "

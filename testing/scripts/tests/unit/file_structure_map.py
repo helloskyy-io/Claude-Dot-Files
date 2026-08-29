@@ -13,7 +13,7 @@ THE TWO CONSUMERS AND WHY THEY ARE SEPARATE:
   * `test_file_structure_map_covers_the_tree.py` — the map may summarise but it
     may not silently OMIT, and where it enumerates it enumerates completely.
   * `test_planning_directories_are_ROLLED_UP_in_the_map.py` — a planning directory
-    must be summarised rather than enumerated, so that a `plan-feature` run adding
+    must be summarised rather than enumerated, so that a `plan-draft` run adding
     a phase doc cannot make the first module go red (C-pky2l2b6).
 
 They are opposite ends of the same rule and both need the same parse, which is

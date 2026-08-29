@@ -1,4 +1,4 @@
-"""Kickoff entrypoint for plan-feature.
+"""Kickoff entrypoint for plan-draft.
 
 Lives in scripts/ because it is a launch concern, not a workflow concern. When
 the Temporal path exists this is replaced by a client that starts the workflow
@@ -14,8 +14,8 @@ from dispatch_identity import add_identity_arguments, resolve_identity  # noqa: 
 from modules.assistant import assistant_activities as act_shared  # noqa: E402
 from modules.journal import journal_activities as journal  # noqa: E402
 from modules.assistant.plan import plan_activities as act  # noqa: E402
-from modules.assistant.plan.plan_feature import plan_feature_activities as own  # noqa: E402
-from modules.assistant.plan.plan_feature import plan_feature_workflow as wf  # noqa: E402
+from modules.assistant.plan.plan_draft import plan_draft_activities as own  # noqa: E402
+from modules.assistant.plan.plan_draft import plan_draft_workflow as wf  # noqa: E402
 
 BANNER = "=" * 64
 
@@ -26,7 +26,7 @@ DEFAULT_CANDIDATES = "tracked/candidates"
 
 
 def main(argv=None) -> int:
-    p = RepoPathParser(prog="plan-feature",
+    p = RepoPathParser(prog="plan-draft",
         description="Write ONE component's roadmap.md and phase docs from its research. "
                     "Writes no sprint entry and estimates no hours.")
     # DECLARED AS REPO PATHS, WHICH IS WHAT INSTALLS THE CHECK. `--repo` and a
@@ -49,7 +49,7 @@ def main(argv=None) -> int:
                     help="the component directory, e.g. docs/development/fleet-reliability")
     p.add_argument("--repo", dest="repo_target", help="target repo — a FILESYSTEM PATH, never a gh slug")
     p.add_repo_path("--candidates", default=DEFAULT_CANDIDATES)
-    p.add_argument("--pr", dest="pr_number", help="update an existing plan-feature PR")
+    p.add_argument("--pr", dest="pr_number", help="update an existing plan-draft PR")
     # NOT a repo path, deliberately — operator context from wherever they wrote it,
     # the same contract `run_research_minor.py` uses. Without this the `--pr` path
     # could push to a branch and could not be TOLD why it was re-running.
@@ -107,7 +107,7 @@ def main(argv=None) -> int:
             # already (see `plan_sprint`'s `correction_note`), and an operator
             # checking the wrong artifact is worse than checking none.
             rendered = act.render(
-                act.load_prompt(wf.PROMPTS / "plan_feature.md"),
+                act.load_prompt(wf.PROMPTS / "plan_draft.md"),
                 wf.prompt_values(rel, cands.relative_to(repo_root), repo_root,
                                  a.pr_number, context),
                 opaque=frozenset({"TASK_CONTEXT"}))
@@ -120,7 +120,7 @@ def main(argv=None) -> int:
         # that enforces it can and cannot see: `journal_activities.py`'s module
         # docstring and `tests/unit/test_every_parent_opens_a_run_bag.py`. Said
         # once there rather than eleven times here.
-        worktree_name = f"plan-feature-{int(time.time())}"
+        worktree_name = f"plan-draft-{int(time.time())}"
         # PHASE 9 r2 and r4 — the run's NAME arrives from outside this
         # process, and `writer` says whether this invocation IS the run or
         # is part of one. Why both, and where a name comes from when no
@@ -128,12 +128,12 @@ def main(argv=None) -> int:
         identity = resolve_identity(argv)
         journal.open_run_bag(run_id=identity.run_id, writer=identity.writer,
                              repo_root=repo_root,
-                             workflow_key="plan-feature",
+                             workflow_key="plan-draft",
                              worktree_name=worktree_name)
 
         # A `--pr` PASS MUST START FROM THE WORK IT IS CORRECTING. Hard-coding
         # "HEAD" put the run on `main`, so a correction pass opened a worktree
-        # with none of the PR's files in it. Measured on plan-feature's first
+        # with none of the PR's files in it. Measured on plan-draft's first
         # correction pass: the counted-in-code block reported "0 phase doc(s)"
         # — true of the worktree it was handed, false of the four docs it was
         # told to correct — and the run spent turns fetching and checking out
@@ -145,7 +145,7 @@ def main(argv=None) -> int:
         # sweep of this did not see it.
         ref = act.base_ref(a.pr_number, repo_root)
         worktree = act.worktree_add(repo_root, worktree_name, ref)
-        url = wf.run_plan_feature(repo_root=repo_root, worktree=worktree,
+        url = wf.run_plan_draft(repo_root=repo_root, worktree=worktree,
                                   component=component, candidates_path=cands,
                                   pr_number=a.pr_number, context=context,
                                   verbose=a.verbose)

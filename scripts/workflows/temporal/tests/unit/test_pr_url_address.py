@@ -562,13 +562,13 @@ def test_the_pr_url_completion_patterns_are_ONE_string_plus_ONE_declared_wider()
         if "COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE" in path.read_text(encoding="utf-8")
     )
     # 12 since plan_verify landed (2026-08-15), the READ half of the planning
-    # split; 11 since plan_feature (2026-08-14), its write half; 10 since
+    # split; 11 since plan_draft (2026-08-14), its write half; 10 since
     # triage_candidates (2026-08-12), split out of plan-sprint; 9 since
     # research_draft_minor (2026-08-11). This census is hand-maintained ON
     # PURPOSE: a new workflow that opens a PR must reference the shared constant,
     # and an edit here is how a human confirms it does rather than having
     # re-declared the literal that once cost a finished run. It fired on exactly
-    # that event when triage_candidates was added, again for plan_feature, and
+    # that event when triage_candidates was added, again for plan_draft, and
     # again here — which is the census working and not a chore.
     # THE ORDINALS ARE DERIVED, NOT SPELLED, AND THAT IS THE FIX RATHER THAN THE
     # TYPO IT REPLACES. This message read "The twelfth is plan-revision… the

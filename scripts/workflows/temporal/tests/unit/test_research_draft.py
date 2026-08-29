@@ -167,7 +167,7 @@ def test_the_minor_cycle_writes_a_SYNTHESIS() -> None:
     That is true on the first run and false on the second: papers ACCUMULATE and
     the synthesis is REPLACED (Research Standard §4), so a pool holding two minor
     papers and no synthesis has nothing rolling them up. It also stranded the
-    evidence — `plan_feature` is told not to read raw papers wholesale, so it
+    evidence — `plan_draft` is told not to read raw papers wholesale, so it
     reported "no synthesis" and planned from priors while the paper sat unread.
 
     Asserted POSITIVELY rather than deleted: a guard whose design reverses should

@@ -21,7 +21,7 @@ nominated four items for merging and one of four survived reading them.
 WHY IT EXISTS AT ALL. `recurrence.py` shipped 2026-08-26 with the ranking and the
 rendered block, and the prompts shipped the same day telling every filer to
 "search the store and read the two or three closest items in full" — with nothing
-between them. A run then faced 122 files and a hand search. Both `plan-feature`
+between them. A run then faced 122 files and a hand search. Both `plan-draft`
 and `review-pr` flagged it independently on PR #144. The capability existed and
 was unreachable; this is the wire.
 """

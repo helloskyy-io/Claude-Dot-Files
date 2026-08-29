@@ -284,7 +284,7 @@ DOCS_RESIDUE: dict[str, Residue] = {
     "docs/guide/claude_code_orchestration.md": Residue(
         frozenset({"/tmp/workflow/plan.md", "/tmp/workflow/plan-v2.md",
                    "/tmp/workflow/security.md"}),
-        "NOT FIX-CLASS. `/tmp/workflow/*.md` inside a hypothetical `plan-feature.sh` "
+        "NOT FIX-CLASS. `/tmp/workflow/*.md` inside a hypothetical `plan-draft.sh` "
         "in an options comparison, and principle 4 of the same document explicitly "
         "retires the pattern: 'The original said `/tmp/workflow/*.md`… the handoff "
         "between stages is the PR'. Illustration of a rejected approach.",
