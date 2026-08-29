@@ -24,6 +24,8 @@ So this phase builds three things and deliberately stops: **one digest, one tag,
 
 **Requirement 5 is an input to a decision this phase does not make.** The immunity property is an inference across three sources, one of them a rendered page, flagged by its own paper as unmeasured. It matters because the fleet's safety hook lives in user-scope settings, and a dispatch that narrows its setting sources strips the file the hook is declared in — the one control still operating during a headless run. Measuring it is cheap. Building on it unmeasured is not.
 
+**So RUN REQUIREMENT 5 FIRST, and do not let it queue behind the digest. Added 2026-08-29, and it is a sequencing instruction rather than a new requirement.** This phase delivers two independent things: requirements 1–4 are the digest, its tag and its reader; requirement 5 shares no code, no surface and no dependency with any of them, and it appears last in the implementation checklist only because that is where a measurement naturally reads. **It is gate 2 of the four on *Managed configuration, and whose tier wins* in [`roadmap.md`](roadmap.md)**, so anything that slows the digest slows a gate in another phase for no reason. It is one session against a live CLI, its result is routed to both destinations before it runs (§ *Requirements for completion*), and **a green digest is not this phase complete while requirement 5 is unrun**.
+
 **And a measurement's RESULT needs a destination, or it dies in a verification block nobody re-reads.** Requirement 5 produces one of two findings and each has a different home:
 
 | Observed | What it is | Where it goes |

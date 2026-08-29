@@ -30,6 +30,8 @@ A gate exists for exactly one directory. This phase decides what the rule actual
 
 5. **An unread producer is DEMONSTRATED to turn the suite red.** Add a producer with no named consumer and watch it fail; add one whose consumer cell is empty and watch that fail too. Requirements 1–4 are not complete without it, and none of it is asserted from reading the code.
 
+6. **If requirement 2 rules the cadence clause BINDING, giving [What configuration a run absorbed](phase5_configuration_a_run_absorbed.md)'s two-bag reader a stated invoker lands in THIS phase.** **This requirement stays unchecked and one of its two branches is empty by construction** — if the ruling exempts on-demand readers, there is nothing to do and it is checked with that recorded. It exists because the remedy for the other branch currently has no owner: that phase rolls out first, deliberately, so it is closed by the time the ruling is made. See § *Requirement 2's remedy has an owner, and it is this phase*.
+
 **Requirement 2 is this phase's one open question and it is deliberately left open.** Both answers are defensible — the cadence clause may be required only of surfaces that *accumulate*, leaving an on-demand reader conformant; or an on-demand reader may be non-conformant, in which case [What configuration a run absorbed](phase5_configuration_a_run_absorbed.md)'s reader needs a stated invoker. **What is not defensible is discovering the question while building the second of the two phases**, which is why it is a requirement here rather than a note.
 
 ---
@@ -81,6 +83,16 @@ The shapes to rule on, and the fifth is the one nothing covers:
 
 **This plan does not rule it, and that is a decision rather than an omission.** Ruling it here would set a fleet-wide conformance property from a single instance, on a planning run's judgement, with no build having exercised either answer. The plan's job is to make sure it is ruled *before* the gate code is written rather than discovered after — which requirement 2 and the first implementation step do.
 
+### Requirement 2's remedy has an owner, and it is this phase
+
+**Added 2026-08-29, after a cold read found the ordering argument had left one branch un-owned.** The ordering this phase depends on is deliberate: [What configuration a run absorbed](phase5_configuration_a_run_absorbed.md) rolls out **first** so the on-demand shape exists in the tree as a worked instance when requirement 2 is ruled. **That ordering also means the phase that would carry the remedy is closed before the ruling is made.**
+
+The failure is quiet and specific. If requirement 2 rules the cadence clause binding, that phase's two-bag reader is non-conformant against a definition this phase has just written, in a phase nobody is working on any more. **The pressure at that moment is exactly the one § *Notes and gotchas* warns against** — *"inventing a schedule to satisfy a check is how a gate gets routed around"* — and the adjacent responsibility is declined one section down (§ *What this phase does not do*: *"It does not delete an unread producer… ruling what happens to it is a separate decision"*). **So the remedy would fall between two phases, which is where work stops existing.**
+
+**Requirement 6 closes that.** The build that rules requirement 2 owns whichever branch it rules into: exempt on-demand readers and there is nothing to do; bind the cadence clause and the reader's invoker is written here, in the same change as the gate that would otherwise red-flag it. **This does not reopen the ordering** — the ordering is what makes the ruling honest, and this only says who pays for it.
+
+**And it does not pre-judge the ruling.** § *Notes and gotchas* is explicit that the cheaper branch is not automatically the right one; naming an owner for the expensive branch is what stops cheapness deciding it by default.
+
 ### The first extension target, counted off disk
 
 Requirement 3 says *"outside `scripts/helpers/measure/`"*, which is a direction rather than a population. **Counted on disk 2026-08-28, `scripts/helpers/` holds seven tools outside `measure/`:** `check_settings.py`, `check-settings.sh`, `harvest-intake.py`, `init-project.sh`, `lint-prompts.sh`, `similar-candidates.py`, `vendor-standards.sh`. **None is in any gate's population**, and the gate that exists reads only `scripts/helpers/measure/`.
@@ -121,6 +133,7 @@ The rule this phase generalises was already written, in prose, in the directory 
 - [ ] **Add the second honest test: the definition must catch an intake surface whose harvest stopped being invoked.** If it does not, it is too weak, and the failure it misses is one Tracked Items §8 calls a violation.
 - [ ] Re-count `scripts/helpers/` outside `measure/` off disk rather than trusting § *The first extension target*, then rule each tool in or out one at a time, recording the reason for every out-ruling. **`harvest-intake.py` is the one to rule first** — it is a stated condition of an exemption, invoked only by prose in a command file.
 - [ ] Enumerate the remaining candidate producer surfaces across the fleet and rule each in or out against the definition. An unexplained exclusion is the hole this phase exists to close.
+- [ ] **Discharge requirement 6 in the same change as the gate, not after it.** If requirement 2 exempted on-demand readers, record that the branch is empty and why. If it bound the cadence clause, write [What configuration a run absorbed](phase5_configuration_a_run_absorbed.md)'s two-bag reader a stated invoker **here** — that phase is closed, and a gate that red-flags a sibling with no owner for the fix is how a schedule gets invented to satisfy a check.
 - [ ] Extend the gate to the ruled-in surfaces, reading each population off disk.
 - [ ] Assert every exclusion by name in the check itself, **including `tracked/operations/` with its reason** — requirement 4.
 - [ ] Write down what this gate does NOT look at, beside the check, so a future reader does not over-read a green suite.
