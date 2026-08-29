@@ -123,7 +123,7 @@ claude-dot-files/
 │   │   ├── planning-and-agents/                     # COMPLETE — distinct-lens principle; Cursor-port abandoned for skills
 │   │   ├── safety-and-guardrails/                   # COMPLETE — two-layer model; block-dangerous.sh is load-bearing
 │   │   ├── workflow-decomposition/                  # 🟡 IN PROGRESS per sprint.md — two phases complete (build-family decomposition; Family alignment).
-│   │   │                                            #   Five planned, rollout order: Dual-mode children → Nothing a run relies on is invisible →
+│   │   │                                            #   Five planned, rollout order: Nothing a run relies on is invisible → Dual-mode children →
 │   │   │                                            #   What configuration a run absorbed → Every producer names its consumer →
 │   │   │                                            #   Managed configuration, and whose tier wins. The last is a roadmap entry with no phase doc, by design.
 │   │   │                                            #   Phase numbers survive in the FILENAMES only; they are identity, never rollout order.
