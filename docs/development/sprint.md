@@ -173,7 +173,7 @@ Taking apart the long-running workflows that already existed, so each boundary i
 
 🟡 IN PROGRESS · (~168h total · ~132h to-do)
 
-All of memory in this fleet — the framework and the protocol. Every run writes a folder; the folder is the truth, and every other store is rebuilt from it. The phases in this part have no external gate and depend only on each other. **One run, one identity** builds second, straight after the run bag, and ahead of the content store. Across both parts the component is ~264h total, ~228h to-do.
+All of memory in this fleet — the framework and the protocol. Every run writes a folder; the folder is the truth, and every other store is rebuilt from it. The phases in this part have no external gate and depend only on each other. **One run, one identity** builds second, straight after the run bag, and ahead of the content store. Across both parts the component is ~266h total, ~230h to-do.
 
 - [x] **Persistent Memory Protocol · The journal root and the run bag** · ([roadmap](persistent-memory-protocol/roadmap.md) · [phase](persistent-memory-protocol/phase1_the_run_bag.md)) — one configurable root per machine, one folder per run keyed by `run_id`, a valid BagIt bag with a manifest a validator re-checksums
 - [ ] **Persistent Memory Protocol · One run, one identity** · ([roadmap](persistent-memory-protocol/roadmap.md) · [phase](persistent-memory-protocol/phase9_one_run_one_identity.md)) — one authority names a run, the name is handed TO the journal rather than made by it, and every shape an invocation can take resolves to one bag under one name
@@ -202,7 +202,7 @@ The port to durable execution. Phases are listed in BUILD order, which is not th
 
 ## Sprint: Persistent Memory Protocol — Part 2
 
-🟠 PLANNED · (~96h total · ~96h to-do)
+🟠 PLANNED · (~98h total · ~98h to-do)
 
 The four phases that wait on something that does not exist yet.
 
