@@ -108,6 +108,8 @@ The mechanism shipped, the ratchet worked, and the baseline is now EMPTY — 48 
 - [ ] **The rehearsal and the live run print the same object** — `--dry-run` previews what runs, rather than its own assembly of the same values
 - [ ] **A wrong derivation is demonstrated to be visible** — point a run at the wrong component and watch it say so
 
+**One field the ruling named is NOT in the first box, and the omission is argued rather than accidental.** The ruling listed the task source among the context's fields "at least"; measured on 2026-08-28, `resolve_task_source` is not a boundary resolver — no `run_*.py` calls it, both production call sites sit inside an activity, and the task source is a value the operator *declares* with `--task-file` or `--phase`. The only derived part of it is the base a relative path anchors against, which is the repository root and is already on the object. Reasoning in full: [`phase4_nothing_invisible.md`](phase4_nothing_invisible.md) § *What this phase does not do*.
+
 ***The boxes were REWORDED by the ruling, and the originals are quoted so nothing is lost.*** *A planning run does not normally reword a completion criterion; a scope change ruled by the operator is the exception, and it is called out rather than done quietly. The 2026-08-18/19 wording was:*
 
 > - **`plan-project` derives feature scope from its target** — feature scope is the project chain's tail, and a path states it rather than a flag
