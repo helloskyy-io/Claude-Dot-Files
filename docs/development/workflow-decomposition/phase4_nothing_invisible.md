@@ -64,9 +64,23 @@ A run in this fleet depends on two classes of thing it never announces.
 
 5. **A wrong derivation is DEMONSTRATED to be visible.** Point a run at the wrong component, capture the echo verbatim, and show the output names what it derived **before the run costs anything**. Requirements 1–4 are not complete without it, and it is not asserted from reading the code.
 
+6. **Every field on the context states what it is, and a check holds it.** Each field's docstring names its **marker**, its **algorithm** in one sentence, its **override or the fact that it has none**, and its **scope of effect** — *what else is wrong if this value is wrong*. **The check's population is `dataclasses.fields()` on the context**, so it enumerates itself and a field added later cannot arrive undocumented. See § *Requirement 6 exists because field existence is not field documentation*.
+
+**Requirement 6 is numbered last because appending preserves the numbers other documents cite, not because it is built last.** It is built with requirement 1, in the same change — a field and its docstring are one edit.
+
 ### The produced half — MOVED, and this is a pointer rather than a deletion
 
-**What were requirements 4 and 5 on 2026-08-18 are now [Every producer names its consumer](phase6_every_producer_names_its_consumer.md)'s requirements 1 and 3, carried verbatim**, together with the sections that supported them. **Nothing was dropped in the move.** Those numbers are not reused here.
+**What were requirements 4 and 5 on 2026-08-18 are now [Every producer names its consumer](phase6_every_producer_names_its_consumer.md)'s requirements 1 and 3, carried verbatim**, together with the sections that supported them. **Nothing was dropped in the move.**
+
+> **THOSE NUMBERS ARE REUSED HERE, AND THIS PARAGRAPH USED TO CLAIM THE OPPOSITE.** It ended *"Those numbers are not reused here,"* which was true when the split was written and stopped being true hours later, when the operator's re-plan rewrote this phase's criteria. **[Every producer names its consumer](phase6_every_producer_names_its_consumer.md) cites these numbers three times as the source of its own requirements**, so until 2026-08-29 a reader following one of those pointers landed on a requirement that is not the one named. Corrected in both documents — the pointers there now read *pre-split requirement N (2026-08-18)*, and the mapping is:
+>
+> | Cited as this phase's… | On 2026-08-18 it was | It is today |
+> |---|---|---|
+> | requirement 4 | *"Producer is defined"* — now [Every producer](phase6_every_producer_names_its_consumer.md) requirement 1 | *"The `--dry-run` preview and the live run print the same object"* |
+> | requirement 5 | *"the gate reaches producers outside `scripts/helpers/measure/`"* — now [Every producer](phase6_every_producer_names_its_consumer.md) requirement 3 | *"A wrong derivation is DEMONSTRATED to be visible"* |
+> | requirement 6 | the two-clause demonstration box — its second clause is now [Every producer](phase6_every_producer_names_its_consumer.md) requirement 5 | *"Every field on the context states what it is"*, added 2026-08-29 |
+>
+> **A number is identity for a PHASE and is NOT identity for a REQUIREMENT, and that asymmetry is the whole trap.** A phase number survives a re-plan because the file survives it; a requirement number does not, because the requirement list is exactly what a re-plan rewrites. **So a cross-document pointer at a requirement must carry the date of the list it read** — every one in this component now does.
 
 ---
 
@@ -98,6 +112,20 @@ A run in this fleet depends on two classes of thing it never announces.
 
 **What this check still cannot do, said plainly so nobody over-reads it.** It holds *one* value — the worktree name — at *one* call site shape. The object's own field test (*run-scoped and derived once at the boundary*) stays a judgement, and this check does not make it checkable in general; it makes it checkable for the value that was measurably scattered. **A second value that scatters later needs its own call-site check, and the honest statement is that the rule is enforced per value rather than as a class.**
 
+### Requirement 6 exists because field existence is not field documentation
+
+**Added 2026-08-29, after a cold read found a way this phase could go green while failing its own stated purpose.** The phase exists to finish three of the five safe-derivation properties. Two of them — the **published algorithm** and the **stated scope of effect** — are delivered as docstrings on the context's fields (§ *The five properties, and what the object does to them*). Until this requirement, **nothing checked them and nothing exercised them**: requirement 2's check holds one value at one call-site shape and says so in terms, and requirement 5's demonstration proves one field is echoed. All five requirements could pass with eight of nine fields carrying a thin docstring or none — and a tenth field added a year later would carry neither, with nothing going red.
+
+**That is the deleted clause's own property reappearing one level down.** The clause the re-plan removed said *a table checked against itself cannot see what was never added to it*. **An object whose docstrings nothing checks cannot see a field that was never documented.** The re-plan is right that a field's **existence** cannot drift from the enumeration — it *is* the enumeration. It says nothing about the field's **documentation**, and the documentation is what two of the three properties actually are.
+
+**The remedy is the one thing the re-plan bought, which is why it costs almost nothing.** The reason the deleted clause was unbuildable is that derivations have no enumerable population — that is what the cold check measured, and it is why neither branch of the fork was worth taking. **A frozen dataclass's fields ARE an enumerable population.** `dataclasses.fields()` returns them by construction: no marker convention, no tree sweep, no hand-kept list. The population problem that killed the old requirement does not exist for this one.
+
+> **This contradicts nothing in the ruling that re-planned the phase, and the distinction is worth stating rather than leaving to be re-litigated.** The ruling deleted *an enumeration of derivations across the tree, held honest by a check that had to invent its own population*. This is *a check over one object's own fields, whose population is a language primitive*. The first was rejected because it could not be built; the second is the reason the first is not needed.
+
+**Two exemplars of this shape already ship here** — `test_promotion_guard_prose_figures_are_DERIVED.py` and `test_a_prose_COUNT_of_a_collection_is_DERIVED.py`. Read one before writing this check.
+
+**What the check cannot do, said plainly so nobody over-reads it.** It asserts each of the four parts is *present and non-empty*, not that any of them is *true*: a docstring naming a wrong marker passes. That limit is accepted rather than worked around — the truth of an algorithm sentence is a judgement, and the failure this requirement addresses is **absence**, not error. **Assert the discovered population is non-empty**, so a check that stops finding fields cannot pass vacuously — the same guard requirement 2's check carries, for the same reason.
+
 ### Requirement 3's trade is RULED, and the ruling is "there is no trade"
 
 **This requirement used to be a separate requirement carrying an open trade, and it is now folded into requirement 3 with a decision.** The old wording asked that *"a parent can silence the echo without destroying the record,"* and the plan recorded honestly that nobody had measured the cost: echoing costs output, and the caller that most wants quiet — a parent running nine children — is the caller that most needs the derivation recorded.
@@ -118,13 +146,15 @@ A run in this fleet depends on two classes of thing it never announces.
 |---|---|---|
 | **Anchored on a marker** | ✅ satisfied — `resolve_repo_root` runs `git rev-parse --show-toplevel`, which reads `.git` and never guesses | nothing; record it as satisfied so it is not rebuilt |
 | **Explicit override** | ✅ satisfied — `--repo` exists and is documented as *a FILESYSTEM PATH, never a gh slug* | nothing |
-| **Published algorithm** | ❌ absent | **the object's field and its docstring.** Not a table somebody maintains — the algorithm sits on the field that carries the value |
+| **Published algorithm** | ❌ absent | **the object's field and its docstring**, held by requirement 6's check. Not a table somebody maintains — the algorithm sits on the field that carries the value |
 | **Echo of what was derived** | ⚠️ partial — exists under `--dry-run`, absent on the live path | requirements 3 and 4 |
-| **Stated scope of effect** | ❌ absent | **the object's field docstrings**, same place, same reason |
+| **Stated scope of effect** | ❌ absent | **the object's field docstrings**, same place, same reason, same check |
 
 Source: [`research/synthesis.md`](research/synthesis.md) § *Facet 2's real work is three missing properties*, resting on [`raw/invocation_contract.md`](research/raw/invocation_contract.md) §2.2 (M1–M5), §4.2 and §5.2.
 
 **The change from the previous plan is where properties 3 and 5 live**, and it is the whole of the ruling's effect on this table. They used to be columns in a published enumeration that a check held honest against the tree. They are now **docstrings on the fields of one object**, which cannot go stale relative to a population because there is no population — there is one object, and a field either exists on it or does not.
+
+**A field EXISTING is not the same as a field being DOCUMENTED, which is why requirement 6 exists.** The sentence above is sound about existence and silent about documentation, and documentation is what these two properties are. See § *Requirement 6 exists because field existence is not field documentation*.
 
 ### "Prefer derivation" is NOT the rule, and writing it would contradict a shipped decision
 
@@ -145,6 +175,19 @@ That paragraph is the model for a field's scope-of-effect docstring. An echo tha
 **The RULE survives and still needs an address.** It is now: *a run-scoped derived value is a field on the run context, computed once at the dispatch boundary and passed down; it is not re-derived by a callee.* That is a standards amendment against [`workflow-scripts.md`](../../standards/workflow-scripts.md) § *9. Repo Root Operation*, which today governs the one derivation this fleet already rules on and is the section a widened rule extends. **It also finishes a sentence [`docs/guide/workflows.md`](../../guide/workflows.md) already starts** — *"Isolation is established once by the parent and passed down — a child never creates its own worktree"* — which is this rule, stated for one value.
 
 **Surface it, do not file it, and never edit the standard:** [`finding-routing.md` §7](../../standards/finding-routing.md) gives a producing run the surfacing and `review-pr` the filing, and a build dispatch for this phase is a producing run.
+
+### The wordings this phase's boxes replaced
+
+**The operator's 2026-08-28 ruling rewrote this phase's completion criteria, and the originals are preserved here so nothing is lost.** A planning run does not normally reword a completion criterion; a scope change ruled by the operator is the exception, and it is recorded rather than done quietly. [`roadmap.md`](roadmap.md) carried these quotes until 2026-08-29, when that file was pruned to the shape [Documentation Standard § Development Planning Files](../../standards/documentation/documentation_standard.md) binds it to and the record moved to the document that owns it.
+
+*The 2026-08-18/19 wording was:*
+
+> - **`plan-project` derives feature scope from its target** — feature scope is the project chain's tail, and a path states it rather than a flag
+> - **Every derived value is published with its marker, its algorithm, its override and its scope of effect** — not recoverable only by reading the call chain
+> - **A run echoes what it derived, and a parent can silence the echo without losing the record**
+> - **A wrong derivation is demonstrated to be visible** — point a run at the wrong component and watch it say so
+
+**Where each one went.** **The first is ABSORBED:** its own note already recorded that its premise had largely shipped — `run_plan_feature.py` takes `component` as a positional path — and under the ruling the run's target is simply a field on the object. **The second is the object's fields and their docstrings**, held by requirement 6 rather than by a tree-wide enumeration it could not build. **The third is SPLIT and its open trade is RULED**: the echo half is requirement 3, the silencing half is dropped — § *Requirement 3's trade is RULED, and the ruling is "there is no trade"*. **The fourth is carried VERBATIM** as requirement 5.
 
 ### The fork that was deleted, and why the record is kept
 
@@ -179,6 +222,7 @@ That paragraph is the model for a field's scope-of-effect docstring. An echo tha
 - [ ] Derive the worktree name once, inside the context, from the workflow key it already carries. **Reconcile `review_pr` explicitly** — either it cuts a worktree and the context says so, or it does not; today `run_review_pr.py` records `worktree_name=None` while `review_pr_workflow.py` cuts `review-pr-<n>-<ts>`.
 - [ ] Replace the eleven inline assemblies with the context's field. **`run_build_minor.py` is a behaviour change, not a refactor** — its worktree is currently named `build-…` under `workflow_key="build-minor"`, so deriving from the key renames it. That is the drift being fixed; say so in the commit rather than letting it look incidental.
 - [ ] Add requirement 2's check, keyed on `worktree_add`'s call sites and read by AST: every call takes its name argument from the run context. **Match on the function name, not on the module alias** — `review_pr_workflow.py` reaches it as `_shared.worktree_add`, and the existing `act.`-keyed predicates are blind to it today. Assert the discovered population is non-empty so a drifted predicate cannot pass vacuously, and mutate the check in both directions to prove it discriminates.
+- [ ] Add requirement 6's check: read the context's fields with `dataclasses.fields()` and assert every field's docstring names a marker, an algorithm, an override-or-none and a scope of effect. Assert the discovered population is non-empty, and mutate one field's docstring in both directions to prove it discriminates. **Read `test_promotion_guard_prose_figures_are_DERIVED.py` first** — this repo already ships the shape and it does not need inventing.
 - [ ] Print the context once, on stderr, at the top of the live run and before the first side effect, gated on **constructed-here** rather than on `verbose`.
 - [ ] Rebuild the `--dry-run` preview to print the same object the live run prints, rather than its own assembly of the same values.
 - [ ] Run the full suite and confirm nothing that depended on the quiet path or on a worktree name's current spelling broke.
