@@ -164,12 +164,6 @@ def permitted_paths(component_rel: Path, candidates_rel: Path) -> tuple[str, ...
     apart — there is no rule to forget to update when a component grows a
     directory.
 
-    The `candidates.md` grant is the shared `decision_log_and_reflection`
-    instruction's, not this workflow's own: every producing run is required to
-    PLACE a proposal it surfaces rather than leave it in a PR body to die at
-    merge. It comes with the column guards below, which are the same ones
-    `plan-sprint` carries for the same grant.
-
     THE MAP GRANT IS NOT THIS WORKFLOW'S SUBJECT, and it is here because the
     merge gate requires it. `docs/file_structure.txt` must enumerate every
     tracked file in any directory it enumerates per-file, so ADDING A PHASE DOC
@@ -182,13 +176,13 @@ def permitted_paths(component_rel: Path, candidates_rel: Path) -> tuple[str, ...
     every workflow is required to keep current is not that, and it was caught as
     collateral.
 
-    THE CANDIDATES GRANT COVERS A DIRECTORY'S ITEMS since the 2026-08-26 flip:
-    `--candidates` named `candidates.md` and an exact match was right; it now
-    names `tracked/candidates/`, and a run places its proposal as an item file
-    INSIDE it. Left exact, the grant would cover a path nothing writes and every
-    placement would read as a boundary crossing — failing a correct run at the
-    last guard. Same shape as the component grant one line up, and for the same
-    reason: `[^/]+` rather than `.+`, so it cannot reach a nested directory.
+    THERE IS NO CANDIDATES GRANT, and the tuple below records why. This
+    docstring described one as live — "a run places its proposal as an item file
+    INSIDE it" — ten lines above a comment reading "THE CANDIDATES GRANT IS GONE,
+    2026-08-26, BY OPERATOR RULING". Both dated the same day. A reader taking the
+    prose reached for a write this function does not permit; a reader taking the
+    comment was right. This run SURFACES a proposal in its report and `review-pr`
+    files it.
     """
     return (
         rf"^{re.escape(component_rel.as_posix())}/[^/]+\.md$",

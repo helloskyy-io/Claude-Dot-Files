@@ -190,10 +190,10 @@ def permitted_paths(component_rel: Path, candidates_rel: Path) -> tuple[str, ...
     reaches `v2x1-migration/roadmap.md` too — the boundary silently widening to a
     sibling is the one failure this module exists to prevent.
 
-    The `candidates.md` grant is the shared `decision_log_and_reflection`
-    instruction's rather than this workflow's own: every producing run is
-    required to PLACE a proposal it surfaces instead of leaving it in a PR body
-    to die at merge. It comes with the column guards below.
+    THERE IS NO CANDIDATES GRANT. This said a producing run "is required to
+    PLACE a proposal it surfaces" — the rule as it stood before the 2026-08-27
+    ruling reserved every `tracked/` store to `review-pr`. This run SURFACES in
+    its report and the reviewer files it.
     """
     return (
         # WIDENED 2026-08-19 from `roadmap.md` alone to every top-level markdown
