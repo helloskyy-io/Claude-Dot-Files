@@ -352,7 +352,21 @@ BUDGETS: dict[str, int] = {
     # landed" on every one, a full opus dispatch each; and no harness can enforce
     # it, because only the parent knows which pass this is. It renders EMPTY on
     # a first pass, so the cost lands only where the instruction is true.
-    "plan/plan_draft/prompts/plan_draft.md": 24_077,
+    # +6 on 2026-08-29 correcting a bullet that taught a BINDING-STANDARD BREACH.
+    # It read "Cross-reference by phase number... Link the text `Phase 3` to that
+    # phase's own filename" while Documentation Standard rule 4 (binding
+    # 2026-08-20) reads "A phase is CITED BY NAME, never by number... a new
+    # document that cites a phase by number is a defect". The prompt prescribed
+    # the forbidden form to EVERY planning dispatch; `plan_sprint.md` already had
+    # it right, so this was the lone outlier rather than a fleet-wide gap.
+    # Against Prompt economy: it changes what the model WRITES, and the six bytes
+    # are the corrected instruction being longer than the wrong one — a right
+    # rule needs an example of the right shape. Two cheaper drafts were tried and
+    # both traded clarity for bytes, which is the wrong trade on a correctness
+    # fix. The rationale is NOT restated here: this prompt already carries a
+    # section on why the number is identity, and duplicating it was the first
+    # draft's mistake.
+    "plan/plan_draft/prompts/plan_draft.md": 24_083,
     # 15_510 -> 13_204: the `research-analyst` re-dispatch is gone. The verify
     # child holds Write/Edit and applies the critic's findings itself, so the
     # rules that existed only to coordinate a second writing agent went with it

@@ -88,20 +88,24 @@ cron-job (god workflow)                              🔵 PARENT OF PARENTS OF P
 │   ├── research                                     ✅ PARENT
 │   │   ├── research-draft                           ✅ (self adjusts to sizing requirements)
 │   │   ├── research-verify                          ✅
+│   │   ├── ◇ CI gate                                ✅ (parent code, no model) — waits for CI to settle, then
+│   │   │                                            reads the verdict. RED or unreadable = HOLD, and review-pr
+│   │   │                                            is NOT dispatched. A red tree cannot reach MERGE
 │   │   ├── review-pr                                ✅
-│   │   ├── (loop as allowed)                        
+│   │   ├── (loop as allowed — research caps at 1)                        
 │   │   └── ◆ HiL — repeat until happy
 │   │
 │   ├── merge-pr                                     🔵 Merge PR, and proceed to next workflow (based on logic)
 │   │   
-│   ├── plan-project --project                       ✅ PARENT — runs on the research above, "the project as a whole" or rejects them
+│   ├── plan-project                                 ✅ PARENT — runs on the research above, "the project as a whole" or rejects them
 │   │   │                                            with reasoning, and if candidates are labeled for integration plans them.
 │   │   ├── traige-synthesis (future)                🔵 reads revised or new master plannign research, and scafolds features/phases/checkboxes
 │   │   ├── scaffold-synthesis (future)              🔵 (ACTIVITY, not a child workflow) — scafolds features/phases/checkboxes
 │   │   ├── triage-candidates                        ✅ triages the candidate list: labels each for a sprint/feature/phase,
 │   │   ├── plan-candidates                          ✅ (ACTIVITY, not a child workflow) — scaffolds the items triage just admitted
+│   │   ├── ◇ CI gate                                ✅ (parent code, no model)
 │   │   ├── review-pr                                ✅
-│   │   │   └── (loop as allowed)
+│   │   │   └── (loop as allowed — 3, back to triage-candidates)
 │   │   └── ◆ HiL — repeat until happy
 │   │
 │   ├── merge-pr                                     🔵 Merge PR, and proceed to next workflow (based on logic)
@@ -110,28 +114,33 @@ cron-job (god workflow)                              🔵 PARENT OF PARENTS OF P
 │
 ├── feature-manager                                  🔵 PARENT OF PARENTS — cron, most likely fired by expired research
 │   │                                                runs on the research above, "the project as a whole", including candidates
-│   ├── research --feature                           ✅ PARENT
+│   ├── research                                     ✅ PARENT
 │   │   ├── research-draft                           ✅ targets the feature
 │   │   ├── research-verify                          ✅ targets the feature
+│   │   ├── ◇ CI gate                                ✅ (parent code, no model)
 │   │   ├── review-pr                                ✅
-│   │   │   └── (loop as allowed)
+│   │   │   └── (loop as allowed — research caps at 1)
 │   │   └── ◆ HiL — repeat until happy
 │   │
 │   ├── merge-pr                                     🔵 Merge PR, and proceed to next workflow (based on logic)
 │   │
-│   ├── plan --feature                               ✅ PARENT — pointed at the feature (or its stub) and the research. Research not required
+│   ├── plan                                         ✅ PARENT — pointed at the feature (or its stub) and the research. Research not required
 │   │   ├── plan-draft                               ✅ plans the feature: roadmap + phases (epics), referenced onto the sprint
 │   │   ├── plan-verify                              ✅ checks the planning, fixes issues, sizes each phase in hours from its complexity
 │   │   ├── plan-sprint                              ✅ adds the new feature if any; a changed phase estimate re-totals the sprint. New sprints are
 │   │   │                                            calculated at creation time
+│   │   ├── ◇ CI gate                                ✅ (parent code, no model)
 │   │   ├── review-pr                                ✅
 │   │   └── ◆ HiL — repeat until happy
 │   │
 │   ├── merge-pr                                     🔵 Merge PR, and proceed to next workflow (based on logic)
 │   │
-│   ├── build --feature                              ✅ PARENT (potentially several passes here)
+│   ├── build                                        ✅ PARENT (potentially several passes here)
 │   │   ├── build-draft                              ✅
+│   │   ├── ◇ CI wait — NOT a gate                   ✅ waits, then TELLS build-refine whether CI settled.
+│   │   │                                            Never holds: a red tree here is work for refine to do
 │   │   ├── build-refine                             ✅
+│   │   ├── ◇ CI gate                                ✅ (parent code, no model)
 │   │   ├── review-pr                                ✅
 │   │   └── ◆ HiL — repeat until happy  
 │   │

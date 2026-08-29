@@ -186,7 +186,7 @@ Detail is expected here; this is the long one.
 
 - **Planning docs state WHAT and WHY, not HOW.** If you find yourself writing the commands somebody would paste into a terminal, you have crossed into implementation — say "see implementation task" instead.
 - **Use specific language.** "Improve performance" is not a completion criterion; "the cross-run sweep completes within one minute on the current journal" is.
-- **Cross-reference by phase number, never by position.** Link the text `Phase 3` to that phase's own filename; never write "the next phase", "the previous phase" or "the second phase in roadmap X". Positions change silently and numbers do not, so a positional cross-reference breaks without anything going red.
+- **Cross-reference a phase BY NAME — never by number, never by position.** The link TEXT is the phase's name — `ESO Deployment` — and its target is that phase's own filename. Never write `Phase 6`, and never "the next phase" or "the second phase in roadmap X". The digit stays in the FILENAME and nowhere else.
 - **Every relative link must resolve.** Count the directories from the file's own location; do not copy a `../` run from a neighbour at a different depth. A test enforces this repo-wide.
 - **Deferred work does not live in a roadmap or a phase doc.** An open question that is an INPUT to a phase belongs at that phase with its box unchecked; anything else goes where the finding-routing rules put it.
 - **Follow the four-bucket convention** — architecture is WHY, development is WHAT, standards are HOW, guide is USER-FACING. You are writing in development.
