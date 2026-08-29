@@ -158,7 +158,7 @@ Evidence, prior art and the plateau correction: [`cpi-decisions.md`](cpi-decisio
 
 ## Sprint: Workflow Decomposition
 
-🟡 IN PROGRESS · (~182h total · ~120h to-do)
+🟡 IN PROGRESS · (~182h total · ~118h to-do)
 
 Taking apart the long-running workflows that already existed, so each boundary is a retry/resume point and children become recombinable rather than copied. **Building the ones that do not exist yet is [Assistant Workflow Design](#sprint-assistant-workflow-design--🔵-not-scheduled-needs-research-then-planning).**
 
