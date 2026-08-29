@@ -41,7 +41,7 @@ from modules.assistant.build.build_refine_minor import build_refine_minor_workfl
 from modules.assistant.plan.plan_feature import plan_feature_workflow as pfeat
 from modules.assistant.plan.plan_verify import plan_verify_workflow as pverify
 from modules.assistant.research import research_activities as ract
-from modules.assistant.research.research_write import research_write_workflow as write
+from modules.assistant.research.research_draft import research_draft_workflow as write
 
 _SHARED = Path(__file__).resolve().parents[2] / "modules" / "assistant" / "prompts"
 
@@ -81,7 +81,7 @@ def _stems_loaded_by(module) -> set[str]:
     """Every pool fragment a consumer LOADS, read from that consumer's own source.
 
     PARSED, NOT GREPPED, and the difference is live in this tree:
-    `research_write_workflow` mentions `shared_prompt("altitude_component")`
+    `research_draft_workflow` mentions `shared_prompt("altitude_component")`
     inside a COMMENT explaining the altitude split. A regex reads that as a
     load; the AST does not see it at all, so the derivation stays about what
     the module DOES rather than about what it talks about.
@@ -681,7 +681,7 @@ def test_a_refine_pass_renders_EVERY_shared_disposition_fragment(
 # The parametrize below passes an ENTRY POINT; the deriver needs the module that
 # entry point lives in. Mapped by name rather than reached through `entry` so the
 # association is visible where it is declared.
-_RESEARCH_MODULE = {"research_write": write}
+_RESEARCH_MODULE = {"research_draft": write}
 
 
 def _component_pool(tmp_path: Path) -> Path:
@@ -866,7 +866,7 @@ def test_the_supplier_reader_DISCRIMINATES() -> None:
     assert _shared_prompt_stems(ast.parse(loads), "<snippet>") == {"rules"}
 
     # A MENTION IS NOT A LOAD, and this is the arm that made the AST worth the
-    # cost: `research_write_workflow` names a fragment inside a comment, and a
+    # cost: `research_draft_workflow` names a fragment inside a comment, and a
     # regex over the source reads that as a consumer loading it.
     mentioned = '# act.shared_prompt("rules")\nx = "act.shared_prompt(rules)"\n'
     assert _shared_prompt_stems(ast.parse(mentioned), "<snippet>") == set()
@@ -902,7 +902,7 @@ _NOT_RENDER_CHECKED: dict[str, str] = {}
 # its population is the move this module's own header records twice; the
 # fixture is `_planning_prompt` below and it cost nine lines.
 # `refresh` was the seventh until 2026-08-28: `research-refresh` merged into
-# `research-write`, which now routes a due topic to `research-currency` itself.
+# `research-draft`, which now routes a due topic to `research-currency` itself.
 _DRIVEN = (draft, draft_minor, refine, refine_minor, write,
            pfeat, pverify)
 

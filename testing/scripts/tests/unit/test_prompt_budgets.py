@@ -502,7 +502,7 @@ BUDGETS: dict[str, int] = {
     # the bigger instrument. Now 5 sources and ~60 body lines per FACET, which is
     # the unit Research Standard §3 already uses, so it scales with the feature.
     # RAISED 16_236 -> 20_100 on 2026-08-28 (+3_864): this child absorbs
-    # `research-write` and `research-refresh`. It gains Stage 1b — the topic
+    # `research-draft` and `research-refresh`. It gains Stage 1b — the topic
     # list, the sizing rubric, the binding ~5-per-cycle ceiling, retire-don't-
     # delete, and the three row states that decide which agent each topic
     # gets. Against Prompt economy: it changes what the model DOES (how many
@@ -517,7 +517,7 @@ BUDGETS: dict[str, int] = {
     # that revalidated something has a prior version, so the block is
     # conditional and a fresh pool pays nothing for it. Deleting the refresh
     # prompt in the same change removes far more than this adds.
-    "research/research_write/prompts/write.md": 20_600,
+    "research/research_draft/prompts/draft.md": 20_600,
     "build/build_draft_minor/prompts/update_pr.md": 10_675,
     # SHARED FRAGMENTS ARE THE EXPENSIVE ONES — every workflow that includes one
     # pays for it, so a byte here costs more than a byte in any single prompt.

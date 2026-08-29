@@ -4,7 +4,7 @@ Folder holds this file plus its own I/O (§10.1 rules 3 and 6); the family's
 shared capability lives in `plan_activities`.
 
 **This is the READ half of the planning split, and it completes a pattern the
-other two families finished first.** Research is `research-write` ->
+other two families finished first.** Research is `research-draft` ->
 `research-verify` because *"a separate fresh-context run verifies it… the run
 that wrote an artifact defends it"*; build is `build-draft` -> `build-refine`
 because *"the fresh context is the point, not an implementation detail."*

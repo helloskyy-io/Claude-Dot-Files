@@ -591,7 +591,7 @@ def test_a_SEEDED_but_UNRESEARCHED_pool_is_RESUMED_not_skipped_forever(
         tree: Path) -> None:
     """The redispatch hole: "exists" conflated a live component with an abandoned one.
 
-    `research-write` commits the seed; if `research-verify` then fails, the
+    `research-draft` commits the seed; if `research-verify` then fails, the
     documented `--pr` recovery redispatch would hit the exists-check, skip, and
     report "an empty working set, not a skipped step" over a candidate that is
     stranded forever. A pool still carrying the seed marker is unfinished work,
@@ -623,7 +623,7 @@ def test_a_pool_the_research_child_REWROTE_is_never_resumed(tree: Path) -> None:
 
 
 def test_the_seed_asks_the_next_writer_to_CARRY_THE_ID_FORWARD(tree: Path) -> None:
-    """`research_write` fully rewrites this file, so writing the id down is not keeping it.
+    """`research_draft` fully rewrites this file, so writing the id down is not keeping it.
 
     Its prompt says *"write (or fully rewrite) synthesis.md"* and its synthesis
     contract has no provenance field. The id the docstring calls the load-bearing

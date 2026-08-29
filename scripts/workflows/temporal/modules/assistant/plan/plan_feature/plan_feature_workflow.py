@@ -5,7 +5,7 @@ shared capability lives in `plan_activities`.
 
 WHY THIS IS ITS OWN WORKFLOW, AND WHY THE PLAN FAMILY IS THE LAST TO GET ONE.
 The other two families were deconstructed and said why in their own words:
-research is `research-write` -> `research-verify` because *"a separate
+research is `research-draft` -> `research-verify` because *"a separate
 fresh-context run verifies it… the run that wrote an artifact defends it"*, and
 build is `build-draft` -> `build-refine` on the same argument — *"the fresh
 context is the point, not an implementation detail."* Planning never was:

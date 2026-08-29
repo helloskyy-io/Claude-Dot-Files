@@ -282,8 +282,8 @@ def upstream_block(research_dir: Path, repo_root: Path, *,
 
     THE TWO DIRECTIVES ARE CALLER-SUPPLIED BECAUSE THEY NAME THE CALLER'S OWN
     STAGES, and this block is now injected into two prompts with different ones.
-    Both defaults are `research_write`'s original text verbatim, so the full
-    cycle's prompt is byte-unchanged. `research_write_minor` has no sizing stage
+    Both defaults are `research_draft`'s original text verbatim, so the full
+    cycle's prompt is byte-unchanged. `research_draft_minor` has no sizing stage
     at all — it is a one-paper cycle — so hard-coding "your sizing in Stage 2"
     here sent it an instruction its prompt explicitly forbids obeying. That is a
     cross-file prose claim going stale the moment a second consumer appears,

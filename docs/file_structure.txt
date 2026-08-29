@@ -332,11 +332,13 @@ claude-dot-files/
 │           │                                        #   convergence.py — MMF Phase 5's computed stopping predicate: the open/closed
 │           │                                        #   partition over `disposition`, six ordered rules, a named recorded residual arm.
 │           │                                        #   RECORDED, ROUTED ON BY NOTHING — MAX_LOOPS is still the only stopping authority
-│           │                                        #   research/ holds TWO parents over a shared set of children: research (full pool —
-│           │                                        #   research_write, then verify, then review-pr) and research_minor (ONE paper —
-│           │                                        #   research_write_minor, then THE SAME verify and review-pr). The minor cycle drops
-│           │                                        #   topics.md, the sizing assessment, the fan-out and the synthesis; it drops NONE of
-│           │                                        #   Research Standard §3's per-paper rigor, and research-critic still gates it
+│           │                                        #   research/ holds ONE parent over three children: research (research_draft,
+│           │                                        #   then research_verify, then review-pr). The draft child SIZES ITS OWN CYCLE —
+│           │                                        #   it discovers the pool, decides how many topics need writing and which are
+│           │                                        #   stale, and does only that. The research_minor parent and its research_write_minor
+│           │                                        #   child were deleted 2026-08-28: the split asked the operator to size the work
+│           │                                        #   before reading it, which the child does better from the pool itself. Per-paper
+│           │                                        #   rigor is untouched and research-critic still gates every paper
 │           ├── modules/journal/                    # PMP Phase 1 — WHERE a run's record goes and WHAT SHAPE it takes. One BagIt bag per
 │           │                                        #   run under a configurable root, keyed by run_id and never by path (Claude Code keys
 │           │                                        #   by mangled path, which makes every worktree its own project — the one place this
@@ -649,14 +651,11 @@ claude-dot-files/
 │                   │                                #   SHARED placement instruction unfollowable
 │                   ├── test_plan_revision_v1_parity.py # Prompt text is BYTE-IDENTICAL to plan-revision.sh — re-extracts the heredocs
 │                   │                                #   and both PROMPT= strings on every run. Catches the ~935-byte drop-the-stages failure
-│                   ├── test_research_write.py        # The write child sizes its own cycle; the machinery it once lacked is what a green suite cannot
-│                   │                                #   notice: every "absent from write_minor.md" check is paired with the SAME predicate
-│                   │                                #   run against research_write's live prompt, which must still fire. Plus the reused
-│                   │                                #   verify child's cycle-shape block RENDERED (not grepped) and an AST walk proving its
-│                   │                                #   parameter reaches no `if` — a value, never a behavioural branch inside a prompt.
-│                   │                                #   BOTH children's prompts are rendered end-to-end: the prompt FILE is not the prompt,
-│                   │                                #   and ${CONTEXT_BLOCK} is assembled from pieces write_minor.md does not author — which
-│                   │                                #   is exactly where the one live defect this suite's file-only checks all missed lived
+│                   ├── test_research_draft.py         # The draft child sizes its own cycle, and the machinery it once lacked is
+│                   │                                #   green suite could not notice: a subtraction is invisible to every auto-discovering
+│                   │                                #   sweep. Renders BOTH children's prompts end to end — the prompt FILE is not the
+│                   │                                #   prompt — plus an AST walk proving the verify child's cycle-shape value reaches no
+│                   │                                #   `if`: a value, never a behavioural branch inside a prompt
 │                   ├── test_runner_discovery.py     # An orphaned test file FAILS the suite — runs python.sh against a synthetic tree
 │                   ├── test_turn_cap_banner_reads_the_worktree.py # The turn-cap banner reports the tree it can SEE (#65): worktree_delivery_state
 │                   │                                #   extracted from run-claude.sh and run against real git fixtures under BOTH caller shapes —

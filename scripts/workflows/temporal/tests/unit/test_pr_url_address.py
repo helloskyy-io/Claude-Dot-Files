@@ -164,9 +164,6 @@ DECLARED_SPLITS = {
     # exact set over the SHAPE, and a shape that starts accepting "obviously
     # fine" splits stops being able to see the one that is not.
     ("recurrence.py", "<module>"),
-    # MOVED, not new: `plan_activities` -> `plan_project_activities` under §10.1
-    # rule 3. Still a markdown heading's em-dash, still not a URL.
-    ("plan_project_activities.py", "new_sprint_sections"),
     # git's own NUL-separated output under `-z`. A worktree path, not a URL, and
     # `-z` is what makes the split safe: it turns OFF the C-style quoting that
     # would otherwise put backslash escapes inside a path.
@@ -408,7 +405,7 @@ _SLUG_BEFORE_CHILD = [
     # here would leave the slug read unchecked against everything before it,
     # which is the entire window the ordering protects.
     ("plan/plan_project/plan_project_workflow.py", "run_plan_project", "run_triage_candidates"),
-    ("research/research/research_workflow.py", "run_research", "run_write"),
+    ("research/research/research_workflow.py", "run_research", "run_research_draft"),
 ]
 
 
@@ -567,7 +564,7 @@ def test_the_pr_url_completion_patterns_are_ONE_string_plus_ONE_declared_wider()
     # 12 since plan_verify landed (2026-08-15), the READ half of the planning
     # split; 11 since plan_feature (2026-08-14), its write half; 10 since
     # triage_candidates (2026-08-12), split out of plan-sprint; 9 since
-    # research_write_minor (2026-08-11). This census is hand-maintained ON
+    # research_draft_minor (2026-08-11). This census is hand-maintained ON
     # PURPOSE: a new workflow that opens a PR must reference the shared constant,
     # and an edit here is how a human confirms it does rather than having
     # re-declared the literal that once cost a finished run. It fired on exactly
@@ -600,8 +597,8 @@ def test_the_pr_url_completion_patterns_are_ONE_string_plus_ONE_declared_wider()
     )
     ordinals = ", ".join(f"#{len(referencing) + i} {name}"
                          for i, name in enumerate(others, start=1))
-    # 12 -> 10 on 2026-08-28, in two steps: `research_write_minor` merged INTO
-    # `research_write`, and `research_refresh` merged in behind it —
+    # 12 -> 10 on 2026-08-28, in two steps: `research_draft_minor` merged INTO
+    # `research_draft`, and `research_refresh` merged in behind it —
     # so one workflow left the census without any workflow ceasing to reference
     # the shared ERE. The census is a completeness check, not a target — it
     # exists so a workflow that quietly stops sharing the pattern is noticed, and
@@ -683,7 +680,7 @@ def _instruction_surface(workflow_file: Path) -> list[Path]:
 
     SCOPED WIDER THAN `prompts/` ON PURPOSE, and the narrow version was wrong.
     A first cut of this check looked only in each workflow's `prompts/` folder
-    and reported FOUR workflows — `plan-sprint`, `research-write`,
+    and reported FOUR workflows — `plan-sprint`, `research-draft`,
     `research-verify`, `research-refresh` — as gating on a PR URL they never
     ask for. They do ask: the instruction is CODE-BORNE, built by
     `<family>_activities.submit_prompt()` and interpolated as `${SUBMIT_PROMPT}`.

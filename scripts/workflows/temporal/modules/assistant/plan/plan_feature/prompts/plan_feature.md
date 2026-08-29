@@ -93,7 +93,7 @@ Any one of these **fails the whole run** — including the work you did correctl
 
 ### What happens to this plan after you
 
-**`plan-verify` is the fresh-context reviewer for planning, and it EXISTS.** It runs immediately after you inside `plan-project`, reads your `roadmap.md` and every phase doc COLD, writes the hour estimate per phase that you are forbidden to write, and answers the question your own report cannot: *where is this plan weakest*. `review-pr --type planning` judges the PR as well. Write your report for a reader who was not in this run and has not read your research — that is the reader who will size these phases and the reader who will find what you talked yourself into.
+**`plan-verify` is the fresh-context reviewer for planning, and it EXISTS.** It runs immediately after you inside `plan`, reads your `roadmap.md` and every phase doc COLD, writes the hour estimate per phase that you are forbidden to write, and answers the question your own report cannot: *where is this plan weakest*. `review-pr --type planning` judges the PR as well. Write your report for a reader who was not in this run and has not read your research — that is the reader who will size these phases and the reader who will find what you talked yourself into.
 
 **Never flip a completion checkbox anywhere.** A checkbox means *shipped and validated*. You have validated nothing — you are writing the plan for work nobody has started.
 

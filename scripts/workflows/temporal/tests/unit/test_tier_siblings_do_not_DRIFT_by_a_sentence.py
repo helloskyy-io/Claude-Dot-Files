@@ -181,7 +181,7 @@ NEAR = 0.80
 TIER_PAIRS = [
     ("build_draft", "build_draft_minor"),
     ("build_refine", "build_refine_minor"),
-    # ("research_write", "research_write_minor") until 2026-08-28. The two tiers
+    # ("research_draft", "research_draft_minor") until 2026-08-28. The two tiers
     # MERGED — the minor prompt was the newer one, carrying six per-paper
     # obligations the full one never had, so it absorbed the full tier's
     # sizing stage and took its name. A pair cannot drift when there is one

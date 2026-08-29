@@ -156,7 +156,7 @@ def test_every_bash_workflow_cap_resolves_to_a_real_key() -> None:
 #: dangling key here rather than a change there. Declared, dated, and with what
 #: absorbed it, so the entry can be removed when the operator deletes the script.
 _RETIRED_KEYS = {
-    # 2026-08-28: `research-refresh` merged into `research-write`, which now
+    # 2026-08-28: `research-refresh` merged into `research-draft`, which now
     # computes the due set in code and routes each due topic to
     # `research-currency` itself. No V2 workflow owns this key.
     "research-refresh",

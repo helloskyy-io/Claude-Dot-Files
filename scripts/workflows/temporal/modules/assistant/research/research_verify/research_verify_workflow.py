@@ -38,7 +38,7 @@ _HERE = Path(__file__).resolve().parent
 PROMPTS = _HERE / "prompts"
 
 MODEL_KEY = "research"
-# Its own key, not `research` — see research_write for why the cap is keyed by
+# Its own key, not `research` — see research_draft for why the cap is keyed by
 # workflow rather than by model. Measurement lives with the value in config.yaml.
 WORKFLOW_KEY = "research-verify"   # NOT MODEL_KEY -- see run_claude's docstring
 MAX_TURNS = act.max_turns(WORKFLOW_KEY)
@@ -54,7 +54,7 @@ def run_verify(*, research_dir: Path, pr_number: str, repo_root: Path,
     THE `minor_cycle` / `synthesis_present` PAIR WAS DELETED HERE, and the reason
     is that both had become false. They rendered a `CYCLE_SHAPE_NOTE` built on one
     premise — *a minor cycle writes no synthesis* — which stopped being true when
-    `research_write_minor` gained Stage 3 SYNTHESIZE on 2026-08-17. After that,
+    `research_draft_minor` gained Stage 3 SYNTHESIZE on 2026-08-17. After that,
     `synthesis.md` always exists when this child runs, so `minor_cycle` was
     unreachable and its sibling arm fired on every minor run telling it the
     synthesis was **from an earlier full cycle** and **does not cover this cycle's

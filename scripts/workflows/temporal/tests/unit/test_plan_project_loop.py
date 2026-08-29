@@ -1,20 +1,20 @@
 """plan-project routes on the verdict, and loops up to `routing.MAX_LOOPS` times.
 
-WHY THIS EXISTS. `plan-sprint` ran twice with no parent, so its output reached
-the operator UNJUDGED — on the only autonomous write to `sprint.md`. This parent
-is the judge, and the property that matters is not that it calls `review-pr`; it
-is that it calls it the RIGHT NUMBER OF TIMES for each verdict.
+WHY THIS EXISTS. `triage-candidates` rules every candidate in the store and its
+rulings reach the operator as a PR. Left parentless, that output arrived UNJUDGED
+— the one place in the fleet where `author != judge` was not honoured. This
+parent is the judge, and the property that matters is not that it calls
+`review-pr`; it is that it calls it the RIGHT NUMBER OF TIMES for each verdict.
 
-AND SINCE THE SPLIT, IN THE RIGHT ORDER. `triage-candidates` rules the
-candidates and `plan-sprint` places what they ruled, and the ORDER between them
-is the whole reason the split happened: sprint maintenance running first meant
-hour totals landed ahead of the estimates they depend on, and nothing could be
-sequenced between the two jobs while they shared one dispatch. Order is not
-something a reader can check by looking — both calls are present either way — so
-it is pinned here.
+THE PARENT IS NARROW ON PURPOSE, AND THAT IS ITSELF A TESTED PROPERTY. It used to
+research each scaffolded component and then plan, size and sprint it — five
+children behind one dispatch — because no parent existed to hold those steps.
+`research` and `plan` do now, so the steps left. `test_the_parent_dispatches_NO_
+research_and_NO_planning_child` is what keeps them gone: every one of them was
+added by a reasonable-looking commit, and nothing structural stopped the next.
 
-All three children are stubbed. The parent calls no model by design, so a test
-that exercised the real children would be testing them, not the routing — and the
+Both children are stubbed. The parent calls no model by design, so a test that
+exercised the real children would be testing them, not the routing — and the
 routing is the whole content of a parent.
 
 The loop bound is a MEASURED constant, not a preference: self-correction
@@ -25,6 +25,8 @@ MAX_LOOPS would be invisible without these.
 
 from __future__ import annotations
 
+import ast
+import inspect
 from pathlib import Path
 
 import pytest
@@ -34,7 +36,6 @@ from modules.assistant.plan.plan_project import plan_project_workflow as pm
 from modules.assistant.review_pr.review_pr_helper import ReviewResult
 
 PR_URL = "https://github.com/o/r/pull/43"
-BASE_SHA = "0123456789abcdef0123456789abcdef01234567"
 
 
 class _Calls:
@@ -42,36 +43,18 @@ class _Calls:
 
     `order` is the sequence of child names as the parent actually called them.
     The per-child counters answer "how many times"; only this answers "in what
-    order", and after the split the order IS the property.
+    order".
     """
 
     def __init__(self) -> None:
         self.triage = 0
-        self.sprint = 0
         self.review = 0
         self.order: list[str] = []
-        self.correction_passes: list[bool] = []
-        self.research_pools: list[Path] = []
-        self.sprint_pools: list[Path] = []
-        # Every `component` the plan-feature child was handed. REPO-ROOTED by the
-        # child's contract, which is the half of this seam worth asserting: the
-        # parent holds a WORKTREE path and every other child takes one, so the
-        # re-anchoring is a place a correct-looking call is silently wrong.
-        self.planned: list[Path] = []
-        # Every `component` the plan-verify child was handed, same contract and
-        # asserted for the same reason. The two are recorded SEPARATELY rather
-        # than as one counter: they run back to back on one component, so a bug
-        # that dispatched the judge against a DIFFERENT path than the author is
-        # invisible to a combined count and is exactly what re-anchoring gets
-        # wrong.
-        self.verified: list[Path] = []
-        # (tree, argv, children dispatched SO FAR) for every git read the parent
-        # makes. The third element is what turns "it pinned a base" into "it
-        # pinned it before anything could move".
-        self.git_calls: list[tuple[Path, tuple[str, ...], tuple[str, ...]]] = []
-        # Every `base_ref` Step 2's sweep was actually given.
-        self.sweep_bases: list[object] = []
-        # Every positional argument pair Step 1b's scaffolder was called with.
+        # The `pr_number` every triage dispatch was handed. The first pass may
+        # carry the operator's `--pr` or None; every loop-back must carry the PR
+        # step 1 opened, or the correction lands on a second PR nobody reviews.
+        self.triage_prs: list[object] = []
+        # Every positional argument pair the scaffolder was called with.
         self.scaffold_args: list[tuple[object, ...]] = []
         # (function, pr, repo_root, reviews-so-far) for every CI read `_dispose`
         # made. `repo_root` is recorded rather than merely counted because
@@ -89,64 +72,21 @@ def wired(monkeypatch: pytest.MonkeyPatch) -> _Calls:
     def fake_triage(**kw: object) -> str:
         calls.triage += 1
         calls.order.append("triage")
+        calls.triage_prs.append(kw.get("pr_number"))
         return PR_URL
 
-    def fake_sprint(**kw: object) -> str:
-        calls.sprint += 1
-        calls.order.append("sprint")
-        calls.correction_passes.append(bool(kw.get("correction_pass", False)))
-        # `component`, not `research_dir`. The child was rebuilt on 2026-08-19 to
-        # act on ONE PLANNED COMPONENT — it no longer reads a research pool or a
-        # candidates file, and `sprint_pools` recorded a parameter that no longer
-        # exists. What the assertions want now is WHICH COMPONENT each dispatch
-        # was handed, which is also what makes the one-per-component fan-out
-        # visible rather than a bare count.
-        calls.sprint_pools.append(kw["component"])
-        return PR_URL
-
-    def fake_write(**kw: object) -> str:
-        calls.research_pools.append(kw["research_dir"])
-        calls.order.append("research")
-        return PR_URL
-
-    def fake_feature(**kw: object) -> str:
-        calls.planned.append(kw["component"])
-        calls.order.append("feature")
-        return PR_URL
-
-    def fake_plan_verify(**kw: object) -> str:
-        calls.verified.append(kw["component"])
-        calls.order.append("plan-verify")
-        return PR_URL
-
-    monkeypatch.setattr(pm.feature, "run_plan_feature", fake_feature)
-    monkeypatch.setattr(pm.plan_verify, "run_plan_verify", fake_plan_verify)
     monkeypatch.setattr(pm.triage, "run_triage_candidates", fake_triage)
-    monkeypatch.setattr(pm.sprint, "run_plan_sprint", fake_sprint)
     monkeypatch.setattr(pm.act, "worktree_add", lambda *a, **k: Path("/tmp/wt"))
     # THE BASE THIS RUN IS CUT FROM, stubbed for the same reason `repo_slug`
     # below is: it asks `gh`, and this loop is driven against a fake repo path.
     # It answers "HEAD" only here — production resolves the DEFAULT BRANCH, and
     # `test_a_new_branch_STARTS_FROM_THE_DEFAULT_BRANCH` is what holds that.
     monkeypatch.setattr(pm.act, "base_ref", lambda pr, repo_root: "HEAD")
-    # The parent pins the commit its worktree started from, so Step 2 asks "what
-    # did THIS run add" rather than "what has this branch accumulated". Faked at
-    # its boundary — the worktree above is a path, not a repository — and
-    # recorded, because a base taken at the WRONG moment is the whole defect and
-    # is invisible unless the call is observed.
-    def fake_git_output(tree: Path, cmd: list[str], _why: str) -> str:
-        calls.git_calls.append((tree, tuple(cmd), tuple(calls.order)))
-        return f"{BASE_SHA}\n"
-
-    monkeypatch.setattr(pm.act, "git_output", fake_git_output)
     # THE CI GATE IS FAKED AT ITS BOUNDARY, GREEN, and it must be faked at ALL:
-    # `_dispose` now reads the CI verdict before dispatching review, and both
-    # reads shell out to `gh`. Left real they cost ~5s per test against the live
-    # API and make the outcome depend on a network — the gate's own cascade is
+    # `_dispose` reads the CI verdict before dispatching review, and both reads
+    # shell out to `gh`. Left real they cost ~5s per test against the live API
+    # and make the outcome depend on a network — the gate's own cascade is
     # exercised by `test_ci_gate.py`, which drives the activity directly.
-    # `calls.ci_reads` records the pair so the ordering tests can see that the
-    # gate ran BEFORE the review dispatch, which is the property this parent was
-    # missing entirely until PR #124.
     def fake_wait_for_ci(pr: str, **kw: object) -> bool:
         # THE FOURTH ELEMENT IS THE REVIEW COUNT AT THE MOMENT OF THE READ, and
         # it is what makes "the gate ran first" checkable. A snapshot of `order`
@@ -154,8 +94,6 @@ def wired(monkeypatch: pytest.MonkeyPatch) -> _Calls:
         # dispatches and `run_review` is not one of them, so `"review" not in
         # order` is true whatever the parent does. `calls.review` is incremented
         # by the review fake itself, so it cannot be true by construction.
-        # `order` is deliberately left unperturbed: the ordering tests assert it
-        # exactly, and the gate is not a child.
         calls.ci_reads.append(("wait_for_ci", pr, kw.get("repo_root"), calls.review))
         return True
 
@@ -169,53 +107,18 @@ def wired(monkeypatch: pytest.MonkeyPatch) -> _Calls:
     # it takes out of the child's URL can be checked against the repository the
     # dispatch is operating in. It is a `gh` call; faked at its boundary.
     monkeypatch.setattr(pm._shared, "repo_slug", lambda repo_root: "o/r")
-    monkeypatch.setattr(pm.write, "run_write", fake_write)
-    monkeypatch.setattr(pm.verify, "run_verify", lambda **kw: PR_URL)
-    # No new sections by default: the research fan-out is opt-in per test, and a
-    # real `git diff` against a fake worktree would fail for the wrong reason.
-    def no_sections(*a: object, **k: object) -> list[str]:
-        calls.sweep_bases.append(k.get("base_ref"))
-        return []
 
-    monkeypatch.setattr(pm.own, "new_sprint_sections", no_sections)
-    # `component_dir` IS NOT STUBBED. It was, to a constant `.../development/x`,
-    # which meant every fan-out test asserted against a path the code under test
-    # had not computed — and it hid the slug-versus-heading mismatch that made the
-    # two research signals fail to de-duplicate. It is pure path arithmetic and
-    # there is nothing in it to isolate.
-    #
-    # Step 1b scaffolds nothing by default, for the same reason the sweep above
-    # returns nothing: it reads and WRITES a real tree, and the worktree here is
-    # a bare path. Faked at its boundary and recorded — which component list the
-    # parent hands the research step is exactly what the fan-out tests assert on.
+    # The scaffolder scaffolds nothing by default: it reads and WRITES a real
+    # tree, and the worktree here is a bare path. Faked at its boundary and
+    # recorded — which paths the parent hands it is its own assertion below.
     def no_scaffold(*a: object, **k: object) -> pm.own.Scaffolded:
         calls.scaffold_args.append(a)
+        calls.order.append("scaffold")
         return pm.own.Scaffolded(created=[], resumed=[], extends=[], unnamed=[],
                                  not_a_feature=[], unsized=[])
 
     monkeypatch.setattr(pm.own, "scaffold_candidate_components", no_scaffold)
     return calls
-
-
-def _plans_one(monkeypatch: pytest.MonkeyPatch, calls: _Calls, name: str = "alpha") -> None:
-    """Make the sweep find ONE component, so the per-component children fire.
-
-    NEEDED SINCE 2026-08-19 AND NOT BEFORE. `plan-sprint` used to walk
-    `candidates.md` and ran once whether or not anything had been planned, so a
-    fixture with an empty sweep still exercised it. It now acts on ONE PLANNED
-    COMPONENT — a parent that plans nothing sprints nothing — which is correct
-    behaviour and makes an empty sweep the wrong fixture for any assertion about
-    the sprint child.
-
-    The fan-out tests keep the empty default deliberately: what they assert is
-    which components the research step is handed, and seeding one here would put
-    a component in every one of those lists.
-    """
-    def one(*a: object, **k: object) -> list[str]:
-        calls.sweep_bases.append(k.get("base_ref"))
-        return [name]
-
-    monkeypatch.setattr(pm.own, "new_sprint_sections", one)
 
 
 def _verdicts(monkeypatch: pytest.MonkeyPatch, calls: _Calls, *sequence: routing.Verdict) -> None:
@@ -231,77 +134,114 @@ def _verdicts(monkeypatch: pytest.MonkeyPatch, calls: _Calls, *sequence: routing
 def _run(**kw: object) -> tuple[str, routing.Verdict, int, list[str]]:
     return pm.run_plan_project(
         repo_root=Path("/repo"), worktree_name="wt",
-        sprint_path=Path("/repo/docs/development/sprint.md"),
         candidates_path=Path("/repo/c.md"), research_dir=Path("/repo/r"), **kw,
     )
 
 
 def test_merge_runs_one_of_each_child(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The happy path spends exactly three child dispatches, never four."""
-    _plans_one(monkeypatch, wired)
+    """The happy path spends exactly one triage and one review, never two."""
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
     url, verdict, loops, _notes = _run()
     assert (url, verdict, loops) == (PR_URL, routing.Verdict.MERGE, 0)
-    assert (wired.triage, wired.sprint, wired.review) == (1, 1, 1)
+    assert (wired.triage, wired.review) == (1, 1)
 
 
-def test_triage_runs_BEFORE_the_sprint_plan_is_touched(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
-    """THE ORDERING IS THE SPLIT, and nothing else here would catch it reversed.
+def test_the_scaffold_runs_AFTER_triage(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """It acts on `ship` rulings, and before triage there are none.
 
-    Both children are called either way, and both counters read 1 either way —
-    so a parent that placed before it ruled would pass every other assertion in
-    this file. The defect that ordering fixes is concrete: `plan-sprint` used to
-    run first, which put its hour totals in the plan ahead of anything that
-    estimates the work those totals are of, and left no position in which
-    feature planning could run at all.
+    Both steps happen either way and neither counter would notice the swap, so
+    the order is pinned here or nowhere. Reversed, the scaffolder reads the
+    pre-triage file and creates directories for candidates nobody has ruled.
     """
-    _plans_one(monkeypatch, wired)
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
     _run()
-    assert wired.order == ["triage", "research", "feature", "plan-verify", "sprint"], (
-        f"the parent dispatched its children as {wired.order}. Triage rules the "
-        f"candidates and plan-sprint places what they ruled — reversed, the "
-        f"sprint plan is written from rulings that have not been made yet."
+    assert wired.order == ["triage", "scaffold"], (
+        f"the parent ran {wired.order}. The scaffolder acts on rulings; running "
+        f"it first means it acts on a file that carries none."
     )
 
 
-def test_research_sits_BETWEEN_triage_and_the_sprint_plan(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The gap is the whole point of the split, so its position is pinned.
+def _child_workflow_imports(tree: ast.Module) -> set[str]:
+    """The local names a module binds to child workflow modules.
 
-    `plan-candidates` and `plan-feature` were the work the gap was made for, and
-    both have now landed in it — `plan-candidates` as an activity ahead of the
-    research step, `plan-feature` as a child behind it. If the research fan-out
-    drifted to either end, the position they occupy would quietly stop existing.
+    Keyed on the `_workflow` suffix every child module in this fleet carries, and
+    reading the ALIAS where there is one, because that is what the call sites use
+    — `from ..plan_sprint import plan_sprint_workflow as sprint` binds `sprint`,
+    and a set of source module names would not match what a reader greps for.
 
-    **`plan-feature` sits between research and the sprint plan, and BOTH sides of
-    that are load-bearing.** Ahead of research it would plan a component from a
-    pool that is still a one-line seed. Behind `plan-sprint` it would restore the
-    ordering defect the split existed to fix: the sprint plan updated before
-    anything had decomposed the work it sequences.
-
-    **`plan-verify` SITS BETWEEN THEM, AND ITS POSITION IS PINNED FROM BOTH SIDES
-    TOO.** Ahead of `plan-feature` there is no plan to read and it refuses. Behind
-    `plan-sprint` it would leave the sprint maintainer running before the only
-    thing that estimates the work — the very defect `plan_sprint_workflow`'s
-    docstring records, which had been latent rather than fixed because until this
-    child landed there were no estimates for the sprint plan to be ahead of.
+    IT TAKES A PARSED TREE, NOT SOURCE, AND THAT IS NOT A STYLE CHOICE. The
+    census in `test_a_census_guard_proves_its_own_predicate.py` recognises a
+    tree-walking guard by `ast.parse(<something>.read_text(...))` appearing as one
+    expression. Taking source here would move the only `ast.parse` inside this
+    helper, out of the reading path — and the guard would silently drop out of
+    the population it belongs to, auditing nothing while looking green. That
+    census's own docstring records the same correction being forced on
+    `test_a_new_branch_STARTS_FROM_THE_DEFAULT_BRANCH`.
     """
-    _plans_one(monkeypatch, wired)
-    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
-    _with_sections(monkeypatch, "Alpha")
-    _run()
-    assert wired.order == ["triage", "research", "feature", "plan-verify",
-                           "sprint"], (
-        f"the parent dispatched {wired.order} — component research must run "
-        f"after the rulings exist, the component must be planned from the "
-        f"research that just landed, the plan must be sized before anything "
-        f"totals it, and the sprint plan must be maintained last"
-    )
-    assert wired.verified == wired.planned, (
-        f"the judge was dispatched against {wired.verified} while the author "
-        f"wrote {wired.planned}. They run back to back on ONE component and the "
-        f"path is re-anchored from the worktree to the repo for both; a judge "
-        f"pointed at a different component reads a plan nobody just wrote"
+    return {
+        alias.asname or alias.name.split(".")[-1]
+        for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
+        for alias in node.names
+        if alias.name.endswith("_workflow")
+    }
+
+
+@pytest.mark.parametrize("source,expected", [
+    # THE NARROW SHAPE — exactly what the parent imports today.
+    ("from ..triage_candidates import triage_candidates_workflow as triage\n"
+     "from ...review_pr import review_pr_workflow as review_pr\n"
+     "from .. import plan_activities as act\n",
+     {"triage", "review_pr"}),
+    # THE SHAPE THIS GUARD EXISTS TO CATCH — a research child pulled back in.
+    ("from ..triage_candidates import triage_candidates_workflow as triage\n"
+     "from ...review_pr import review_pr_workflow as review_pr\n"
+     "from ...research.research_draft import research_draft_workflow as write\n",
+     {"triage", "review_pr", "write"}),
+    # A module that imports no child at all — the recogniser must not invent one.
+    ("from pathlib import Path\nfrom .. import plan_activities as act\n", set()),
+])
+def test_the_import_recogniser_answers_correctly_on_a_literal(
+        source: str, expected: set[str]) -> None:
+    """The predicate above, exercised against snippets rather than only the tree.
+
+    A walk over the production tree passes trivially if the recogniser stops
+    recognising anything — the guard would report "no forbidden imports" on a
+    parent that had every one of them back. These three literals are what make
+    the assertion above mean something: one satisfying case, one violating case,
+    and one with nothing to find.
+    """
+    assert _child_workflow_imports(ast.parse(source)) == expected
+
+
+def test_the_parent_dispatches_NO_research_and_NO_planning_child(
+        wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The narrowing, held structurally rather than by anybody remembering it.
+
+    This parent used to call `research-draft`, `research-verify`, `plan-feature`,
+    `plan-verify` and `plan-sprint` inline — five children behind one dispatch,
+    one worktree carrying all of their work into one review, and a failure
+    anywhere orphaning everything behind it. Each arrived in a commit that looked
+    reasonable on its own; what was missing was anything that noticed the shape.
+
+    ASSERTED OVER THE IMPORTS RATHER THAN OVER A RUN, and that is the point. A
+    dispatch-count assertion only sees a child on the path the fixture happens to
+    take, so a step reintroduced behind a condition — exactly how the research
+    step was added, and how it then sat inert for weeks — passes it. An import is
+    unconditional and is the thing a reintroduction cannot avoid.
+
+    `review-pr` and `triage-candidates` ARE the permitted set. It is stated as an
+    exact set rather than a denylist so a SIXTH child cannot be added silently:
+    the test fails on anything new, and whoever adds it has to say why here.
+    """
+    imported = _child_workflow_imports(
+        ast.parse(Path(inspect.getfile(pm)).read_text(encoding="utf-8")))
+    assert imported == {"triage", "review_pr"}, (
+        f"plan-project imports the child workflows {sorted(imported)}. It is a "
+        f"first-level parent: it rules candidates, gives the shipped ones a home, "
+        f"and stops. Researching a scaffolded component is `research`'s run and "
+        f"planning it is `plan`'s — both are parents in their own right, and "
+        f"pulling either back in here rebuilds the five-deep pipeline this was "
+        f"narrowed out of."
     )
 
 
@@ -311,7 +251,6 @@ def test_redispatch_loops_to_the_bound_then_stops(wired: _Calls, monkeypatch: py
     This is the regression that matters: the verdict never becomes MERGE, so
     only the loop bound stops it.
     """
-    _plans_one(monkeypatch, wired)
     _verdicts(monkeypatch, wired, routing.Verdict.HOLD_REDISPATCH)
     _url, verdict, loops, notes = _run()
     assert loops == routing.MAX_LOOPS, (
@@ -322,43 +261,57 @@ def test_redispatch_loops_to_the_bound_then_stops(wired: _Calls, monkeypatch: py
     # One initial pass plus one per loop-back. Derived, so the operator's ramp
     # does not read as a regression.
     expected = 1 + routing.MAX_LOOPS
-    assert (wired.sprint, wired.review) == (expected, expected)
+    assert (wired.triage, wired.review) == (expected, expected)
     assert any("SPENT" in n for n in notes)
 
 
-def test_the_loop_back_does_NOT_re_run_triage(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Triage is spent after one pass, however many times the reviewer holds.
+def test_the_loop_back_RE_RUNS_triage(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The correction pass goes to the only child that wrote anything.
 
-    Every candidate carries a decision once triage has run, so a second triage
-    would re-litigate rulings rather than close the runway the reviewer wrote —
-    and it would spend a full opus dispatch per loop to do it. The loop-back
-    goes to plan-sprint alone, which is also the last producer and sees the
-    whole PR.
+    THIS ASSERTION IS THE REVERSE OF THE ONE IT REPLACES, and the reversal is the
+    narrowing rather than a change of mind. It used to read `triage == 1`, on the
+    argument that re-triaging "re-opens settled dispositions" and that the
+    loop-back belonged to `plan-sprint` — the last producer, which "sees the whole
+    PR". That argument picks between producers, and after the narrowing there is
+    exactly one: `plan-sprint` left with the research and planning children, and
+    `plan-candidates` is an activity with no model in it to correct.
+
+    THE RE-LITIGATION RISK IT NAMED IS REAL AND THE CHILD IS WHAT ANSWERS IT.
+    `_working_set` branches on the counted file: at zero untriaged it stops
+    issuing a working set and tells the run its job is to REVISE — close the
+    runway a reviewer wrote, change nothing else. Triage raises if it leaves any
+    row untriaged, so every loop-back arrives at zero by construction and takes
+    that branch. The guarantee lives in the artifact, which is why no
+    `correction_pass` flag was added to carry it.
     """
     _verdicts(monkeypatch, wired, routing.Verdict.HOLD_REDISPATCH)
     _run()
-    assert wired.triage == 1, (
+    assert wired.triage == 1 + routing.MAX_LOOPS, (
         f"triage ran {wired.triage} times across {routing.MAX_LOOPS} loop-backs. "
-        f"Rulings are made once; re-running it re-opens settled dispositions and "
-        f"costs a full dispatch per pass to do so."
+        f"It is the only producing child left; a loop-back that dispatches "
+        f"nothing spends a review pass on an unchanged tree."
     )
 
 
-def test_the_loop_back_is_a_correction_pass_not_a_fresh_placement(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The loop-back closes the reviewer's runway; it does not re-plan.
+def test_the_loop_back_targets_the_OPEN_pr_and_not_a_fresh_one(
+        wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A correction that opens its own PR is a correction nobody reviews.
 
-    The first plan-sprint pass is fresh; every loop-back after it is a
-    correction.
+    The first dispatch may carry the operator's `--pr` or None — that is the
+    caller's business. Every loop-back after it must carry the number step 1's
+    URL yielded, or the child branches to "open a new PR" and the runway the
+    reviewer wrote stays open on a PR that now has a sibling.
     """
-    _plans_one(monkeypatch, wired)
     _verdicts(monkeypatch, wired, routing.Verdict.HOLD_REDISPATCH)
     _run()
-    assert wired.correction_passes == [False] + [True] * routing.MAX_LOOPS
+    assert wired.triage_prs == [None] + ["43"] * routing.MAX_LOOPS, (
+        f"triage was dispatched with {wired.triage_prs}. Every loop-back has to "
+        f"land on the PR step 1 opened."
+    )
 
 
 def test_a_loop_back_that_earns_merge_stops_there(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
     """The loop is spent on success too — it does not keep going after MERGE."""
-    _plans_one(monkeypatch, wired)
     _verdicts(monkeypatch, wired, routing.Verdict.HOLD_REDISPATCH, routing.Verdict.MERGE)
     _url, verdict, loops, _notes = _run()
     assert (verdict, loops) == (routing.Verdict.MERGE, 1)
@@ -366,9 +319,7 @@ def test_a_loop_back_that_earns_merge_stops_there(wired: _Calls, monkeypatch: py
     # run EARNS MERGE on its first loop-back and stops, so the bound is never
     # reached and a bound-relative count here would be wrong in both directions —
     # green today by coincidence, red the moment the ramp moves.
-    assert (wired.sprint, wired.review) == (2, 2)
-    # And triage is still spent exactly once, whatever the sprint child did.
-    assert wired.triage == 1
+    assert (wired.triage, wired.review) == (2, 2)
 
 
 def test_needs_assistance_never_loops(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -377,11 +328,10 @@ def test_needs_assistance_never_loops(wired: _Calls, monkeypatch: pytest.MonkeyP
     Distinct from the redispatch case: this one has loop budget REMAINING and
     must still decline to spend it.
     """
-    _plans_one(monkeypatch, wired)
     _verdicts(monkeypatch, wired, routing.Verdict.HOLD_NEEDS_ASSISTANCE)
     _url, verdict, loops, notes = _run()
     assert (verdict, loops) == (routing.Verdict.HOLD_NEEDS_ASSISTANCE, 0)
-    assert (wired.triage, wired.sprint, wired.review) == (1, 1, 1)
+    assert (wired.triage, wired.review) == (1, 1)
     # THE NOTE STATES THE LOOP DECISION AND NOTHING ELSE. It used to say
     # "review-pr found at least one item only a human can rule on", and this
     # assertion PINNED that sentence — which is why the suite was green over it.
@@ -411,7 +361,6 @@ def test_a_RED_tree_HOLDS_before_review_pr_is_ever_dispatched(
     both calls exist in the module, not that the gate runs FIRST. A gate that
     runs after the dispatch has already let the reviewer produce a verdict.
     """
-    _plans_one(monkeypatch, wired)
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
     monkeypatch.setattr(pm, "ci_verdict",
                         lambda pr, **kw: (routing.CiVerdict.RED, ["suite"]))
@@ -444,7 +393,6 @@ def test_the_gate_reads_CI_with_repo_root_and_before_any_review(
     this arm pins is that the parent passes THE RIGHT TREE — `Path("/repo")`, not
     merely something.
     """
-    _plans_one(monkeypatch, wired)
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
     _run()
 
@@ -464,9 +412,8 @@ def test_the_gate_reads_CI_with_repo_root_and_before_any_review(
 def test_merge_still_says_it_is_not_an_unattended_merge(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
     """MERGE means the judge found nothing to correct — not "merge it".
 
-    The sprint plan is the operator's surface and direction.md rows are
-    by construction rulings no automated pass can make, so a clean verdict
-    must not read as authorisation.
+    `direction.md` rows are by construction rulings no automated pass can make,
+    so a clean verdict must not read as authorisation.
     """
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
     _url, _verdict, _loops, notes = _run()
@@ -498,16 +445,13 @@ def test_isolation_is_established_once_by_the_parent(monkeypatch: pytest.MonkeyP
     added: list[str] = []
     monkeypatch.setattr(pm.act, "worktree_add",
                         lambda repo, name, ref: added.append(name) or Path("/tmp/wt"))
-    monkeypatch.setattr(pm.own, "new_sprint_sections", lambda *a, **k: [])
     monkeypatch.setattr(
         pm.own, "scaffold_candidate_components",
         lambda *a, **k: pm.own.Scaffolded(created=[], resumed=[], extends=[],
                                           unnamed=[], not_a_feature=[], unsized=[]))
-    monkeypatch.setattr(pm.act, "git_output", lambda *a, **k: BASE_SHA)
     monkeypatch.setattr(pm._shared, "repo_slug", lambda repo_root: "o/r")
     monkeypatch.setattr(pm.act, "base_ref", lambda pr, repo_root: "HEAD")
     monkeypatch.setattr(pm.triage, "run_triage_candidates", lambda **kw: PR_URL)
-    monkeypatch.setattr(pm.sprint, "run_plan_sprint", lambda **kw: PR_URL)
     # This test wires its own stubs rather than taking `wired`, so the CI gate
     # has to be faked here too — left real it shells out to `gh` per loop.
     monkeypatch.setattr(pm, "wait_for_ci", lambda pr, **kw: True)
@@ -518,119 +462,6 @@ def test_isolation_is_established_once_by_the_parent(monkeypatch: pytest.MonkeyP
                                                     this_pass=1, notes=[]))
     _run()
     assert added == ["wt"], f"expected exactly one worktree, got {added}"
-
-
-# THE REAL `component_dir` AND THE REAL `component_slug` ARE USED, DELIBERATELY.
-# These helpers used to monkeypatch `component_dir` to `name.lower()`, and that
-# single line is what made the both-signals dedup test below assert nothing: the
-# two signals differ precisely in that one returns a SLUG and the other a raw
-# heading, and a stub that lower-cases erases the difference the test exists to
-# find. Both functions are pure path arithmetic with no I/O, so there was never
-# anything to stub.
-
-
-def _with_sections(monkeypatch: pytest.MonkeyPatch, *names: str) -> None:
-    monkeypatch.setattr(pm.own, "new_sprint_sections", lambda *a, **k: list(names))
-
-
-def _with_scaffolded(monkeypatch: pytest.MonkeyPatch, *names: str) -> None:
-    """`names` are what the activity CREATED — always slugs, as it returns directory names."""
-    monkeypatch.setattr(
-        pm.own, "scaffold_candidate_components",
-        lambda *a, **k: pm.own.Scaffolded(created=list(names), resumed=[],
-                                          extends=[], unnamed=[],
-                                          not_a_feature=[], unsized=[]))
-
-
-def test_no_new_sections_means_no_research(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The common case. A triage that adds no section must spend nothing on research."""
-    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
-    _run()
-    assert wired.research_pools == []
-
-
-# --- Step 1b: plan-candidates, and the input it restored ---------------------
-
-def test_plan_candidates_runs_AFTER_triage_and_BEFORE_research(
-        wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Both halves of the ordering are load-bearing and they fail differently.
-
-    Before triage there are no `ship` rulings to act on, so it would scaffold
-    nothing. After research it would be scaffolding a component the research step
-    has already been asked to research — which is the ordering `workflows.md`
-    drew, and it describes a step researching something that does not exist yet.
-    """
-    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
-    _with_scaffolded(monkeypatch, "Alpha")
-    _run()
-    assert wired.order[:3] == ["triage", "research", "feature"], (
-        f"expected triage, then the scaffolded component's research, then its "
-        f"plan written from that research, got {wired.order}")
-
-
-def test_the_scaffolded_components_ARE_the_research_step_input(
-        wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
-    """THE POINT OF THE WHOLE CHANGE, and it is why this assertion is not about a note.
-
-    The research step's only signal was "a sprint section this run added", and
-    with plan-sprint sequenced behind it nothing ahead of it added one — the step
-    was inert by construction and `plan_project`'s own docstring said so. A
-    scaffolded component is now a real signal reaching it.
-    """
-    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
-    _with_scaffolded(monkeypatch, "Alpha", "Beta")
-    _run()
-    assert wired.research_pools == [
-        Path("/tmp/wt/docs/development/alpha/research"),
-        Path("/tmp/wt/docs/development/beta/research"),
-    ], "a scaffolded component did not reach the research step"
-
-
-def test_a_component_reached_by_BOTH_signals_is_researched_ONCE(
-        wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The two signals are unioned, and a duplicate costs a full research cycle.
-
-    Not hypothetical once `plan-feature` lands: a component can be scaffolded
-    here AND gain a sprint section in the same dispatch, and each entry in this
-    list is a `research-write` plus a `research-verify` dispatch.
-
-    **THE SPELLINGS ARE DIFFERENT ON PURPOSE, AND THAT IS THE WHOLE TEST.** The
-    scaffolder returns the directory name it made — a SLUG — while
-    `new_sprint_sections` returns the heading as the operator typed it. An
-    earlier version of this test passed the identical string down both paths and
-    stubbed `component_dir` to lower-case it, so it proved only that
-    `dict.fromkeys` de-duplicates equal strings, and stayed green while the real
-    pair (`fleet-reliability` / `Fleet Reliability`) both survived the union.
-    """
-    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
-    _with_scaffolded(monkeypatch, "fleet-reliability")
-    _with_sections(monkeypatch, "Fleet Reliability")
-    _run()
-    assert wired.research_pools == [
-        Path("/tmp/wt/docs/development/fleet-reliability/research")], (
-        f"researched twice under two spellings of one component: {wired.research_pools}")
-
-
-def test_the_SCAFFOLDED_brief_wins_when_a_component_arrives_down_both_signals(
-        wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Dedup decides HOW MANY; this decides WHICH BRIEF, and only one of them is true.
-
-    A scaffolded component's brief points at the seeded synthesis; the sprint
-    brief tells the child to read a sprint section. If the sprint signal won,
-    the child would be sent to read a section that `plan-candidates` never wrote
-    and `sprint.md` never gained — the false premise the branch exists to avoid.
-    """
-    contexts: list[str] = []
-    monkeypatch.setattr(pm.write, "run_write",
-                        lambda **kw: contexts.append(str(kw["context"])) or PR_URL)
-    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
-    _with_scaffolded(monkeypatch, "fleet-reliability")
-    _with_sections(monkeypatch, "Fleet Reliability")
-    _run()
-
-    assert len(contexts) == 1
-    assert "scaffolded from a shipped research candidate" in contexts[0]
-    assert "sprint section" not in contexts[0].replace("NO sprint section", "")
 
 
 def test_the_scaffolder_is_given_the_WORKTREE_copy_of_the_candidates_file(
@@ -655,23 +486,12 @@ def test_EVERY_field_of_Scaffolded_REACHES_THE_OPERATOR_as_its_own_note(
     Its docstring says a bare list of created slugs "is what made three separate
     failures silent" — an extending candidate, an abandoned pool and a filer typo
     all read as "created nothing", and that note reads as health. The parent
-    answers with one note per entry. **Nothing asserted any of it**: every test
-    here checked dispatch counts and brief text, so the three quiet outcomes —
-    the whole reason the return type has four lists — were untested.
+    answers with one note per entry.
 
     KEYED ON THE TYPE'S FIELDS RATHER THAN ON FOUR EXAMPLES. A fifth bucket added
     later fails here until the parent gives it a note, which is the property
     worth holding: the failure mode is a list nobody prints, and a test naming
-    today's four lists cannot see it.
-
-    IT COUNTS THE NOTES RATHER THAN LOOKING FOR ONE, AND THE FIRST VERSION DID
-    NOT — which a mutation caught and a reading would not have. `created` and
-    `resumed` feed the research fan-out, so their slugs ALSO appear in "New
-    component `x` — researching before it is planned". A presence test therefore
-    stayed green with the whole `resumed` note loop deleted: the slug was still
-    in the notes, under a sentence that says something else entirely. The
-    expected count is derived from `to_research` rather than hard-coded per
-    field, so a bucket that starts or stops feeding research adjusts with it.
+    today's six lists cannot see it.
     """
     scaffolded = pm.own.Scaffolded(
         created=["alpha"], resumed=["beta"],
@@ -686,7 +506,6 @@ def test_EVERY_field_of_Scaffolded_REACHES_THE_OPERATOR_as_its_own_note(
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
     _url, _verdict, _loops, notes = _run()
 
-    feeds_research = set(scaffolded.to_research)
     for field in pm.own.Scaffolded._fields:
         entries = getattr(scaffolded, field)
         assert entries, f"the fixture left {field} empty, so its assertion is vacuous"
@@ -694,164 +513,55 @@ def test_EVERY_field_of_Scaffolded_REACHES_THE_OPERATOR_as_its_own_note(
             # A row-keyed list carries `(id, name)`; a component-keyed one a bare
             # slug. Both have to be findable in the notes by what identifies them.
             for token in (entry if isinstance(entry, tuple) else (entry,)):
-                # One note for the disposition, plus one for the research
-                # dispatch if this bucket feeds it.
-                want = 2 if token in feeds_research else 1
-                got = sum(1 for n in notes if token in n)
-                assert got >= want, (
-                    f"`Scaffolded.{field}` carried {token!r} and {got} note(s) "
-                    f"mention it, not {want} — that outcome is invisible to the "
-                    f"operator, or is visible only under another step's sentence, "
-                    f"which is exactly what this type was widened to prevent. "
-                    f"Notes: {notes}")
+                assert any(token in n for n in notes), (
+                    f"`Scaffolded.{field}` carried {token!r} and no note mentions "
+                    f"it — that outcome is invisible to the operator, which is "
+                    f"exactly what this type was widened to prevent. Notes: {notes}")
 
     assert not any("empty working set" in n for n in notes), (
-        "the parent reported an empty working set while four rows were disposed of")
+        "the parent reported an empty working set while six rows were disposed of")
 
 
-def test_the_research_brief_for_a_SCAFFOLDED_component_claims_no_sprint_section(
+def test_a_scaffolded_component_NAMES_THE_TWO_DISPATCHES_that_take_it_forward(
         wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A FALSE PREMISE handed to a model is worse than a thin one.
+    """The handoff surface, and the one thing the narrowing put on the operator.
 
-    The brief for a sprint-section component tells the child to read that section
-    first. A scaffolded component has none — `sprint.md` is the operator's file
-    and nothing in this pipeline writes it — so reusing that wording would send
-    the child looking for something that does not exist and cannot be created.
-    It gets pointed at the seeded synthesis instead.
+    This parent used to research and plan a scaffolded component itself. It now
+    stops at the seeded synthesis, and NOTHING downstream of this run picks the
+    component up until `research` and then `plan` are dispatched at it —
+    `feature-manager` will drive that pair, and until it exists the hop is
+    manual. An operator reading only the verdict has no way to know that: the run
+    succeeded, the PR is clean, and a component is sitting unresearched.
+
+    ASSERTED ON BOTH `created` AND `resumed`, because they are the two buckets
+    that leave a real directory behind. The other four either changed nothing or
+    named something that already exists, and telling the operator to dispatch
+    against those would be worse than saying nothing.
     """
-    contexts: list[str] = []
-    monkeypatch.setattr(pm.write, "run_write",
-                        lambda **kw: contexts.append(str(kw["context"])) or PR_URL)
+    scaffolded = pm.own.Scaffolded(
+        created=["alpha"], resumed=["beta"], extends=[], unnamed=[],
+        not_a_feature=[], unsized=[])
+    monkeypatch.setattr(pm.own, "scaffold_candidate_components",
+                        lambda *a, **k: scaffolded)
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
-    _with_scaffolded(monkeypatch, "Alpha")
-    _run()
+    _url, _verdict, _loops, notes = _run()
 
-    assert len(contexts) == 1
-    assert "synthesis.md" in contexts[0], "the child was not pointed at its actual brief"
-    assert "NO sprint section" in contexts[0]
-    assert "was just added to" not in contexts[0], (
-        "the scaffolded component was told a sprint section was added for it")
+    for slug in ("alpha", "beta"):
+        note = next(n for n in notes if slug in n)
+        assert "research.sh" in note and "plan.sh" in note, (
+            f"the note for `{slug}` does not name the two dispatches that take it "
+            f"forward: {note!r}. The run stops here and the component does not "
+            f"move until somebody fires them."
+        )
+        assert f"docs/development/{slug}" in note, (
+            f"the note for `{slug}` does not carry a path the operator can paste: "
+            f"{note!r}")
 
-
-def test_each_new_section_is_researched_into_its_OWN_pool(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Per-component pools, not one shared one.
-
-    Research Standard §1 puts a component pool inside its component; two
-    components sharing a pool would give each the other's evidence.
-    """
-    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
-    _with_sections(monkeypatch, "Alpha", "Beta")
-    _run()
-    assert wired.research_pools == [
-        Path("/tmp/wt/docs/development/alpha/research"),
-        Path("/tmp/wt/docs/development/beta/research"),
-    ]
-
-
-def test_the_research_fanout_does_not_hijack_the_product_pool(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
-    """REGRESSION. The loop originally rebound `research_dir`, the parameter
-    naming the PRODUCT pool the planning children work from — so after
-    researching one component, the loop-back would hand plan-sprint that
-    component's pool instead. A shadowed parameter is a silent wrong-argument
-    bug: nothing raises, and the child simply reads the wrong evidence.
-    """
-    product_pool = Path("/repo/r")
-    _verdicts(monkeypatch, wired, routing.Verdict.HOLD_REDISPATCH)
-    _with_sections(monkeypatch, "Alpha")
-    _run()
-    # One pool per plan-sprint dispatch — the initial pass plus one per
-    # loop-back. The COUNT is incidental to this regression; what matters is
-    # that EVERY entry is the product pool, so it is derived from the bound
-    # rather than pinned at two.
-    # THE REGRESSION THIS GUARDS MOVED, AND THE ASSERTION MOVED WITH IT. It read
-    # `sprint_pools == [product_pool] * (1 + MAX_LOOPS)` — the loop-back must not
-    # rebind `research_dir` to a component pool. `plan-sprint` no longer takes a
-    # research pool at all since 2026-08-19, so the parameter that could be
-    # rebound is gone and that half is unfalsifiable rather than merely passing.
-    #
-    # What survives is the property the regression was about: **every loop-back
-    # hands the SAME target as the first pass.** Now the target is the component,
-    # so a loop-back that drifted onto a different one is the same defect wearing
-    # a different parameter name, and this catches it.
-    assert len(set(wired.sprint_pools)) == 1, (
-        f"plan-sprint was handed {wired.sprint_pools} — the loop-back must still "
-        f"receive the PRODUCT pool, not a component's"
-    )
-
-
-def test_the_component_sweep_is_based_on_THIS_RUN_not_on_the_branch(
-        wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Step 2 asks what THIS DISPATCH added, and `origin/main` answers otherwise.
-
-    The sweep's `base_ref` defaulted to `origin/main`, which reports everything
-    the BRANCH has accumulated since it forked. On the `--pr` redispatch path
-    both entrypoints document, the worktree is cut from a branch that already
-    carries a `## Sprint:` heading an earlier pass added AND researched — so
-    that section reads as new a second time and buys a second full
-    research-write plus research-verify cycle for a component that already has
-    a pool. Nothing raises; the run simply costs twice.
-
-    Asserting on the VALUE rather than merely on "a base was passed": a base
-    that is present and wrong is exactly the state this replaced.
-    """
-    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
-    # The redispatch path specifically: it is the one where the branch already
-    # carries an earlier pass's sections. `pr_branch` is a `gh` call, stubbed at
-    # its boundary like every other one in this module.
-    monkeypatch.setattr(pm.act, "pr_branch", lambda pr, repo_root: "some/branch")
-    _run(pr_number="43")
-    assert wired.sweep_bases == [BASE_SHA], (
-        f"the sweep was based on {wired.sweep_bases}; it must be the commit the "
-        f"worktree started from ({BASE_SHA}), never `origin/main` and never a "
-        f"symbolic ref that moves while the run is in flight")
-
-
-def test_the_base_is_pinned_BEFORE_any_child_can_move_it(
-        wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
-    """WHEN, not merely whether. A base read after triage commits is the bug.
-
-    `HEAD` is a moving target inside a run: the triage child commits to this
-    same worktree. Pinning after Step 1 would silently exclude anything triage
-    itself wrote, and the resulting sweep would be empty for a reason nobody
-    could see. The recorded third element is the children dispatched so far,
-    which is the only way to assert ordering from outside.
-    """
-    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
-    _run()
-    pins = [c for c in wired.git_calls if c[1] == ("git", "rev-parse", "HEAD")]
-    assert len(pins) == 1, f"expected exactly one base pin, got {pins}"
-    assert pins[0][2] == (), (
-        f"the base was pinned after {pins[0][2]} had already run. It must be "
-        f"read before any child writes to the worktree, or it is not the "
-        f"commit this dispatch started from.")
-    assert pins[0][0] == Path("/tmp/wt"), (
-        f"the base was read from {pins[0][0]}; it must be read from the "
-        f"WORKTREE — the repo's HEAD is a different commit and is not what "
-        f"Step 2 diffs against")
-
-
-# --- the sweep's real logic, against a real repository -------------------------
-#
-# Every test above stubs `new_sprint_sections`, which is correct for routing —
-# but it left the function's own parsing exercised by nothing. It splits on an
-# em-dash, strips a marker, and reads a `git diff`, and all three are the kind of
-# thing that is right until a heading is written slightly differently.
 
 def _git(repo: Path, *args: str) -> str:
     import subprocess
     return subprocess.run(["git", *args], cwd=repo, check=True,
                           capture_output=True, text=True).stdout
-
-
-def _sha(repo: Path) -> str:
-    """The literal commit, never the string "HEAD".
-
-    `HEAD` moves with the next commit, so a base captured as the symbol is the
-    same commit as the tip by the time the diff runs and the sweep reads empty.
-    That is precisely the defect these tests were added for, and writing it into
-    the test first is how it got noticed here rather than in production.
-    """
-    return _git(repo, "rev-parse", "HEAD").strip()
 
 
 @pytest.fixture
@@ -867,63 +577,28 @@ def real_repo(tmp_path: Path) -> Path:
     return repo
 
 
-def test_the_sweep_reads_ADDED_headings_and_not_edited_ones(real_repo: Path) -> None:
-    """The real parse, against a real diff. Added is a new component; edited is not.
+def test_a_name_that_slugs_to_NOTHING_fails_loudly(real_repo: Path) -> None:
+    """A `component` cell of `···` yields no folder name, and silence would be worse.
 
-    Researching a component because its prose moved spends a full research cycle
-    on nothing, and the difference between the two cases is a single leading
-    `+` in a diff — invisible in any test that stubs this function out.
+    The alternative — skipping it — would drop a shipped candidate from the
+    scaffold with nothing said, which is the failure mode this whole family is
+    built against. The raise names the SURFACE the name came from, so the
+    operator opens the right file: `source` exists for that and has no default,
+    because a default is the wrong answer a new caller inherits by saying nothing.
     """
     from modules.assistant.plan.plan_project import plan_project_activities as own
 
-    base = _sha(real_repo)
-    sprint = real_repo / "docs" / "development" / "sprint.md"
-    sprint.write_text("# Sprint\n\n## Sprint: Fleet Reliability — 40h\n\nbody\n")
-    _git(real_repo, "commit", "-aqm", "add a section")
-
-    rel = "docs/development/sprint.md"
-    assert own.new_sprint_sections(real_repo, rel, base_ref=base) == \
-        ["Fleet Reliability"], "an ADDED heading is a new component"
-
-    after_add = _sha(real_repo)
-    sprint.write_text("# Sprint\n\n## Sprint: Fleet Reliability — 40h\n\nreworded\n")
-    _git(real_repo, "commit", "-aqm", "edit the body")
-    assert own.new_sprint_sections(real_repo, rel, base_ref=after_add) == [], (
-        "a section whose BODY changed carries no added `## Sprint:` line and "
-        "must not be researched again")
-
-
-def test_a_heading_with_no_name_FAILS_LOUDLY_rather_than_slugging_to_nothing(
-        real_repo: Path) -> None:
-    """`## Sprint: — 40h` yields no folder name, and silence would be worse.
-
-    The alternative — skipping it — would drop a real component from the sweep
-    with nothing said, which is the failure mode this whole family is built
-    against. The raise names the section, so the operator can see which heading
-    is malformed. The cost is a crash mid-pipeline after Step 1 has opened a PR;
-    that is the correct trade, and it is written down here so the next reader
-    does not "fix" it into a silent skip.
-    """
-    from modules.assistant.plan.plan_project import plan_project_activities as own
-
-    base = _sha(real_repo)
-    sprint = real_repo / "docs" / "development" / "sprint.md"
-    sprint.write_text("# Sprint\n\n## Sprint: — 40h\n")
-    _git(real_repo, "commit", "-aqm", "malformed heading")
-
-    names = own.new_sprint_sections(real_repo, "docs/development/sprint.md",
-                                    base_ref=base)
-    assert names == [""], f"the sweep read {names}"
-    with pytest.raises(ValueError, match="sprint section .* yields no folder name"):
-        own.component_dir(real_repo, names[0], source="sprint section")
+    with pytest.raises(ValueError, match="yields no folder name"):
+        own.component_dir(real_repo, "···", source="`component` cell in candidates.md")
 
 
 def test_component_dir_slugs_the_way_the_tree_is_already_named(real_repo: Path) -> None:
     """The convention applied in code: a mismatch is invisible to every walk."""
     from modules.assistant.plan.plan_project import plan_project_activities as own
 
-    assert own.component_dir(real_repo, "Fleet Reliability", source="sprint section") == \
+    assert own.component_dir(real_repo, "Fleet Reliability",
+                             source="`component` cell in candidates.md") == \
         real_repo / "docs" / "development" / "fleet-reliability"
     assert own.component_dir(real_repo, "Memory Management Framework",
-                             source="sprint section") == \
+                             source="`component` cell in candidates.md") == \
         real_repo / "docs" / "development" / "memory-management-framework"

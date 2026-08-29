@@ -9,7 +9,7 @@ actually smaller than its sibling. That is what this module checks.
 
 WHERE THE CONTROLS COME FROM, and why they are not synthetic. Every assertion
 of the form "the minor prompt does NOT contain X" is paired with the SAME
-predicate run against `research_write/prompts/write.md`, which must return True.
+predicate run against `research_draft/prompts/draft.md`, which must return True.
 The full-size sibling is a live, maintained fixture of exactly the machinery
 being removed, so a predicate that silently stopped matching — a reworded stage
 heading, a moved artifact path — fails on the full cycle rather than passing
@@ -44,16 +44,16 @@ from assembled_prompt import assembled
 from modules.assistant.research import research_activities as act
 from modules.assistant.research.research import research_workflow as full_parent
 from modules.assistant.research.research_verify import research_verify_workflow as verify
-from modules.assistant.research.research_write import (
-    research_write_workflow as child,
+from modules.assistant.research.research_draft import (
+    research_draft_workflow as child,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 CONFIG = REPO_ROOT / "config.yaml"
 _RESEARCH = Path(__file__).resolve().parents[2] / "modules" / "assistant" / "research"
 
-MINOR_PROMPT = _RESEARCH / "research_write" / "prompts" / "write.md"
-FULL_PROMPT = _RESEARCH / "research_write" / "prompts" / "write.md"
+MINOR_PROMPT = _RESEARCH / "research_draft" / "prompts" / "draft.md"
+FULL_PROMPT = _RESEARCH / "research_draft" / "prompts" / "draft.md"
 
 # EVERY ASSERTION BELOW READS THE ASSEMBLED PROMPT, never the raw file. These
 # checks are about what the MODEL is told — that the minor cycle is four stages,
@@ -137,7 +137,7 @@ def test_the_write_child_CARRIES_the_sizing_machinery(label: str, predicate) -> 
     """
     assert predicate(assembled(MINOR_PROMPT)) is True, (
         f"the write child no longer carries {label}, so it cannot size its own "
-        f"cycle. This absorbed `research-write` and `research-refresh`; dropping "
+        f"cycle. This absorbed `research-draft` and `research-refresh`; dropping "
         f"the machinery leaves a one-paper child wearing the merged name."
     )
 
@@ -187,7 +187,7 @@ def test_the_minor_cycle_writes_a_SYNTHESIS() -> None:
 
 
 def test_the_write_cycle_has_exactly_FIVE_stages() -> None:
-    """FOUR became FIVE when this child absorbed `research-write`'s sizing stage.
+    """FOUR became FIVE when this child absorbed `research-draft`'s sizing stage.
 
     It ran VERIFY+DISCOVER, RESEARCH, SYNTHESIZE, SUBMIT — four, because a
     one-topic child has nothing to size. The merged child sizes its own cycle,
@@ -325,25 +325,25 @@ def test_the_minor_child_supplies_no_altitude_machinery() -> None:
     """
     source = inspect.getsource(child)
     assert "ALTITUDE_BLOCK" not in source and "CANDIDATE_CEILING" not in source, (
-        "research_write_minor renders altitude machinery. It has no altitude "
+        "research_draft_minor renders altitude machinery. It has no altitude "
         "fragments to render, so this would trip render()'s leftover guard at "
         "dispatch time — after a worktree and a branch already exist."
     )
     assert "upstream_block" in source, (
-        "research_write_minor stopped pointing at the product pool. That block is "
+        "research_draft_minor stopped pointing at the product pool. That block is "
         "a read-only POINTER, not machinery, and without it a minor run "
         "re-derives an answer the product pool already settled."
     )
 
 
 def _render_write_minor(monkeypatch, tmp_path: Path) -> str:
-    """Drive the REAL run_write and return the merged prompt it built.
+    """Drive the REAL run_research_draft and return the merged prompt it built.
 
     THE PROMPT FILE IS NOT THE PROMPT. Every other check in this module reads
     `write_minor.md` in isolation, and `${CONTEXT_BLOCK}` is assembled in Python
     from three pieces this workflow does not author — so a contradiction between
     the file and an injected block is invisible to all of them. That is not
-    hypothetical: `upstream_block`'s directives named `research_write`'s stages
+    hypothetical: `upstream_block`'s directives named `research_draft`'s stages
     ("before you SIZE", "your sizing in Stage 2"), and this cycle has no sizing
     stage, so the merged prompt ordered a sizing assessment two paragraphs after
     the file forbids writing one.
@@ -361,10 +361,10 @@ def _render_write_minor(monkeypatch, tmp_path: Path) -> str:
 
     captured = _CapturedPrompt()
     monkeypatch.setattr(act, "run_claude", captured)
-    child.run_write(
+    child.run_research_draft(
         research_dir=research_dir, repo_root=tmp_path, worktree=tmp_path,
     )
-    assert captured.prompt is not None, "run_write never reached run_claude"
+    assert captured.prompt is not None, "run_research_draft never reached run_claude"
     return captured.prompt
 
 
@@ -385,7 +385,7 @@ def test_the_rendered_minor_prompt_orders_no_sizing(monkeypatch, tmp_path) -> No
     assert "BEFORE YOU SIZE" not in prompt.upper(), (
         "the merged minor prompt tells the model to read the upstream synthesis "
         "'before you size'. This cycle has no sizing stage; the directive is "
-        "research_write's and must be supplied by the caller, not defaulted."
+        "research_draft's and must be supplied by the caller, not defaulted."
     )
     assert "sizing in Stage 2" not in prompt, (
         "the merged minor prompt orders a Stage 2 sizing assessment. Stage 2 of "
@@ -482,7 +482,7 @@ def test_the_full_cycle_still_gets_the_sizing_directives() -> None:
 
     `upstream_block`'s directives became parameters. If the defaults were also
     changed, the assertions above would pass because the sentences no longer
-    exist ANYWHERE — a vacuous green — and `research_write`'s prompt would have
+    exist ANYWHERE — a vacuous green — and `research_draft`'s prompt would have
     been silently edited by a change that must not touch it.
     """
     default = inspect.signature(act.upstream_block).parameters
@@ -704,13 +704,13 @@ def test_research_critic_reaches_the_minor_cycle_unchanged() -> None:
 def test_the_turn_cap_resolves() -> None:
     """The merged child keeps the FULL tier's cap, not the minor one's.
 
-    `research-write-minor: 80` is deleted with the tier it sized. This child now
+    `research-draft-minor: 80` is deleted with the tier it sized. This child now
     sizes its own cycle and may dispatch several analysts, so 80 would truncate
     the work it does rather than bound it.
     """
-    assert act.max_turns("research-write") == 150, (
-        f"config.yaml max_turns.research-write is now "
-        f"{act.max_turns('research-write')}, this suite expected 150. If it "
+    assert act.max_turns("research-draft") == 150, (
+        f"config.yaml max_turns.research-draft is now "
+        f"{act.max_turns('research-draft')}, this suite expected 150. If it "
         "changed deliberately, update the expectation here WITH a reason."
     )
 
@@ -729,9 +729,9 @@ def test_the_cap_is_NOT_keyed_off_the_model() -> None:
     one that was always doing the work: cap and model are keyed apart.
     """
     assert child.MODEL_KEY == "research"
-    assert child.WORKFLOW_KEY == "research-write"
+    assert child.WORKFLOW_KEY == "research-draft"
     caps = yaml.safe_load(CONFIG.read_text())["max_turns"]
-    assert caps["research-write"] != caps["research"], (
+    assert caps["research-draft"] != caps["research"], (
         "the child's cap has drifted onto the parent's. They are separate "
         "measurements and the workflow key exists to keep them separate."
     )
@@ -744,15 +744,15 @@ def test_the_measurement_is_recorded() -> None:
     one" — because the next reader has no other way to tell which values may be
     revised freely and which encode a real observation.
 
-    IT PINNED `research-write-minor: 80`, WHICH IS DELETED WITH ITS TIER. The
+    IT PINNED `research-draft-minor: 80`, WHICH IS DELETED WITH ITS TIER. The
     surviving cap carries its own measurement and this now pins that.
     """
     caps = CONFIG.read_text()
     line = next((l for l in caps.splitlines()
-                 if re.match(r"\s+research-write:\s*\d+", l)), None)
-    assert line, "config.yaml no longer declares max_turns.research-write"
+                 if re.match(r"\s+research-draft:\s*\d+", l)), None)
+    assert line, "config.yaml no longer declares max_turns.research-draft"
     assert "MEASURED" in line.upper(), (
-        f"the research-write cap carries no measurement label: {line.strip()!r}. "
+        f"the research-draft cap carries no measurement label: {line.strip()!r}. "
         f"An unlabelled figure cannot be told from an estimate by the next reader."
     )
 def test_the_model_key_is_SHARED_and_the_workflow_key_is_NOT() -> None:
@@ -807,7 +807,7 @@ def test_the_DUE_LIST_reaches_the_write_child_and_costs_nothing_when_empty() -> 
 def test_the_write_child_WIRES_the_due_list_rather_than_discarding_it() -> None:
     """The other half: computing it and dropping it is what the fleet did before."""
     wf = (Path(__file__).resolve().parents[2] / "modules" / "assistant" / "research"
-          / "research_write" / "research_write_workflow.py").read_text()
+          / "research_draft" / "research_draft_workflow.py").read_text()
     assert "currency, due = act.paper_currency(pool)" in wf, (
         "the due list is being discarded again (`currency, _due = ...`). The table "
         "alone tells a run what is stale without telling it to act."

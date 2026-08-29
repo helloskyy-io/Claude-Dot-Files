@@ -25,27 +25,30 @@ BANNER = "=" * 64
 # Defaults, not derivations. These are the repo's own surfaces; a different repo
 # passes its own. Stated here rather than inside the workflow so the workflow
 # stays repo-agnostic and the launch concern owns the convention.
-DEFAULT_SPRINT = "docs/development/sprint.md"
 DEFAULT_RESEARCH = "docs/standards/architecture/research"
 
 
 def main(argv: list[str] | None = None) -> int:
     p = RepoPathParser(
         prog="plan-project",
-        description="Triage research candidates into the sprint plan, then judge the result.",
+        description="Rule the research candidates and give the shipped ones a home, then judge the result.",
     )
-    # DECLARED AS REPO PATHS, WHICH IS WHAT INSTALLS THE CHECK. This runner
-    # joined both onto `repo_root` unchecked and tested NEITHER, so an escaping
-    # `--research` reached the parent as an absolute path containing `..` and
-    # took the whole three-child pipeline with it. Demonstrated by execution with
+    # DECLARED AS A REPO PATH, WHICH IS WHAT INSTALLS THE CHECK. This runner
+    # joined its paths onto `repo_root` unchecked and tested none of them, so an
+    # escaping `--research` reached the parent as an absolute path containing
+    # `..` and took the whole pipeline with it. Demonstrated by execution with
     # the dispatch stubbed, since this entrypoint has no `--dry-run`.
     #
-    # THE EXISTENCE CHECK IS NEW HERE AND IS A DELIBERATE BEHAVIOUR CHANGE. This
-    # was the one runner in the family that validated nothing, so a typo'd
-    # `--sprint` used to surface after the worktree was cut — the orphaned-
-    # worktree class (#48/#49) that `preflight` exists to close, reached through
-    # the one argument `preflight` did not see.
-    p.add_repo_path("--sprint", default=DEFAULT_SPRINT, help=f"sprint plan (default: {DEFAULT_SPRINT})")
+    # THE EXISTENCE CHECK IS A DELIBERATE BEHAVIOUR CHANGE. This was the one
+    # runner in the family that validated nothing, so a typo'd path used to
+    # surface after the worktree was cut — the orphaned-worktree class (#48/#49)
+    # that `preflight` exists to close, reached through an argument `preflight`
+    # did not see.
+    #
+    # `--sprint` IS GONE RATHER THAN DEFAULTED. It fed `plan-sprint`, which this
+    # parent no longer dispatches: sizing a sprint entry needs the component's
+    # roadmap, and this run stops before anything writes one. `plan.sh` owns that
+    # step and takes the sprint path itself.
     p.add_repo_path("--research", kind="dir", default=DEFAULT_RESEARCH,
                     help=f"product research pool (default: {DEFAULT_RESEARCH})")
     p.add_argument("--pr", dest="pr_number", help="update an existing planning PR instead of opening one")
@@ -82,7 +85,6 @@ def main(argv: list[str] | None = None) -> int:
         url, verdict, loops, notes = run_plan_project(
             repo_root=repo_root,
             worktree_name=worktree_name,
-            sprint_path=resolved["sprint"],
             # DERIVED FROM AN ALREADY-CONTAINED PATH, so it needs no declaration
             # of its own: `repo_root` is proven by preflight and two literal
             # segments cannot walk back out of it. This is not an operator path.

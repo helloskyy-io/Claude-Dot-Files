@@ -18,9 +18,9 @@ There are **two implementations** of the workflow fleet, and the Python one is w
 |---|---|---|
 | `build.sh` | **parent** | `build-draft` → `build-refine` → `review-pr` → one bounded loop-back |
 | `build_minor.sh` | **parent** | same shape, lighter middle child |
-| `research.sh` | **parent** | `research-write` → `research-verify` → `review-pr`. **Altitude is DERIVED from the pool path** — `docs/standards/architecture/research/` is project-level, `docs/development/<component>/research/` is component-level. One workflow, two altitudes |
-| `research_minor.sh` | **parent** | `research-write-minor` → **the same** `research-verify` → `review-pr`. **ONE topic, ONE paper, plus the synthesis a planner reads: no `topics.md`, no sizing assessment, no fan-out.** A topic may span several concerns — that is what makes it a topic — and the paper covers them. Per-paper rigor is untouched and `research-critic` still gates it. Reach for `research.sh` when the subject needs several papers on separate subjects; this one when the question is single-concern with one destination |
-| `plan_project.sh` | **parent** | `triage-candidates` → **`plan-candidates`** (an ACTIVITY — plain code in the parent, no dispatch) → `research-write` → `research-verify` → `plan-feature` → `plan-verify`, the last four per NEW component → `plan-sprint` → `review-pr`. Was `plan-master` |
+| `research.sh` | **parent** | `research-draft` → `research-verify` → `review-pr`. **Altitude is DERIVED from the pool path** — `docs/standards/architecture/research/` is project-level, `docs/development/<component>/research/` is component-level. One workflow, two altitudes |
+| `plan.sh` | **parent** | `plan-feature` → `plan-verify` → `plan-sprint` → CI gate → `review-pr` → bounded loop-back. Takes **ONE component directory** and drives it from plan to sized sprint entry. This is what you dispatch at a component |
+| `plan_project.sh` | **parent** | `triage-candidates` → **`plan-candidates`** (an ACTIVITY — plain code in the parent, no dispatch) → `review-pr`. Rules the candidate store and gives the shipped ones a home; it does **not** research or plan them. Was `plan-master` |
 | `triage_candidates.sh` | child, independently dispatchable | rules every untriaged item in [`tracked/candidates/`](../../tracked/candidates/) — `ship` / `requires review` / `reject`. **A question it cannot answer stays on the item as `requires review`, which IS the operator's ruling queue** — there is no second file. **Sets `decision`, and nothing else touches that field.** Its runner then OBSERVES the boundary rather than trusting it: a sprint file, phase doc or standard it touched, a deleted candidate, or `status` moved on a pre-existing item all **fail the run** |
 | `plan_sprint.sh` | child, independently dispatchable | places the RULED candidates, maintains `sprint.md`, reconciles sections against newer research. **Does not triage** — it reads `decision` and its runner fails the run if it wrote one. Same observation on the rest of its table: a ticked checkbox, a phase doc or any standard **fails the run** |
 | `plan_feature.sh` | child, independently dispatchable | takes **ONE component directory** and writes that component's `roadmap.md` plus its numbered `phaseN_<name>.md` docs, from that component's research. **It sizes nothing** — an author sizing their own decomposition is defending it, so hours belong to `plan-verify` — **and it writes no `sprint.md`**; its report names the sprint entry the component needs and the operator places it. Its runner then OBSERVES the boundary: an hour figure, a renamed or renumbered phase doc, a malformed phase filename, a reused number, a ticked checkbox, a sibling component or its own `research/` touched, or a moved candidates column all **fail the run** |
@@ -45,14 +45,29 @@ There are **two implementations** of the workflow fleet, and the Python one is w
 **The chain below is what runs today.** Every step in it is built and wired; nothing in it is bracketed.
 
 ```
-research(project)  →  HiL
-plan-project       →  triage-candidates  →  plan-candidates  →  research-write  →  research-verify  →  plan-feature  →  plan-verify  →  plan-sprint  →  review-pr
-research(feature)  →  HiL
+research(project)   →  HiL
+plan-project        →  triage-candidates  →  plan-candidates  →  review-pr
+research(feature)   →  research-draft  →  research-verify  →  review-pr   →  HiL
+plan                →  plan-feature  →  plan-verify  →  plan-sprint  →  review-pr
 ```
+
+**Each line is one dispatch, and the seam between them is deliberate.** `plan-project`
+ends at *"these candidates are ruled and the shipped ones have a home"*. What takes a
+scaffolded component forward is `research` pointed at its pool and then `plan` pointed at
+the component — two more dispatches, each its own worktree, its own PR and its own review.
+`feature-manager` will drive that pair per component; until it exists the hop is manual and
+`plan-project`'s scaffold notes name the two commands.
+
+> **`plan-project` used to do all of it in one dispatch** — research each scaffolded
+> component, plan it, size it, maintain its sprint entry — five children deep behind one
+> parent. Those steps predate `research` and `plan` existing as parents, and they left when
+> those landed. A first-level parent that invokes two other families inline is a pipeline
+> wearing a parent's name: one worktree carrying five children's work into one review, where
+> a failure anywhere orphans everything behind it.
 
 **`plan-roadmap` and `plan-phase` are gone from this diagram, and that is a resolution rather than a deletion.** They were two prospective workflows for the two document layers a component needs — `roadmap.md` and its phase docs — and `plan-feature` writes both. Splitting them would have put a dispatch boundary in the middle of one decision: the phase boundaries ARE the roadmap's entries and the phase docs' subjects, and deciding them twice in two contexts is how the two layers disagree. The sprint-hours calculation is likewise not a workflow — sizing is `plan-verify`'s.
 
-**`plan-verify` is the read half of the planning split, and it completes a pattern the other two families finished first.** Research is `research-write` → `research-verify`, build is `build-draft` → `build-refine`, each on a stated argument: *the run that wrote an artifact defends it*. `plan-feature` shipped as the write half with its judge named and unbuilt; this is that judge. **It is a separate workflow rather than a sixth stage inside `plan-feature`**, on the same argument that made `triage-candidates` its own run — a judge inside the producing dispatch shares the producer's context, which is the one property it exists not to have.
+**`plan-verify` is the read half of the planning split, and it completes a pattern the other two families finished first.** Research is `research-draft` → `research-verify`, build is `build-draft` → `build-refine`, each on a stated argument: *the run that wrote an artifact defends it*. `plan-feature` shipped as the write half with its judge named and unbuilt; this is that judge. **It is a separate workflow rather than a sixth stage inside `plan-feature`**, on the same argument that made `triage-candidates` its own run — a judge inside the producing dispatch shares the producer's context, which is the one property it exists not to have.
 
 **Two judges now see a planning PR and they are not redundant.** `plan-verify` reads the ARTIFACT cold — a roadmap and its phase docs, whether the boundaries are right and what each costs. `review-pr --type planning` judges the DIFF against the planning criteria and returns the verdict `plan-project` routes on. A plan can be a clean diff and a bad decomposition.
 
@@ -62,13 +77,13 @@ research(feature)  →  HiL
 
 **`plan-revision` is untouched by any of this.** It stays standalone and is not being retired here: its scope is wider — roadmaps, requirements, epics and free text, driven by a description rather than a component — and it is the only planning child that takes an arbitrary brief.
 
-**`plan-candidates` comes BEFORE the research step, not after it** — it is what creates the component the research step then researches, so the reverse order describes a step researching something that does not exist yet. The middle of the chain is three children run conditionally **per new component** — `research-write`, then `research-verify`, then `plan-feature` — and drawing them as one step hides both the verify gate and the fact that each component is planned from the evidence that was just gated for it.
+**`plan-candidates` comes AFTER triage and is the last thing this parent does before the judge.** It acts on `ship` rulings, so ahead of triage there are none to act on. It is an ACTIVITY rather than a child because it needs no judgement: triage already decided which candidates ship and the filer already named where each one goes, so the whole job is creating the directory and seeding the first document from what the row says.
 
-**Triage moved to the FRONT and sprint maintenance to the BACK on 2026-08-12**, when `plan-sprint` was split into `triage-candidates` (rules the candidates) and a narrowed `plan-sprint` (maintains the plan). The two jobs shared one dispatch and nothing could be sequenced between them, which is where feature planning and scaffolding belong — **and both now sit there**: `plan-candidates` ahead of the research step and `plan-feature` behind it. It also fixed an ordering defect on its own: the sprint plan used to be updated *before* anything estimated the work, so its hour totals landed ahead of the estimates they depend on.
+**`plan-sprint` sits in `plan.sh`, not here, and the reason is what it needs to read.** A sprint entry is sized from the component's `roadmap.md` — sum its phases, make its entry current — so the sizer has to run after something wrote that roadmap. `plan-project` stops before anything does, which would leave `plan-sprint` pointed at an empty scaffolded directory. It moved with the planning it depends on rather than being assigned away.
 
-**The research step was inert, and `plan-candidates` is what fixed it.** Its only input was *"a sprint section this branch added"*, and with `plan-sprint` sequenced behind it nothing ahead of it added one — so the sweep could not return anything. `plan-candidates` supplies the real signal: it scaffolds a research pool for each shipped candidate that has no home yet, and those components are what the research step now researches. The sprint-section signal is kept and unioned with it — it is still the correct answer to its own question, and it starts returning rows again the moment anything ahead of the step writes one.
+**The research step that used to live here was inert for most of its life, and that is worth knowing rather than forgetting.** Its only input was *"a sprint section this branch added"*, and with `plan-sprint` sequenced behind it nothing ahead of it added one — so the sweep could not return anything. It was given a live signal, ran for a few weeks, and then left with the narrowing. A step nobody could see firing is a step nobody was measuring; the same work now happens in `research`, where it is the whole point of the dispatch rather than a conditional middle.
 
-**Which candidates it acts on, and what it does for each, is stated once in [`tracked/candidates/` § `component`](../../tracked/candidates/)** — that section is the single source and this guide points at it rather than repeating the conditions, so a change to them cannot leave a stale copy here. What belongs here is the consequence for a reader of the chain: `plan-candidates` writes no `roadmap.md` and no phase docs — `plan-feature` writes those — so a component reaching the research step has a folder, a seeded synthesis, and nothing else.
+**Which candidates it acts on, and what it does for each, is stated once in [`tracked/candidates/` § `component`](../../tracked/candidates/)** — that section is the single source and this guide points at it rather than repeating the conditions, so a change to them cannot leave a stale copy here. What belongs here is the consequence for a reader of the chain: `plan-candidates` writes no research, no `roadmap.md` and no phase docs, so a component this parent scaffolds has a folder, a seeded synthesis, and nothing else until `research` and then `plan` are dispatched at it.
 
 **Wiring live is not the same as input flowing.** Today every row that names a `component` names one whose directory already exists, so the next `plan-project` run scaffolds nothing and reports an empty working set. That is the design working: the step becomes productive as filers name components on rows they file, and the pre-existing rows with a blank cell wait for the operator. *(The counts are deliberately not restated here — `candidate_counts` derives them from the file, and the two sentences that did restate them were falsified by the very commit that wrote them.)*
 
@@ -657,7 +672,7 @@ run on the project as a whole, either initial planning or a follow up to previou
 then planning till satisfied, then building the plan. 
 
 research --project: (parent)
-- research-write
+- research-draft
 - research-verify
 - review-pr
 (usually HiL at this step, repeat till happ
@@ -665,7 +680,7 @@ research --project: (parent)
 plan-project --project(flag): (parent) (run on the reasearch that was previously ran "project as a whole")
 - triage-candidates (triage of candidate list and labels correctly the candidates for inclusion in sprints/features/phases or rejects them with reasoning)
 - plan-candidates (activity NOT child workflow!) (Creates scaffolding for missing items recently triaged)
-- research-write: (if research is missing or stale, run research, targeting the sprint/feature or scaffolding)
+- research-draft: (if research is missing or stale, run research, targeting the sprint/feature or scaffolding)
 - research-verify: (if above ran, run verify, targeting the sprint/feature)
 
 wrong from here down!
@@ -682,7 +697,7 @@ run on the project as a whole, either initial planning or a follow up to previou
 then planning till satisfied, then building the plan. 
 
 research --project: (parent)
-- research-write or research-write --minor: (large or small project)
+- research-draft or research-draft --minor: (large or small project)
 - research-verify
 - review-pr
 (usually HiL at this point, repeat till happy)
@@ -690,7 +705,7 @@ research --project: (parent)
 plan-project --project(flag): (parent) (run on the reasearch that was previously ran "project as a whole")
 - triage-candidates (triage of candidate list and labels correctly the candidates for inclusion in sprints/features/phases or rejects them with reasoning)
 - plan-candidates (activity NOT child workflow!) (Creates scaffolding for missing items recently triaged)
-- research-write: (if research is missing or stale, run research, targeting the sprint/feature or scaffolding)
+- research-draft: (if research is missing or stale, run research, targeting the sprint/feature or scaffolding)
 - research-verify: (if above ran, run verify, targeting the sprint/feature)
 
 wrong from here down!
@@ -708,7 +723,7 @@ run on an identified feature with either a stub or a fully developed feature. Fo
 feature-manager: (parent of a parent, most likely cron based on expired research)
    |  
    ├─research --feature: (parent)
-   |  ├─research-write --minor: (targeting feature)
+   |  ├─research-draft --minor: (targeting feature)
    |  ├─research-verify: (targeting feature)
    |  ├─review pr
    |  └─(usually HiL at this point, repeat till happy)

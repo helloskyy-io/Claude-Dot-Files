@@ -90,8 +90,8 @@ def test_the_model_is_given_the_worktree_anchored_path(path: Path) -> None:
 def test_every_workflow_that_renders_the_key_also_anchors_it() -> None:
     """The guard above skips a workflow with no key — prove that never hides all of them."""
     rendering = [p for p in _workflows() if _rendered_path_expr(ast.parse(p.read_text()))]
-    # 4 -> 3 on 2026-08-28, deliberately: `research_write_minor` and
-    # `research_write` MERGED into one child, so the population lost a member
+    # 4 -> 3 on 2026-08-28, deliberately: `research_draft_minor` and
+    # `research_draft` MERGED into one child, so the population lost a member
     # without any workflow ceasing to anchor. Lowered here rather than left to
     # fail, because a floor nobody adjusts is a floor somebody deletes.
     assert len(rendering) >= 2, (

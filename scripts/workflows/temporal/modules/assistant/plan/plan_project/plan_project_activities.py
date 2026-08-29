@@ -67,44 +67,6 @@ _SECTION_NAME = re.compile(r"^## Sprint:\s*")
 # half-built. Matching a machine-readable marker rather than a sentence keeps a
 # research paper that happens to QUOTE the seed's prose from reading as unseeded.
 _UNRESEARCHED = "<!-- plan-candidates: seeded, no research yet -->"
-
-
-def new_sprint_sections(worktree: Path, sprint_rel: str, *, base_ref: str) -> list[str]:
-    """Sprint sections THIS DISPATCH added — read from the diff, in code.
-
-    A NON-MODEL OBSERVABLE. The parent must know which components are new so it
-    can research and plan only those, and asking the triage child to report them
-    would make the parent trust an account rather than read the artifact. `git`
-    already knows, and a diff is not something a model can be wrong about.
-
-    `base_ref` IS REQUIRED AND HAS NO DEFAULT, deliberately. It defaulted to
-    `origin/main`, which answers a different question — *what has this BRANCH
-    accumulated* rather than *what has THIS RUN added* — and the two diverge on
-    exactly the path the entrypoints document: a `--pr` redispatch cuts its
-    worktree from a branch that already carries a `## Sprint:` heading an
-    earlier pass added and researched, so the section reads as new again and
-    buys a second full research cycle for it. `plan_activities.py`'s snapshot
-    comparators state the same rule for the same reason — *snapshot around the
-    run, never diff against the base* — and a caller cannot inherit the wrong
-    base by saying nothing.
-
-    Matched on the added-heading form specifically: a section merely EDITED
-    shows as a changed body with no added `## Sprint:` line, and researching an
-    existing component because its prose moved would spend a full cycle on
-    nothing.
-    """
-    out = act.git_output(
-        worktree, ["git", "diff", f"{base_ref}...HEAD", "--", sprint_rel],
-        "The parent cannot tell which components are new, and guessing would "
-        "research the wrong ones.",
-    )
-    return [
-        _SECTION_NAME.sub("", line[1:]).split("—")[0].strip()
-        for line in out.splitlines()
-        if line.startswith("+## Sprint:")
-    ]
-
-
 def component_slug(name: str) -> str:
     """`Fleet Reliability` -> `fleet-reliability`. Empty string when nothing survives.
 
@@ -142,9 +104,8 @@ def component_dir(tree: Path, name: str, *, source: str) -> Path:
     `candidates.md` sends whoever is debugging it to the wrong file — a diagnostic
     that points away from the cause is worse than a bare traceback.
 
-    IT IS REQUIRED AND HAS NO DEFAULT, for the reason `new_sprint_sections`'
-    `base_ref` states one file over: a default is the wrong answer that a new
-    caller inherits by saying nothing. It defaulted to `"sprint section"` — which
+    IT IS REQUIRED AND HAS NO DEFAULT, because a default is the wrong answer that
+    a new caller inherits by saying nothing. It defaulted to `"sprint section"` — which
     was the only surface when it was written and has not been since — and both
     production call sites had already been given an explicit value, so the default
     was reachable only by a caller that had not thought about it. That is the one
@@ -306,20 +267,24 @@ def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> Scaf
     detected by the `_UNRESEARCHED` marker the first real research pass removes.
 
     WHICH HALF OF THAT GAP THIS ACTUALLY CLOSES, because the sentence above once
-    claimed both. `research_write` REWRITES `synthesis.md` and commits before
+    claimed both. `research_draft` REWRITES `synthesis.md` and commits before
     `research_verify` runs — its completion contract is a PR URL — so a component
     whose write succeeded and whose VERIFY then failed carries no marker and is
     read here as `extends`, not `resumed`. What is recovered is every component
-    the run had not reached yet, whose seed a sibling's commit sweep carried onto
-    the branch intact. The unrecovered half is not new and is not this activity's:
-    a sprint-section component whose verify failed was equally unreachable on a
-    redispatch before `plan-candidates` existed, because `new_sprint_sections`
-    diffs from the redispatch's own base. Closing it means `research-verify`
-    recording its own success, which is a change to a child two parents share.
+    whose seed is on the branch intact and which no research pass has touched.
 
-    WHAT IT DOES NOT DO: no `roadmap.md`, no phase docs. `sprint.md` says every
-    component gets both, and `plan-feature` writes them. This creates a folder
-    and a seeded synthesis and stops.
+    THAT SEAM IS NOW BETWEEN DISPATCHES RATHER THAN INSIDE ONE, and the marker
+    semantics did not change with it. This parent stops at the scaffold;
+    `research` is pointed at the pool afterwards, in its own run. So a pool whose
+    write landed and whose verify then failed still reads as `extends` here — the
+    marker is gone and nothing else records that the pool is unfinished. Closing
+    it means `research-verify` recording its own success, which is a change to a
+    child two parents share.
+
+    WHAT IT DOES NOT DO: no research, no `roadmap.md`, no phase docs. This creates
+    a folder and a seeded synthesis and stops. `sprint.md` says every component
+    gets a roadmap and phase docs; `research` then `plan`, dispatched at the
+    scaffolded component, are what produce them.
 
     IDEMPOTENT (§7.1) by check-then-act — see the module docstring. A second run
     over an unchanged tree creates nothing; it re-reports the same resume and
@@ -460,7 +425,7 @@ def _seed(row: act.CandidateRow, slug: str) -> str:
 
     Deliberately thin. It is a HANDOFF, not a research paper: it says where this
     came from and what was proposed, so the research child that runs next has a
-    brief instead of an empty directory. `research_write` rewrites this file with
+    brief instead of an empty directory. `research_draft` rewrites this file with
     real findings; anything more elaborate here would be written to be discarded.
 
     The `C-NNN` id is the load-bearing part. It is the only link back from the
@@ -468,7 +433,7 @@ def _seed(row: act.CandidateRow, slug: str) -> str:
     folder cannot tell scaffolding from abandoned work.
 
     AND THE NEXT STEP OVERWRITES THIS FILE, so the id has to be handed ON rather
-    than merely written down. `research_write`'s prompt says *"write (or fully
+    than merely written down. `research_draft`'s prompt says *"write (or fully
     rewrite) synthesis.md"* and its synthesis contract has no provenance field —
     so the id would live for exactly one pipeline step and be gone before any
     reviewer saw the PR. The seed asks for it explicitly, and the parent's brief

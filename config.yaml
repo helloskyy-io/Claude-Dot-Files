@@ -279,7 +279,7 @@ max_turns:
                               #   one roadmap plus one 200-260 line phase doc per phase.
                               #   Reading is cheap in turns; authoring is not.
                               #   150 is roughly 3.3x the estimate as headroom, inside the
-                              #   family's observed band (research-write 150/43 = 3.5x,
+                              #   family's observed band (research-draft 150/43 = 3.5x,
                               #   research-verify 200/68 = 2.9x). A cap is a ceiling, not
                               #   a spend, and a cap set BELOW an observed successful run
                               #   has already cost a full budget once.
@@ -292,10 +292,10 @@ max_turns:
   review-sprint: 600          # holistic end-of-sprint judgment
 
   # ── Python-fleet workflows. NOT a 1:1 mirror of `models:` above, and that is
-  #    the point: `research-write` and `research-verify` share MODEL_KEY
+  #    the point: `research-draft` and `research-verify` share MODEL_KEY
   #    "research" but have DIFFERENT, separately-measured budgets. Keying a turn
   #    cap off the model key would silently collapse them.
-  research-write: 150         # MEASURED: cycle 4 used 43. Deliberately supersedes
+  research-draft: 150         # MEASURED: cycle 4 used 43. Deliberately supersedes
                               #   research.sh's 250, which came from the MONOLITH's
                               #   89-turn peak — a pre-split number does not transfer.
   research-verify: 200        # MEASURED: cycle 4 used 68 first pass, 48 on correction.
@@ -306,7 +306,7 @@ max_turns:
                               #   naturally and never approached the cap.
                               #   CAP HELD AT 80 — re-examined against the measurement,
                               #   not left alone. 80 over a measured 31 is 2.6x headroom,
-                              #   inside the family's observed band (research-write
+                              #   inside the family's observed band (research-draft
                               #   150/43 = 3.5x, research-verify 200/68 = 2.9x), so the
                               #   value the estimate picked survives contact with the
                               #   real run and there is nothing to revise.
@@ -320,7 +320,7 @@ max_turns:
                               #   high is nothing at all — it is a ceiling, not an
                               #   allocation — while a cap set below a real run has
                               #   already burned a full budget once. It is strictly
-                              #   below research-write's 150 because this cycle is a
+                              #   below research-draft's 150 because this cycle is a
                               #   subset of that one: no topics.md, no fan-out, no
                               #   synthesis.
 
