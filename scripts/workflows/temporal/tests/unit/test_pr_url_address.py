@@ -184,6 +184,11 @@ DECLARED_SPLITS = {
     # failure mode `rsplit("/", 1)` on a URL has — a segment that looks right and
     # points elsewhere — has no analogue here.
     ("plan_activities.py", "sprint_state"),
+    # `_bullets` is `sprint_state`'s own helper, extracted 2026-08-28 when the
+    # counter learned to report EVERY matching sprint section rather than the
+    # first. It splits MARKDOWN on a `## Sprint:` heading — not a URL — and
+    # the split it does is the one `sprint_state` did inline before.
+    ("plan_activities.py", "_bullets"),
     # A `manifest-sha256.txt` line — `<64 hex chars>  <payload path>` per RFC
     # 8493 §2.1.3, which separates the two by whitespace and permits any amount
     # of it. Not a URL, and the split cannot yield a plausible-but-wrong path the

@@ -1515,17 +1515,38 @@ def sprint_state(sprint: Path, component_rel: Path) -> str:
     slug = component_rel.name
     words = [w for w in re.split(r"[-_]", slug) if w]
     heads = re.findall(r"^## Sprint: (.+)$", text, re.M)
-    hit = next((h for h in heads
-                if all(w.lower() in h.lower() for w in words)), None)
+    # ALL MATCHING SECTIONS, NOT THE FIRST. A component is legitimately split
+    # across sections — `— Part 1` / `— Part 2` is an established shape in this
+    # file — and `next(...)` reported the first one as though it were the whole
+    # component, under a block that says "authoritative — do not recount".
+    # Measured on PR #150: `persistent-memory-protocol` has TWO sections; the run
+    # was told it had one, carrying 6 bullets, and never learned the second held
+    # the gated phases. A wrong count is worse than a zero because it announces
+    # authority, which is the same failure `phase_sizing` was fixed for.
+    hits = [h for h in heads if all(w.lower() in h.lower() for w in words)]
+    hit = hits[0] if hits else None
     if hit is None:
         return (f"**Counted in code, authoritative — do not recount:** the sprint "
                 f"plan has **{len(heads)} sections** and **none of them is "
                 f"`{slug}`**. This component needs one ADDED, and its position is "
                 f"inherited from what it depends on — not argued from scratch.")
-    body = text.split(f"## Sprint: {hit}", 1)[1].split("\n## Sprint:", 1)[0]
-    bullets = len(re.findall(r"^- \[[ x]\]", body, re.M))
+    def _bullets(head: str) -> int:
+        body = text.split(f"## Sprint: {head}", 1)[1].split("\n## Sprint:", 1)[0]
+        return len(re.findall(r"^- \[[ x]\]", body, re.M))
+
+    if len(hits) > 1:
+        rows = "; ".join(f"`{h}` ({_bullets(h)} bullet(s), "
+                         f"{heads.index(h) + 1} of {len(heads)})" for h in hits)
+        return (f"**Counted in code, authoritative — do not recount:** this "
+                f"component is SPLIT ACROSS {len(hits)} SECTIONS — {rows}. "
+                f"**Update every one of them in place**, and put each phase in "
+                f"the section the operator already placed it in. **Which phase "
+                f"belongs to which part is the operator's split, not yours** — "
+                f"moving one between sections re-sequences the plan, which is a "
+                f"decision this workflow does not make.")
+
     return (f"**Counted in code, authoritative — do not recount:** this component "
-            f"HAS a section — `## Sprint: {hit}` — carrying **{bullets} phase "
+            f"HAS a section — `## Sprint: {hit}` — carrying **{_bullets(hit)} phase "
             f"bullet(s)**. It is **{heads.index(hit) + 1} of {len(heads)}** in the "
             f"file. **Update it in place**: its position is the operator's and "
             f"nothing upstream of you changed it.")
