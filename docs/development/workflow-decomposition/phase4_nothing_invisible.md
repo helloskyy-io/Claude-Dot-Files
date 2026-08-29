@@ -32,7 +32,9 @@ A run in this fleet depends on two classes of thing it never announces.
 
 **This fleet has already performed exactly this consolidation once, on a value of the same shape, at the same call sites.** [`assistant_activities.py:1483`](../../../scripts/workflows/temporal/modules/assistant/assistant_activities.py), `base_ref`, records it in its own docstring:
 
-> *"Every runner used to compute this inline as `ref = f"origin/{pr_branch(...)}" if pr_number else "HEAD"` … ELEVEN call sites in all. The expression now lives once, in `base_ref`, because a fix applied by hand to a list of eleven is a fix applied to ten: the eleventh passed its base inline and the first sweep of this did not see it."*
+> *"Every runner used to compute this inline as `ref = f"origin/{pr_branch(...)}" if pr_number else "HEAD"` …"*
+>
+> *"ONE HELPER AND NOT ELEVEN EXPRESSIONS. The inline form reached eleven call sites, which is why fixing it in ten of them would have been the likeliest outcome of doing this by hand — and is exactly what the first pass did. The eleventh (`research_refresh_parent`) passes its base INLINE rather than through a `ref = ...` line, so both the hand sweep **and the first version of the guard written to replace it** looked straight past it. `test_a_new_branch_STARTS_FROM_THE_DEFAULT_BRANCH` keys on the class rather than on today's eleven."*
 
 **The per-run worktree name is the same value shape, at the same eleven runners, and it has not been consolidated.** Measured exhaustively on 2026-08-28 (`grep -rn 'time\.time()'` plus `worktree_name *=|wt *= *f"` across `scripts/` and `modules/`, excluding tests) — **eleven sites in three different spellings**:
 
@@ -43,6 +45,8 @@ A run in this fleet depends on two classes of thing it never announces.
 | 1 workflow module — `review_pr_workflow.py:185` | `f"review-pr-{task.pr_number}-{int(time.time())}"` | a third shape, in a workflow rather than a runner |
 
 **Three of those eleven were missed by the sweep that commissioned this re-plan**, which named eight and named one file that does not exist. That is not a criticism of the sweep — it is the property `base_ref`'s docstring predicts, reproduced, on the next value of the same shape. **A hand-sweep of a scattered derivation misses members; the remedy is to stop scattering it.**
+
+**And the docstring's last sentence is requirement 2's design brief, not a flourish.** `base_ref`'s first *guard* missed the eleventh site too, because it keyed on the spelling the other ten used (`ref = ...`). The worktree name has **three** spellings today, one of which is `__import__('time').time()`. **A check that keys on today's spelling will pass a twelfth site written in a fourth one** — so requirement 2's check keys on the class, the way `test_a_new_branch_STARTS_FROM_THE_DEFAULT_BRANCH` was rewritten to.
 
 **And `review_pr` shows what the scatter costs beyond duplication.** [`run_review_pr.py:126-130`](../../../scripts/workflows/temporal/scripts/run_review_pr.py) passes `worktree_name=None` into the run bag with the comment *"The ONE workflow that cuts no worktree — it reviews a PR in place … so `-` in a bag means 'this run had none' and never 'somebody forgot the argument'."* **The workflow it then calls cuts one**, at `review_pr_workflow.py:185`, via the same `worktree_add` whose docstring opens *"ISOLATION IS AN INVARIANT, NOT A PARAMETER."* So a real worktree exists on disk and the run's own record says it does not. **Nothing is lying; the two halves were written in two places and only one of them was updated.** That is the class this phase closes.
 
