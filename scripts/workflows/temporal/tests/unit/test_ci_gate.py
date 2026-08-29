@@ -128,14 +128,97 @@ def test_empty_output_is_UNREADABLE_CHECKS_not_a_silent_gate(monkeypatch, repo):
     three rebuilds on 2026-08-14. Its original point stands and is unchanged:
     an empty reply is NOT green. What it got wrong is which not-green state.
 
-    `gh pr checks` prints a JSON array when it can answer — `[]` when a PR has
-    no checks. Empty STDOUT is the shape of a failure, and reading it as "the
-    gate reported nothing" routes an environment failure to HOLD_REDISPATCH,
-    which rebuilds. It rebuilt three times against a PR that was OPEN,
-    MERGEABLE and green on all four checks throughout.
+    Empty STDOUT is the shape of a failure, and reading it as "the gate reported
+    nothing" routes an environment failure to HOLD_REDISPATCH, which rebuilds. It
+    rebuilt three times against a PR that was OPEN, MERGEABLE and green on all
+    four checks throughout.
+
+    THIS DOCSTRING ALSO USED TO CLAIM `gh` "prints a JSON array when it can
+    answer — `[]` when a PR has no checks", AND THAT IS FALSE. On a branch with
+    no checks at all it prints `no checks reported on the '<branch>' branch` to
+    STDERR and leaves stdout empty — the same shape as a failure. The claim was
+    never tested, and the case it got wrong is the one below. What keeps THIS
+    test honest is the empty stderr: with nothing on either channel, unreadable
+    remains the only correct reading.
     """
     _gh(monkeypatch, None, stdout="")
     assert act.ci_verdict("1", repo_root=repo)[0] is CiVerdict.UNREADABLE_CHECKS
+
+
+# `gh`'s exact reply on a branch with no checks, verbatim from the MDC run.
+_NO_CHECKS_STDERR = "no checks reported on the 'plan-feature/mdc-rollout-phase-docs' branch"
+
+
+def test_a_repo_with_NO_CI_AT_ALL_is_not_mistaken_for_an_unreadable_reply(
+        monkeypatch, tmp_path):
+    """The block that cost MDC a $19 planning run its disposition.
+
+    `mdc-master-planning` has an empty `.github/workflows/` — correctly, it is a
+    documentation repo. Every `gh pr checks` reply was "no checks reported",
+    every reply read as unparseable, `wait_for_ci` burned its 600-second
+    deadline, `ci_verdict` returned UNREADABLE_CHECKS and the gate held with
+    "more passes cannot produce a human decision". `review-pr` never ran.
+
+    IT IS DETERMINISTIC, WHICH IS WHAT MAKES IT A BLOCK RATHER THAN A HICCUP: the
+    condition is permanent absence, so every future run holds the same way. Four
+    of six repos on that host have no CI, and `plan` is the workflow they need
+    most — they are planning-heavy and code-light.
+
+    NO POLICY HERE, DELIBERATELY. `tmp_path` carries no `check-policy.yaml`, which
+    is the shape of a repo that declares no gate, and NO_CHECKS is then the right
+    answer. The companion test below covers the repo that DOES declare one.
+    """
+    _gh(monkeypatch, None, stdout="", stderr=_NO_CHECKS_STDERR, returncode=1)
+    verdict, _extra = act.ci_verdict("1", repo_root=tmp_path)
+    assert verdict is CiVerdict.NO_CHECKS, (
+        f"a repo with no CI read as {verdict}. There is nothing to gate on and "
+        f"nothing a human can rule on — holding here blocks every planning run "
+        f"on every repo without a pipeline, permanently."
+    )
+
+
+def test_a_DECLARED_gate_that_reports_NOTHING_still_holds(monkeypatch, repo):
+    """The other half, and the reason this is not a fail-open.
+
+    Same `gh` reply as the test above, against a repo whose `check-policy.yaml`
+    names `suite` blocking. Absence now means the declared gate did not run —
+    the conflicted-merge-ref case — and that must still stop the run. Reading
+    "no checks reported" as a pass everywhere would weaken the gate for repos
+    that HAVE CI in order to unblock repos that do not.
+    """
+    _gh(monkeypatch, None, stdout="", stderr=_NO_CHECKS_STDERR, returncode=1)
+    verdict, extra = act.ci_verdict("1", repo_root=repo)
+    assert verdict is CiVerdict.GATE_DID_NOT_RUN, (
+        f"a declared-but-absent gate read as {verdict} — the repo expects `suite` "
+        f"and nothing reported it")
+    assert extra == ["suite"], f"the runway cannot name the absent gate: {extra}"
+
+
+def test_a_repo_with_NO_CI_stops_polling_on_the_FIRST_reply(monkeypatch, tmp_path):
+    """600 seconds spent on an answer the first call already contained.
+
+    The poll is what made this expensive rather than merely wrong. `parse_checks`
+    returning `[]` makes the reply a READ, so the settled test sees an empty
+    state set, `blocking` is empty, and the loop returns on iteration one.
+
+    THE CALL COUNT IS THE ASSERTION, not the elapsed time: a wall-clock test
+    would pass on a slow machine that polled twice, and polling twice is the
+    defect in miniature.
+    """
+    calls = []
+
+    def one_reply(*a, **k):
+        calls.append(a[0] if a else [])
+        return subprocess.CompletedProcess([], 1, stdout="", stderr=_NO_CHECKS_STDERR)
+
+    monkeypatch.setattr(act.subprocess, "run", one_reply)
+    monkeypatch.setattr(act.time, "sleep", lambda *_: None)
+    assert act.wait_for_ci("1", repo_root=tmp_path) is True, (
+        "a repo with no CI and no declared gate has nothing to settle — the wait "
+        "must return, not spend the deadline")
+    assert len(calls) == 1, (
+        f"`gh pr checks` was called {len(calls)} times for an answer that was "
+        f"complete on the first reply")
 
 
 def test_a_transient_503_on_the_gate_read_is_RIDDEN_OUT_not_turned_into_a_HOLD(

@@ -203,17 +203,32 @@ def _census() -> list[tuple[str, str, int, bool]]:
 
 
 def test_the_census_is_not_vacuous() -> None:
-    """FOUR SITES WHEN THIS WAS WRITTEN, AND A FLOOR RATHER THAN AN EQUALITY.
+    """THREE SITES, AND A FLOOR RATHER THAN AN EQUALITY.
 
-    `existing_work`, `gh_json`, `ci_verdict`, `wait_for_ci`. If the walk stops
-    finding them — the tree moves, a parse is renamed — every assertion below is
-    trivially true. The floor is what stops this file from silently becoming
-    decoration.
+    `existing_work`, `gh_json`, `parse_checks`. If the walk stops finding them —
+    the tree moves, a parse is renamed — every assertion below is trivially true.
+    The floor is what stops this file from silently becoming decoration.
+
+    THE FLOOR WAS 4 AND CAME DOWN ON 2026-08-29, WHICH IS THE ONE MOVE THAT TURNS
+    A VACUITY FLOOR INTO DECORATION, SO HERE IS THE ARGUMENT. It read
+    `existing_work`, `gh_json`, `ci_verdict`, `wait_for_ci`. The last two each
+    parsed `gh pr checks` themselves, and both took an empty stdout as an
+    unreadable reply — which is also what `gh` produces on a branch with NO CHECKS
+    AT ALL, where the message goes to stderr. That misread held every planning run
+    on every repo without a pipeline. The two parses merged into `parse_checks`,
+    which both now call.
+
+    **Two sites became one; none stopped being checked.** That is the difference
+    between consolidation and erosion, and the distinction is checkable rather
+    than asserted: every site this census finds still reports guarded, and a
+    fourth reappearing is a NEW parse that has to earn its own shape check. A
+    floor that could never come down would forbid removing a duplicate, which is
+    the opposite of what this guard is for.
     """
     sites = _census()
-    assert len(sites) >= 4, (
-        f"the AST walk found {len(sites)} `gh`-reply parse(s); it found 4 when "
-        f"this guard was written, so it is no longer reading the tree it audits")
+    assert len(sites) >= 3, (
+        f"the AST walk found {len(sites)} `gh`-reply parse(s); it found 3 when "
+        f"this floor was last moved, so it is no longer reading the tree it audits")
 
 
 def test_every_gh_reply_parse_checks_the_decoded_SHAPE() -> None:

@@ -59,7 +59,7 @@ def max_turns(key: str) -> int:
     work. That is why this is read rather than guessed, and why a missing key
     raises instead of defaulting.
 
-    KEYED BY WORKFLOW, NOT BY MODEL. `research-write` and `research-verify`
+    KEYED BY WORKFLOW, NOT BY MODEL. `research-draft` and `research-verify`
     share MODEL_KEY "research" and have separately-measured budgets of 150 and
     200. Keying off the model would silently collapse them, which is the exact
     class of silent divergence this read exists to prevent.
@@ -828,8 +828,8 @@ def run_claude(prompt: str, *, model_key: str, workflow_key: str,
     `workflow_key` IS REQUIRED AND HAS NO DEFAULT, which is deliberate and is the
     shape `convergence.assess`'s `pass_evaluable` already uses: a new call site
     cannot acquire the hole by forgetting the argument. It is NOT `model_key` —
-    `config.yaml` states above `research-write:` that the two are not 1:1, since
-    `research-write` and `research-verify` share the model key `research`. Only
+    `config.yaml` states above `research-draft:` that the two are not 1:1, since
+    `research-draft` and `research-verify` share the model key `research`. Only
     this value lets a per-workflow figure name its own bins; a reader keying off
     `model_key` merges those two and cannot say which records it merged.
 
@@ -1547,6 +1547,59 @@ CI_MAX_WAIT_SECONDS = 600
 
 
 
+# The message `gh pr checks` prints when a branch has no checks at all. It goes
+# to STDERR, stdout is left EMPTY, and the exit code is non-zero — identical in
+# every observable way to a `gh` that failed, which is why it needs matching by
+# text. Lower-cased at the comparison, so only the wording has to hold.
+_GH_NO_CHECKS_REPLY = "no checks reported"
+
+
+def parse_checks(result: subprocess.CompletedProcess) -> list | None:
+    """The check list `gh pr checks --json` reported, or None if it did not answer.
+
+    NO CHECKS AND NO ANSWER ARE DIFFERENT FACTS, AND `gh` SEPARATES THEM BY
+    NEITHER EXIT CODE NOR STDOUT. It exits non-zero whenever checks are FAILING or
+    PENDING — so the code cannot discriminate — and on a branch with no checks at
+    all it writes `no checks reported on the '<branch>' branch` to stderr and
+    leaves stdout empty. An empty stdout is exactly what a broken `gh` produces,
+    so both readers took the no-checks case as unreadable.
+
+    WHAT THAT COST, MEASURED ON MDC-MASTER-PLANNING 2026-08-29. That repo has no
+    `.github/workflows/` — correctly, it is a documentation repo — so every reply
+    was "no checks reported", every reply read as unparseable, `wait_for_ci`
+    burned its full 600-second deadline, `ci_verdict` returned
+    `UNREADABLE_CHECKS`, and the gate held with *"more passes cannot produce a
+    human decision"*. Right reasoning on a wrong premise: unreadable CI does imply
+    a human, but this was not unreadable CI. `review-pr` never ran, so a $19
+    planning run ended undispositioned — and it would have done so on every
+    future run, because permanent absence is not a transient failure. Four of the
+    six repos on that host have no CI, and `plan` is the workflow they need most.
+
+    AN EMPTY LIST IS THE HONEST ANSWER AND THE CALLERS ALREADY HANDLE IT. Neither
+    reader needed a new state: `ci_verdict` takes an empty list to `NO_CHECKS`
+    when the repo declares no gate and to `GATE_DID_NOT_RUN` when it declares one
+    that has not reported, which are the two right answers. The gate is not
+    weakened for repos that DO have CI — `testing/check-policy.yaml` is still what
+    says a gate is expected, and a declared gate that never appears still holds.
+
+    MATCHED ON TEXT, WHICH IS THE ONE WEAKNESS AND IT DEGRADES SAFELY. If `gh`
+    ever rewords the message this stops recognising it and the behaviour falls
+    back to today's — a hold on a repo with no CI. Annoying, never unsafe, and
+    loud enough to find.
+    """
+    try:
+        checks = json.loads(result.stdout)
+        if not isinstance(checks, list):
+            raise ValueError(f"expected a JSON list, got {type(checks).__name__}")
+        return checks
+    except (json.JSONDecodeError, ValueError):
+        # STDOUT IS CONSULTED FIRST AND THIS IS THE FALLBACK, never the reverse: a
+        # reply that parses is the answer whatever stderr also carried.
+        if _GH_NO_CHECKS_REPLY in (result.stderr or "").lower():
+            return []
+        return None
+
+
 def read_check_policy(repo_root: Path) -> tuple[list[str], list[str], bool]:
     """Read the repo's own declaration of which checks gate it.
 
@@ -1681,11 +1734,12 @@ def ci_verdict(pr: str, *, repo_root: Path) -> tuple[routing.CiVerdict, list[str
     #
     # `gh pr checks` exits non-zero whenever checks are FAILING or PENDING, so
     # the return code cannot be the discriminator here either. Parsing is.
-    try:
-        checks = json.loads(result.stdout)
-        if not isinstance(checks, list):
-            raise ValueError(f"expected a JSON list, got {type(checks).__name__}")
-    except (json.JSONDecodeError, ValueError):
+    # `parse_checks` OWNS THE NO-CHECKS CASE, and it returns `[]` rather than
+    # None for it. An empty list falls through to the `not gating` branch below,
+    # which is already the correct split: NO_CHECKS where the repo declares no
+    # gate, GATE_DID_NOT_RUN where it declares one that has not reported.
+    checks = parse_checks(result)
+    if checks is None:
         return routing.CiVerdict.UNREADABLE_CHECKS, []
 
     names = {str(c.get("name")) for c in checks}
@@ -1857,12 +1911,17 @@ def wait_for_ci(pr: str, *, repo_root: Path) -> bool:
         # 2026-08-14 on a PR that was OPEN, MERGEABLE and green on all four
         # checks the whole time. The cost is not the ten minutes, it is an
         # entire rebuild per occurrence.
-        try:
-            checks = json.loads(result.stdout or "")
-            if not isinstance(checks, list):
-                raise ValueError(f"expected a JSON list, got {type(checks).__name__}")
-        except (json.JSONDecodeError, ValueError) as exc:
-            last_read_error = (result.stderr or str(exc)).strip()[:300]
+        # A REPO WITH NO CI ANSWERS ON THE FIRST CALL, AND THIS LOOP NOW HEARS IT.
+        # `parse_checks` returns `[]` for `gh`'s no-checks reply, which IS a read —
+        # so it counts below, the settled test sees an empty state set, and a repo
+        # declaring no blocking checks returns True immediately instead of polling
+        # a permanently-absent gate for the full deadline. A repo that DOES declare
+        # one keeps waiting, which is unchanged and right: an expected gate that
+        # has not appeared yet may still be starting.
+        checks = parse_checks(result)
+        if checks is None:
+            last_read_error = (result.stderr or "(no stderr; stdout did not parse "
+                               "as a JSON list)").strip()[:300]
             time.sleep(CI_POLL_SECONDS)
             continue
 
