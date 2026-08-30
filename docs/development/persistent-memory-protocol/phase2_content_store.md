@@ -1,6 +1,6 @@
 # The content store and offline hash verification — Persistent Memory Protocol
 
-**Component:** [Persistent Memory Protocol](roadmap.md) · **Status:** not started · **Gate:** none — unblocked today, and it is the cheapest item in this component
+**Component:** [Persistent Memory Protocol](roadmap.md) · **Status:** not started · **Gate:** none — unblocked today
 
 ## What this phase does
 
