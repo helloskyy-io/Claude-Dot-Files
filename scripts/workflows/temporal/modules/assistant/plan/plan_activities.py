@@ -493,7 +493,7 @@ def candidate_components(candidates_path: Path) -> dict[str, str]:
     component's synthesis and the parent tells the research child that file is its
     brief — so an edited SUMMARY changes what a research cycle is commissioned to
     investigate. A fourth snapshot was considered and NOT taken: a wrong title
-    produces a wrong brief, which `research-verify` reads and can hold on, whereas
+    produces a wrong brief, which `research-refine` reads and can hold on, whereas
     a wrong `component` produces a directory nothing downstream inspects. Different
     exposure, so the guard goes where the exposure is unobserved.
 
@@ -606,7 +606,7 @@ def candidate_sizes(candidates_path: Path) -> dict[str, str]:
 
     Guarded exactly like `decision`: snapshotted either side of every run whose
     prompt puts this column in its `You MAY NOT` table, and compared. That is
-    `plan-draft` and `plan-verify`, and it is NOT the same set as "every run
+    `plan-draft` and `plan-refine`, and it is NOT the same set as "every run
     holding a write grant on this file" — `triage-candidates` holds one and is
     the run that RULES this column, so it is guarded on `status` and `component`
     and deliberately not on `size`. Same reason as `decision`, too: a run that
@@ -804,9 +804,9 @@ _LOOKS_LIKE_A_PHASE = re.compile(r"^phase.*\.md$", re.I)
 def phase_docs(component: Path) -> dict[str, str]:
     """Every phase-doc-shaped file directly in the component dir, name -> content hash.
 
-    PROMOTED HERE WHEN `plan-verify` LANDED, per §10.1 rule 3 — *consumer count
+    PROMOTED HERE WHEN `plan-refine` LANDED, per §10.1 rule 3 — *consumer count
     decides, never taste*. `plan-draft` asks it *did a phase doc VANISH?*, which
-    is what a rename or a renumber looks like from outside; `plan-verify` asks it
+    is what a rename or a renumber looks like from outside; `plan-refine` asks it
     *what am I reading, and how many phases must I size?*. Two consumers, so the
     definition sits here and `plan_draft_activities` reaches it by alias. A
     second hand-written `phase*.md` sweep is precisely the drift `normalise_cell`
@@ -837,7 +837,7 @@ def phase_docs(component: Path) -> dict[str, str]:
 #
 # ONE PATTERN, TWO OPPOSITE CONSUMERS, WHICH IS EXACTLY WHY IT IS SHARED.
 # `plan-draft` uses it as a PROHIBITION — an author sizing their own
-# decomposition is defending it — and `plan-verify` uses it as the DELIVERABLE it
+# decomposition is defending it — and `plan-refine` uses it as the DELIVERABLE it
 # must produce. Two copies of this regex would let the write half forbid a shape
 # the read half does not produce, or the read half satisfy itself with a shape
 # the write half would have rejected, and neither divergence shows in a diff.
@@ -1310,7 +1310,7 @@ _NOT_SIZED = re.compile(r"\*\*\s*NOT SIZED\b", re.I)
 
 
 class PhaseSizing(NamedTuple):
-    """One component's phases, each with the estimate `plan-verify` wrote.
+    """One component's phases, each with the estimate `plan-refine` wrote.
 
     `total` is every estimate summed. `todo` is that less every phase the
     roadmap marks COMPLETE — the figure the sprint header shows beside it,
@@ -1327,7 +1327,7 @@ class PhaseSizing(NamedTuple):
 def phase_sizing(component: Path) -> PhaseSizing:
     """Read the roadmap's phase headings and the estimate beside each. Sum in CODE.
 
-    THE SUM IS ARITHMETIC AND A MODEL IS THE WRONG TOOL FOR IT. `plan-verify`
+    THE SUM IS ARITHMETIC AND A MODEL IS THE WRONG TOOL FOR IT. `plan-refine`
     writes one estimate per phase and deliberately writes no total, because "a
     total is derived from the parts and a derived figure restated where nothing
     derives it" goes stale. This is the thing that derives it. A model asked to
@@ -1341,7 +1341,7 @@ def phase_sizing(component: Path) -> PhaseSizing:
     everything done WITH it is judgement.
 
     AN UNSIZED PHASE IS REPORTED, NEVER TREATED AS ZERO, AND HAS NO BENIGN CASE.
-    `plan-verify` sizes EVERY phase on every run, a COMPLETE one included, so a
+    `plan-refine` sizes EVERY phase on every run, a COMPLETE one included, so a
     phase without an estimate is always a defect the total must not swallow — a
     quietly short total is worse than an absent one, because nothing says it is
     wrong. The prompt is told to say which.
@@ -1402,7 +1402,7 @@ def phase_sizing(component: Path) -> PhaseSizing:
         # unsized. That failed loudly rather than quietly, but it failed on a
         # correct document.
         #
-        # SIX LINES, measured rather than guessed: `plan-verify` writes
+        # SIX LINES, measured rather than guessed: `plan-refine` writes
         # `**Est: ~15 hours** *(sized cold …)*` as its own paragraph after the
         # heading and a blank line and the phase's italic subtitle, which lands
         # it four lines down. A window of 4 found nothing on the first real

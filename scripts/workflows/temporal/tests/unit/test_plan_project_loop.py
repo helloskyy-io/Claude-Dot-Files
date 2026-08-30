@@ -217,8 +217,8 @@ def test_the_parent_dispatches_NO_research_and_NO_planning_child(
         wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
     """The narrowing, held structurally rather than by anybody remembering it.
 
-    This parent used to call `research-draft`, `research-verify`, `plan-draft`,
-    `plan-verify` and `plan-sprint` inline — five children behind one dispatch,
+    This parent used to call `research-draft`, `research-refine`, `plan-draft`,
+    `plan-refine` and `plan-sprint` inline — five children behind one dispatch,
     one worktree carrying all of their work into one review, and a failure
     anywhere orphaning everything behind it. Each arrived in a commit that looked
     reasonable on its own; what was missing was anything that noticed the shape.

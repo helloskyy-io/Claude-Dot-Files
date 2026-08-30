@@ -1254,7 +1254,7 @@ def test_the_repo_root_census_finds_the_entrypoints_it_is_meant_to() -> None:
     """POSITIVE CONTROL. A census over zero functions declares everything clean."""
     found = {name for name, _p, _n in _run_entrypoints()}
     assert found == {"triage-candidates", "plan-sprint", "plan-draft",
-                     "plan-verify"}, (
+                     "plan-refine"}, (
         f"the census found run_* entrypoints in {sorted(found)}; if a workflow "
         f"dropped out, its repo-rooted reads stopped being checked")
 

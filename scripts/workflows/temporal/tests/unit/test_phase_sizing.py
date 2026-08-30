@@ -7,8 +7,8 @@ the operator reads to decide what a component costs and how much of it is left,
 and nothing pinned either of them.
 
 THE CLASS THIS SUITE GUARDS, stated so the next change is not made blind: the
-WRITER of estimates (`plan-verify`), the FLOOR that checks them
-(`plan_verify_activities.sizing_floor`) and the SUMMER that derives these two
+WRITER of estimates (`plan-refine`), the FLOOR that checks them
+(`plan_refine_activities.sizing_floor`) and the SUMMER that derives these two
 figures are three separate surfaces over one convention. On 2026-08-19 an
 exception was carved into the writer's prompt — a COMPLETE phase "gets none" —
 which neither of the other two knew about. The floor counts phase-doc FILES ON
@@ -161,7 +161,7 @@ def test_an_UNMARKED_complete_phase_OVER_reports_what_is_left(
 
 def test_an_estimate_BELOW_the_heading_is_found_the_same_as_one_beside_it(
         tmp_path: Path) -> None:
-    """`plan-verify` writes the figure as its own paragraph, not in the heading."""
+    """`plan-refine` writes the figure as its own paragraph, not in the heading."""
     c = _roadmap(tmp_path, (
         "# Comp\n\n"
         "## Phase 1 — a thing\n\n"
@@ -269,7 +269,7 @@ def test_the_sizing_block_says_so_when_there_are_NO_phases(tmp_path: Path) -> No
 def test_a_phase_declaring_NOT_SIZED_is_unsized_even_though_it_quotes_a_figure(tmp_path):
     """A removal notice necessarily names the figure it removed.
 
-    MEASURED ON PR #145. `plan-verify` split a phase, deleted the inherited
+    MEASURED ON PR #145. `plan-refine` split a phase, deleted the inherited
     estimate as no longer meaningful, and wrote *"**NOT SIZED. The 2026-08-19
     figure of ~24 hours was written against a phase that no longer exists and has
     been removed rather than left to mislead**"*. `HOUR_ESTIMATE`'s first
@@ -302,10 +302,10 @@ def test_a_phase_declaring_NOT_SIZED_is_unsized_even_though_it_quotes_a_figure(t
     )
 
 
-def test_plan_sprint_IS_HANDED_the_estimates_plan_verify_writes() -> None:
-    """The check that holds `run_plan_verify.py`'s closing message.
+def test_plan_sprint_IS_HANDED_the_estimates_plan_refine_writes() -> None:
+    """The check that holds `run_plan_refine.py`'s closing message.
 
-    That epilogue asserted the opposite for two `plan-verify` passes on PR #145
+    That epilogue asserted the opposite for two `plan-refine` passes on PR #145
     — *"`plan-sprint` does NOT read them today ... nothing in it reads a roadmap
     or an hour figure"* — and an operator acting on it would build a handoff that
     already exists. The claim was true of the MODEL (plan-sprint's prompt does
@@ -319,7 +319,7 @@ def test_plan_sprint_IS_HANDED_the_estimates_plan_verify_writes() -> None:
     wf = (root / "plan_sprint" / "plan_sprint_workflow.py").read_text()
     assert "act.phase_sizing(" in wf, (
         "plan_sprint_workflow no longer calls `phase_sizing`. If the handoff was "
-        "deliberately removed, correct `run_plan_verify.py`'s closing message in "
+        "deliberately removed, correct `run_plan_refine.py`'s closing message in "
         "the same commit — it tells the operator this wiring exists."
     )
     assert '"SIZING_BLOCK"' in wf, (

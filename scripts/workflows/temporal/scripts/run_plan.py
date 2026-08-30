@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""`plan` — the planning PARENT: plan-write -> plan-verify -> plan-sprint -> review-pr.
+"""`plan` — the planning PARENT: plan-write -> plan-refine -> plan-sprint -> review-pr.
 
 WHY THIS EXISTS. `plan_project.sh` chains the same four children but takes no
 component: it triages the candidate store, scaffolds NEW components and plans
 only those. Re-planning an EXISTING component therefore meant dispatching four
 children by hand, in order — done eight times over one PR on 2026-08-28, and
 the one time the chain was short-circuited, three defects reached `review-pr`
-that `plan-verify` would have caught.
+that `plan-refine` would have caught.
 
 THE PARENT CALLS NO MODEL, so it has no `config.yaml` entry — the same as
 `build` and `research`. Every figure the run spends belongs to a child.
@@ -80,7 +80,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  PR         : {a.pr_number or '(a new one will be opened)'}")
         print(f"  Context    : {len(context.encode())} bytes from --task-file"
               if context else "  Context    : none")
-        print("  Chain      : plan-write → plan-verify → plan-sprint → CI gate → review-pr")
+        print("  Chain      : plan-write → plan-refine → plan-sprint → CI gate → review-pr")
         print(f"  Loop-back  : the whole chain below the author, up to 3 times\n")
         return 0
 

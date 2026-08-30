@@ -56,7 +56,7 @@ then planning till satisfied, then building the plan.
 
 research --project: (parent)
 - research-draft
-- research-verify
+- research-refine
 - review-pr
 (usually HiL at this step, repeat till happ
 
@@ -64,11 +64,11 @@ plan-project --project(flag): (parent) (run on the reasearch that was previously
 - triage-candidates (triage of candidate list and labels correctly the candidates for inclusion in sprints/features/phases or rejects them with reasoning)
 - scaffold-candidates (activity NOT child workflow!) (Creates scaffolding for missing items recently triaged)
 - research-draft: (if research is missing or stale, run research, targeting the sprint/feature or scaffolding)
-- research-verify: (if above ran, run verify, targeting the sprint/feature)
+- research-refine: (if above ran, run verify, targeting the sprint/feature)
 
 wrong from here down!
 - plan-draft: (plans the feature/roadmap/phases (epics) that are referenced onto the sprint)
-- plan-verify: (checks and verifies the planning, fixes issues, assignes an estimated hours value based on the complexity of each phase)
+- plan-refine: (checks and verifies the planning, fixes issues, assignes an estimated hours value based on the complexity of each phase)
 - plan-sprint: (adds the new feature from above (if any), any changes to the phase hour estimates triggers a change to the total in the sprint, new sprints are calculated at the time of creation)
 - review-pr
 (usually HiL at this point, repeat till happy)
@@ -87,7 +87,7 @@ cron-job (god workflow)                              🔵 PARENT OF PARENTS OF P
 │   │
 │   ├── research                                     ✅ PARENT
 │   │   ├── research-draft                           ✅ (self adjusts to sizing requirements)
-│   │   ├── research-verify                          ✅
+│   │   ├── research-refine                          ✅
 │   │   ├── ◇ CI gate                                ✅ (parent code, no model) — waits for CI to settle, then
 │   │   │                                            reads the verdict. RED or unreadable = HOLD, and review-pr
 │   │   │                                            is NOT dispatched. A red tree cannot reach MERGE
@@ -116,7 +116,7 @@ cron-job (god workflow)                              🔵 PARENT OF PARENTS OF P
 │   │                                                runs on the research above, "the project as a whole", including candidates
 │   ├── research                                     ✅ PARENT
 │   │   ├── research-draft                           ✅ targets the feature
-│   │   ├── research-verify                          ✅ targets the feature
+│   │   ├── research-refine                          ✅ targets the feature
 │   │   ├── ◇ CI gate                                ✅ (parent code, no model)
 │   │   ├── review-pr                                ✅
 │   │   │   └── (loop as allowed — research caps at 1)
@@ -126,7 +126,7 @@ cron-job (god workflow)                              🔵 PARENT OF PARENTS OF P
 │   │
 │   ├── plan                                         ✅ PARENT — pointed at the feature (or its stub) and the research. Research not required
 │   │   ├── plan-draft                               ✅ plans the feature: roadmap + phases (epics), referenced onto the sprint
-│   │   ├── plan-verify                              ✅ checks the planning, fixes issues, sizes each phase in hours from its complexity
+│   │   ├── plan-refine                              ✅ checks the planning, fixes issues, sizes each phase in hours from its complexity
 │   │   ├── plan-sprint                              ✅ adds the new feature if any; a changed phase estimate re-totals the sprint. New sprints are
 │   │   │                                            calculated at creation time
 │   │   ├── ◇ CI gate                                ✅ (parent code, no model)

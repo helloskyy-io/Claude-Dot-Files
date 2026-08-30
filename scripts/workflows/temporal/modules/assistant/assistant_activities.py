@@ -59,7 +59,7 @@ def max_turns(key: str) -> int:
     work. That is why this is read rather than guessed, and why a missing key
     raises instead of defaulting.
 
-    KEYED BY WORKFLOW, NOT BY MODEL. `research-draft` and `research-verify`
+    KEYED BY WORKFLOW, NOT BY MODEL. `research-draft` and `research-refine`
     share MODEL_KEY "research" and have separately-measured budgets of 150 and
     200. Keying off the model would silently collapse them, which is the exact
     class of silent divergence this read exists to prevent.
@@ -829,7 +829,7 @@ def run_claude(prompt: str, *, model_key: str, workflow_key: str,
     shape `convergence.assess`'s `pass_evaluable` already uses: a new call site
     cannot acquire the hole by forgetting the argument. It is NOT `model_key` —
     `config.yaml` states above `research-draft:` that the two are not 1:1, since
-    `research-draft` and `research-verify` share the model key `research`. Only
+    `research-draft` and `research-refine` share the model key `research`. Only
     this value lets a per-workflow figure name its own bins; a reader keying off
     `model_key` merges those two and cannot say which records it merged.
 

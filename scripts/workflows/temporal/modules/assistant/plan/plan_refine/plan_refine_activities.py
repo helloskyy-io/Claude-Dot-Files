@@ -1,14 +1,14 @@
-"""plan-verify's own I/O — one consumer each, so §10.1 rule 3 puts them here.
+"""plan-refine's own I/O — one consumer each, so §10.1 rule 3 puts them here.
 
 [`workflow-scripts.md` § Location](../../../../../../../docs/standards/workflow-scripts.md)
 restates §10.1 rule 3 as BINDING and mechanical — *"consumer count decides, never
 taste"* — and rule 6 gives a workflow folder its place to grow the helpers it has
-earned. Everything below has exactly one consumer: `plan_verify_workflow`.
+earned. Everything below has exactly one consumer: `plan_refine_workflow`.
 
 WHAT THIS MODULE IS FOR, AND WHY IT IS NOT `plan_draft_activities` REVERSED.
 `plan-draft` is forbidden to size, and its readers are shaped for a
 PROHIBITION: component-wide, keyed by file, judged as a delta, and answering
-*what did this run write that it should not have*. `plan-verify` produces the
+*what did this run write that it should not have*. `plan-refine` produces the
 same shape as its DELIVERABLE, and a deliverable is judged on STATE — the
 roadmap either carries an estimate per phase when the run finishes or it does
 not. A `--pr` correction pass that leaves last pass's estimates untouched writes
@@ -212,7 +212,7 @@ def sizing_floor(component: Path, docs: dict[str, str]) -> int:
     reviewer reading the report, which the guard's message says outright.
 
     NO ROADMAP MEANS NO FLOOR, and that is not a loophole: `plan_inventory` tells
-    a run that finds no roadmap to size nothing and stop, `run_plan_verify`
+    a run that finds no roadmap to size nothing and stop, `run_plan_refine`
     refuses to launch without one, and a floor here would fail that correct run
     at the last guard for obeying its instructions.
     """

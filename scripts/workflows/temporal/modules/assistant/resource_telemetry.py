@@ -115,7 +115,7 @@ class ResourceReport:
     model_key: str | None = None
     # THE WORKFLOW KEY IS NOT THE MODEL KEY, and this field exists because the
     # difference makes a per-workflow figure impossible without it. `config.yaml`
-    # states it above `research-draft:`: `research-draft` and `research-verify`
+    # states it above `research-draft:`: `research-draft` and `research-refine`
     # share the model key `research` and have separately-measured budgets. A
     # reader keying a distribution off `model_key` therefore merges two
     # workflows into one bin and cannot say so, because nothing in the record

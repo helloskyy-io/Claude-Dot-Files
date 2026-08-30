@@ -502,7 +502,7 @@ def test_a_run_id_at_and_over_the_LENGTH_CEILING() -> None:
 
 @pytest.mark.parametrize("shape", ["a1b2c3d4" * 4, "build-2026-08-24-a1b2c3",
                                    "review_pr.retry.2", "wf-id-9f3c",
-                                   "plan-verify-2026-08-24T09-31-00Z"])
+                                   "plan-refine-2026-08-24T09-31-00Z"])
 def test_the_set_ADMITS_the_shapes_the_joint_design_is_likely_to_produce(
         shape: str) -> None:
     """Phase 9's checklist: the set must admit the WIDEST name the design allows.

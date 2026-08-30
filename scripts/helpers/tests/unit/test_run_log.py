@@ -301,7 +301,7 @@ def test_only_the_SCORED_cutover_is_ever_passed_to_before() -> None:
 # --- the model-key map is derived, not remembered ----------------------------
 
 def test_the_workflow_map_is_derived_and_finds_the_AMBIGUOUS_pair() -> None:
-    """`research-draft` and `research-verify` share the model key `research`.
+    """`research-draft` and `research-refine` share the model key `research`.
 
     That collision is the entire reason `workflow_key` was added to the payload,
     and it is derived from the modules rather than hardcoded so that a SECOND
@@ -315,14 +315,14 @@ def test_the_workflow_map_is_derived_and_finds_the_AMBIGUOUS_pair() -> None:
         f"as unattributable"
     )
     # SORTED, BECAUSE THE ORDER IS AN ACCIDENT OF THE TREE WALK AND NOT THE
-    # PROPERTY. This pinned `["research-verify", "research-write"]` — the order
+    # PROPERTY. This pinned `["research-refine", "research-write"]` — the order
     # that walk happened to produce while the child was named `research_write`,
-    # which sorts AFTER `research_verify`. Renaming it to `research_draft` on
+    # which sorts AFTER `research_refine`. Renaming it to `research_draft` on
     # 2026-08-29 sorts it BEFORE, and the test went red over a rename that changed
     # nothing it exists to check. What it checks is that these two workflow keys
     # SHARE the model key `research`; which order the walk yields them in is not
     # part of that claim, and pinning it made a rename look like a regression.
-    assert sorted(found.get("research", [])) == ["research-draft", "research-verify"], found
+    assert sorted(found.get("research", [])) == ["research-draft", "research-refine"], found
     unambiguous = [k for k, v in found.items() if len(v) == 1]
     assert len(unambiguous) >= 7, found
 

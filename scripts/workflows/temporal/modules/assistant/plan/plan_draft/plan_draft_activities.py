@@ -7,7 +7,7 @@ earned. Everything DEFINED below has exactly one consumer: `plan_draft_workflow`
 
 TWO SYMBOLS ARE NOW ALIASES RATHER THAN DEFINITIONS, and the rule is what moved
 them. `phase_docs` and the hour pattern acquired a second consumer the day
-`plan-verify` landed — the fresh-context reader asks *what am I reading, and how
+`plan-refine` landed — the fresh-context reader asks *what am I reading, and how
 many phases must I size?* of the first, and produces as its DELIVERABLE the
 shape the second exists to forbid here. Rule 3 puts a two-consumer helper on the
 shared surface, so their definitions are in `plan_activities` and this module
@@ -38,7 +38,7 @@ reordering freedom it already had. The standard names the filename grammar and
 calls a CI lint over it *"the recommended guardrail"*; `malformed_phase_docs` is
 that lint, applied at the moment of writing rather than after the fact.
 
-HOURS ARE DETECTED BY SHAPE, NEVER BY THE WORD. Sizing belongs to `plan-verify`
+HOURS ARE DETECTED BY SHAPE, NEVER BY THE WORD. Sizing belongs to `plan-refine`
 — an author sizing their own decomposition is defending it — so a written hour
 figure is a boundary crossing here. But *"true for a few hours"* and *"a shelf
 life measured in hours"* are ordinary prose, and this repo's planning docs
@@ -46,7 +46,7 @@ contain exactly three such phrases and ZERO estimates. A pattern keyed on the
 word `hours` would fail three runs that did nothing wrong on the first component
 that quoted one of those lines. `act.HOUR_ESTIMATE` therefore requires an estimate
 SHAPE — a tilde, a bare parenthetical, or an explicit sizing label — which none of
-the three prose instances has. **The pattern is shared with `plan-verify`, which
+the three prose instances has. **The pattern is shared with `plan-refine`, which
 uses it as the deliverable it must produce**, so the shape this workflow forbids
 and the shape that workflow writes cannot drift apart.
 
@@ -61,7 +61,7 @@ from collections import Counter
 from pathlib import Path
 
 from .. import plan_activities as act
-# PROMOTED 2026-08-19: `plan_verify` gained a phase-doc write grant and needs the
+# PROMOTED 2026-08-19: `plan_refine` gained a phase-doc write grant and needs the
 # same two, so §10.1 moved them to the family layer. Re-exported here rather
 # than rewritten at ~20 call sites and in the observer strings that name them.
 from ..plan_activities import plan_boxes, plan_docs  # noqa: F401
@@ -72,7 +72,7 @@ from ..plan_activities import plan_boxes, plan_docs  # noqa: F401
 # Anchored at both ends because the whole point is that no OTHER form is valid.
 _PHASE_FILE = re.compile(r"^phase(\d+)([a-z]?)_[a-z0-9_-]+\.md$")
 
-# PROMOTED TO THE SHARED SURFACE WHEN `plan-verify` BECAME A SECOND CONSUMER, per
+# PROMOTED TO THE SHARED SURFACE WHEN `plan-refine` BECAME A SECOND CONSUMER, per
 # §10.1 rule 3 — *consumer count decides, never taste*. Reached through `own.` so
 # this module's callers, its registry entries and its tests keep one spelling; the
 # DEFINITION lives once, in `plan_activities`, which is what stops a `phase*.md`
@@ -261,7 +261,7 @@ def hour_estimates(component: Path, tree: Path,
     run is answerable for and not the ones it inherited. `None` means every hit,
     which is what a standalone audit of a component wants.
 
-    SIZING IS `plan-verify`'S, AND THAT IS A DESIGN DECISION RATHER THAN A
+    SIZING IS `plan-refine`'S, AND THAT IS A DESIGN DECISION RATHER THAN A
     DIVISION OF LABOUR. An author sizing their own decomposition is defending it;
     a fresh reader sizing it is a second opinion. It is the same `author != judge`
     rule the research and build families split on, applied to a number.

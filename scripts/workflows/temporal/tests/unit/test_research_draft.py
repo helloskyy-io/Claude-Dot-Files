@@ -17,7 +17,7 @@ vacuously on the minor one. A control that can only ever be satisfied is the
 failure mode controls exist to prevent, and a hand-written scratch fixture
 drifts away from the real prompt the moment the real prompt is edited.
 
-AND THE CYCLE-SHAPE BLOCK IS EXERCISED, NOT GREPPED. `research_verify` is
+AND THE CYCLE-SHAPE BLOCK IS EXERCISED, NOT GREPPED. `research_refine` is
 REUSED rather than forked, so the risk is not that its prompt lacks a string —
 it is that the block fails to render, or that the parameter carrying it grows
 into a behavioural branch. The first is caught by rendering the real prompt
@@ -43,7 +43,7 @@ from assembled_prompt import assembled
 
 from modules.assistant.research import research_activities as act
 from modules.assistant.research.research import research_workflow as full_parent
-from modules.assistant.research.research_verify import research_verify_workflow as verify
+from modules.assistant.research.research_refine import research_refine_workflow as verify
 from modules.assistant.research.research_draft import (
     research_draft_workflow as child,
 )
@@ -62,7 +62,7 @@ FULL_PROMPT = _RESEARCH / "research_draft" / "prompts" / "draft.md"
 # file made the stage count report three the first time a promotion touched
 # Stage 1, and a guard that goes quiet because text MOVED is the failure mode
 # `assembled_prompt.py` was written for.
-VERIFY_PROMPT = _RESEARCH / "research_verify" / "prompts" / "verify.md"
+VERIFY_PROMPT = _RESEARCH / "research_refine" / "prompts" / "refine.md"
 
 
 def test_both_prompts_are_findable() -> None:
@@ -492,7 +492,7 @@ def test_the_full_cycle_still_gets_the_sizing_directives() -> None:
     )
 
 
-# --- 3. research_verify is REUSED, and carries NO cycle-shape signal at all ---
+# --- 3. research_refine is REUSED, and carries NO cycle-shape signal at all ---
 
 class _CapturedPrompt:
     """Stands in for `run_claude` and keeps the prompt it was handed."""
@@ -538,7 +538,7 @@ def test_verify_is_told_NOTHING_about_the_cycle_shape(monkeypatch, tmp_path) -> 
     from an earlier FULL cycle, and that it did not cover this cycle's paper.
 
     `review-pr` found it on PR #106 and filed issue #107. Deleting beat repairing
-    because `research_verify` discovers its artifacts from the filesystem and
+    because `research_refine` discovers its artifacts from the filesystem and
     reads no flag — there was never anything for the signal to switch, and the
     prompt's opening line (*"you did not write these papers and you did not write
     this synthesis"*) is true without it.
@@ -619,7 +619,7 @@ def test_the_ternary_predicate_actually_detects_a_branch() -> None:
 def test_verify_has_no_minor_specific_stage() -> None:
     """The reused child's stages do not branch by tier.
 
-    `research_verify` is shared by the full cycle and the minor one. The context
+    `research_refine` is shared by the full cycle and the minor one. The context
     block states a fact about which cycle is running; it must never become a
     conditional stage heading, because a prompt that branches on tier is two
     prompts sharing a file and they drift.
@@ -632,9 +632,9 @@ def test_verify_has_no_minor_specific_stage() -> None:
     critic found; it was a stage only because a different agent did the writing.
     """
     titles = _stage_titles(assembled(VERIFY_PROMPT))
-    assert len(titles) == 2, f"research_verify's stage count changed: {titles}"
+    assert len(titles) == 2, f"research_refine's stage count changed: {titles}"
     assert not any("MINOR" in t.upper() for t in titles), (
-        "verify.md grew a minor-specific stage. The reuse is the design: one set "
+        "refine.md grew a minor-specific stage. The reuse is the design: one set "
         "of stages, one of them told what the cycle produced."
     )
 
@@ -680,10 +680,10 @@ def test_the_parent_reuses_the_shared_children() -> None:
     Dropping to a single deep-research invocation was the alternative considered,
     and `research-critic` — which fetches every cited source and has repeatedly
     caught fabrications — is the reason it was rejected. It reaches this cycle
-    through `research_verify`, so reusing that child IS keeping the gate.
+    through `research_refine`, so reusing that child IS keeping the gate.
     """
     source = inspect.getsource(full_parent)
-    assert "research_verify_workflow" in source, "the research parent forked verification"
+    assert "research_refine_workflow" in source, "the research parent forked verification"
     assert "review_pr_workflow" in source, "the research parent has no disposition stage"
     assert "ReviewType.RESEARCH" in source, (
         "the research parent no longer dispositions as a research PR — candidates "
@@ -694,7 +694,7 @@ def test_the_parent_reuses_the_shared_children() -> None:
 def test_research_critic_reaches_the_minor_cycle_unchanged() -> None:
     """The gate is invoked by the prompt this cycle reuses verbatim."""
     assert "research-critic" in assembled(VERIFY_PROMPT), (
-        "verify.md no longer dispatches research-critic — the anti-hallucination "
+        "refine.md no longer dispatches research-critic — the anti-hallucination "
         "gate is gone from every research cycle, minor and full alike"
     )
 
@@ -718,7 +718,7 @@ def test_the_turn_cap_resolves() -> None:
 def test_the_cap_is_NOT_keyed_off_the_model() -> None:
     """Two keys, deliberately, and the reason is recorded in the workflow itself.
 
-    The model is `research` — shared with `research-verify` and the parent — and
+    The model is `research` — shared with `research-refine` and the parent — and
     the cap is keyed by WORKFLOW because the turn budgets were measured
     separately. Keying the cap off the model would silently hand this child the
     parent's 250, which an earlier version of that file did and carried a

@@ -91,7 +91,7 @@ def permitted_paths(sprint_rel: str) -> tuple[str, ...]:
     chain was rebuilt around a planned COMPONENT. A grant kept after its job
     moved is a permission nothing needs and everything inherits, so it went with
     the job. Appending a surfaced proposal is `plan-draft`'s and
-    `plan-verify`'s; ruling one is `triage-candidates`'s; neither is this run's.
+    `plan-refine`'s; ruling one is `triage-candidates`'s; neither is this run's.
     """
     return (rf"^{re.escape(sprint_rel)}$",)
 
@@ -104,7 +104,7 @@ def permitted_paths(sprint_rel: str) -> tuple[str, ...]:
 # table over a DISCOVERED set of workflows, and `JUDGEMENT` is a legitimate
 # answer that must say why the property has no artifact.
 MAY_NOT_OBSERVERS: dict[str, str] = {
-    "**RE-SIZE anything** — the estimates are `plan-verify`'s and the total is computed for you":
+    "**RE-SIZE anything** — the estimates are `plan-refine`'s and the total is computed for you":
         "FORBIDDEN_PATHS `^docs/development/` less permitted_paths, whose only "
         "grant is the sprint file — so every roadmap, where the estimates live, "
         "is a forbidden path. The total this run is handed comes from "
@@ -189,7 +189,7 @@ def prompt_values(rel_sprint: str, rel_component: Path, tree: Path,
         "SPRINT_PATH": rel_sprint,
         "COMPONENT_PATH": rel_component.as_posix(),
         # COMPUTED, NOT ASKED FOR. The sum is arithmetic and a model is the wrong
-        # tool for it — `plan-verify` writes one estimate per phase and no total,
+        # tool for it — `plan-refine` writes one estimate per phase and no total,
         # deliberately, so the thing that derives the total has to be code or the
         # figure is an assertion. Both the parts and the sum are handed over.
         "SIZING_BLOCK": act.sizing_block(sizing, rel_component),
@@ -230,7 +230,7 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
 
     That is the wrong half. By the time this runs, `triage-candidates` has ruled
     the candidate, `plan-candidates` has scaffolded it, `plan-draft` has written
-    its roadmap and phase docs and `plan-verify` has sized every phase — so
+    its roadmap and phase docs and `plan-refine` has sized every phase — so
     "does this warrant a sprint section" was answered upstream by the chain
     BUILDING the thing, and re-deciding it here overturns a ruling with less
     context than the run that made it.

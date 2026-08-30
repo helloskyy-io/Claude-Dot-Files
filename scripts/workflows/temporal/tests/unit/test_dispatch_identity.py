@@ -70,10 +70,10 @@ def test_a_run_id_with_no_writer_means_THIS_INVOCATION_IS_THE_RUN() -> None:
 
 
 def test_a_run_id_WITH_a_writer_means_this_invocation_is_PART_of_a_run() -> None:
-    identity = resolve_identity(["--run-id", "abc123", "--writer", "research_verify"],
+    identity = resolve_identity(["--run-id", "abc123", "--writer", "research_refine"],
                                 announce=False)
     assert identity.run_id == "abc123"
-    assert identity.writer == "research_verify"
+    assert identity.writer == "research_refine"
     assert not identity.is_the_run
 
 
@@ -92,7 +92,7 @@ def test_a_WRITER_with_no_run_to_join_is_REFUSED_rather_than_guessed() -> None:
     by omission, so the only correct behaviour is to refuse and say why.
     """
     with pytest.raises(BagError) as exc:
-        resolve_identity(["--writer", "research_verify"], announce=False)
+        resolve_identity(["--writer", "research_refine"], announce=False)
     message = str(exc.value)
     assert "--run-id" in message, "the message must name the missing input"
     assert "remedy" in message, "and it must say what to do about it"
@@ -313,7 +313,7 @@ def test_a_STANDALONE_CHILD_produces_exactly_one_bag_and_NO_ORPHAN(
     assert identity.is_the_run, "a child with no run id IS the run"
 
     bag = open_run_bag(run_id=identity.run_id, writer=identity.writer,
-                       repo_root=TEMPORAL, workflow_key="research_verify",
+                       repo_root=TEMPORAL, workflow_key="research_refine",
                        worktree_name=None)
 
     assert [p.name for p in root.iterdir()] == [identity.run_id]
@@ -321,7 +321,7 @@ def test_a_STANDALONE_CHILD_produces_exactly_one_bag_and_NO_ORPHAN(
         "an invocation that IS the run takes no writer subfolder — its records "
         "are the run's, not one member's")
     assert dict(read_tag_file(bag.path / BAG_INFO_FILE))["Journal-Workflow"] == \
-        "research_verify"
+        "research_refine"
 
 
 def test_two_MEMBERS_asking_for_one_writer_name_do_not_share_a_directory(

@@ -20,7 +20,7 @@ ${SPRINT_STATE}
 
 | You MAY | You MAY NOT |
 |---|---|
-| Write or refresh this component's hour total in its sprint section | **RE-SIZE anything** — the estimates are `plan-verify`'s and the total is computed for you |
+| Write or refresh this component's hour total in its sprint section | **RE-SIZE anything** — the estimates are `plan-refine`'s and the total is computed for you |
 | Update this component's phase bullets to match its roadmap | **Touch another component's section** — not its bullets, not its total, not its position |
 | **Add a section for this component when it has none — AND CHOOSE WHERE IN THE ORDER IT GOES** | **MOVE a section that already exists** — anyone's, including this component's |
 | Correct this component's own status marker to match its roadmap | **Rule a candidate** — `decision` is `triage-candidates`'s alone |
@@ -36,13 +36,13 @@ ${SPRINT_STATE}
 
 ## THE TOTAL IS COMPUTED. YOU DO NOT ADD ANYTHING UP.
 
-`${SIZING_BLOCK}` above carries this component's phases, the estimate `plan-verify` wrote beside each, and **the total, summed in code**. It is authoritative — **do not recount it, do not re-derive it, and do not adjust it because it looks high or low.**
+`${SIZING_BLOCK}` above carries this component's phases, the estimate `plan-refine` wrote beside each, and **the total, summed in code**. It is authoritative — **do not recount it, do not re-derive it, and do not adjust it because it looks high or low.**
 
 **Why it is handed to you rather than asked of you:** a total is arithmetic, and a model adding four numbers out of a document can misread one with nothing to catch it. This repo's rule is that a count is a claim — enumerated, not asserted. The enumeration already happened.
 
 **What is yours is everything done WITH the number**: whether this component has a home, where a new one goes, and what the entry says.
 
-**An UNSIZED phase is named in the block and you carry that forward.** Every phase carries an estimate, a COMPLETE one included and sized for the work it contained — `plan-verify` sizes all of them on every run, with no exception. **So an unsized phase is a defect with no benign case**, and **the total must not be presented as if it covered it**. Say in your report which phases are unsized and why, and never treat an unsized phase as zero.
+**An UNSIZED phase is named in the block and you carry that forward.** Every phase carries an estimate, a COMPLETE one included and sized for the work it contained — `plan-refine` sizes all of them on every run, with no exception. **So an unsized phase is a defect with no benign case**, and **the total must not be presented as if it covered it**. Say in your report which phases are unsized and why, and never treat an unsized phase as zero.
 
 ## Stage 1: ASSESS
 

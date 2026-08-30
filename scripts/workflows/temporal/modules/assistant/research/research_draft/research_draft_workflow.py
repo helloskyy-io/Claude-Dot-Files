@@ -47,7 +47,7 @@ it is not shippable.
 
 DEFERRED, AND NAMED RATHER THAN LEFT SILENT: `draft.md`'s RULES footer is
 the FOURTH near-copy of one block across the research family (`draft.md`,
-`verify.md`, `refresh.md`). `temporal_standard.md` §10.1 rule 3 puts the
+`refine.md`, `refresh.md`). `temporal_standard.md` §10.1 rule 3 puts the
 promotion threshold at more than one consumer, so that threshold was already
 crossed before this file existed — but the remedy is a family-wide migration
 that rewrites three prompts this workflow does not own, and the four copies have
@@ -76,7 +76,7 @@ PROMPTS = _HERE / "prompts"
 MODEL_KEY = "research"
 
 # ITS OWN WORKFLOW KEY, NOT THE MODEL KEY. The model is `research`, shared
-# with `research_verify` and the parent — but the turn budgets are measured
+# with `research_refine` and the parent — but the turn budgets are measured
 # separately, so the cap is keyed by WORKFLOW. Keying it off the model would
 # silently revert 150 to the parent's 250, a mistake an earlier version of
 # this file made and carried a paragraph warning about.

@@ -70,7 +70,7 @@ _ESCAPE = "../" * 40 + "tmp/escape-probe-under-test"
 # from this map fails `test_every_runner_with_a_repo_path_is_exercised` rather
 # than being silently skipped.
 _ARGV_SHAPE: dict[str, list[str]] = {
-    "run_plan_verify.py": ["--dry-run"],
+    "run_plan_refine.py": ["--dry-run"],
     "run_plan.py": ["--dry-run"],
     "run_plan_draft.py": ["--dry-run"],
     "run_plan_sprint.py": ["--dry-run"],

@@ -21,7 +21,7 @@ from pathlib import Path
 
 from .. import research_activities as act
 from ..research_draft import research_draft_workflow as draft
-from ..research_verify import research_verify_workflow as verify
+from ..research_refine import research_refine_workflow as verify
 from ...review_pr import review_pr_workflow as review_pr
 from ...review_pr.review_pr_helper import ReviewInput, ReviewType, Verdict
 from ...assistant_activities import (ci_verdict, extract_pr_url, repo_slug,

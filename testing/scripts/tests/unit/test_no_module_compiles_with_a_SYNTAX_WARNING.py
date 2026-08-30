@@ -1,7 +1,7 @@
 """Every tracked Python module compiles clean — no `SyntaxWarning`, anywhere.
 
 THE INSTANCE, AND WHY THE INSTANCE IS NOT THE POINT.
-`scripts/workflows/temporal/tests/unit/test_plan_verify.py:459` held a docstring
+`scripts/workflows/temporal/tests/unit/test_plan_refine.py:459` held a docstring
 quoting the regex `[^/]+\\.md$` without an `r` prefix, so `\\.` was an invalid
 escape sequence. It printed a `SyntaxWarning` on every collection of the unit
 tier, and under `python -W error::SyntaxWarning` it is already a hard

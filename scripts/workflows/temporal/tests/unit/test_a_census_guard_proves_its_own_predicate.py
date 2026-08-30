@@ -170,7 +170,13 @@ _HERE = Path(__file__).resolve().parent
 # `_child_workflow_imports` so three literals could drive it — a satisfying
 # shape, a violating one, and a module with no child imports at all. Both numbers
 # move together, which is the shape a correctly-built new guard makes.
-_PINNED = (32, 21)
+# 32 -> 33 AND 21 -> 22 for `test_no_loop_back_re_enters_the_AUTHOR`, which holds
+# the one structural property the plan family was missing: a parent's loop-back
+# re-enters its CORRECTOR, never its author. It arrived WITH its control — three
+# literals driving `_loop_callees`, one of them a `while` that is not a loop-back
+# and must contribute nothing — and the control earned its place immediately by
+# catching the predicate collecting the loop's own TEST as a callee.
+_PINNED = (33, 22)
 
 
 # GRANDFATHERED — walks the tree, has no literal control, PREDATES this rule.

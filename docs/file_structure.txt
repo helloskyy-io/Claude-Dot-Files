@@ -313,7 +313,7 @@ claude-dot-files/
 │           │                                        #   roadmap.md and numbered phaseN_*.md docs from its research, plan_sprint places
 │           │                                        #   what they ruled — split apart so planning could sit between the first and last.
 │           │                                        #   plan_draft is the WRITE half only: it sizes NOTHING and writes no sprint.md.
-│           │                                        #   plan_verify is the READ half and runs immediately after it, per component: it
+│           │                                        #   plan_refine is the CORRECTOR and runs immediately after it, per component: it
 │           │                                        #   reads the roadmap and phase docs COLD, puts an hour estimate on every phase in
 │           │                                        #   roadmap.md and nowhere else, and answers the question plan_draft's own report
 │           │                                        #   must ask and cannot answer — where is this plan weakest. plan-sprint does NOT
@@ -338,7 +338,7 @@ claude-dot-files/
 │           │                                        #   partition over `disposition`, six ordered rules, a named recorded residual arm.
 │           │                                        #   RECORDED, ROUTED ON BY NOTHING — MAX_LOOPS is still the only stopping authority
 │           │                                        #   research/ holds ONE parent over three children: research (research_draft,
-│           │                                        #   then research_verify, then review-pr). The draft child SIZES ITS OWN CYCLE —
+│           │                                        #   then research_refine, then review-pr). The draft child SIZES ITS OWN CYCLE —
 │           │                                        #   it discovers the pool, decides how many topics need writing and which are
 │           │                                        #   stale, and does only that. The research_minor parent and its research_write_minor
 │           │                                        #   child were deleted 2026-08-28: the split asked the operator to size the work
@@ -365,11 +365,11 @@ claude-dot-files/
 │           │                                        #   side rather than inside retried work
 │           │                                        #   research.sh / research_minor.sh are SIBLING entries, not one script with a flag —
 │           │                                        #   different parents, different model keys, separately-budgeted turn caps
-│           │                                        #   triage_candidates.sh / plan_draft.sh / plan_verify.sh / plan_sprint.sh are
+│           │                                        #   triage_candidates.sh / plan_draft.sh / plan_refine.sh / plan_sprint.sh are
 │           │                                        #   siblings for the same reason: four jobs, four model keys, four turn caps. Each
 │           │                                        #   runs standalone AND is called in order by plan_project.sh. plan_draft.sh and
-│           │                                        #   plan_verify.sh take ONE component directory, which is also the cheap way to
-│           │                                        #   exercise them; plan_verify.sh REFUSES a component with no roadmap.md rather
+│           │                                        #   plan_refine.sh take ONE component directory, which is also the cheap way to
+│           │                                        #   exercise them; plan_refine.sh REFUSES a component with no roadmap.md rather
 │           │                                        #   than dispatching against nothing, since writing the plan is not its job. On a
 │           │                                        #   --pr pass the PR's BRANCH is the tree it asks, because that is the one the run
 │           │                                        #   is cut from; this checkout only shapes the refusal's wording, since "not yet
@@ -458,7 +458,7 @@ claude-dot-files/
 │                                                                           #   decision point. Measured: one chain reached $82.13 in two
 │                                                                           #   hours with nothing surfacing it. Reporting, not a gate
 │                   │                                #   comparator must name one the workflow CALLS — resolving is not wiring, and both
-│                   │                                #   plan-draft and plan-verify claimed the `size` guard without having one
+│                   │                                #   plan-draft and plan-refine claimed the `size` guard without having one
 │                   ├── test_prompt_completeness.py  # Every ${VAR} in a shipped prompt has a supplier (data-driven over prompts/*.md)
 │                   ├── test_delegated_contract.py   # The five env vars run-claude.sh asserts at SOURCE time, and their ordering
 │                   ├── fork_vs_parameterize.py     # THE RULING PROCEDURE for a drifted pair, in a HELPER module beside the guards that
@@ -531,13 +531,16 @@ claude-dot-files/
 │                   │                                #   lines), never the word — a naive sweep flags seven correct functions. And the raise must be
 │                   │                                #   able to ESCAPE: wait_for_ci raises inside a try its own except catches, so any(ast.Raise)
 │                   │                                #   called the shipped defect correct
+│                   ├── test_no_loop_back_re_enters_the_AUTHOR.py # A loop-back re-enters the CORRECTOR, never the author.
+│                   │                                #   `plan` re-dispatched plan-draft every correction pass for its whole life;
+│                   │                                #   MDC #173 turned 7 planned phases into 10, $97, never converged
 │                   ├── test_no_prompt_ROUTES_the_model_into_the_FROZEN_fleet.py # No shipped .md prompt names a script that
 │                   │                                #   resolves ONLY under scripts/workflows/ (frozen) and not under the Python shims. Closed one
 │                   │                                #   spelling at a time three times — plan_revision's STOP, build_from_plan's BUILD-PHASE,
 │                   │                                #   review_pr's dispatch_tool enum — so the check keys on resolution, not on a name list
 │                   ├── test_no_prose_claims_a_shipped_workflow_is_UNBUILT.py # No prose says a workflow does not exist
 │                   │                                #   when its module is on disk. plan-draft said it in three places — a docstring, a prompt sent
-│                   │                                #   to the model, an operator banner — and the PR that built plan-verify falsified all three and
+│                   │                                #   to the model, an operator banner — and the PR that built plan-refine falsified all three and
 │                   │                                #   updated none. The shipped set is derived from the tree, so a workflow landing retires every
 │                   │                                #   claim about it that day; historical phrasings are exempted deliberately
 │                   ├── test_memory_guardrail.py     # The root conftest's RLIMIT_AS cap actually binds the running process
@@ -642,7 +645,7 @@ claude-dot-files/
 │                   │                                #   against the VENDORED standard — the drift the v1 contract exists to catch
 │                   ├── test_intake.py               # The §5.0 exemption's three conditions, and the write-then-close
 │                   │                                #   ordering that decides whether a finding can be lost
-│                   ├── test_plan_verify.py          # plan-verify's own guards, and the TWO properties unique to a judge: the deliverable
+│                   ├── test_plan_refine.py          # plan-refine's own guards, and the TWO properties unique to a judge: the deliverable
 │                   │                                #   is keyed on STATE where every prohibition in the family is a DELTA — a --pr
 │                   │                                #   correction pass legitimately writes no new hours — and the re-planning guard
 │                   │                                #   watches the INSIDE of the one file the grant opens, where boundary_crossings is

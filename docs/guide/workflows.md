@@ -18,13 +18,13 @@ There are **two implementations** of the workflow fleet, and the Python one is w
 |---|---|---|
 | `build.sh` | **parent** | `build-draft` → `build-refine` → `review-pr` → one bounded loop-back |
 | `build_minor.sh` | **parent** | same shape, lighter middle child |
-| `research.sh` | **parent** | `research-draft` → `research-verify` → `review-pr`. **Altitude is DERIVED from the pool path** — `docs/standards/architecture/research/` is project-level, `docs/development/<component>/research/` is component-level. One workflow, two altitudes |
-| `plan.sh` | **parent** | `plan-draft` → `plan-verify` → `plan-sprint` → CI gate → `review-pr` → bounded loop-back. Takes **ONE component directory** and drives it from plan to sized sprint entry. This is what you dispatch at a component |
+| `research.sh` | **parent** | `research-draft` → `research-refine` → `review-pr`. **Altitude is DERIVED from the pool path** — `docs/standards/architecture/research/` is project-level, `docs/development/<component>/research/` is component-level. One workflow, two altitudes |
+| `plan.sh` | **parent** | `plan-draft` → `plan-refine` → `plan-sprint` → CI gate → `review-pr` → bounded loop-back. Takes **ONE component directory** and drives it from plan to sized sprint entry. This is what you dispatch at a component |
 | `plan_project.sh` | **parent** | `triage-candidates` → **`plan-candidates`** (an ACTIVITY — plain code in the parent, no dispatch) → `review-pr`. Rules the candidate store and gives the shipped ones a home; it does **not** research or plan them. Was `plan-master` |
 | `triage_candidates.sh` | child, independently dispatchable | rules every untriaged item in [`tracked/candidates/`](../../tracked/candidates/) — `ship` / `requires review` / `reject`. **A question it cannot answer stays on the item as `requires review`, which IS the operator's ruling queue** — there is no second file. **Sets `decision`, and nothing else touches that field.** Its runner then OBSERVES the boundary rather than trusting it: a sprint file, phase doc or standard it touched, a deleted candidate, or `status` moved on a pre-existing item all **fail the run** |
 | `plan_sprint.sh` | child, independently dispatchable | places the RULED candidates, maintains `sprint.md`, reconciles sections against newer research. **Does not triage** — it reads `decision` and its runner fails the run if it wrote one. Same observation on the rest of its table: a ticked checkbox, a phase doc or any standard **fails the run** |
-| `plan_draft.sh` | child, independently dispatchable | takes **ONE component directory** and writes that component's `roadmap.md` plus its numbered `phaseN_<name>.md` docs, from that component's research. **It sizes nothing** — an author sizing their own decomposition is defending it, so hours belong to `plan-verify` — **and it writes no `sprint.md`**; its report names the sprint entry the component needs and the operator places it. Its runner then OBSERVES the boundary: an hour figure, a renamed or renumbered phase doc, a malformed phase filename, a reused number, a ticked checkbox, a sibling component or its own `research/` touched, or a moved candidates column all **fail the run** |
-| `plan_verify.sh` | child, independently dispatchable | takes the **SAME ONE component directory** and reads its `roadmap.md` and phase docs **COLD** — it did not write them. Answers five questions: an hour estimate per phase; does each phase end at one verifiable outcome; did a producer ship without its consumer; does the cited evidence actually support the phase; and **where is this plan weakest** — the one `plan-draft`'s own report is required to ask and structurally cannot answer about itself. **The hours go in `roadmap.md` and nowhere else** (see below). Its runner then OBSERVES the boundary: an unsized phase, a phase added to or dropped from the roadmap, ANY edit to a phase doc **and separately its deletion**, a ticked or erased checkbox, a sibling component or the `research/` pool touched, or a moved candidates column all **fail the run**. The sizing check is a **total against a total** and cannot tell which phase an estimate sits beside — the prompt says so to the model, because nothing else can close that half |
+| `plan_draft.sh` | child, independently dispatchable | takes **ONE component directory** and writes that component's `roadmap.md` plus its numbered `phaseN_<name>.md` docs, from that component's research. **It sizes nothing** — an author sizing their own decomposition is defending it, so hours belong to `plan-refine` — **and it writes no `sprint.md`**; its report names the sprint entry the component needs and the operator places it. Its runner then OBSERVES the boundary: an hour figure, a renamed or renumbered phase doc, a malformed phase filename, a reused number, a ticked checkbox, a sibling component or its own `research/` touched, or a moved candidates column all **fail the run** |
+| `plan_refine.sh` | child, independently dispatchable | takes the **SAME ONE component directory** and reads its `roadmap.md` and phase docs **COLD** — it did not write them. Answers five questions: an hour estimate per phase; does each phase end at one verifiable outcome; did a producer ship without its consumer; does the cited evidence actually support the phase; and **where is this plan weakest** — the one `plan-draft`'s own report is required to ask and structurally cannot answer about itself. **The hours go in `roadmap.md` and nowhere else** (see below). Its runner then OBSERVES the boundary: an unsized phase, a phase added to or dropped from the roadmap, ANY edit to a phase doc **and separately its deletion**, a ticked or erased checkbox, a sibling component or the `research/` pool touched, or a moved candidates column all **fail the run**. The sizing check is a **total against a total** and cannot tell which phase an estimate sits beside — the prompt says so to the model, because nothing else can close that half |
 | `plan_revision.sh` | child, independently dispatchable | roadmaps, phase docs, requirements, epics — the GENERIC planning child, driven by a free-text description rather than a component. Distinct from `plan_draft.sh`, which takes one component and plans it from its pool |
 | `review_pr.sh` | child, **SHARED** by every parent | decide-only: `MERGE` \| `HOLD - redispatch` \| `HOLD - needs-assistance`. Takes `--type build\|research\|planning` |
 
@@ -48,8 +48,8 @@ There are **two implementations** of the workflow fleet, and the Python one is w
 ```
 research(project)   →  HiL
 plan-project        →  triage-candidates  →  plan-candidates  →  review-pr
-research(feature)   →  research-draft  →  research-verify  →  review-pr   →  HiL
-plan                →  plan-draft  →  plan-verify  →  plan-sprint  →  review-pr
+research(feature)   →  research-draft  →  research-refine  →  review-pr   →  HiL
+plan                →  plan-draft  →  plan-refine  →  plan-sprint  →  review-pr
 ```
 
 **Each line is one dispatch, and the seam between them is deliberate.** `plan-project`
@@ -66,13 +66,17 @@ the component — two more dispatches, each its own worktree, its own PR and its
 > wearing a parent's name: one worktree carrying five children's work into one review, where
 > a failure anywhere orphans everything behind it.
 
-**`plan-roadmap` and `plan-phase` are gone from this diagram, and that is a resolution rather than a deletion.** They were two prospective workflows for the two document layers a component needs — `roadmap.md` and its phase docs — and `plan-draft` writes both. Splitting them would have put a dispatch boundary in the middle of one decision: the phase boundaries ARE the roadmap's entries and the phase docs' subjects, and deciding them twice in two contexts is how the two layers disagree. The sprint-hours calculation is likewise not a workflow — sizing is `plan-verify`'s.
+**`plan-roadmap` and `plan-phase` are gone from this diagram, and that is a resolution rather than a deletion.** They were two prospective workflows for the two document layers a component needs — `roadmap.md` and its phase docs — and `plan-draft` writes both. Splitting them would have put a dispatch boundary in the middle of one decision: the phase boundaries ARE the roadmap's entries and the phase docs' subjects, and deciding them twice in two contexts is how the two layers disagree. The sprint-hours calculation is likewise not a workflow — sizing is `plan-refine`'s.
 
-**`plan-verify` is the read half of the planning split, and it completes a pattern the other two families finished first.** Research is `research-draft` → `research-verify`, build is `build-draft` → `build-refine`, each on a stated argument: *the run that wrote an artifact defends it*. `plan-draft` shipped as the write half with its judge named and unbuilt; this is that judge. **It is a separate workflow rather than a sixth stage inside `plan-draft`**, on the same argument that made `triage-candidates` its own run — a judge inside the producing dispatch shares the producer's context, which is the one property it exists not to have.
+**`plan-refine` is the CORRECTOR, and naming it that is what fixed the family.** All three families are now `draft → refine → judge`: research is `research-draft → research-refine`, build is `build-draft → build-refine`, plan is `plan-draft → plan-refine → plan-sprint`. The middle child reads the artifact COLD — it did not write it — and it **fixes what is determined and reports what is a judgement**. `review-pr` is the only thing in the fleet called a reviewer, and it is the only one that writes nothing.
 
-**Two judges now see a planning PR and they are not redundant.** `plan-verify` reads the ARTIFACT cold — a roadmap and its phase docs, whether the boundaries are right and what each costs. `review-pr --type planning` judges the DIFF against the planning criteria and returns the verdict `plan-project` routes on. A plan can be a clean diff and a bad decomposition.
+> **This child was called `plan-verify` until 2026-08-29, and the name was load-bearing in the wrong direction.** Its own code argued from it — *"a reviewer that may edit a phase doc is a reviewer that can quietly rewrite the plan it was sent to judge"* — which is sound reasoning from a false premise: it is not the reviewer, `review-pr` is. The fleet had two things called *verify* with opposite write authority, and the plan family ended up with two judges and no corrector. `research-verify` survived the same name only because someone later overrode it in writing.
 
-**The hour estimates live in `<component>/roadmap.md` and nowhere else, and that is a decision with two reasons.** The roadmap is the only place every phase is visible together, which is what a total is taken over — and **a phase gated on something outside the component has a roadmap entry and NO phase doc**, so sizing that lived in phase docs could not size a gated phase at all. One figure with one home also cannot drift from its copy. The enforcement is the write grant rather than a second scanner: `roadmap.md` is the only file in the component `plan-verify` can reach.
+**The loop-back re-enters `plan-refine`, never `plan-draft`, and this is the property that stops a correction cycle re-designing.** `plan`'s loop used to re-dispatch its author before every correction pass. An author invoked with authoring authority authors: MDC PR #173 was sent to fill a five-phase gap in a seven-phase roadmap and returned ten phase docs, three in no roadmap at all — one approved phase split into three across two loop-backs, each split generating the findings that justified the next. Five passes, $97, never converged, and the run carried `correction_pass=True` throughout. **`MAX_LOOPS` caps the spend; only the loop's shape caps the scope.** Held by `test_no_loop_back_re_enters_the_AUTHOR.py` for all three families.
+
+**Two judges now see a planning PR and they are not redundant.** `plan-refine` reads the ARTIFACT cold — a roadmap and its phase docs, whether the boundaries are right and what each costs. `review-pr --type planning` judges the DIFF against the planning criteria and returns the verdict `plan-project` routes on. A plan can be a clean diff and a bad decomposition.
+
+**The hour estimates live in `<component>/roadmap.md` and nowhere else, and that is a decision with two reasons.** The roadmap is the only place every phase is visible together, which is what a total is taken over — and **a phase gated on something outside the component has a roadmap entry and NO phase doc**, so sizing that lived in phase docs could not size a gated phase at all. One figure with one home also cannot drift from its copy. The enforcement is the write grant rather than a second scanner: `roadmap.md` is the only file in the component `plan-refine` can reach.
 
 > **`plan-sprint` does NOT read those estimates today, and this is stated because the opposite is the natural assumption.** Its prompt says *"You never open a phase doc"*, the block it is handed enumerates components, research syntheses, pool papers and open issues but no roadmap, and no reader for an hour figure exists in it — so it still sizes against its 160-hour calibration. Running the sizer before the sprint maintainer was necessary and is not sufficient. Closing the handoff is a change to `plan-sprint` and was deliberately not made from the PR that built the sizer.
 
@@ -674,7 +678,7 @@ then planning till satisfied, then building the plan.
 
 research --project: (parent)
 - research-draft
-- research-verify
+- research-refine
 - review-pr
 (usually HiL at this step, repeat till happ
 
@@ -682,11 +686,11 @@ plan-project --project(flag): (parent) (run on the reasearch that was previously
 - triage-candidates (triage of candidate list and labels correctly the candidates for inclusion in sprints/features/phases or rejects them with reasoning)
 - plan-candidates (activity NOT child workflow!) (Creates scaffolding for missing items recently triaged)
 - research-draft: (if research is missing or stale, run research, targeting the sprint/feature or scaffolding)
-- research-verify: (if above ran, run verify, targeting the sprint/feature)
+- research-refine: (if above ran, run verify, targeting the sprint/feature)
 
 wrong from here down!
 - plan-draft: (plans the feature/roadmap/phases (epics) that are referenced onto the sprint)
-- plan-verify: (checks and verifies the planning, fixes issues, assignes an estimated hours value based on the complexity of each phase)
+- plan-refine: (checks and verifies the planning, fixes issues, assignes an estimated hours value based on the complexity of each phase)
 - plan-sprint: (adds the new feature from above (if any), any changes to the phase hour estimates triggers a change to the total in the sprint, new sprints are calculated at the time of creation)
 - review-pr
 (usually HiL at this point, repeat till happy)
@@ -699,7 +703,7 @@ then planning till satisfied, then building the plan.
 
 research --project: (parent)
 - research-draft or research-draft --minor: (large or small project)
-- research-verify
+- research-refine
 - review-pr
 (usually HiL at this point, repeat till happy)
 
@@ -707,11 +711,11 @@ plan-project --project(flag): (parent) (run on the reasearch that was previously
 - triage-candidates (triage of candidate list and labels correctly the candidates for inclusion in sprints/features/phases or rejects them with reasoning)
 - plan-candidates (activity NOT child workflow!) (Creates scaffolding for missing items recently triaged)
 - research-draft: (if research is missing or stale, run research, targeting the sprint/feature or scaffolding)
-- research-verify: (if above ran, run verify, targeting the sprint/feature)
+- research-refine: (if above ran, run verify, targeting the sprint/feature)
 
 wrong from here down!
 - plan-draft: (plans the feature/roadmap/phases (epics) that are referenced onto the sprint)
-- plan-verify: (checks and verifies the planning, fixes issues, assignes an estimated hours value based on the complexity of each phase)
+- plan-refine: (checks and verifies the planning, fixes issues, assignes an estimated hours value based on the complexity of each phase)
 - plan-sprint: (adds the new feature from above (if any), any changes to the phase hour estimates triggers a change to the total in the sprint, new sprints are calculated at the time of creation)
 - review-pr
 (usually HiL at this point, repeat till happy)
@@ -725,13 +729,13 @@ feature-manager: (parent of a parent, most likely cron based on expired research
    |  
    ├─research --feature: (parent)
    |  ├─research-draft --minor: (targeting feature)
-   |  ├─research-verify: (targeting feature)
+   |  ├─research-refine: (targeting feature)
    |  ├─review pr
    |  └─(usually HiL at this point, repeat till happy)
    |
    ├─plan-draft --feature(flag): (parent) (pointed at the feature, or feature stub, and the research. research not required for simple features but must then be included in prompt context)
    |  ├─plan --feature: (plans the feature/roadmap/phases (epics) that are referenced onto the sprint)
-   |  ├─plan-verify: (checks and verifies the planning, fixes issues, assignes an estimated hours value based on the complexity of each phase)
+   |  ├─plan-refine: (checks and verifies the planning, fixes issues, assignes an estimated hours value based on the complexity of each phase)
    |  ├─plan-sprint: (adds the new feature from above (if any), any changes to the phase hour estimates triggers a change to the total in the sprint, new sprints are calculated at the time of creation)
    |  ├─review-pr
    |  └─(usually HiL at this point, repeat till happy)

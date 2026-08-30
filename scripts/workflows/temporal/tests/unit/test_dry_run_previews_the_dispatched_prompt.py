@@ -234,7 +234,7 @@ def test_a_dry_run_that_COUNTS_names_the_TREE_it_counted_in(runner: Path) -> Non
         f"{runner.name}'s dry run prints a figure read off a tree and never says "
         f"WHICH tree. On a `--pr` pass that figure describes the invocation "
         f"checkout while the run reads `origin/<branch>`, so a fully-written plan "
-        f"previews as `0`. Print the line `run_plan_verify.py` ships, immediately "
+        f"previews as `0`. Print the line `run_plan_refine.py` ships, immediately "
         f"after the banner and BEFORE the first figure — a qualifier that arrives "
         f"after the numbers is read after the conclusion.")
 

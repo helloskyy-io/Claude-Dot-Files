@@ -1,4 +1,4 @@
-"""Kickoff entrypoint for plan-verify.
+"""Kickoff entrypoint for plan-refine.
 
 Lives in scripts/ because it is a launch concern, not a workflow concern. When
 the Temporal path exists this is replaced by a client that starts the workflow
@@ -14,8 +14,8 @@ from dispatch_identity import add_identity_arguments, resolve_identity  # noqa: 
 from modules.assistant import assistant_activities as act_shared  # noqa: E402
 from modules.journal import journal_activities as journal  # noqa: E402
 from modules.assistant.plan import plan_activities as act  # noqa: E402
-from modules.assistant.plan.plan_verify import plan_verify_activities as own  # noqa: E402
-from modules.assistant.plan.plan_verify import plan_verify_workflow as wf  # noqa: E402
+from modules.assistant.plan.plan_refine import plan_refine_activities as own  # noqa: E402
+from modules.assistant.plan.plan_refine import plan_refine_workflow as wf  # noqa: E402
 
 BANNER = "=" * 64
 
@@ -26,7 +26,7 @@ DEFAULT_CANDIDATES = "tracked/candidates"
 
 
 def main(argv=None) -> int:
-    p = RepoPathParser(prog="plan-verify",
+    p = RepoPathParser(prog="plan-refine",
         description="Read ONE component's roadmap and phase docs COLD, size every phase "
                     "in hours, and say where the plan is weakest. Writes no phase doc.")
     # DECLARED AS REPO PATHS, WHICH IS WHAT INSTALLS THE CHECK. `--repo` and a
@@ -45,7 +45,7 @@ def main(argv=None) -> int:
                     help="the component directory, e.g. docs/development/fleet-reliability")
     p.add_argument("--repo", dest="repo_target", help="target repo — a FILESYSTEM PATH, never a gh slug")
     p.add_repo_path("--candidates", default=DEFAULT_CANDIDATES)
-    p.add_argument("--pr", dest="pr_number", help="update an existing plan-verify PR")
+    p.add_argument("--pr", dest="pr_number", help="update an existing plan-refine PR")
     # NOT a repo path, deliberately — operator context from wherever they wrote it,
     # the same contract run_research_minor.py and run_plan_draft.py use. Without
     # it a `--pr` pass can push and cannot be TOLD why it is re-running.
@@ -79,7 +79,7 @@ def main(argv=None) -> int:
     # #130 carried a roadmap and six phase docs written minutes earlier, and this
     # refused the run because `main` had none — the exact plan it was pointed at,
     # declared missing. Third instance of the same class this week: PR #115 fixed
-    # a worktree based on HEAD rather than the PR branch, and plan-verify's own
+    # a worktree based on HEAD rather than the PR branch, and plan-refine's own
     # dry run counts from the repo for want of a worktree.
     #
     # IT ASKS THE BRANCH THE WORKTREE WILL ACTUALLY BE BUILT FROM, and it FETCHES
@@ -296,7 +296,7 @@ def main(argv=None) -> int:
             # already (see `plan_sprint`'s `correction_note`), and an operator
             # checking the wrong artifact is worse than checking none.
             rendered = act.render(
-                act.load_prompt(wf.PROMPTS / "plan_verify.md"),
+                act.load_prompt(wf.PROMPTS / "plan_refine.md"),
                 wf.prompt_values(component_rel, cands.relative_to(repo_root), repo_root,
                                  a.pr_number, context),
                 opaque=frozenset({"TASK_CONTEXT"}))
@@ -318,7 +318,7 @@ def main(argv=None) -> int:
         # that enforces it can and cannot see: `journal_activities.py`'s module
         # docstring and `tests/unit/test_every_parent_opens_a_run_bag.py`. Said
         # once there rather than eleven times here.
-        worktree_name = f"plan-verify-{int(time.time())}"
+        worktree_name = f"plan-refine-{int(time.time())}"
         # PHASE 9 r2 and r4 — the run's NAME arrives from outside this
         # process, and `writer` says whether this invocation IS the run or
         # is part of one. Why both, and where a name comes from when no
@@ -326,7 +326,7 @@ def main(argv=None) -> int:
         identity = resolve_identity(argv)
         journal.open_run_bag(run_id=identity.run_id, writer=identity.writer,
                              repo_root=repo_root,
-                             workflow_key="plan-verify",
+                             workflow_key="plan-refine",
                              worktree_name=worktree_name)
 
         # A `--pr` PASS MUST START FROM THE WORK IT IS CORRECTING. Hard-coding
@@ -351,7 +351,7 @@ def main(argv=None) -> int:
         # cost on three of eight open PRs.
         ref = f"origin/{branch}" if a.pr_number else act.base_ref(None, repo_root)
         worktree = act.worktree_add(repo_root, worktree_name, ref)
-        url = wf.run_plan_verify(repo_root=repo_root, worktree=worktree, context=context,
+        url = wf.run_plan_refine(repo_root=repo_root, worktree=worktree, context=context,
                                  component=component, candidates_path=cands,
                                  pr_number=a.pr_number, verbose=a.verbose)
     except (RuntimeError, FileNotFoundError, ValueError) as exc:
@@ -368,7 +368,7 @@ def main(argv=None) -> int:
     # `act.phase_sizing` and injects `SIZING_BLOCK`. The claim was true of the
     # MODEL — plan-sprint's prompt does forbid opening a phase doc — and was
     # generalised to the workflow, which computes the figures in its parent.
-    # Held by `test_plan_sprint_IS_HANDED_the_estimates_plan_verify_writes`.
+    # Held by `test_plan_sprint_IS_HANDED_the_estimates_plan_refine_writes`.
     print("`plan-sprint` reads them from there in code — its parent computes them with")
     print("`phase_sizing` and injects the total as `${SIZING_BLOCK}`, so the model never")
     print("opens the roadmap itself. Run plan_sprint.sh against this component next.\n")

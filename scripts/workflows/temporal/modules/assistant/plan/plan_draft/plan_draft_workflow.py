@@ -5,17 +5,17 @@ shared capability lives in `plan_activities`.
 
 WHY THIS IS ITS OWN WORKFLOW, AND WHY THE PLAN FAMILY IS THE LAST TO GET ONE.
 The other two families were deconstructed and said why in their own words:
-research is `research-draft` -> `research-verify` because *"a separate
+research is `research-draft` -> `research-refine` because *"a separate
 fresh-context run verifies it… the run that wrote an artifact defends it"*, and
 build is `build-draft` -> `build-refine` on the same argument — *"the fresh
 context is the point, not an implementation detail."* Planning never was:
 `plan-revision` does ASSESS, PLAN, REVISE, PEER REVIEW and RESOLVE in ONE
 context, so the run that wrote the decomposition is the run that reviews it.
 
-**This is the WRITE half of that split, and `plan-verify` — the read half — NOW
+**This is the WRITE half of that split, and `plan-refine` — the read half — NOW
 EXISTS.** This paragraph used to say it did not, and that stopped being true the
-day `plan_verify_workflow` landed: `plan_project._plan_one` calls
-`plan_verify.run_plan_verify` immediately after this workflow, so a reference to
+day `plan_refine_workflow` landed: `plan_project._plan_one` calls
+`plan_refine.run_plan_refine` immediately after this workflow, so a reference to
 it here IS a dependency at the parent's altitude. It still is not one at THIS
 module's — nothing in this file imports it, and this workflow remains separately
 dispatchable with `review-pr --type planning` as its judge on that path.
@@ -23,13 +23,13 @@ dispatchable with `review-pr --type planning` as its judge on that path.
 *(Left as a correction rather than a rewrite because the false version was
 load-bearing: this same claim was stated in three places — here, in
 `prompts/plan_draft.md`, and in `run_plan_draft.py`'s completion banner — and
-the PR that built `plan-verify` falsified all three and updated none.
+the PR that built `plan-refine` falsified all three and updated none.
 `test_no_prose_claims_a_shipped_workflow_is_UNBUILT` is what fails now instead of
 a reviewer noticing.)*
 
 WHAT IT DOES NOT DO, AND EACH IS A DECISION RATHER THAN AN OMISSION:
 
-  * **It estimates no hours.** Sizing is `plan-verify`'s, deliberately: an author
+  * **It estimates no hours.** Sizing is `plan-refine`'s, deliberately: an author
     sizing their own decomposition is defending it, and a fresh reader sizing it
     is a second opinion. Same `author != judge` rule, applied to a number — and
     the one prohibition here whose violation is a property of PROSE, which is why
@@ -211,8 +211,7 @@ def permitted_paths(component_rel: Path, candidates_rel: Path) -> tuple[str, ...
 
 
 def prompt_values(rel_component: Path, rel_candidates: Path, tree: Path,
-                  pr_number: str | None, context: str = "",
-                  correction_pass: bool = False) -> dict[str, str]:
+                  pr_number: str | None, context: str = "") -> dict[str, str]:
     """Every placeholder the prompt takes, assembled ONCE for both callers.
 
     THE DRY RUN AND THE REAL RUN MUST RENDER THE SAME PROMPT, and this exists so
@@ -256,22 +255,6 @@ def prompt_values(rel_component: Path, rel_candidates: Path, tree: Path,
         # no correction path at all: `plan_project`'s loop-back goes to
         # `plan-sprint`, which cannot edit a roadmap or a phase doc. A producer
         # nothing can instruct is a producer whose only repair is a full re-plan.
-        # THE CORRECTION SIGNAL, AND ITS ABSENCE IS WHAT THE COMMENT ABOVE
-        # PREDICTED. `plan`'s loop-back re-dispatches this child with the
-        # ORIGINAL brief and a PR number and nothing else, so a run that had
-        # already landed its re-plan re-established that fact from scratch and
-        # reported it — three times on PR #145, a full opus dispatch each, on the
-        # most expensive child in the chain. Every other looped producer in the
-        # fleet carries this flag; this was the one that did not.
-        #
-        # WORDED EXACTLY AS `plan-sprint` AND `research-verify` WORD IT. Six sites
-        # across three families already say this in four different ways, which is
-        # a divergence worth closing on its own; adding a fifth wording here would
-        # make that worse for no gain.
-        "CORRECTION_NOTE": (
-            "This is a CORRECTION PASS. A prior disposition returned HOLD with a "
-            "scoped runway; close it." if correction_pass else ""
-        ),
         "TASK_CONTEXT": (
             "## OPERATOR CONTEXT FOR THIS RUN\n\n"
             "**This is authoritative and overrides your own reading where they "
@@ -305,7 +288,7 @@ def prompt_values(rel_component: Path, rel_candidates: Path, tree: Path,
 # the run may write and nothing inspects, which is this map's failure mode
 # arriving one layer down.
 MAY_NOT_OBSERVERS: dict[str, str] = {
-    "**Estimate hours, or size the work in any unit of time** — that is `plan-verify`'s":
+    "**Estimate hours, or size the work in any unit of time** — that is `plan-refine`'s":
         "own.hour_hits counted either side of the run over own.plan_docs, so what "
         "is judged is the estimates THIS RUN wrote and not the ones it inherited; "
         "keyed on estimate SHAPE (`~30 hrs`, `(8h)`, `Est: 8 hours`) and never on "
@@ -429,7 +412,7 @@ DISAPPEARANCE_OBSERVERS: dict[str, str] = {
 
 def run_plan_draft(*, repo_root: Path, worktree: Path, component: Path,
                      candidates_path: Path, pr_number: str | None = None,
-                     context: str = "", correction_pass: bool = False,
+                     context: str = "",
                      verbose: bool = False) -> str:
     """Plan ONE component: its roadmap and its phase docs. Returns the PR URL."""
     # Paths arrive rooted at the REPO because that is where they are configured,
@@ -455,7 +438,7 @@ def run_plan_draft(*, repo_root: Path, worktree: Path, component: Path,
     before_tree = act.worktree_state(worktree)
 
     values = prompt_values(rel_component, rel_candidates, worktree, pr_number,
-                           context, correction_pass)
+                           context)
 
     output = act.run_claude(
         act.render(act.load_prompt(PROMPTS / "plan_draft.md"), values,

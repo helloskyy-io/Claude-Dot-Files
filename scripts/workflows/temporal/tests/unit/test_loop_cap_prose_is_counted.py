@@ -59,7 +59,7 @@ COUNT_NAMES = ("MAX_LOOPS", "loops_left", "loops_used")
 # so a parent that later raises its bound fails here instead of leaving a stale
 # waiver behind. This is the only exemption and it carries no prose.
 LOOPED_BY = {
-    "research_verify_workflow.py":
+    "research_refine_workflow.py":
         "modules.assistant.research.research.research_workflow",
 }
 

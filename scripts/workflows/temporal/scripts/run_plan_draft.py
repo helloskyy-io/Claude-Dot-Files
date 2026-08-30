@@ -92,7 +92,7 @@ def main(argv=None) -> int:
             # while building them. The stronger remedy — read `origin/<branch>`
             # so the preview is an actual preview — needs the count helpers to
             # take a tree rather than a path, and earns itself when real use
-            # appears. Same line as `run_plan_verify.py`, which shipped it first.
+            # appears. Same line as `run_plan_refine.py`, which shipped it first.
             print(f"  Counted in : this checkout ({repo_root}) — a dry run cuts no worktree")
             print(f"  Component  : {rel}")
             print(f"  Phase docs : {len(own.phase_docs(component))} · "
@@ -156,7 +156,7 @@ def main(argv=None) -> int:
         return 1
 
     print(f"\n{BANNER}\n  {url}\n{BANNER}")
-    print("\nNOT SIZED — `plan-verify` estimates the phases. Run plan_verify.sh against")
+    print("\nNOT SIZED — `plan-refine` estimates the phases. Run plan_refine.sh against")
     print("this component next; `plan-project` already runs it here.")
     print("NO SPRINT ENTRY — the PR body names the one this component needs; it lands by operator edit.\n")
     return 0

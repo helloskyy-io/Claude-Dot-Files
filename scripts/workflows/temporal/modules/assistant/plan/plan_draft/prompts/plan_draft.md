@@ -5,8 +5,6 @@ Your job is to **write ONE component's `roadmap.md` and its phase docs, from tha
 Component:  ${COMPONENT_PATH}
 Candidates: ${CANDIDATES_PATH}
 
-${CORRECTION_NOTE}
-
 ${TASK_CONTEXT}
 
 ${PLANNING_STATE}
@@ -21,7 +19,7 @@ ${RESEARCH_INVENTORY}
 
 | You MAY | You MAY NOT |
 |---|---|
-| Create or edit `${COMPONENT_PATH}/roadmap.md` | **Estimate hours, or size the work in any unit of time** — that is `plan-verify`'s |
+| Create or edit `${COMPONENT_PATH}/roadmap.md` | **Estimate hours, or size the work in any unit of time** — that is `plan-refine`'s |
 | Create a NEW `phaseN_<name>.md` in `${COMPONENT_PATH}/` | **Rename, renumber or delete an existing phase doc** — the number is IDENTITY |
 | Edit a phase doc **you created in this run** | Give a NEW phase doc a name outside `phaseN_<name>.md` |
 | Re-order phase entries **within `roadmap.md`** | Give a NEW phase a number already used in this component |
@@ -64,7 +62,7 @@ Concretely: a FIRST plan, or a revision where every phase is unbuilt and unrefer
 
 **No hours, no days, no story points, no t-shirt sizes.** Not in the roadmap, not in a phase doc, not in a heading.
 
-Sizing belongs to `plan-verify`, the fresh-context reviewer that reads what you write. **An author sizing their own decomposition is defending it; a fresh reader sizing it is a second opinion.** It is the same `author != judge` rule that split research into write-then-verify and build into draft-then-refine, applied to a number.
+Sizing belongs to `plan-refine`, the fresh-context reviewer that reads what you write. **An author sizing their own decomposition is defending it; a fresh reader sizing it is a second opinion.** It is the same `author != judge` rule that split research into write-then-verify and build into draft-then-refine, applied to a number.
 
 **Say what each phase DELIVERS and let the reviewer say what it costs.** If a phase feels large, that is a signal to SPLIT it — a phase ends where something works end-to-end — not to write a number beside it.
 
@@ -96,7 +94,7 @@ Any one of these **fails the whole run** — including the work you did correctl
 
 ### What happens to this plan after you
 
-**`plan-verify` is the fresh-context reviewer for planning, and it EXISTS.** It runs immediately after you inside `plan`, reads your `roadmap.md` and every phase doc COLD, writes the hour estimate per phase that you are forbidden to write, and answers the question your own report cannot: *where is this plan weakest*. `review-pr --type planning` judges the PR as well. Write your report for a reader who was not in this run and has not read your research — that is the reader who will size these phases and the reader who will find what you talked yourself into.
+**`plan-refine` is the fresh-context reviewer for planning, and it EXISTS.** It runs immediately after you inside `plan`, reads your `roadmap.md` and every phase doc COLD, writes the hour estimate per phase that you are forbidden to write, and answers the question your own report cannot: *where is this plan weakest*. `review-pr --type planning` judges the PR as well. Write your report for a reader who was not in this run and has not read your research — that is the reader who will size these phases and the reader who will find what you talked yourself into.
 
 **Never flip a completion checkbox anywhere.** A checkbox means *shipped and validated*. You have validated nothing — you are writing the plan for work nobody has started.
 
@@ -214,7 +212,7 @@ Then, separately:
 - **Coverage** — anything in the evidence that reached NO phase, and any paper title the synthesis never mentions. Both are findings, not omissions to tidy away.
 - **The sprint entry this component needs** — one or two sentences, for the operator to place. **You did not write it and must not.**
 - **Open questions and operator calls** — every one, with the phase that consumes it and the unchecked requirement that carries it.
-- **NOT SIZED, deliberately** — say so explicitly, so a reader does not read the absence as an oversight. `plan-verify` sizes this.
+- **NOT SIZED, deliberately** — say so explicitly, so a reader does not read the absence as an oversight. `plan-refine` sizes this.
 
 **Answer this plainly**, because it is why the write and the review are separate runs:
 

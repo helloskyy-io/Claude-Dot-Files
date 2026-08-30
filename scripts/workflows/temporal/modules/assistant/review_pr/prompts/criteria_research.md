@@ -19,7 +19,7 @@ Research also has a staleness cost nothing else carries: a high-volatility paper
 
 ### Axis 2 — what the run tells on itself about, and where each routes
 
-**There is no checklist here, and that is deliberate. You do not verify papers, citations, quotes, links, headers or counts** — `research-critic` does that inside the run and `research-verify` checks everything the PR ships. Repeating it is the most expensive thing this review can do and it establishes nothing they have not.
+**There is no checklist here, and that is deliberate. You do not verify papers, citations, quotes, links, headers or counts** — `research-critic` does that inside the run and `research-refine` checks everything the PR ships. Repeating it is the most expensive thing this review can do and it establishes nothing they have not.
 
 | The run reports | Exit |
 |---|---|
@@ -28,7 +28,7 @@ Research also has a staleness cost nothing else carries: a high-volatility paper
 | **Candidates / standards amendments** | **Cargo**, per Axis 1. Enumerate, never rule |
 | **A defect verify should have caught** — wrong PR body, dead link, missing header | **redispatch** — the exception path, not the design |
 
-**If that last row fires routinely, the defect is `research-verify`'s scope, not this review's diligence.** Say so rather than compensating by looking harder here.
+**If that last row fires routinely, the defect is `research-refine`'s scope, not this review's diligence.** Say so rather than compensating by looking harder here.
 
 ### The volume expectation
 

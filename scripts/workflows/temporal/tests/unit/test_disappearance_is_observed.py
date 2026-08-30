@@ -125,7 +125,7 @@ def test_the_workflow_sweep_finds_the_registries_it_is_meant_to() -> None:
     """
     found = {p.id for p in WORKFLOWS}
     assert found == {"triage-candidates", "plan-sprint", "plan-draft",
-                     "plan-verify"}, (
+                     "plan-refine"}, (
         f"the DISAPPEARANCE_OBSERVERS sweep found {sorted(found)}. If a "
         f"workflow vanished from it, every assertion below stopped running "
         f"against that workflow without anything going red.")
@@ -293,7 +293,7 @@ def test_the_boundary_probe_finds_the_calls_it_is_meant_to() -> None:
     """POSITIVE CONTROL: every workflow that declares a grant is seen."""
     found = {p.name for p, _ in _functions_with_boundary_calls()}
     assert found == {"triage_candidates_workflow.py", "plan_sprint_workflow.py",
-                     "plan_draft_workflow.py", "plan_verify_workflow.py"}, (
+                     "plan_draft_workflow.py", "plan_refine_workflow.py"}, (
         f"the boundary probe found {found}; if a workflow stopped being seen, "
         f"the assertion below is passing over it rather than checking it")
 

@@ -61,7 +61,7 @@ _SECTION_NAME = re.compile(r"^## Sprint:\s*")
 #
 # THE RESUME SIGNAL, AND IT IS A COMMENT RATHER THAN PROSE ON PURPOSE. A run can
 # die between the seed being committed and its research finishing — a
-# `research-verify` failure on the documented `--pr` recovery path is enough —
+# `research-refine` failure on the documented `--pr` recovery path is enough —
 # and the exists-check would then skip the component forever, because "already
 # exists" cannot distinguish a live component from one this pipeline abandoned
 # half-built. Matching a machine-readable marker rather than a sentence keeps a
@@ -268,7 +268,7 @@ def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> Scaf
 
     WHICH HALF OF THAT GAP THIS ACTUALLY CLOSES, because the sentence above once
     claimed both. `research_draft` REWRITES `synthesis.md` and commits before
-    `research_verify` runs — its completion contract is a PR URL — so a component
+    `research_refine` runs — its completion contract is a PR URL — so a component
     whose write succeeded and whose VERIFY then failed carries no marker and is
     read here as `extends`, not `resumed`. What is recovered is every component
     whose seed is on the branch intact and which no research pass has touched.
@@ -278,7 +278,7 @@ def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> Scaf
     `research` is pointed at the pool afterwards, in its own run. So a pool whose
     write landed and whose verify then failed still reads as `extends` here — the
     marker is gone and nothing else records that the pool is unfinished. Closing
-    it means `research-verify` recording its own success, which is a change to a
+    it means `research-refine` recording its own success, which is a change to a
     child two parents share.
 
     WHAT IT DOES NOT DO: no research, no `roadmap.md`, no phase docs. This creates

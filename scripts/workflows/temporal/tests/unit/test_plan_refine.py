@@ -1,4 +1,4 @@
-"""`plan-verify`'s own guards, and the two properties that are unique to a JUDGE.
+"""`plan-refine`'s own guards, and the two properties that are unique to a JUDGE.
 
 WHAT IS AND IS NOT COVERED HERE. The registries are held elsewhere and
 generically: `test_authorization_is_observed.py` proves every `You MAY NOT` row
@@ -50,8 +50,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from modules.assistant.plan import plan_activities as act  # noqa: E402
-from modules.assistant.plan.plan_verify import plan_verify_activities as own  # noqa: E402
-from modules.assistant.plan.plan_verify import plan_verify_workflow as wf  # noqa: E402
+from modules.assistant.plan.plan_refine import plan_refine_activities as own  # noqa: E402
+from modules.assistant.plan.plan_refine import plan_refine_workflow as wf  # noqa: E402
 
 _SIZED_ROADMAP = (
     "# Alpha\n\n"
@@ -299,7 +299,7 @@ def test_an_EXTRA_reference_to_a_phase_ALREADY_LINKED_is_not_a_re_plan(
     a run that added two cross-references to an already-referenced phase was
     reported as having ADDED that phase twice.
 
-    MEASURED ON PR #144. `plan-verify` wrote a sizing note that legitimately
+    MEASURED ON PR #144. `plan-refine` wrote a sizing note that legitimately
     linked a sibling phase, took it from six references to eight, and failed
     with the phase set IDENTICAL. `plan_project` calls this child unguarded, so
     the raise propagated and `plan-sprint` was never reached — the whole chain
@@ -575,7 +575,7 @@ def test_the_component_name_is_ESCAPED_before_it_becomes_a_pattern(tree: Path) -
 # RETIRED 2026-08-26 · `test_the_CANDIDATES_grant_follows_the_operator_s_path`
 # Its subject was that `--candidates` must reach the boundary, because a run
 # pointed at another repo's pool was told to place a proposal there and then
-# failed for doing it. **`plan-verify` no longer places anything.** By operator
+# failed for doing it. **`plan-refine` no longer places anything.** By operator
 # ruling, a producing run SURFACES a finding and `review-pr` files it — one rule
 # for all three autonomous stores, no exception. There is no candidates grant
 # here to follow a flag, so the property has no subject.
@@ -613,17 +613,17 @@ def test_every_granted_path_is_also_watched_for_DELETION(tree: Path) -> None:
 
 def test_the_shim_invokes_its_OWN_runner() -> None:
     """`test_shim_usage_names_itself` holds the usage block; this holds the exec."""
-    shim = Path(__file__).resolve().parents[2] / "scripts" / "plan_verify.sh"
+    shim = Path(__file__).resolve().parents[2] / "scripts" / "plan_refine.sh"
     text = shim.read_text()
-    assert "run_plan_verify.py" in text
-    assert re.search(r"^#\s+\./plan_verify\.sh", text, re.M), (
+    assert "run_plan_refine.py" in text
+    assert re.search(r"^#\s+\./plan_refine\.sh", text, re.M), (
         "the usage block must invoke this shim by its own name")
 
 
 def _runner():
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
-    import run_plan_verify
-    return run_plan_verify
+    import run_plan_refine
+    return run_plan_refine
 
 
 def _repo(tmp_path: Path) -> Path:
@@ -677,7 +677,7 @@ def test_the_runner_REFUSES_a_component_with_NO_roadmap(
 # --- the guard SEQUENCE, driven end to end ---------------------------------
 
 def _harness(monkeypatch: pytest.MonkeyPatch, tree: Path, writes):
-    """Wire `run_plan_verify` to a fake model that mutates the tree; return the call.
+    """Wire `run_plan_refine` to a fake model that mutates the tree; return the call.
 
     THE ONLY TESTS HERE THAT GO THROUGH THE ORCHESTRATOR. Every other assertion
     drives a reader in isolation, so all of them stay green while the workflow
@@ -731,7 +731,7 @@ def _harness(monkeypatch: pytest.MonkeyPatch, tree: Path, writes):
     monkeypatch.setattr(act, "run_claude",
                         lambda prompt, **kw: (writes(), "https://github.com/o/r/pull/9")[1])
 
-    return lambda: wf.run_plan_verify(repo_root=tree, worktree=tree,
+    return lambda: wf.run_plan_refine(repo_root=tree, worktree=tree,
                                       component=_component(tree),
                                       candidates_path=cands)
 
@@ -1076,7 +1076,7 @@ def test_the_PREFLIGHT_asks_the_PR_BRANCH_for_the_plan_not_just_this_checkout() 
 
     THIRD INSTANCE OF ONE CLASS THIS WEEK, which is why the guard is on the
     lookup rather than on the message. PR #115 fixed four runners that opened a
-    worktree on HEAD instead of the PR's branch; plan-verify's dry run still
+    worktree on HEAD instead of the PR's branch; plan-refine's dry run still
     counts from the repo because no worktree exists yet, which is correct and
     documented. This one was neither correct nor documented: it BLOCKED the run.
 
@@ -1084,7 +1084,7 @@ def test_the_PREFLIGHT_asks_the_PR_BRANCH_for_the_plan_not_just_this_checkout() 
     plan that exists nowhere cannot be verified. What changed is which trees
     count as "nowhere".
     """
-    src = (Path(__file__).resolve().parents[2] / "scripts" / "run_plan_verify.py").read_text()
+    src = (Path(__file__).resolve().parents[2] / "scripts" / "run_plan_refine.py").read_text()
     # ANCHOR ON THE ASSIGNMENT, NOT ON THE PHRASE. Slicing from the first
     # occurrence of "plan_exists = " caught a mention inside the comment that
     # explains the lookup, so the guard read a paragraph of prose and failed.
@@ -1204,8 +1204,8 @@ def _record_side_effects(monkeypatch: pytest.MonkeyPatch, runner, calls: list,
     monkeypatch.setattr(act, "worktree_add",
                         lambda repo_root, *a, **k: (calls.append("worktree_add"),
                                                     repo_root)[1])
-    monkeypatch.setattr(wf, "run_plan_verify",
-                        lambda **k: (calls.append("run_plan_verify"), url)[1])
+    monkeypatch.setattr(wf, "run_plan_refine",
+                        lambda **k: (calls.append("run_plan_refine"), url)[1])
 
 
 def test_a_PR_pass_is_NOT_refused_when_the_plan_is_only_on_the_PRs_BRANCH(
@@ -1240,7 +1240,7 @@ def test_a_PR_pass_is_NOT_refused_when_the_plan_is_only_on_the_PRs_BRANCH(
     ls_tree = ("git", "ls-tree", "-r", "--name-only",
                "origin/plan-draft-1787204416", "--",
                f"docs/development/alpha/{own.ROADMAP}")
-    assert "run_plan_verify" in calls, (
+    assert "run_plan_refine" in calls, (
         f"the run never reached the dispatch, so the `not in calls` assertions "
         f"in the refusing cases below are vacuous — the recorder never fires; "
         f"the calls were {calls!r}")
@@ -1495,7 +1495,7 @@ def test_a_DRY_RUN_on_a_PR_pass_SAYS_the_counts_came_from_a_TREE_WITHOUT_the_pla
         f"what the precondition had already put in `branch`, which is two "
         f"round-trips for one fact with nothing forcing them to agree; the calls "
         f"were {calls!r}")
-    assert not {"open_run_bag", "worktree_add", "run_plan_verify"} & set(calls), (
+    assert not {"open_run_bag", "worktree_add", "run_plan_refine"} & set(calls), (
         f"a --dry-run created something or dispatched — `nothing invoked, "
         f"nothing posted` is the banner's promise; the calls were {calls!r}")
 
@@ -1586,7 +1586,7 @@ def test_a_DRY_RUN_with_NO_pr_still_NAMES_the_tree_it_counted(
     assert not [c for c in calls if c and c[0] == "pr_branch"], (
         f"a run given no --pr resolved a PR branch anyway; the calls were "
         f"{calls!r}")
-    assert not {"open_run_bag", "worktree_add", "run_plan_verify"} & set(calls), (
+    assert not {"open_run_bag", "worktree_add", "run_plan_refine"} & set(calls), (
         f"a --dry-run created something or dispatched — `nothing invoked, "
         f"nothing posted` is the banner's promise; the calls were {calls!r}")
 
@@ -1787,6 +1787,6 @@ def test_a_DRY_RUN_caveat_may_NOT_claim_a_count_is_ZERO_when_that_COUNT_IS_NOT(
     assert out.index("Counted in") < out.index("NOT HERE") < out.index("Phase docs"), (
         f"the caveat is not above the counts it qualifies, so its own "
         f"\"below\" is false where it sits; got {out!r}")
-    assert not {"open_run_bag", "worktree_add", "run_plan_verify"} & set(calls), (
+    assert not {"open_run_bag", "worktree_add", "run_plan_refine"} & set(calls), (
         f"a --dry-run created something or dispatched — `nothing invoked, "
         f"nothing posted` is the banner's promise; the calls were {calls!r}")

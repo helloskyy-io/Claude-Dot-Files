@@ -1,4 +1,4 @@
-"""research-verify — FRESH context: verify everything the PR ships, and fix it.
+"""research-refine — FRESH context: verify everything the PR ships, and fix it.
 
 Folder holds only this file (§10.1 rule 6).
 
@@ -40,7 +40,7 @@ PROMPTS = _HERE / "prompts"
 MODEL_KEY = "research"
 # Its own key, not `research` — see research_draft for why the cap is keyed by
 # workflow rather than by model. Measurement lives with the value in config.yaml.
-WORKFLOW_KEY = "research-verify"   # NOT MODEL_KEY -- see run_claude's docstring
+WORKFLOW_KEY = "research-refine"   # NOT MODEL_KEY -- see run_claude's docstring
 MAX_TURNS = act.max_turns(WORKFLOW_KEY)
 
 COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
@@ -80,7 +80,7 @@ def run_verify(*, research_dir: Path, pr_number: str, repo_root: Path,
             "scoped runway; close it. This is the last automated pass."
             if correction_pass else ""
         ),
-        "SUBMIT_PROMPT": act.submit_prompt(pr_number, f"research-verify: {research_dir}"),
+        "SUBMIT_PROMPT": act.submit_prompt(pr_number, f"research-refine: {research_dir}"),
         "RESOLVE_APPLY_THE_REMEDY_YOU_WROTE": act.shared_prompt("resolve_apply_the_remedy_you_wrote"),
         "SWEEP_THE_CLASS": act.shared_prompt("resolve_sweep_the_class"),
         "RESOLVE_REJECTING_IS_LEGITIMATE": act.shared_prompt("resolve_rejecting_is_legitimate"),
@@ -88,7 +88,7 @@ def run_verify(*, research_dir: Path, pr_number: str, repo_root: Path,
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
     }
     output = act.run_claude(
-        act.render(act.load_prompt(PROMPTS / "verify.md"), values),
+        act.render(act.load_prompt(PROMPTS / "refine.md"), values),
         model_key=MODEL_KEY, workflow_key=WORKFLOW_KEY,
         completion_pattern=COMPLETION_PATTERN,
         repo_root=repo_root, worktree=worktree, max_turns=MAX_TURNS, verbose=verbose,
@@ -97,7 +97,7 @@ def run_verify(*, research_dir: Path, pr_number: str, repo_root: Path,
     url = extract_pr_url(output)
     if not url:
         raise RuntimeError(
-            f"research-verify produced no PR URL on PR #{pr_number}. The pool and "
+            f"research-refine produced no PR URL on PR #{pr_number}. The pool and "
             f"synthesis are UNVERIFIED — the PR must not be merged as-is."
         )
     return url

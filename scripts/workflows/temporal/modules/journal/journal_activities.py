@@ -239,7 +239,7 @@ def open_run_bag(*, run_id: str, writer: str | None, repo_root: Path,
     designed for: is this invocation THE RUN, or is it PART of one?
 
       * `writer=None` — this invocation IS the run. The bag is its own.
-      * `writer="research_verify"` — this invocation is a MEMBER of the run named
+      * `writer="research_refine"` — this invocation is a MEMBER of the run named
         by `run_id`. The bag is adopted and a writer subfolder is allocated
         inside it, so a parent and its three children file ONE bag with one
         subfolder each rather than four bags for one piece of work.

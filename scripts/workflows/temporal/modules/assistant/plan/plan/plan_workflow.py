@@ -9,21 +9,21 @@ dispatching four children by hand, in order, eight times over one PR. That is
 what this replaces.
 
 WHY A PARENT AND NOT A LONGER CHILD. The chain's value is that each link reads
-what the previous one wrote WITHOUT its context: `plan-verify` judges a plan it
+what the previous one wrote WITHOUT its context: `plan-refine` judges a plan it
 did not author, and `review-pr` disposes a PR it did not write. Collapsing them
 into one run would make the judge share the producer's context, which is the one
 thing the split exists to prevent — the same argument that keeps
-`research-verify` and `build-refine` separate runs.
+`research-refine` and `build-refine` separate runs.
 
 THE STEP ORDER IS NOT STYLISTIC AND IS RECORDED IN THE CHILDREN THEMSELVES.
-`plan-verify` must run before `plan-sprint`, because `plan_sprint_workflow`'s own
+`plan-refine` must run before `plan-sprint`, because `plan_sprint_workflow`'s own
 docstring records the defect that ordering fixes — *"the sprint plan used to be
 updated BEFORE anything estimated the work, so its hour totals landed ahead of
 the estimates they depend on."* This parent cannot express the wrong order.
 
 THE LOOP RE-RUNS THE CORRECTION AND THE JUDGEMENT, NEVER THE AUTHORING — the
 same shape every other parent in this fleet uses. `plan-write` drafts once; a
-HOLD loops back through `plan-write --pr`, `plan-verify` and `plan-sprint`
+HOLD loops back through `plan-write --pr`, `plan-refine` and `plan-sprint`
 because a correction that edits a roadmap changes what must be sized and what
 must be totalled, and re-entering below those two lands phase edits that nothing
 re-sizes and nothing re-totals. That is not hypothetical: it is `C-umoesnbh`,
@@ -42,7 +42,7 @@ from ...review_pr import review_pr_workflow as review_pr
 from ...review_pr.review_pr_helper import ReviewInput, ReviewType
 from ..plan_draft import plan_draft_workflow as plan_write
 from ..plan_sprint import plan_sprint_workflow as sprint
-from ..plan_verify import plan_verify_workflow as plan_verify
+from ..plan_refine import plan_refine_workflow as plan_refine
 
 
 def run_plan(*, component: Path, repo_root: Path, worktree_name: str,
@@ -77,35 +77,50 @@ def run_plan(*, component: Path, repo_root: Path, worktree_name: str,
         pr = routing.pr_number_from_url(pr_url, expected_repo=repo_target)
         notes.append(f"plan-write opened PR #{pr}.")
 
-    verdict = _verify_size_and_dispose(
+    verdict = _refine_size_and_dispose(
         component=component, repo_root=repo_root, worktree=worktree,
         sprint_path=sprint_path, candidates_path=candidates_path, pr=pr,
-        repo_target=repo_target, notes=notes, verbose=verbose,
+        repo_target=repo_target, notes=notes, correction_pass=False,
+        verbose=verbose,
     )
 
     # --- Step 2: the bounded loop-back --------------------------------------
-    # THE WHOLE CHAIN BELOW THE AUTHOR, never one child. See the module
-    # docstring: re-entering below `plan-verify` lands roadmap edits that
-    # nothing re-sizes and nothing re-totals.
+    # THE AUTHOR DOES NOT RUN AGAIN, and this is the alignment the family was
+    # missing. This loop used to re-dispatch `plan-draft` before every correction
+    # pass, on the argument that re-entering lower "lands roadmap edits that
+    # nothing re-sizes and nothing re-totals". That reason is real and it is
+    # already answered: `_refine_size_and_dispose` IS `plan-refine` ->
+    # `plan-sprint` -> gate -> `review-pr`, so a correction made inside it is
+    # sized by the child that made it and totalled by the child after it.
+    #
+    # WHAT THE EXTRA CALL BOUGHT WAS A RUNAWAY. An author invoked with authoring
+    # authority authors. MDC PR #173 was dispatched to fill a five-phase gap in a
+    # seven-phase roadmap and returned TEN phase docs, three appearing nowhere in
+    # the roadmap it was planning: one approved phase became three across two
+    # loop-backs, each split generating findings about its own sizing and
+    # placement, which justified the next loop-back. Five passes, $97, not
+    # converged. `MAX_LOOPS` caps the SPEND; nothing capped the SCOPE.
+    #
+    # AND `correction_pass` DID NOT SAVE IT — that run carried the flag. Being
+    # told you are correcting does not remove the authority to author, so the fix
+    # is not to instruct the author more firmly. It is to stop running it.
+    #
+    # THE OTHER TWO FAMILIES ALREADY DO THIS: `build` loops `_refine_then_dispose`
+    # and `research` loops `_verify_then_dispose`, and neither re-enters its
+    # writer. `plan-refine` is the corrector this family already had and never
+    # routed to — its grant covers the component's top-level markdown and its
+    # prompt bounds the authority ("a DETERMINED defect you FIX, a design choice
+    # you REPORT"). It was upgraded from read-only reviewer to bounded corrector
+    # and this loop was never told.
     loops = 0
     while routing.should_loop_back(verdict, loops):
         loops += 1
         notes.append(f"HOLD (redispatch): loop-back {loops} of {routing.MAX_LOOPS}.")
-        # `correction_pass=True` — THE LOOP USED TO SAY NOTHING, AND THE CHILD
-        # SPENT A FULL DISPATCH REDISCOVERING THAT. It was re-entered with the
-        # ORIGINAL brief and a PR number, so a run whose re-plan had already
-        # landed re-established that fact and reported it: "the re-plan had
-        # already landed when this ran", three times on PR #145. Every other
-        # looped producer in the fleet already carried this flag.
-        plan_write.run_plan_draft(
-            repo_root=repo_root, worktree=worktree, component=component,
-            candidates_path=candidates_path, pr_number=pr,
-            context=context, correction_pass=True, verbose=verbose,
-        )
-        verdict = _verify_size_and_dispose(
+        verdict = _refine_size_and_dispose(
             component=component, repo_root=repo_root, worktree=worktree,
             sprint_path=sprint_path, candidates_path=candidates_path, pr=pr,
-            repo_target=repo_target, notes=notes, verbose=verbose,
+            repo_target=repo_target, notes=notes, correction_pass=True,
+            verbose=verbose,
         )
 
     # THE LOOP DECISION AND NOTHING ELSE — the loop is the only thing this
@@ -126,24 +141,30 @@ def run_plan(*, component: Path, repo_root: Path, worktree_name: str,
     return pr_url, verdict, notes
 
 
-def _verify_size_and_dispose(*, component: Path, repo_root: Path, worktree: Path,
+def _refine_size_and_dispose(*, component: Path, repo_root: Path, worktree: Path,
                              sprint_path: Path, candidates_path: Path, pr: str,
                              repo_target: str | None, notes: list[str],
-                             verbose: bool) -> routing.Verdict:
-    """`plan-verify` -> `plan-sprint` -> CI gate -> `review-pr`, as one unit.
+                             correction_pass: bool, verbose: bool) -> routing.Verdict:
+    """`plan-refine` -> `plan-sprint` -> CI gate -> `review-pr`, as one unit.
 
     ONE UNIT BECAUSE THE LOOP RE-RUNS ALL OF IT. A correction changes what must
     be sized, which changes what must be totalled, which changes what the
     reviewer is judging. Splitting them into separately-looped stages would let a
     review nitpick skip the re-size that its own fix invalidated.
     """
-    plan_verify.run_plan_verify(
+    plan_refine.run_plan_refine(
         repo_root=repo_root, worktree=worktree, component=component,
-        candidates_path=candidates_path, pr_number=pr, verbose=verbose,
+        candidates_path=candidates_path, pr_number=pr,
+        correction_pass=correction_pass, verbose=verbose,
     )
+    # THE WHOLE UNIT IS A CORRECTION PASS OR NONE OF IT IS. `plan-sprint`
+    # reads this flag and the parent now holds it, so withholding it would
+    # leave the placer re-deriving from scratch what the child before it was
+    # just told — the same waste, one child over.
     sprint.run_plan_sprint(
         repo_root=repo_root, worktree=worktree, sprint_path=sprint_path,
-        component=component, pr_number=pr, verbose=verbose,
+        component=component, pr_number=pr,
+        correction_pass=correction_pass, verbose=verbose,
     )
 
     # THE GATE: the parent reads the verdict, so MERGE is unreachable on red.

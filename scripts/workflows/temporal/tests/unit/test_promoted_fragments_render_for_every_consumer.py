@@ -39,7 +39,7 @@ from modules.assistant.build.build_draft_minor import build_draft_minor_workflow
 from modules.assistant.build.build_refine import build_refine_workflow as refine
 from modules.assistant.build.build_refine_minor import build_refine_minor_workflow as refine_minor
 from modules.assistant.plan.plan_draft import plan_draft_workflow as pfeat
-from modules.assistant.plan.plan_verify import plan_verify_workflow as pverify
+from modules.assistant.plan.plan_refine import plan_refine_workflow as pverify
 from modules.assistant.research import research_activities as ract
 from modules.assistant.research.research_draft import research_draft_workflow as write
 
@@ -930,7 +930,7 @@ def _planning_prompt(tmp_path: Path, module, filename: str) -> str:
 @pytest.mark.parametrize(
     ("name", "module", "filename"),
     [("plan_draft", pfeat, "plan_draft.md"),
-     ("plan_verify", pverify, "plan_verify.md")],
+     ("plan_refine", pverify, "plan_refine.md")],
 )
 def test_a_planning_run_renders_EVERY_fragment_it_loads(
     tmp_path, name: str, module, filename: str
@@ -1022,14 +1022,14 @@ def test_the_class_SWEEP_reaches_every_child_that_closes_a_finding() -> None:
     consumers = {
         "plan_draft":       (root/"plan/plan_draft/plan_draft_workflow.py",
                                root/"plan/plan_draft/prompts/plan_draft.md"),
-        "plan_verify":        (root/"plan/plan_verify/plan_verify_workflow.py",
-                               root/"plan/plan_verify/prompts/plan_verify.md"),
+        "plan_refine":        (root/"plan/plan_refine/plan_refine_workflow.py",
+                               root/"plan/plan_refine/prompts/plan_refine.md"),
         "build_refine":       (root/"build/build_refine/build_refine_workflow.py",
                                root/"build/build_refine/prompts/refine.md"),
         "build_refine_minor": (root/"build/build_refine_minor/build_refine_minor_workflow.py",
                                root/"build/build_refine_minor/prompts/refine.md"),
-        "research_verify":    (root/"research/research_verify/research_verify_workflow.py",
-                               root/"research/research_verify/prompts/verify.md"),
+        "research_refine":    (root/"research/research_refine/research_refine_workflow.py",
+                               root/"research/research_refine/prompts/refine.md"),
     }
     assert len(consumers) >= 5, "vacuity floor: the consumer set emptied"
     missing = []

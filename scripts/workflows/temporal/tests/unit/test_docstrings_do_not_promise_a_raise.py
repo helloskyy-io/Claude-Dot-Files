@@ -66,7 +66,7 @@ does more harm than a narrow one:
 
 THE WIDER CLASS IS NOT CLOSED BY THIS, and saying so is the point. Prose in this
 tree routinely asserts a property of a DIFFERENT object — *"the deliverable guard
-is what fails a component with no phases"*, *"`plan-verify` does not exist yet"* —
+is what fails a component with no phases"*, *"`plan-refine` does not exist yet"* —
 and both of those were false in the same PR that produced this module. Its
 sibling `test_no_prose_claims_a_shipped_workflow_is_UNBUILT` closes one more
 sub-class. What is left is the general form, which needs the check C-gbclnzsq proposes.

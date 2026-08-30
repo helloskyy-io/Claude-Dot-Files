@@ -561,7 +561,7 @@ def test_the_pr_url_completion_patterns_are_ONE_string_plus_ONE_declared_wider()
         for path in _v2_python_files()
         if "COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE" in path.read_text(encoding="utf-8")
     )
-    # 12 since plan_verify landed (2026-08-15), the READ half of the planning
+    # 12 since plan_refine landed (2026-08-15), the READ half of the planning
     # split; 11 since plan_draft (2026-08-14), its write half; 10 since
     # triage_candidates (2026-08-12), split out of plan-sprint; 9 since
     # research_draft_minor (2026-08-11). This census is hand-maintained ON
@@ -681,7 +681,7 @@ def _instruction_surface(workflow_file: Path) -> list[Path]:
     SCOPED WIDER THAN `prompts/` ON PURPOSE, and the narrow version was wrong.
     A first cut of this check looked only in each workflow's `prompts/` folder
     and reported FOUR workflows — `plan-sprint`, `research-draft`,
-    `research-verify`, `research-refresh` — as gating on a PR URL they never
+    `research-refine`, `research-refresh` — as gating on a PR URL they never
     ask for. They do ask: the instruction is CODE-BORNE, built by
     `<family>_activities.submit_prompt()` and interpolated as `${SUBMIT_PROMPT}`.
     A conformance check that cannot see half the prompt surface manufactures

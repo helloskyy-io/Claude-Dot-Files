@@ -16,7 +16,7 @@ shipped alongside this: `plan_draft.md` writes the roadmap and said only
 *"current status marked clearly at the top"*, naming no set. A writer told to
 mark a status with no list to choose from composes one. **This test is the
 backstop, not the fix** — it catches the writers the prompt does not bind:
-`plan-verify` also edits roadmaps, so do hand edits, so will whatever ships next.
+`plan-refine` also edits roadmaps, so do hand edits, so will whatever ships next.
 
 THE LEGEND IS READ, NEVER RESTATED. The four markers live in `sprint.md`'s
 status table and nowhere else. Copying them into this file would create exactly

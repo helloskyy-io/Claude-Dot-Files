@@ -66,7 +66,7 @@ def _entrypoint_driving_modules() -> list[Path]:
     reason this docstring is longer than the function. The first version
     required a MODULE-LEVEL `import run_<something>` and a call on that exact
     name. Three of the five modules that drive an entrypoint reach it another
-    way: `test_plan_verify` imports `run_plan_verify` inside the test function,
+    way: `test_plan_refine` imports `run_plan_refine` inside the test function,
     and `test_an_entrypoint_REFUSES_an_escaping_operator_path` and
     `test_triage_candidates_split` both go through `importlib.import_module`,
     which binds no name an AST import-scan can see. So the sweep ran two of
@@ -205,8 +205,8 @@ def test_it(tmp_path):
 
 _FUNCTION_LOCAL_IMPORT = """
 def test_it(tmp_path):
-    import run_plan_verify
-    assert run_plan_verify.main([]) == 0
+    import run_plan_refine
+    assert run_plan_refine.main([]) == 0
 """
 
 _IMPORTLIB = """

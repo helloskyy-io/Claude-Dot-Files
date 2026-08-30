@@ -126,7 +126,7 @@ BUDGETS: dict[str, int] = {
     # a capable reasoner cannot infer a script it has never been told exists;
     # and the harness cannot enforce it.
     # RAISED 82831 -> 83700 on 2026-08-28 (+869): the tier table had NO ROW for
-    # `plan_draft.sh`, `plan_verify.sh` or `plan_sprint.sh` while the prompt
+    # `plan_draft.sh`, `plan_refine.sh` or `plan_sprint.sh` while the prompt
     # instructed the reviewer to size every redispatch — so it could name three
     # tools it had no figures for. All three have had `config.yaml` caps all
     # along (250 / 150 / 100). Added, plus the ruling that a PLANNING hold loops
@@ -205,7 +205,7 @@ BUDGETS: dict[str, int] = {
     # `equal`/`insert` ONLY, so nothing was replaced, deleted or invented.
     # THE COMPONENT FIGURES ARE BYTES, NOT CHARACTERS, and the first draft of
     # this comment had them in characters — off by 90 on this file — which is the
-    # exact error the `plan_verify` note below warns about. Em-dashes are three
+    # exact error the `plan_refine` note below warns about. Em-dashes are three
     # bytes each and this prompt is full of them.
     "build/build_refine/prompts/stages_2_to_4.md": 10294,
     # 21_619 -> 8_466 in the 2026-08-19 rebuild. It SHRANK BY 61% while gaining
@@ -269,8 +269,8 @@ BUDGETS: dict[str, int] = {
     # into it. Same rule, one commit later — the number is today's size and its
     # job is to make the NEXT addition a trade.
     # RAISED 17,821 -> 18,051 (+230) on 2026-08-15, and the raise IS the trade
-    # this gate exists to force. The prompt told the model *"`plan-verify` … does
-    # not exist yet"*, which the same PR that built `plan-verify` made false. The
+    # this gate exists to force. The prompt told the model *"`plan-refine` … does
+    # not exist yet"*, which the same PR that built `plan-refine` made false. The
     # correction is longer than the sentence it replaces because it has to say
     # what the reader now DOES — reads the roadmap cold, writes the hours this
     # prompt forbids, answers the question this run cannot ask of itself — and
@@ -411,7 +411,7 @@ BUDGETS: dict[str, int] = {
     # all three edits CORRECT, none of them its to make, and one against a runway's
     # explicit DO-NOT-TOUCH. The block carries its own exit: report it, do not fix
     # it, because a boundary with no route turns a real finding into a silent drop.
-    "research/research_verify/prompts/verify.md": 15_084,
+    "research/research_refine/prompts/refine.md": 15_084,
     # SET AT ITS SIZE ON THE DAY IT LANDED, like `plan_draft.md` above and for
     # the same reason: this prompt is new, so it MEETS this gate rather than
     # being measured into it. Measured in BYTES with `wc -c`, never eyeballed —
@@ -475,7 +475,7 @@ BUDGETS: dict[str, int] = {
     # the prompt was the only thing stopping it, wrongly.
     # This is the THIRD instance of C-zwzepum0's class in this one file today,
     # which is why its count moved rather than a new candidate being filed.
-    "plan/plan_verify/prompts/plan_verify.md": 18649,
+    "plan/plan_refine/prompts/plan_refine.md": 18649,
     # RATCHETED DOWN 14_437 -> 9_896, the other side of the same move. It stays
     # above the FLOOR, so it keeps its line rather than dropping off the table.
     # Then 9_896 -> 9_908, the same twelve substituted-away bytes as above.

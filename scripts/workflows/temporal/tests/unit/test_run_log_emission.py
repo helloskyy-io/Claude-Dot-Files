@@ -12,7 +12,7 @@ condition of the readers being worth writing:
     ADDRESS, in `memory-model.md` §6.1's terms — and a reader written against the
     field name alone got an empty join that read as a corpus with no overlaps.
   * **`workflow_key` is on the payload**, because `model_key` cannot name a
-    workflow: `research-draft` and `research-verify` share the model key
+    workflow: `research-draft` and `research-refine` share the model key
     `research`.
 
 The tests below assert both against the shipped appenders, with a control on the
@@ -152,10 +152,10 @@ def test_the_resource_report_carries_a_workflow_key_distinct_from_model_key() ->
     """
     report = rt.finish(None, limits={}, unmeasured_reason="no session bus",
                        invocation_id="abc", model_key="research",
-                       workflow_key="research-verify")
+                       workflow_key="research-refine")
     assert report.measured is False
     assert report.model_key == "research"
-    assert report.workflow_key == "research-verify"
+    assert report.workflow_key == "research-refine"
     assert "workflow_key" in rt.report_dict(report)
 
 

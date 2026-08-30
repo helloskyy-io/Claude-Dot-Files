@@ -167,7 +167,7 @@ def test_the_checkbox_KEY_IS_INERT_on_this_repos_real_roadmaps() -> None:
 
     THE FIRST VERSION OF THIS TEST PINNED FOUR ABSOLUTE TOTALS — 124 / 187 / 193
     / 73 h — measured the day the key was added. It was a positive control keyed
-    to **mutable planning artifacts**, so `plan-verify` re-sizing this repo's own
+    to **mutable planning artifacts**, so `plan-refine` re-sizing this repo's own
     roadmap from 73 h to 175 h turned it red on PR #145. **A correct plan change
     failed a test about a parser.** Reported by the run that hit it, which could
     not fix it: the file was outside its write grant.

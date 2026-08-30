@@ -5,6 +5,8 @@ Your job is to **read ONE component's plan COLD, size every phase in hours, and 
 Component:  ${COMPONENT_PATH}
 Candidates: ${CANDIDATES_PATH}
 
+${CORRECTION_NOTE}
+
 ${TASK_CONTEXT}
 
 ${PLAN_INVENTORY}

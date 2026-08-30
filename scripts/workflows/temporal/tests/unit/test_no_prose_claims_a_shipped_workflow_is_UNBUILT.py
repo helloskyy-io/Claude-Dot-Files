@@ -5,11 +5,11 @@ its judge and saying it was unbuilt, in three places:
 
   * `plan_draft_workflow.py`'s docstring — *"it DOES NOT EXIST YET… nothing in
     this tree calls it. Do not read any reference to it as a dependency."*
-  * `prompts/plan_draft.md` — *"`plan-verify` … does not exist yet"*, which is
+  * `prompts/plan_draft.md` — *"`plan-refine` … does not exist yet"*, which is
     SENT TO THE MODEL on every `plan-draft` dispatch.
   * `run_plan_draft.py`'s completion banner — printed at the operator.
 
-The PR that built `plan-verify` falsified all three and updated none. Three
+The PR that built `plan-refine` falsified all three and updated none. Three
 separate review lenses found them independently, which is the measurement that
 says a check is cheaper than the reading.
 
@@ -65,7 +65,7 @@ def _shipped_workflows() -> set[str]:
 
 # The name in backticks, then up to ~90 characters, then a non-existence phrase.
 # Backticks are required: this fleet writes every workflow name that way, and
-# without them `plan-verify` matches inside prose about verification generally.
+# without them `plan-refine` matches inside prose about verification generally.
 _CLAIM = re.compile(
     r"`(?P<name>[a-z][a-z-]+)`(?P<gap>[^`\n]{0,90}?)"
     r"(?P<claim>do(?:es)? not exist|does not yet exist|DOES NOT EXIST"
@@ -126,30 +126,30 @@ def test_the_reader_can_SEE_the_workflows_and_the_phrases() -> None:
     """
     shipped = _shipped_workflows()
     assert len(shipped) >= 12, f"only found {sorted(shipped)} — the discovery broke"
-    assert "plan-verify" in shipped and "plan-draft" in shipped
+    assert "plan-refine" in shipped and "plan-draft" in shipped
 
     files = _prose_files()
     assert len(files) >= 50, f"the prose sweep found only {len(files)} files"
 
     # The claim reader must still match the shape it was written against.
-    probe = "**`plan-verify` is the fresh-context reviewer, and it does not exist yet.**"
+    probe = "**`plan-refine` is the fresh-context reviewer, and it does not exist yet.**"
     m = _CLAIM.search(probe)
-    assert m and m.group("name") == "plan-verify", (
+    assert m and m.group("name") == "plan-refine", (
         f"the claim reader no longer matches the sentence this module was written "
         f"against: {probe!r}")
 
 
 @pytest.mark.parametrize("line,flagged", [
-    ("**`plan-verify` is the reviewer, and it does not exist yet.**", True),
-    ("`plan-verify` DOES NOT EXIST YET — it is named here as the handoff", True),
-    ("NOT SIZED — `plan-verify` estimates the phases, and it does not exist yet.", True),
+    ("**`plan-refine` is the reviewer, and it does not exist yet.**", True),
+    ("`plan-refine` DOES NOT EXIST YET — it is named here as the handoff", True),
+    ("NOT SIZED — `plan-refine` estimates the phases, and it does not exist yet.", True),
     # A workflow with no module: a correct claim, and the guard must leave it be.
     ("`plan-forecast` does not exist yet, so nothing reads this.", False),
     # History, which is how a correction is honestly recorded.
-    ("This paragraph used to say `plan-verify` does not exist yet.", False),
-    ("`plan-verify` no longer does not exist — it landed 2026-08-15.", False),
+    ("This paragraph used to say `plan-refine` does not exist yet.", False),
+    ("`plan-refine` no longer does not exist — it landed 2026-08-15.", False),
     # Nothing to do with existence.
-    ("`plan-verify` reads the roadmap cold and sizes every phase.", False),
+    ("`plan-refine` reads the roadmap cold and sizes every phase.", False),
 ])
 def test_the_reader_DISCRIMINATES(line: str, flagged: bool) -> None:
     """The seven cases the phrase rule and the history exemption have to separate."""

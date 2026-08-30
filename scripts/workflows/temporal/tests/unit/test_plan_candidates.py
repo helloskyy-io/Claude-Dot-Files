@@ -591,7 +591,7 @@ def test_a_SEEDED_but_UNRESEARCHED_pool_is_RESUMED_not_skipped_forever(
         tree: Path) -> None:
     """The redispatch hole: "exists" conflated a live component with an abandoned one.
 
-    `research-draft` commits the seed; if `research-verify` then fails, the
+    `research-draft` commits the seed; if `research-refine` then fails, the
     documented `--pr` recovery redispatch would hit the exists-check, skip, and
     report "an empty working set, not a skipped step" over a candidate that is
     stranded forever. A pool still carrying the seed marker is unfinished work,
@@ -848,7 +848,7 @@ def test_THE_REAL_CANDIDATES_FILE_PARSES_UNDER_THE_TIGHTENED_CHECK() -> None:
 
     A vocabulary tightened against fixtures alone is a guess about the live file,
     and this one gates every planning workflow: if the candidates STORE stopped
-    parsing, `triage-candidates`, `plan-draft`, `plan-verify` and
+    parsing, `triage-candidates`, `plan-draft`, `plan-refine` and
     `plan-candidates` all raise before doing anything. The row count is asserted
     non-zero rather than pinned — a pinned figure goes stale on the next filing,
     and the failure this guards against is the parse returning nothing.

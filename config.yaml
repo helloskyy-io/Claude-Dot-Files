@@ -122,12 +122,12 @@ models:
                                 #   research synthesis, a thesis and an architectural standard
                                 #   together and deciding what works end-to-end. It also has the
                                 #   thinnest safety net in the family — it is the WRITE half of a
-                                #   split whose reviewer is `plan-verify`, below. That reviewer now
+                                #   split whose reviewer is `plan-refine`, below. That reviewer now
                                 #   EXISTS and re-derives the decomposition cold, which narrows the
                                 #   gap without closing it: a bad boundary is caught one run later
                                 #   and reported rather than prevented, and the tier is what keeps
                                 #   the first draft worth reviewing.
-  plan-verify: opus             # reads ONE component's roadmap.md and phase docs COLD,
+  plan-refine: opus             # reads ONE component's roadmap.md and phase docs COLD,
                                 #   sizes every phase in hours, and answers the question
                                 #   plan-draft's own report is required to ask and
                                 #   structurally cannot answer about itself — where is
@@ -241,7 +241,7 @@ max_turns:
                               #   evidence already in context (~1-2 each), append the
                               #   the ruled candidates, commit and open the PR (~10). That
                               #   lands near 70; 200 is roughly 3x it as headroom, the
-                              #   same posture research-verify's measured cap uses.
+                              #   same posture research-refine's measured cap uses.
                               #   REVISE FROM THE FIRST REAL RUN — and note the working
                               #   set is variable, so a cycle with 60 untriaged rows is
                               #   a different measurement from one with 5.
@@ -262,7 +262,7 @@ max_turns:
                               #   REVISE FROM THE FIRST REAL RUN — and note a component
                               #   with three phases is a different measurement from one
                               #   with eight, so one run does not settle it.
-  plan-verify: 150            # NOT MEASURED — an estimate, stated as one. Nothing has
+  plan-refine: 150            # NOT MEASURED — an estimate, stated as one. Nothing has
                               #   run this workflow; it is new, so there is no V1 script
                               #   and no split-sibling with a measured figure. Basis is a
                               #   stage-by-stage walk of its prompt: read one roadmap,
@@ -280,7 +280,7 @@ max_turns:
                               #   Reading is cheap in turns; authoring is not.
                               #   150 is roughly 3.3x the estimate as headroom, inside the
                               #   family's observed band (research-draft 150/43 = 3.5x,
-                              #   research-verify 200/68 = 2.9x). A cap is a ceiling, not
+                              #   research-refine 200/68 = 2.9x). A cap is a ceiling, not
                               #   a spend, and a cap set BELOW an observed successful run
                               #   has already cost a full budget once.
                               #   REVISE FROM THE FIRST REAL RUN — and note a component
@@ -292,13 +292,13 @@ max_turns:
   review-sprint: 600          # holistic end-of-sprint judgment
 
   # ── Python-fleet workflows. NOT a 1:1 mirror of `models:` above, and that is
-  #    the point: `research-draft` and `research-verify` share MODEL_KEY
+  #    the point: `research-draft` and `research-refine` share MODEL_KEY
   #    "research" but have DIFFERENT, separately-measured budgets. Keying a turn
   #    cap off the model key would silently collapse them.
   research-draft: 150         # MEASURED: cycle 4 used 43. Deliberately supersedes
                               #   research.sh's 250, which came from the MONOLITH's
                               #   89-turn peak — a pre-split number does not transfer.
-  research-verify: 200        # MEASURED: cycle 4 used 68 first pass, 48 on correction.
+  research-refine: 200        # MEASURED: cycle 4 used 68 first pass, 48 on correction.
                               #   3x observed peak: headroom rather than a budget.
                               #   dispatch, 2026-08-12 — run_id
                               #   5bd8b513a50a49d186b054e3c6c11e77, terminal_reason
@@ -307,7 +307,7 @@ max_turns:
                               #   CAP HELD AT 80 — re-examined against the measurement,
                               #   not left alone. 80 over a measured 31 is 2.6x headroom,
                               #   inside the family's observed band (research-draft
-                              #   150/43 = 3.5x, research-verify 200/68 = 2.9x), so the
+                              #   150/43 = 3.5x, research-refine 200/68 = 2.9x), so the
                               #   value the estimate picked survives contact with the
                               #   real run and there is nothing to revise.
                               #   The superseded estimate, kept as calibration history:

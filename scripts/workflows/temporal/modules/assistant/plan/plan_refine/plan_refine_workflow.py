@@ -1,11 +1,11 @@
-"""plan-verify — read ONE component's plan COLD, size it, and say where it is weakest.
+"""plan-refine — read ONE component's plan COLD, size it, and say where it is weakest.
 
 Folder holds this file plus its own I/O (§10.1 rules 3 and 6); the family's
 shared capability lives in `plan_activities`.
 
 **This is the READ half of the planning split, and it completes a pattern the
 other two families finished first.** Research is `research-draft` ->
-`research-verify` because *"a separate fresh-context run verifies it… the run
+`research-refine` because *"a separate fresh-context run verifies it… the run
 that wrote an artifact defends it"*; build is `build-draft` -> `build-refine`
 because *"the fresh context is the point, not an implementation detail."*
 `plan-draft` shipped as the write half with its judge named and unbuilt — its
@@ -94,23 +94,23 @@ from pathlib import Path
 from ... import routing
 
 from .. import plan_activities as act
-from . import plan_verify_activities as own
+from . import plan_refine_activities as own
 
 _HERE = Path(__file__).resolve().parent
 PROMPTS = _HERE / "prompts"
 
-MODEL_KEY = "plan-verify"
+MODEL_KEY = "plan-refine"
 
 # An ESTIMATE, stated as one — nothing has measured this workflow. The basis and
 # the revise-from-measurement note live with the value in config.yaml.
-WORKFLOW_KEY = "plan-verify"   # NOT MODEL_KEY -- see run_claude's docstring
+WORKFLOW_KEY = "plan-refine"   # NOT MODEL_KEY -- see run_claude's docstring
 MAX_TURNS = act.max_turns(WORKFLOW_KEY)
 
 COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 
 # --- THE PATH BOUNDARY, DECLARED WHERE THE PROMPT'S TABLE CAN BE READ AGAINST IT
 #
-# Every path-scoped `You MAY NOT` row in `prompts/plan_verify.md`, as a pattern.
+# Every path-scoped `You MAY NOT` row in `prompts/plan_refine.md`, as a pattern.
 # `docs/development/` is denied WHOLESALE and one file is granted back below,
 # which is the only ordering that makes a reviewer's boundary say what it means:
 # an allowlist alone would say nothing about the sibling components, and
@@ -237,7 +237,8 @@ def permitted_paths(component_rel: Path, candidates_rel: Path) -> tuple[str, ...
 
 
 def prompt_values(rel_component: Path, rel_candidates: Path, tree: Path,
-                  pr_number: str | None, context: str = "") -> dict[str, str]:
+                  pr_number: str | None, context: str = "",
+                  correction_pass: bool = False) -> dict[str, str]:
     """Every placeholder the prompt takes, assembled ONCE for both callers.
 
     THE DRY RUN AND THE REAL RUN MUST RENDER THE SAME PROMPT, and this exists so
@@ -263,6 +264,16 @@ def prompt_values(rel_component: Path, rel_candidates: Path, tree: Path,
         # OPAQUE, rendered verbatim. Before this existed `--pr` changed where a
         # run PUSHED and nothing else, so a correction pass could not be told why
         # it was re-running — the same gap `plan-draft` had until 2026-08-19.
+        # THIS CHILD IS THE LOOP-BACK TARGET, which is what the flag marks in
+        # every family. `build_refine` and `research_refine` carry it and their
+        # draft siblings do not, because the draft never runs on a correction
+        # pass. `plan-draft` carried it for one day, on 2026-08-29, while this
+        # family's loop still re-entered the author — and that run grew a
+        # seven-phase roadmap to ten. The flag moved with the routing.
+        "CORRECTION_NOTE": (
+            "This is a CORRECTION PASS. A prior disposition returned HOLD with a "
+            "scoped runway; close it." if correction_pass else ""
+        ),
         "TASK_CONTEXT": (
             "## OPERATOR CONTEXT FOR THIS RUN\n\n"
             "**This is authoritative and overrides your own reading where they "
@@ -272,7 +283,7 @@ def prompt_values(rel_component: Path, rel_candidates: Path, tree: Path,
         ),
         "FILING_A_CANDIDATE_ROW": act.shared_prompt("filing_a_candidate_row"),
         "SUBMIT_PROMPT": act.submit_prompt(
-            pr_number, f"plan-verify: size and judge {rel_component.name}"),
+            pr_number, f"plan-refine: size and judge {rel_component.name}"),
         "WORKTREE_IS_COMPARED_TO_A_SNAPSHOT": act.shared_prompt("worktree_is_compared_to_a_snapshot"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
         "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
@@ -417,9 +428,10 @@ DISAPPEARANCE_OBSERVERS: dict[str, str] = {
 }
 
 
-def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
+def run_plan_refine(*, repo_root: Path, worktree: Path, component: Path,
                     candidates_path: Path, pr_number: str | None = None,
-                    context: str = "", verbose: bool = False) -> str:
+                    context: str = "", correction_pass: bool = False,
+                    verbose: bool = False) -> str:
     """Read ONE component's plan cold, size it, judge it. Returns the PR URL."""
     # Paths arrive rooted at the REPO because that is where they are configured,
     # but the run reads and writes inside the WORKTREE. Resolve once, read what
@@ -453,10 +465,10 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
     before_tree = act.worktree_state(worktree)
 
     values = prompt_values(rel_component, rel_candidates, worktree, pr_number,
-                           context)
+                           context, correction_pass)
 
     output = act.run_claude(
-        act.render(act.load_prompt(PROMPTS / "plan_verify.md"), values,
+        act.render(act.load_prompt(PROMPTS / "plan_refine.md"), values,
                    opaque=frozenset({"TASK_CONTEXT"})),
         model_key=MODEL_KEY, workflow_key=WORKFLOW_KEY,
         completion_pattern=COMPLETION_PATTERN,
@@ -467,7 +479,7 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
     url = act.extract_pr_url(output)
     if not url:
         raise RuntimeError(
-            f"plan-verify produced no PR URL for `{rel_component}`. Its judgement "
+            f"plan-refine produced no PR URL for `{rel_component}`. Its judgement "
             f"is UNSUBMITTED and this component is UNSIZED — whatever the exit "
             f"code says, nothing downstream may treat this plan as reviewed. "
             f"Inspect the worktree before re-dispatching; the work may be there."
@@ -484,7 +496,7 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
     vanished = act.grants_that_vanished(before_tree, after_tree, permitted)
     if vanished:
         raise RuntimeError(
-            f"plan-verify made {len(vanished)} file(s) it may WRITE cease to "
+            f"plan-refine made {len(vanished)} file(s) it may WRITE cease to "
             f"exist: {', '.join(vanished)}. The permission covers editing them and "
             f"nothing further. `roadmap.md` is the component's whole plan — every "
             f"phase doc is reachable only through it — and `candidates.md` is the "
@@ -518,7 +530,7 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
     # Counters compared multiplicity: a run that added two cross-references to a
     # phase already referenced six times was reported as having ADDED it twice.
     #
-    # MEASURED ON PR #144, AND THE RUN SAW IT COMING. `plan-verify` wrote a
+    # MEASURED ON PR #144, AND THE RUN SAW IT COMING. `plan-refine` wrote a
     # sizing note that legitimately linked a sibling phase, took Phase 2 from 6
     # references to 8, and failed here with the phase set IDENTICAL — nothing
     # added, merged, split or dropped, exactly as it self-reported. Its own
@@ -535,7 +547,7 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
     dropped = sorted(set(before_links) - set(after_links))
     if added or dropped:
         raise RuntimeError(
-            f"plan-verify changed which phases `{rel_component}/roadmap.md` "
+            f"plan-refine changed which phases `{rel_component}/roadmap.md` "
             f"references: "
             + "; ".join([f"ADDED {n}" for n in added]
                         + [f"DROPPED {n}" for n in dropped])
@@ -567,7 +579,7 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
     lost = act.ids_deleted(before_phases, after_phases)
     if lost:
         raise RuntimeError(
-            f"plan-verify made {len(lost)} phase doc(s) in `{rel_component}` "
+            f"plan-refine made {len(lost)} phase doc(s) in `{rel_component}` "
             f"cease to exist: {', '.join(lost)}. You hold NO grant over a phase "
             f"doc — not to edit one, and least of all to remove one. A phase "
             f"number is IDENTITY, so a deleted doc is not a phase re-scoped, it "
@@ -627,7 +639,7 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
                  "a `roadmap.md` whose phases are ALL GATED — every one of them "
                  "still gets an estimate, and one is the least this can prove")
         raise RuntimeError(
-            f"plan-verify left `{rel_component}` UNSIZED: its `roadmap.md` carries "
+            f"plan-refine left `{rel_component}` UNSIZED: its `roadmap.md` carries "
             f"{sum(hours.values())} hour estimate(s) against a floor of {floor}, "
             f"from {basis}. What is there:\n  "
             + "\n  ".join(found)
@@ -652,7 +664,7 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
     gone = act.ids_deleted(before_decision, after_decision)
     if gone:
         raise RuntimeError(
-            f"plan-verify deleted {len(gone)} candidate row(s): {', '.join(gone)}. "
+            f"plan-refine deleted {len(gone)} candidate row(s): {', '.join(gone)}. "
             f"No workflow deletes a row — a candidate ruled `reject` stays in the "
             f"file precisely so the next research cycle does not re-propose it, and "
             f"a row that merely disappears is indistinguishable from one that was "
@@ -662,7 +674,7 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
     ruled = act.decisions_this_run_had_no_right_to(before_decision, after_decision)
     if ruled:
         raise RuntimeError(
-            f"plan-verify changed the `decision` column on {len(ruled)} "
+            f"plan-refine changed the `decision` column on {len(ruled)} "
             f"candidate(s): "
             + ", ".join(f"{cid} {before_decision[cid]!r}->{after_decision[cid]!r}"
                         for cid in ruled)
@@ -676,7 +688,7 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
     sized = act.sizes_this_run_had_no_right_to(before_size, after_size)
     if sized:
         raise RuntimeError(
-            f"plan-verify set or changed the `size` column on {len(sized)} "
+            f"plan-refine set or changed the `size` column on {len(sized)} "
             f"pre-existing candidate(s): "
             + ", ".join(f"{cid} {before_size[cid]!r}->{after_size[cid]!r}"
                         for cid in sized)
@@ -694,7 +706,7 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
     flipped = act.statuses_this_run_had_no_right_to(before_status, after_status)
     if flipped:
         raise RuntimeError(
-            f"plan-verify changed the `status` column on {len(flipped)} "
+            f"plan-refine changed the `status` column on {len(flipped)} "
             f"candidate(s): "
             + ", ".join(f"{cid} {before_status[cid]!r}->{after_status[cid]!r}"
                         for cid in flipped)
@@ -707,7 +719,7 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
     named = act.components_this_run_had_no_right_to(before_component, after_component)
     if named:
         raise RuntimeError(
-            f"plan-verify set or changed the `component` column on {len(named)} "
+            f"plan-refine set or changed the `component` column on {len(named)} "
             f"pre-existing candidate(s): "
             + ", ".join(f"{cid} {before_component[cid]!r}->{after_component[cid]!r}"
                         for cid in named)
@@ -729,7 +741,7 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
     erased = sorted((before_boxes - after_boxes).elements())
     if ticked or erased:
         raise RuntimeError(
-            f"plan-verify flipped {len(ticked) + len(erased)} completion "
+            f"plan-refine flipped {len(ticked) + len(erased)} completion "
             f"checkbox(es) in `{rel_component}/{own.ROADMAP}`: "
             + "; ".join([f"TICKED {t!r}" for t in ticked]
                         + [f"ERASED {e!r}" for e in erased])
@@ -745,7 +757,7 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
                                      FORBIDDEN_PATHS, permitted)
     if crossed:
         raise RuntimeError(
-            f"plan-verify edited {len(crossed)} file(s) outside its "
+            f"plan-refine edited {len(crossed)} file(s) outside its "
             f"authorization: {', '.join(crossed)}. This workflow READS one "
             f"component's plan and writes one line per phase into its roadmap. A "
             f"phase doc is `plan-draft`'s output — correcting it here would make "
