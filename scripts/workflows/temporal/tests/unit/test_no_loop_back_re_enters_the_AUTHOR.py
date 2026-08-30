@@ -113,7 +113,7 @@ def test_the_loop_back_does_not_call_the_author(module, author_callee: str) -> N
      "    v = _refine_then_dispose(a, b)\n", {"_refine_then_dispose"}),
     # The shape this guard exists to catch.
     ("while routing.should_loop_back(v, n):\n"
-     "    plan_write.run_plan_draft(x=1)\n"
+     "    plan_draft.run_plan_draft(x=1)\n"
      "    v = _refine_size_and_dispose(a)\n", {"run_plan_draft", "_refine_size_and_dispose"}),
     # A `while` that is not a loop-back must not be collected at all.
     ("while time.monotonic() < deadline:\n"

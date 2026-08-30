@@ -22,8 +22,8 @@ updated BEFORE anything estimated the work, so its hour totals landed ahead of
 the estimates they depend on."* This parent cannot express the wrong order.
 
 THE LOOP RE-RUNS THE CORRECTION AND THE JUDGEMENT, NEVER THE AUTHORING — the
-same shape every other parent in this fleet uses. `plan-write` drafts once; a
-HOLD loops back through `plan-write --pr`, `plan-refine` and `plan-sprint`
+same shape every other parent in this fleet uses. `plan-draft` drafts once; a
+HOLD loops back through `plan-draft --pr`, `plan-refine` and `plan-sprint`
 because a correction that edits a roadmap changes what must be sized and what
 must be totalled, and re-entering below those two lands phase edits that nothing
 re-sizes and nothing re-totals. That is not hypothetical: it is `C-umoesnbh`,
@@ -40,7 +40,7 @@ from ... import routing
 from ...assistant_activities import ci_verdict, wait_for_ci
 from ...review_pr import review_pr_workflow as review_pr
 from ...review_pr.review_pr_helper import ReviewInput, ReviewType
-from ..plan_draft import plan_draft_workflow as plan_write
+from ..plan_draft import plan_draft_workflow as plan_draft
 from ..plan_sprint import plan_sprint_workflow as sprint
 from ..plan_refine import plan_refine_workflow as plan_refine
 
@@ -68,14 +68,14 @@ def run_plan(*, component: Path, repo_root: Path, worktree_name: str,
     # when none was given, so its return value is the only place the number
     # exists — `plan-project` resolves it the same way, one line after its own
     # first child.
-    pr_url = plan_write.run_plan_draft(
+    pr_url = plan_draft.run_plan_draft(
         repo_root=repo_root, worktree=worktree, component=component,
         candidates_path=candidates_path, pr_number=pr,
         context=context, verbose=verbose,
     )
     if pr is None:
         pr = routing.pr_number_from_url(pr_url, expected_repo=repo_target)
-        notes.append(f"plan-write opened PR #{pr}.")
+        notes.append(f"plan-draft opened PR #{pr}.")
 
     verdict = _refine_size_and_dispose(
         component=component, repo_root=repo_root, worktree=worktree,

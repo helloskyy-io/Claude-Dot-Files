@@ -16,7 +16,7 @@ ${HEADLESS_EXECUTION_GUARD}
 
 - **5 cited sources per facet is expected. 10 is the ceiling.** Under 5 and the facet is asserted rather than evidenced.
 - **CHOOSE THE BEST 5, NOT THE FIRST 5.** The standard's §3 credibility bar decides which: first-party docs, peer-reviewed work and corroborated industry sources over uncorroborated commentary. Five well-chosen sources beat fifteen found by scrolling, and they cost a third as much to verify.
-- **About one page — roughly 60 lines — of BODY per facet.** This is a feature paper, not a project one.
+- **About one page — roughly 60 lines — of BODY per facet.** This is a feature paper, not a project one. **THIS IS A GUIDE; THE SOURCE RATE IS THE BINDING ONE.** If a facet is inside 10 sources and still runs long, that is evidence density, not scope creep: say so in your report with the line count and carry on. Only the source rate and separate-subjects test above split a topic. **Never cut the required apparatus to hit a line count, and never narrow the subject to fit one.**
 - **The standard's required apparatus sits OUTSIDE that budget** and is never traded against it: the header block, per-claim confidence marks, the honest-boundary analysis and the source list. Cutting those to hit a line count is the one wrong way to be short.
 
 **WHY A RATE.** A blanket cap makes the OPERATOR carry the sizing decision — they have to remember that a five-phase feature needs the bigger instrument. A rate carries it for them, and the Research Standard's own floor is already stated per TOPIC (*10-20 for medium+, proportionally fewer for small ones*), so a facet of a feature is exactly the "small one" it means.
@@ -114,7 +114,7 @@ The analyst's prompt must include: the question, its `Feeds:` destination, **the
 Write (or fully rewrite) `${RESEARCH_DIR}/synthesis.md` per the Research Standard's §4 contract, scaled to one input:
 
 - **Cites your paper** with its `Last validated` date and its critic verdict — the same citation burden a full cycle carries
-- **Cites any paper already in the pool**, because a second minor cycle rewrites this file over BOTH papers. Read `raw/` before writing; you may not be the first run here
+- **Cites any paper already in the pool**, because a later cycle rewrites this file over EVERY paper in the pool. Read `raw/` before writing; you may not be the first run here
 - **Rolls up what it means for us — written for the PLANNER who reads it next.** Best practices, what the industry does, and which direction the evidence points, at the altitude someone decomposing this feature into phases can act on without opening the paper
 - **Ends in action candidates** — adopt / change direction / new concept / no change, sized for a standup. **A candidate with no home is named as homeless HERE**; you surface it, you do not file it
 - **EXCLUDES retired papers** — a paper marked `Revalidate: retired` is provenance, not input
@@ -128,7 +128,7 @@ Write (or fully rewrite) `${RESEARCH_DIR}/synthesis.md` per the Research Standar
 ## Stage 5: SUBMIT
 ${SUBMIT_PROMPT}
 
-In the PR body, state plainly: **this is a MINOR cycle — one paper plus a synthesis.** Name the question, its destination, the source count, and anything the paper explicitly does not cover.
+In the PR body, state the shape **Stage 2 actually decided** — how many papers, and why that number. Do not pre-write "one paper": a cycle that split a subject into two topics and then reported the single-paper shape has described work it did not do. Name each paper's question, its destination, its source count, and anything it explicitly does not cover.
 
 ${DECISION_LOG_AND_REFLECTION}
 

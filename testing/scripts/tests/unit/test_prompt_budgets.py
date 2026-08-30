@@ -162,7 +162,16 @@ BUDGETS: dict[str, int] = {
     #     runway named `plan_revision.sh` while the loop fired a child whose grant
     #     stops at `<component>/*.md`. Four consecutive passes on one PR surfaced
     #     the same correction and none could act on it.
-    "review_pr/prompts/disposition.md": 85_151,
+    #   * +398 on 2026-08-30: a DO-NOT-TOUCH fence names an ITEM, never a FILE.
+    #     The reviewer writes the fence BEFORE the next pass's findings exist, so
+    #     a whole-file fence can enclose a defect on both sides — MDC #197 hit
+    #     exactly that: the fix needed an edit in `topics.md`'s gaps section OR
+    #     `synthesis.md`'s candidate list and runway items 1 and 2 forbade both,
+    #     converting a one-line fix into another review cycle. Corroborated from
+    #     the other side on MDC #173, where a fence forced a close-out onto two
+    #     dispatches on grant boundaries alone. Placed where the fence is AUTHORED
+    #     rather than taught to every child, so fences come out non-trapping.
+    "review_pr/prompts/disposition.md": 85_549,
     "plan/plan_revision/prompts/stages_1_to_5.md": 22_506,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-f0lfdhmm's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the
@@ -574,7 +583,25 @@ BUDGETS: dict[str, int] = {
     # that revalidated something has a prior version, so the block is
     # conditional and a fresh pool pays nothing for it. Deleting the refresh
     # prompt in the same change removes far more than this adds.
-    "research/research_draft/prompts/draft.md": 20_600,
+    # +471 on 2026-08-30 for TWO rules a live cycle had to invent for itself
+    # (MDC #197). Against Prompt economy:
+    #
+    #   * STAGE 5 PRE-WROTE THE ANSWER TO A STAGE 2 DECISION. It read "state
+    #     plainly: this is a MINOR cycle — one paper plus a synthesis" while
+    #     Stage 2 hands the model the sizing call. That run split a subject into
+    #     two topics, was RIGHT to, and had to deviate from a pre-written body to
+    #     say so. A less deviation-inclined run writes one over-broad paper or
+    #     silently drops a subject, and nothing downstream can tell. It now
+    #     reports what Stage 2 decided. ("MINOR cycle" was also dead vocabulary —
+    #     that tier stopped existing when research collapsed on 2026-08-28.)
+    #   * THE LINE RATE HAD NO FAILURE MODE while the source rate has one
+    #     (over 10 per facet -> second topic). Both analysts on that run landed
+    #     ~2x over the line figure while satisfying every §3 obligation, which is
+    #     a calibration signal rather than two mistakes — and with no rule, the
+    #     run had to choose between reporting and acting. Stated now: the line
+    #     figure is a GUIDE, the source rate is BINDING, and an in-rate overrun is
+    #     reported and carried rather than cut.
+    "research/research_draft/prompts/draft.md": 21_071,
     "build/build_draft_minor/prompts/update_pr.md": 10_675,
     # SHARED FRAGMENTS ARE THE EXPENSIVE ONES — every workflow that includes one
     # pays for it, so a byte here costs more than a byte in any single prompt.

@@ -64,7 +64,7 @@ Tell the critic this explicitly in its dispatch, and require it to **record the 
 
 ### Round scoping — a requirement, not an optimisation
 
-- **Round 1: the full pass.** Every source, every span, every item in the scope list above. This is the anti-hallucination gate and nothing below reduces it.
+- **Round 1: the full pass — over every paper this run WROTE OR CHANGED.** Every source, every span, every item in the scope list above. This is the anti-hallucination gate and nothing below reduces it. **A paper that arrives with a recorded critic verdict and is genuinely untouched is not in that population at all** — see § *Skipping what is genuinely untouched*, which is the common case on a correction pass and is not an exception to this line.
 - **Rounds 2+: scope the critic's dispatch to what you actually changed**, named explicitly, and tell it so: *everything verified in round 1 and not edited since is settled — do not re-fetch or re-read it.* **A REPAIRED SPAN IS A NEW CLAIM AND CARRIES AN ORIGINAL'S FULL SOURCING BURDEN** — scoping narrows WHAT is judged, never how hard.
 - **What counts as changed is the diff, not your summary of it.** Derive the span list from `git diff` against the previous round's commit — which is why the per-round commit below is a hard requirement and not bookkeeping.
 - **COMMIT AFTER EVERY CORRECTION ROUND, before the next critic dispatch.** A round boundary that exists in git is the only way a later actor can attribute an edit to the round that made it. Measured: with no intermediate commits a round-3 critic read a cumulative diff, found no boundary, and mis-attributed an edit's round.

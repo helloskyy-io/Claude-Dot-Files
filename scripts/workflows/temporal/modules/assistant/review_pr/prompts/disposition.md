@@ -416,7 +416,12 @@ pr_review:
                                      # TYPE-MATCHED FIRST, then sized (see Stage 4).
       dispatch_context: |
         <the exact scoped task that dispatch_tool --pr ${PR_NUMBER} would carry:
-         which findings to fix, what to change, and explicitly what NOT to touch.>
+         which findings to fix, what to change, and explicitly what NOT to touch.
+           A DO-NOT-TOUCH FENCE PROTECTS AN ITEM FROM BEING REWRITTEN — it never
+           forbids APPENDING a new, separately-labelled entry to that file. You write
+           the fence before the next pass's findings exist, so a fence over a whole
+           FILE can enclose a defect on both sides and turn a one-line fix into another
+           review cycle. Fence the ITEM, never the FILE.>
       precheck: |                    # redispatch only — a machine-checkable precondition the executor MUST pass before applying
         <a concrete command + expected result that proves the finding is still real at execution time.
          THREE REQUIREMENTS:
