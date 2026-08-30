@@ -1,4 +1,4 @@
-# Phase 6 — CPI reads the journal
+# CPI reads the journal — Persistent Memory Protocol
 
 **Component:** [Persistent Memory Protocol](roadmap.md) · **Status:** not started · **Gate:** Phase 4, and *Port `review-runs`* ([`sprint.md`](../sprint.md) § *Sprint: Temporal Integration*)
 
@@ -8,7 +8,7 @@ Every phase before this one *writes* the record. This one is the first thing tha
 
 The continuous-improvement sweep is the tool that looks across many past runs and asks what keeps going wrong. Today it does that by walking a pile of log files scattered per repository checkout, plus whatever a person points it at. After this phase it reads the journal instead: one place, everything a run wrote and everything it did, joined by run id.
 
-**This is the consumer for everything Phases 1–4 produce, and that is the whole reason it exists as its own phase.**
+**This is the consumer for everything the phases before it produce, and that is the whole reason it exists as its own phase.** **The producing phases are NAMED and not given as a numeric range** — [Phase 1](phase1_the_run_bag.md), [Phase 9](phase9_one_run_one_identity.md), [Phase 2](phase2_content_store.md), [Phase 3](phase3_the_emit_rule.md), [Phase 10](phase10_the_model_issued_harvest.md) and [Phase 4](phase4_rebuild_is_a_test.md), plus [Phase 5](phase5_snapshots_then_retention.md) if it has landed. *(This said* “Phases 1–4” *until 2026-08-28. A numeric range is a claim about the phase set, and it stopped being true the moment [the emit rule](phase3_the_emit_rule.md) was split and [Phase 10](phase10_the_model_issued_harvest.md) came out of it — silently, because a stale range still reads as a sentence. Phase numbers are identities; a range over identities is not a set.)*
 
 **Terms used here.** The **journal** is the whole record: one folder per run, never edited after the run ends. A **bag** is one run's folder (the name comes from BagIt, the file-layout standard it follows — a folder on disk, never a Docker container). **CPI** is continuous process improvement — the cycle that reads past runs for recurring problems and turns them into tracked decisions; its **evidence sweep** is the read half of that. A **gap event** is [Phase 3](phase3_the_emit_rule.md)'s record of a write that failed. An **edge** is one machine running this fleet.
 
@@ -30,7 +30,7 @@ Only the **poller** needs a scheduler. **Reading the journal needs a journal.** 
 
 1. **CPI's evidence sweep sources the journal**, not a per-repo JSONL walk.
 2. **The two agree on one overlapping window.** The journal-sourced sweep and the incumbent sweep produce the same findings over the same period, and any disagreement is explained rather than averaged away.
-3. **Every producer shipped by Phases 1–4 has a named, committed consumer** — enumerated in this doc as a table, not asserted in prose.
+3. **Every producer shipped by a phase that landed before this one has its disposition recorded** — enumerated in this doc as a table, not asserted in prose. **The phases in scope are named above, not given as a range**, and [Phase 10](phase10_the_model_issued_harvest.md)'s harvested surfaces are in scope like any other producer. **A cell has THREE admissible states and not two**: a *committed* consumer; a consumer gated on a **named trigger**, with the trigger written into the cell; or a **blank**, which is the finding. § *The producer/consumer table* below states why the middle one exists.
 4. **The cross-run sweep's wall-clock is measured against journal size**, and reported as the first real test of [Phase 1](phase1_the_run_bag.md)'s no-database decision.
 5. **Cross-machine CPI is not built here.** CPI stays on one machine until a second one produces runs.
 6. **Any gap in the journal appears in the sweep's own output.** § *A report over an incomplete record says so* below.
@@ -58,11 +58,19 @@ CPI today assembles its evidence from a per-repo pile of `.claude/logs/*.jsonl` 
 
 **Requirement 3 is the discipline this component keeps invoking, made checkable.** Prose that says *"every producer has a consumer"* is the same unfalsifiable universal [Phase 3](phase3_the_emit_rule.md)'s requirement 1 needed converting; a table is checkable by a reviewer, and a blank cell is the finding.
 
-| Producer (phase, artifact) | Consumer | Committed at |
-|---|---|---|
-| *(enumerated at build time)* | | |
+| Producer (phase, artifact) | Consumer | Committed at | Trigger, if the consumer is gated |
+|---|---|---|---|
+| *(enumerated at build time)* | | | |
 
-**A producer with no consumer at the end of this phase is not deferred work — it is either a consumer that must be built here, or a producer that should not have shipped.** Naming which is part of the requirement.
+**A producer with no consumer at the end of this phase is not deferred work.** It is one of three things, and naming which is part of the requirement:
+
+1. **A consumer that must be built here** — the default, and the one this phase exists to force.
+2. **A producer that should not have shipped** — the honest verdict when nothing will ever read it.
+3. **A consumer gated on a NAMED TRIGGER**, recorded in the table's fourth column. **This third state is not a loophole and it is not new — two phase docs already ruled their own fields into it**, in identical words: [Phase 2](phase2_content_store.md) r5's `evidence_set_hash` (trigger: firing-rate evidence from the shadowed signal) and [Phase 3](phase3_the_emit_rule.md) r7(c)'s credential epoch (trigger: the first credential revocation) each say *"[Phase 6] r3's producer/consumer table records this as a knowingly-empty cell with its trigger, not as a blank one."* **This section previously admitted only states 1 and 2, so those two rulings pointed at a permission this document did not grant** — a builder meeting the contradiction could only resolve it by weakening one side, either accepting blank cells the requirement calls findings or declaring five fields *"producers that should not have shipped"*, which contradicts [Phase 1](phase1_the_run_bag.md) r7's *"a field absent from version-1 events is absent forever"*. Corrected here on 2026-08-28.
+
+**A trigger is not a substitute for a consumer, and the difference is what keeps state 3 honest.** A cell qualifies only if the trigger is an **event somebody would notice** — a credential revocation, a second machine producing runs, a measured firing rate — and never a date, a person, or *"when we get to it"*. **At least five producers are expected to land here**: `evidence_set_hash` and the credential epoch above, plus [Phase 1](phase1_the_run_bag.md) r7's per-field classification slot, [Phase 3](phase3_the_emit_rule.md) r7(d)'s provenance class and its `edge_id` — whose consumers are [Phase 7](phase7_s3_aggregation.md) and [Phase 8](phase8_the_poller.md), both of which are gated and have therefore committed nothing. **Recording those five as blanks would make this requirement fail on exactly the fields the plan built early on purpose.**
+
+**And the roadmap already institutionalises this shape.** [§ *What a gated phase requires of a phase being built today*](roadmap.md#what-a-gated-phase-requires-of-a-phase-being-built-today) is a table of constraints a gated phase places on an ungated one; state 3 is the same relationship read from the producer's end. A row there is a strong candidate for a trigger cell here.
 
 ### This is the no-database decision's first real test
 
@@ -105,7 +113,7 @@ Two sources of incompleteness reach this phase, and both already have their own 
 - [ ] Put the sweep's evidence access behind one storage interface — enumerate bags, read a file from a bag, read the gap events — with the local filesystem as the first implementation, and assert no filesystem semantics leak past it
 - [ ] Point the sweep's evidence source at the journal, joined by `run_id`
 - [ ] Run both sweeps over one overlapping window and record every disagreement with its explanation
-- [ ] Build the producer/consumer table above from Phases 1–4's shipped artifacts, and resolve every blank cell
+- [ ] Build the producer/consumer table above from the shipped artifacts of every phase named in requirement 3 — [Phase 10](phase10_the_model_issued_harvest.md) included — and leave no cell blank: each is a committed consumer or a named trigger
 - [ ] Measure sweep wall-clock against journal size, with the denominator, in § *Measurement*
 - [ ] Tests per the [Testing Standard](../../standards/testing/README.md) — `unit/` for the journal-sourced evidence assembly, `integration/` for a real sweep over a real journal
 - [ ] Carry [Phase 4](phase4_rebuild_is_a_test.md)'s gapped-bag count and its § *Stores not covered* exclusions into the sweep's own output, so a report over an incomplete record says so

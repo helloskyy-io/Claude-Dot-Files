@@ -1,6 +1,6 @@
-# Phase 2 — The content store and offline hash verification
+# The content store and offline hash verification — Persistent Memory Protocol
 
-**Component:** [Persistent Memory Protocol](roadmap.md) · **Status:** not started · **Gate:** none — unblocked today, and it is the cheapest item in this component
+**Component:** [Persistent Memory Protocol](roadmap.md) · **Status:** not started · **Gate:** none — unblocked today
 
 ## What this phase does
 
@@ -16,7 +16,7 @@ This phase fixes that by keeping the bytes. When a run reads a source, the sourc
 
 [`bernstein_capability_mining.md`](../../standards/architecture/research/raw/bernstein_capability_mining.md) §4.6 ranked this **Tier 1**, costed it **S–M**, named its roadmap home, and called it *"the item with the shortest path from 'read about it' to 'we are using it.'"*
 
-**It was never placed** — not in `candidates.md`, not `direction.md`, not a roadmap, not an issue. The fleet then spent 2026-08-12 bounding by hand the exact cost it solves. That is the reason it is second rather than sixth: it is small, it is unblocked, and it has already been lost once by not being written into a plan.
+**It was never placed** — not in `candidates.md`, not `direction.md`, not a roadmap, not an issue. *(Those two files are named as they stood in August 2026; both were deleted by the four-store migration on 2026-08-26. The sentence is a record of what happened, not a description of surfaces that exist.)* The fleet then spent 2026-08-12 bounding by hand the exact cost it solves. That is the reason it is second rather than sixth: it is small, it is unblocked, and it has already been lost once by not being written into a plan.
 
 Three payoffs from one mechanism, and they are independent of each other:
 
@@ -32,7 +32,7 @@ Three payoffs from one mechanism, and they are independent of each other:
 2. **`verify` resolves every citation from the content store alone** and runs correctly **with the network disabled** — demonstrated with the network actually off, not asserted.
 3. **Three outcomes are distinguished by exit code**: verified / missing / tampered. A source that is absent and a source that has changed are different failures with different remedies, and collapsing them makes the verifier useless for diagnosis.
 4. **A quoted span that no longer occurs in its source is reported as a distinct failure** from an altered source hash. A source can change without invalidating a quote, and a quote can vanish from an unchanged source only if the citation was wrong to begin with.
-5. **`evidence_set_hash` is computed per stage**, and equality with the prior stage's is exposed as a stop condition — computed, not consumed by anything yet. Whether anything *routes* on it is a separate decision this phase does not make.
+5. **`evidence_set_hash` is computed per stage**, and equality with the prior stage's is exposed as a stop condition — computed, not consumed by anything yet. Whether anything *routes* on it is a separate decision this phase does not make. **Trigger: firing-rate evidence from the shadowed signal** — the consumer is a stage that *stops* on it, and § *The evidence set hash is computed, not routed on* below is why nothing should until that evidence exists. **[Phase 6](phase6_cpi_reads_the_journal.md) r3's producer/consumer table records this as a knowingly-empty cell with its trigger, not as a blank one.**
 6. **Code diffs are carried as a commit SHA** and resolved from git, never copied into the store.
 7. **The store's shape, its path derivation, and its fetch policy are specified** — § *What the store is, concretely* below. Each of the three is a way this mechanism becomes an attack surface if left to build time.
 8. **Capture and resolve are ACTIVITIES**, not helpers a caller remembers to call — the same reason [Phase 1](phase1_the_run_bag.md) requirement 11 gives, applied to the store's two entry points. A source read through a path that does not capture is a citation nobody can re-check offline, and it fails silently. **Same split as Phase 1 r11: layer placement, invocation and fail-stop are buildable today; orchestrator-driven retry and recorded execution are port-time.** And the same caveat: the boundary does not make the call happen — what does is [Phase 4](phase4_rebuild_is_a_test.md)'s test for the emit path and, here, `verify` failing closed on a citation with no stored bytes.
@@ -86,7 +86,18 @@ Three sub-decisions the draft left to build time. Each is where a byte cache tur
 
 **(b) Path derivation: from the computed digest ALONE.** Content addressing is safe only if the on-disk path is a function of the digest *this store computed* — e.g. `sha256/ab/cdef…`, algorithm-prefixed so a future algorithm change cannot collide the namespace. **If any source-controlled string enters the path** — a per-URL cache key, a domain folder, a filename or extension from the URL or a `Content-Disposition` header — a crafted URL or a redirect writes outside the store, which sits under the journal root next to the bags. Human-facing names, URLs and content types are **metadata inside the citation record, never path components.**
 
-**(c) Fetch policy, if this phase fetches at all.** If the capture path merely **tees an existing tool's output**, say so and state that it inherits that tool's policy — that sentence is the whole requirement. If it is a **new fetcher**, the URL is model-influenceable (and may come from a previously-fetched document), so the policy is stated: `https` only; redirects re-validated on each hop; refusal of URLs resolving to private, loopback or link-local addresses; a timeout; a per-object size cap; and bytes stored **as received**, or with a decoded-size cap if content-encoding is decoded. Without it, this is an SSRF primitive whose responses are **durably stored and re-servable offline**, on a store nothing bounds until [Phase 5](phase5_snapshots_then_retention.md).
+**(c) Fetch policy — the fork is CLOSED onto the new fetcher, on evidence.** The draft offered a cheap arm: if the capture path merely tees an existing tool's output, it inherits that tool's policy and one sentence closes the requirement. **That arm is not available in this tree.** `grep -rlE "urllib|requests\.|httpx|urlopen" --include=*.py scripts/` returns nothing — no fleet code fetches a URL, because every citation this fleet reads is fetched by the model through its own tooling inside a `claude -p` child. There is no existing tool's output to tee, so this phase pays for a fetcher and its policy.
+
+The URL is model-influenceable (and may come from a previously-fetched document), so the policy is stated: `https` only; redirects re-validated on each hop; refusal of URLs resolving to private, loopback or link-local addresses; a timeout; a per-object size cap; and bytes stored **as received**, or with a decoded-size cap if content-encoding is decoded. Without it, this is an SSRF primitive whose responses are **durably stored and re-servable offline**, on a store nothing bounds until [snapshots, then retention](phase5_snapshots_then_retention.md).
+
+**And closing (c) does not by itself make the phase coherent — there is no fleet-visible read to capture at.** The same check has a second consequence, and it is a boundary question rather than a number. Requirement 2's guarantee is *"met by a run captured at read time"*, but in this fleet a citation is read by a `research-analyst` **inside a `claude -p` child, through the model's own tooling**. A new fleet-side fetcher does not by itself reach that read either, because nothing routes the model's reads through it. **This is the same structural problem [the emit rule](phase3_the_emit_rule.md) § *The write-path inventory* found for writes, applied to reads, where nobody had looked** — its MODEL-ISSUED bullet states the general form, and it holds here verbatim.
+
+**Two arms, both legitimate, and this sub-decision is unmade:**
+
+- **Route research reads through a fleet-side fetcher.** Reads become fleet-visible and requirement 2's at-read-time guarantee holds as written. **The cost reaches outside this component**: it changes how the research workflow reads its sources, so it is not a decision this phase can take alone.
+- **Harvest post-exit what a run cited** — the shape [the model-issued harvest](phase10_the_model_issued_harvest.md) already uses for writes. It stays inside this component, and it carries an explicitly **weaker guarantee**: the bytes are fetched after the fact, so the hash proves they matched **at harvest**, not that the claim was made against them. **Requirement 2 as written forecloses this** — *"a back-filled corpus is labelled a mechanism demonstration and nothing more"* — so taking this arm means amending requirement 2's guarantee, not merely implementing it.
+
+**Consequence of leaving it unruled: a build picks one silently under time pressure**, and the two arms differ in what this store's central guarantee is worth. **Trigger for ruling it: before the capture path is built** — it decides what the capture path attaches to, so it cannot be discovered during the build.
 
 **(d) `verify` is the bulk run of a read-path invariant, not a separate command.** A store whose integrity is checked only when someone invokes the checker is checked in practice never. **All reads go through one resolver that re-hashes on resolve and fails closed**, and `verify` is that resolver run over everything. Cheap here; a cross-cutting refactor once three phases read the store directly.
 
@@ -103,7 +114,8 @@ Requirement 5 stops at *computed and exposed*. **Nothing gates on it in this pha
 - [ ] Specify the citation record: `claim_id`, `quote`, `source_ref`, `page_content_hash`
 - [ ] Rule requirement 7(a): per-run or root-level shared, with the cost stated and Phase 7's checkbox reconciled
 - [ ] Specify the content store layout under the journal root — the on-disk path derived from the **computed digest alone**, algorithm-prefixed
-- [ ] Build the capture path: store raw bytes plus sha256 at the moment a source is read — and state the fetch policy, or state that it tees an existing tool and inherits that tool's policy
+- [ ] Rule the read-side boundary named in requirement 7(c): routed fleet fetcher, or post-exit harvest with requirement 2's guarantee amended — **unruled today, and owed before the capture path is built**
+- [ ] Build the capture path: store raw bytes plus sha256 at the moment a source is read — carrying the **full** fetch policy, since the tee arm does not exist in this tree
 - [ ] Build the single resolver that re-hashes on resolve and fails closed; `verify` is that resolver run in bulk — **both as activities** (requirement 8)
 - [ ] Build `verify`: resolve, re-hash, re-check span; three exit codes; span-miss reported separately from hash-mismatch
 - [ ] Demonstrate with the network disabled, and record how the network was disabled — **on a run captured at read time**, not a back-fill

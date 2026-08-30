@@ -115,8 +115,9 @@ claude-dot-files/
 │   │   ├── persistent-memory-protocol/              # IN PROGRESS — Phase 1 (journal root, run bag, validator) ships; ruled its OWN COMPONENT rather than a 7th phase
 │   │   │                                            #   of memory-management-framework; the reasoning is in roadmap.md and C-xh8nvwqn's
 │   │   │                                            #   `decision` is deliberately left blank for the operator. Second component here
-│   │   │   │                                        #   on the roadmap+phases shape. ALL NINE phases have a doc — a gate is a scheduling
-│   │   │   │                                        #   fact, never a reason to leave a design unwritten (revised 2026-08-13)
+│   │   │   │                                        #   on the roadmap+phases shape. A GATED phase still gets its doc — a gate is a scheduling
+│   │   │   │                                        #   fact, never a reason to leave a design unwritten (revised 2026-08-13). The phase COUNT
+│   │   │   │                                        #   is deliberately NOT restated here — roadmap.md is the authority (C-523klr8n)
 │   │   │   └── research/                          # 2 papers + synthesis. synthesis.md is an operator+PM DECISION RECORD (15 concepts
 │   │   │                                            #   with provenance), NOT a research artifact — it says so and forbids citing it as
 │   │   │                                            #   evidence. cross_node_memory_protocol.md is SUPERSEDED by its own header
@@ -131,7 +132,7 @@ claude-dot-files/
 │   │   │                                            #   invocation_contract backs Dual-mode children, Nothing a run relies on is invisible,
 │   │   │                                            #   What configuration a run absorbed and — through the 2026-08-28 split — Every producer names its consumer
 │   │   ├── temporal-integration/                    # 🟡 IN PROGRESS per sprint.md — Stage A built, nothing orchestrated, no server.
-│   │   │                                            #   PLANNED 2026-08-19 (Phase 9 added 2026-08-20): roadmap.md + 7 phase docs.
+│   │   │                                            #   PLANNED 2026-08-19 (Phase 9 added 2026-08-20): roadmap.md + phase docs (count not restated).
 │   │   │                                            #   Rollout order 1 → 2 → 3 → 9 → 4 → 5 → 6 → 7 → 8; numbers are IDENTITY, not order.
 │   │   │                                            #   Phases 7-8 are roadmap entries with NO doc, deliberately — gated on
 │   │   │                                            #   MDC's cluster work. research/ holds SIX papers — activity_retry_boundary
@@ -173,7 +174,7 @@ claude-dot-files/
 │       │   │   │                                    #   only the `decision` and `status` RULINGS stay human-only (standards-governance.md)
 │       │   │   ├── README.md                        # What this altitude is for, and how it differs from a phase's own research/
 │       │   │   ├── topics.md                        # SIZE memory — tier, topic list with destinations, named gaps. Rewritten each run, never appended
-│       │   │   ├── raw/<topic>.md                   # The pool — 8 mini-papers carried over from the CSCI-6905.604 research project
+│       │   │   ├── raw/<topic>.md                   # The pool — one mini-paper per topic; seeded from the CSCI-6905.604 research project
 │       │   │   └── synthesis.md                     # What the pool means for the product's direction. NON-BINDING
 │       │   ├── README.md                            # What goes here vs the rest of standards/
 │       │   ├── problem-statement.md                 # THE WHY — the trade-off being closed, and that this repo is iteration 1 with coding as the first edge
