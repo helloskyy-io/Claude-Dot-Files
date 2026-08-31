@@ -111,9 +111,32 @@ def require_dependencies(names: tuple[str, ...] | None = None) -> None:
         )
 
 
+def _did_you_mean(repo_root, missing) -> str:
+    """Paths in this repo whose name resembles the one that was not found.
+
+    REPORTS WHAT IS THERE; IT NEVER PICKS. A default is written for one repo's
+    layout and every other repo inherits it — `--sprint` defaults to
+    `docs/development/sprint.md`, and MDC keeps its at `development/sprints.md`.
+    The failure is a bare absent path that reads like a typo, so it costs a round
+    trip per repo to discover it was a default at all. Measured: two consecutive
+    launches lost to it on 2026-08-31.
+    """
+    stem = Path(missing).stem.rstrip("s")
+    hits = []
+    for cand in repo_root.glob("**/" + stem + "*" + Path(missing).suffix):
+        if ".git" in cand.parts or ".claude" in cand.parts:
+            continue
+        hits.append(str(cand.relative_to(repo_root)))
+        if len(hits) >= 4:
+            break
+    return "\n  this repo has: " + ", ".join(sorted(hits)) if hits else ""
+
+
 def resolve_operator_paths(repo_root: Path, paths: dict[str, str],
                            directories: tuple[str, ...] = (),
-                           optional: tuple[str, ...] = ()) -> dict[str, Path]:
+                           optional: tuple[str, ...] = (),
+                           defaults: dict[str, str | None] | None = None,
+                           ) -> dict[str, Path]:
     """Resolve free-form operator paths against the repo, and refuse the escapes.
 
     PROMOTED HERE BECAUSE TWO ENTRYPOINTS CARRIED IT BYTE-IDENTICALLY, which is
@@ -170,7 +193,15 @@ def resolve_operator_paths(repo_root: Path, paths: dict[str, str],
                 f"{label} {arg} resolves outside the repo: {resolved[label]}")
     for label, path in resolved.items():
         if label not in optional and not path.exists():
-            raise RuntimeError(f"{label} not found: {path}")
+            inherited = (defaults or {}).get(label)
+            hint = ""
+            if inherited is not None and paths[label] == inherited:
+                flag = "--" + label.replace("_", "-")
+                hint = (f"\n  that is the DEFAULT, not something you passed — it is "
+                        f"claude-dot-files' own layout, and other repos differ. "
+                        f"Pass {flag} <path> for this repo."
+                        + _did_you_mean(repo_root, paths[label]))
+            raise RuntimeError(f"{label} not found: {path}{hint}")
     for label in directories:
         # An optional path that is absent has already been allowed through the
         # pass above; asking `is_dir()` about it here would deny by the back door
@@ -201,12 +232,21 @@ class RepoPathSpec(NamedTuple):
     and the pair is read positionally in `parse_with_preflight`. Transposing
     `is_dir` and `must_exist` there type-checks, runs, and silently swaps "assert
     this is a directory" for "allow this to be absent" — a containment control
-    whose two axes had quietly traded places. Unpacking still works, so callers
-    that read it as a 2-tuple are unaffected.
+    whose two axes had quietly traded places.
+
+    IT IS NO LONGER SAFE TO UNPACK AS A 2-TUPLE, and this paragraph used to
+    promise it was. `default` was added on 2026-08-31 so a not-found message can
+    say whether a path was CHOSEN or INHERITED, and every positional reader broke
+    at once — 21 tests, all with `too many values to unpack`. Read the fields by
+    NAME, which is the whole reason this is not a bare tuple.
     """
 
     is_dir: bool
     must_exist: bool
+    # THE DECLARED DEFAULT, so a not-found message can tell an operator
+    # whether they chose this path or inherited it. `None` for a
+    # positional, which nobody inherits.
+    default: str | None = None
 
 
 class RepoPathParser(argparse.ArgumentParser):
@@ -291,7 +331,8 @@ class RepoPathParser(argparse.ArgumentParser):
                 f"whether the resolver asserts `is_dir()`, and a third spelling "
                 f"would silently assert neither.")
         action = self.add_argument(*names, **kwargs)
-        self._repo_paths[action.dest] = RepoPathSpec(kind == "dir", must_exist)
+        self._repo_paths[action.dest] = RepoPathSpec(
+            kind == "dir", must_exist, kwargs.get("default"))
         return action
 
     def parse_with_preflight(
@@ -346,5 +387,6 @@ class RepoPathParser(argparse.ArgumentParser):
             repo_root, declared,
             directories=tuple(d for d in declared if self._repo_paths[d].is_dir),
             optional=tuple(d for d in declared if not self._repo_paths[d].must_exist),
+            defaults={d: self._repo_paths[d].default for d in declared},
         )
         return a, repo_root, resolved

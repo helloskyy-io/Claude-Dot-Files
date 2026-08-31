@@ -93,7 +93,7 @@ def _module(name: str):
     return importlib.import_module(name[:-len(".py")])
 
 
-def _repo_paths_of(name: str) -> dict[str, tuple[bool, bool]]:
+def _repo_paths_of(name: str) -> dict[str, object]:
     """What the runner's own parser recorded, by building it the way `main` does.
 
     Read by running `main` with `--help`, which argparse answers by raising
@@ -276,7 +276,8 @@ def test_an_ESCAPING_path_is_refused_before_anything_is_created(
     assert declared, f"{runner} matched `add_repo_path(` but declared nothing"
 
     argv = list(_ARGV_SHAPE[runner])
-    for dest, (is_dir, _) in declared.items():
+    for dest, spec in declared.items():
+        is_dir = spec.is_dir
         value = _ESCAPE if dest == escaping else _LEGITIMATE[is_dir]
         argv += [value] if _is_positional(runner, dest) else [f"--{dest.replace('_', '-')}", value]
 
@@ -320,7 +321,8 @@ def test_a_LEGITIMATE_in_repo_path_is_not_refused(
     """
     declared = _repo_paths_of(runner)
     argv = list(_ARGV_SHAPE[runner])
-    for dest, (is_dir, _) in declared.items():
+    for dest, spec in declared.items():
+        is_dir = spec.is_dir
         value = _LEGITIMATE[is_dir]
         argv += [value] if _is_positional(runner, dest) else [f"--{dest.replace('_', '-')}", value]
 
