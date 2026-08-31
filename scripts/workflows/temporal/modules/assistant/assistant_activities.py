@@ -433,6 +433,31 @@ def load_prompt(path: Path) -> str:
     return path.read_text()
 
 
+def helper_script(name: str) -> str:
+    """The ABSOLUTE path to a `scripts/helpers/` script, for a prompt to name.
+
+    A DISPATCH DOES NOT RUN IN THIS REPO. Its cwd is a worktree of the CONSUMING
+    repository — `mdc-master-planning`, `skyy-command`, whatever `--repo` named —
+    and that repo has no `scripts/helpers/`. So a prompt naming
+    `python3 scripts/helpers/similar-candidates.py` names a path that resolves
+    only when the consuming repo happens to be this one.
+
+    MEASURED ACROSS THE RUN ARCHIVE: 12 runs reference `similar-candidates.py`,
+    and it was reported by an external PM three times running as *"does not exist
+    in our checkout"*. Its consequence is not a failed command — the prompt
+    presents it as THE duplicate check with no stated fallback, so a run that
+    cannot execute it files a tracked item WITHOUT the one guard against filing a
+    duplicate on top of an existing item.
+
+    RESOLVED FROM `__file__` RATHER THAN CONFIGURED, so it is correct on every
+    machine and in every consuming repo without anybody maintaining a path: this
+    module sits at `<cdf>/scripts/workflows/temporal/modules/assistant/` — four
+    parents up is `<cdf>/scripts/` — and the
+    helpers live at `<cdf>/scripts/helpers/`.
+    """
+    return str(Path(__file__).resolve().parents[4] / "helpers" / name)
+
+
 def shared_prompt(name: str) -> str:
     """Load a promoted, module-level prompt fragment by stem."""
     return load_prompt(_SHARED_PROMPTS / f"{name}.md")

@@ -282,6 +282,7 @@ def prompt_values(rel_component: Path, rel_candidates: Path, tree: Path,
             + context if context.strip() else ""
         ),
         "FILING_A_CANDIDATE_ROW": act.shared_prompt("filing_a_candidate_row"),
+        "SIMILAR_CANDIDATES": act.helper_script("similar-candidates.py"),
         "SUBMIT_PROMPT": act.submit_prompt(
             pr_number, f"plan-refine: size and judge {rel_component.name}"),
         "WORKTREE_IS_COMPARED_TO_A_SNAPSHOT": act.shared_prompt("worktree_is_compared_to_a_snapshot"),

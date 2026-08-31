@@ -16,7 +16,7 @@
 **If it is already filed, say so instead** — the reviewer increments a `count` rather than opening a second item, and recurrence is what triage sorts on first:
 
 ```
-python3 scripts/helpers/similar-candidates.py "<your finding, in your own words>"
+python3 ${SIMILAR_CANDIDATES} "<your finding, in your own words>"
 ```
 
 It ranks on rare shared terms, which surfaces SUBJECT rather than phrasing. **Read the few it names in full** and report the id if yours is one of them. It ranks and never rules — that judgement is made from an item's body, never its title.

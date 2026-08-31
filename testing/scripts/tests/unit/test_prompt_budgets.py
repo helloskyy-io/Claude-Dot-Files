@@ -187,7 +187,32 @@ BUDGETS: dict[str, int] = {
     #     write scope is CORRECT — it is the tool whose grant covers the roadmap.
     #     The failure is reachability by LOOP POSITION, which no scope column can
     #     see. `C-dhot2cyq`'s watch criteria named exactly this and are met.
-    "review_pr/prompts/disposition.md": 86_197,
+    #   * +539 on 2026-08-31: the producing run's OWN OPEN QUESTIONS are findings.
+    #     The comments line was already framed correctly — "the place it told on
+    #     itself… that buried remainder is what you exist to dig out" — while the
+    #     PR-BODY line said "claims to verify, not accept". So a discrepancy the
+    #     run raised about its own work, under its own heading, got verified
+    #     rather than dispositioned: it was never recognised as an item. MEASURED
+    #     on MDC PR #198 — pass 1 walked past `plan-refine`'s own finding and then
+    #     reported "Nothing needs an operator ruling to unblock this PR"; pass 2
+    #     found it, verified both totals arithmetically, and it is now the single
+    #     item holding the PR. THE FALSE ALL-CLEAR IS THE DANGEROUS HALF: an
+    #     operator acting on it merges behind the thing the reviewer did not read.
+    #     Fixed at RECOGNITION rather than at disposition — the every-item rule was
+    #     already binding and could not fire on an item nobody had identified.
+    #   * +434 on 2026-08-31: the duplicate-check helper is named by ABSOLUTE
+    #     path and its absence now has a stated fallback. The prompt said
+    #     `python3 scripts/helpers/similar-candidates.py` — repo-relative, from a
+    #     dispatch whose cwd is a worktree of the CONSUMING repo, which has no
+    #     `scripts/helpers/`. MEASURED: 12 runs in the archive reference it and an
+    #     external PM reported it absent on three consecutive runs. The cost is
+    #     not a failed command — the prompt presents it as THE duplicate check
+    #     with no alternative, so a run that cannot execute it files a tracked
+    #     item WITHOUT the one guard against filing on top of an existing one.
+    #     The path is resolved from `__file__` rather than configured, so it is
+    #     right on every machine and in every consuming repo with nobody
+    #     maintaining it.
+    "review_pr/prompts/disposition.md": 87_180,
     "plan/plan_revision/prompts/stages_1_to_5.md": 22_506,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-f0lfdhmm's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the

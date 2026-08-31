@@ -238,6 +238,7 @@ def prompt_values(rel_component: Path, rel_candidates: Path, tree: Path,
         # says which pool is THIS run's, which the shared block cannot know.
         "EVIDENCE_BLOCK": act.evidence_block(tree),
         "FILING_A_CANDIDATE_ROW": act.shared_prompt("filing_a_candidate_row"),
+        "SIMILAR_CANDIDATES": act.helper_script("similar-candidates.py"),
         # THIS PROMPT HELD THE ONLY COMPLETE COPY OF THE CHECK, which is the
         # wrong way round for a file-creating tier. `git status` answers the
         # IGNORE question; `git ls-files` answers whether the file is in the

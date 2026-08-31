@@ -85,6 +85,7 @@ from ..tracked import tracked_items
 
 load_prompt = shared.load_prompt
 shared_prompt = shared.shared_prompt
+helper_script = shared.helper_script
 render = shared.render
 run_claude = shared.run_claude
 worktree_add = shared.worktree_add

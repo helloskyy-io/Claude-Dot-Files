@@ -27,6 +27,7 @@ from enum import Enum
 from .. import convergence as _convergence
 from . import exit_record
 from .. import routing
+from .. import assistant_activities as shared
 
 
 Verdict = routing.Verdict
@@ -630,6 +631,14 @@ def render_prompt(template: str, *, pr_number: str, pr_branch: str,
         # rule R5. A record that echoes a different nonce is well-formed and
         # belongs to a different invocation.
         "RUN_ID": invocation_id,
+        # THE HELPER'S ABSOLUTE PATH, because a dispatch's cwd is a worktree of
+        # the CONSUMING repo and that repo has no `scripts/helpers/`. The prompt
+        # named it repo-relative, so the duplicate check silently failed to run
+        # anywhere but here — 12 runs in the archive reference it, and an external
+        # PM reported it absent three times running. Its consequence is not a
+        # failed command: the prompt presents it as THE duplicate check, so a run
+        # that cannot execute it files on top of an existing item.
+        "SIMILAR_CANDIDATES": shared.helper_script("similar-candidates.py"),
     }
     rendered = template
     for name, value in values.items():
