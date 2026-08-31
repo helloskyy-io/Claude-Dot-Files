@@ -171,7 +171,23 @@ BUDGETS: dict[str, int] = {
     #     the other side on MDC #173, where a fence forced a close-out onto two
     #     dispatches on grant boundaries alone. Placed where the fence is AUTHORED
     #     rather than taught to every child, so fences come out non-trapping.
-    "review_pr/prompts/disposition.md": 85_549,
+    #   * +648 on 2026-08-31: NEVER NAME `plan_draft.sh` IN A REDISPATCH RUNWAY.
+    #     The 2026-08-29 rechain made the `plan` loop re-enter `plan-refine` and
+    #     run its author exactly once — and this file still told the reviewer a
+    #     planning hold "names ALL THREE, in that order", starting with the one
+    #     child the loop cannot fire. MEASURED on MDC PR #198, the first planning
+    #     run after the rechain: the runway's step 1 was `plan_draft.sh --pr 198`,
+    #     steps 2 and 3 ran, step 1 did not, and SIX of seven fix-in-place
+    #     findings — including a security finding — were untouched. Net result of
+    #     a full loop-back: two changed lines. `plan-refine` detected the gap
+    #     itself and said so.
+    #
+    #     THE WRITE-SCOPE COLUMN SHIPPED YESTERDAY COULD NOT CATCH THIS, and that
+    #     is why the bytes are spent rather than the column reused: `plan_draft`'s
+    #     write scope is CORRECT — it is the tool whose grant covers the roadmap.
+    #     The failure is reachability by LOOP POSITION, which no scope column can
+    #     see. `C-dhot2cyq`'s watch criteria named exactly this and are met.
+    "review_pr/prompts/disposition.md": 86_197,
     "plan/plan_revision/prompts/stages_1_to_5.md": 22_506,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-f0lfdhmm's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the

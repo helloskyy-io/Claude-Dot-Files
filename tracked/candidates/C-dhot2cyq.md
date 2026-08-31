@@ -1,8 +1,8 @@
 ---
 id: C-dhot2cyq
-title: Route a parent's loop-back by WHAT THE RUNWAY NAMES, so passes are not spent firing a child that cannot reach the correction close it
+title: Route a parent's loop-back by WHAT THE RUNWAY NAMES, so passes are not spent firing a child that cannot reach the correction
 status: open
-count: 3
+count: 4
 filed: 2026-08-26
 filed_by: triage-candidates
 component: workflow-decomposition
@@ -46,3 +46,43 @@ what it names. **WATCH CRITERIA: ship it on the next occurrence where a runway n
 loop cannot fire AND the write-scope column did not prevent the wasted pass.** The column is the
 cheaper control and it is now in place; if a pass is still spent on an unreachable correction, the
 column is insufficient and the routing is the remedy.
+
+---
+
+**2026-08-31 — recurrence 4, and THE WATCH CRITERIA ARE MET.** Reported by MDC-PM3 from MDC PR #198,
+the first planning run after the 2026-08-29 rechain.
+
+`review-pr` pass 1 wrote a runway whose step 1 was `plan_draft.sh --pr 198` — six roadmap edits and
+one requirement move. **Steps 2 and 3 ran; step 1 did not**, because the rechain made the `plan`
+loop-back re-enter `plan-refine` and run the author exactly once. `plan-refine` detected the gap
+itself: *"`plan_draft --pr 198` has not run. `git log` on this branch shows draft → refine → sprint →
+this commit; there is no correction-draft commit."* **Net result of one full loop-back: two changed
+lines, and six of seven fix-in-place findings untouched, including a security finding.**
+
+**BOTH HALVES OF THE WATCH CRITERIA ARE SATISFIED, and the second half is the informative one.** The
+criteria read: *ship it on the next occurrence where a runway names a tool the loop cannot fire AND
+the write-scope column did not prevent the wasted pass.*
+
+- *a tool the loop cannot fire* — structurally, in code, permanently.
+- *the write-scope column did not prevent it* — **the column had nothing to flag.** `plan_draft`'s
+  write scope is CORRECT; it is the tool whose grant covers the roadmap. The shipped mitigation asks
+  the reviewer to check reachability by WRITE SCOPE, and this failure is reachability by **LOOP
+  POSITION**. The cheaper control was insufficient exactly as this deferral anticipated.
+
+**PARTIALLY SHIPPED THE SAME DAY, and by a cheaper remedy than the one deferred.** The deferred
+remainder was *"a parent reading `dispatch_tool` and dispatching what it names"* — a routing engine.
+MDC-PM3 priced a smaller option first and it is the one taken: **constrain the runway vocabulary.**
+`disposition.md` now states that a planning hold names `plan_refine.sh` then `plan_sprint.sh` — the
+two the loop actually runs — and that `plan_draft.sh` is never a redispatch target. `plan-refine` is
+already the bounded corrector and its grant covers the roadmap, so the six determined defects that
+were skipped are reachable by the tool the loop does fire.
+
+**WHY THAT IS ENOUGH FOR NOW, stated so the next reader does not re-open it.** The deferral was
+written on 2026-08-26, BEFORE the rechain made `plan-refine` the corrector. "Route to what the runway
+names" was solving a problem the rechain has since narrowed: with the author out of the loop there
+are only two loop-reachable planning children, and naming them correctly is a sentence rather than an
+engine.
+
+**WHAT WOULD RE-OPEN IT:** a runway that correctly names a loop-reachable tool and STILL cannot be
+executed — for example a build or research hold whose remedy is reachable only by a different
+family's child. That is the case a routing engine answers and a vocabulary constraint does not.

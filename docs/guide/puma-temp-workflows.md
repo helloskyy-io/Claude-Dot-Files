@@ -131,6 +131,7 @@ cron-job (god workflow)                              🔵 PARENT OF PARENTS OF P
 │   │   │                                            calculated at creation time
 │   │   ├── ◇ CI gate                                ✅ (parent code, no model)
 │   │   ├── review-pr                                ✅
+│   │   │   └── (loop as allowed — 3, back to plan-refine: the AUTHOR runs once)
 │   │   └── ◆ HiL — repeat until happy
 │   │
 │   ├── merge-pr                                     🔵 Merge PR, and proceed to next workflow (based on logic)
@@ -142,6 +143,7 @@ cron-job (god workflow)                              🔵 PARENT OF PARENTS OF P
 │   │   ├── build-refine                             ✅
 │   │   ├── ◇ CI gate                                ✅ (parent code, no model)
 │   │   ├── review-pr                                ✅
+│   │   │   └── (loop as allowed — 3, back to build-refine, using the LIGHT child)
 │   │   └── ◆ HiL — repeat until happy  
 │   │
 │   ├── merge-pr                                     🔵 Merge PR, and proceed to next workflow (based on logic)

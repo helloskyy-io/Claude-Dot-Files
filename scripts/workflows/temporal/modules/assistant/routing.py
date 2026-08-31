@@ -303,6 +303,13 @@ class CiVerdict(str, Enum):
     GREEN = "green"
     RED = "red"
     NO_CHECKS = "no_checks"
+    # NO POLICY FILE AT ALL, which is a different fact from a policy that
+    # declares nothing blocking. Both pass through; only one of them means
+    # "this repo has not configured a gate". Split 2026-08-31 because the
+    # single state forced the note to print BOTH hypotheses twice per run in
+    # every planning repo without the file — an ambiguity the code could
+    # resolve with one `is_file()` and was discarding at `read_check_policy`.
+    NO_POLICY = "no_policy"
     GATE_DID_NOT_RUN = "gate_did_not_run"
     UNREADABLE_POLICY = "unreadable_policy"
     UNREADABLE_CHECKS = "unreadable_checks"
@@ -424,6 +431,17 @@ def ci_gate(state: CiVerdict, extra: list[str], *, pr: str,
         )
         return Verdict.HOLD_REDISPATCH, notes
 
+    if state is CiVerdict.NO_POLICY:
+        # SAYS THE ONE THING THAT IS TRUE, rather than naming two hypotheses
+        # the caller could tell apart. Reported by MDC-PM3 from PR #198, where
+        # this printed twice per run against a repo that simply has no such
+        # file — and the tool had `repo_root` the whole time.
+        notes.append(
+            f"CI NOTE (not a hold): {repo_target or 'this repo'} declares no check "
+            f"policy — there is no {POLICY_PATH}. Nothing was gated on, and nothing "
+            f"was expected to be."
+        )
+
     if state is CiVerdict.NO_CHECKS:
         # NOT green, and named rather than silent. A repo with no workflows, or a
         # PR whose workflows were all path-filtered out, reports nothing — and
@@ -432,8 +450,9 @@ def ci_gate(state: CiVerdict, extra: list[str], *, pr: str,
         # may legitimately have none.
         notes.append(
             f"CI NOTE (not a hold): no check declared blocking in {POLICY_PATH} "
-            f"reported on PR {pr}{where}. This is NOT a pass. Either the repo has "
-            "no such gate, or its workflows were filtered out of this change."
+            f"reported on PR {pr}{where}. This is NOT a pass — the repo declares a\n"
+            f"policy and none of it reported, so its workflows may have been filtered "
+            "out of this change."
         )
 
     return None, notes

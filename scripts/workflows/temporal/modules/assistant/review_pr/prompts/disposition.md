@@ -307,16 +307,18 @@ Reach exactly ONE verdict:
 | `build.sh` | **opus** | 250 + 300 | **two, parallel** — code-reviewer (correctness + structure) and quality-control (standards + coarse security). No sequential third pass. **A HOLD loops to `build-refine-minor`, not to the full tier** | repo-wide |
 | `build_minor.sh` | **opus — same as `build.sh`** | 200 + 200 | **one** — code-reviewer | repo-wide |
 | `plan_revision.sh` | opus | 300 | doc/plan edits | **repo-wide docs — the only planning tool that can reach `docs/` outside a component** |
-| `plan_draft.sh` | opus | 250 | none — it authors | `<component>/*.md` + `docs/file_structure.txt` |
+| `plan_draft.sh` | opus | 250 | none — it authors | `<component>/*.md` + `docs/file_structure.txt` — **OPERATOR DISPATCH ONLY, never a redispatch target**: the parent runs it once and the loop-back never re-enters it |
 | `plan_refine.sh` | opus | 150 | **one** — a cold read of a plan it did not write | `<component>/*.md` |
 | `plan_sprint.sh` | opus | 100 | none — it places what is already decided | `sprint.md` + `<component>/*.md` |
 | `research.sh` | **opus** (both children) | 150 + 200 | **one** — research-critic, which FETCHES every cited source | the research pool |
 
 **CHECK WRITE SCOPE BEFORE YOU NAME A TOOL.** A tool that matches the PR's TYPE and SIZE and cannot REACH the file your runway names will spend a full pass and change nothing. If the correction lives outside every type-matched tool's scope, say so in the runway and name `plan_revision.sh` or a human — do not name a tool that will fail silently.
 
-**MATCH THE PR'S TYPE FIRST, THEN SIZE.** BUILD → `build_minor.sh` / `build.sh`; RESEARCH → `research.sh`; PLANNING → **`plan_draft.sh`, then `plan_refine.sh`, then `plan_sprint.sh` — all three, in order**, which corrects ANY planning PR — its scope is planning docs generally, not only phase docs. **One carve-out: `sprint.md` is operator-only, so a finding whose remedy is a sprint-file edit is needs-assistance, never redispatch.**
+**MATCH THE PR'S TYPE FIRST, THEN SIZE.** BUILD → `build_minor.sh` / `build.sh`; RESEARCH → `research.sh`; PLANNING → **`plan_refine.sh`, then `plan_sprint.sh` — those two, in order.**
 
-**A PLANNING HOLD LOOPS BACK THROUGH ALL THREE, NOT INTO ONE.** `plan_revision.sh` re-enters at DRAFT and runs neither `plan-refine` nor `plan-sprint`, so a roadmap edit lands phase changes that **nothing re-sizes and nothing re-totals** — the sizing floor and the phase-link guard exist to catch exactly that. Name all three, in order, with the findings each is to address.
+**NEVER NAME `plan_draft.sh` IN A REDISPATCH RUNWAY.** The `plan` parent runs its author once and its loop-back re-enters `plan-refine`, so a runway step naming it is silently skipped while the rest executes. `plan-refine` IS the corrector — its grant is the component's top-level markdown, **roadmap and phase docs both**, bounded to *a DETERMINED defect you FIX, a design choice you REPORT*. **Two needs-assistance carve-outs:** `sprint.md` is operator-only, and a correction needing RE-AUTHORING (a new phase, a split, a restructure) is not something the loop can do — say so and let the operator dispatch `plan_draft.sh --pr N`.
+
+**REFINE RE-SIZES AND SPRINT RE-TOTALS, which is why those two are the whole loop.** The old concern — a roadmap edit landing phase changes that nothing re-sizes and nothing re-totals — is answered by naming them, not by adding a step in front that never runs.
 
 **The tiers run the SAME MODEL — `-minor` is smaller, not weaker** (ruled 2026-08-18). So size on SCOPE and on how much review the change warrants, and stop treating `-minor` as the tier for easy work: a small task can need judgement, and this tier can now carry it. **Reach for `build.sh` when the change should be seen by two lenses rather than one, or when it will not fit in 200 turns** — not when it merely looks hard.
   2. **needs-assistance** — human-in-the-loop is genuinely required. Use this when: you cannot confidently resolve an item; a follow-up has no home and where it belongs is a judgment call; the fix's economics/scope is the operator's call; the review uncovered something BIGGER than the PR (**a gap in the architecture or the plan**); or the PR's inputs include research artifacts and you find a **research defect** — apply the materiality test: *does correcting the defect change the outcome of the decision built on it?* NO → it rides the scheduled revalidation sweep (note it, do not hold on it). YES → needs-assistance with why_human `research-defect`: the research must be re-validated (a research-currency re-run) and any dependent planning re-run before this can merge. For each needs-assistance item, present your best RECOMMENDED resolution reasoned through /decide + /best-practices — and print the working: a one-line `reframe:` (the /decide reframed question) and a one-line `bp:` (the best-practice alignment) BEFORE the recommendation, so the operator audits your judgment at standup speed instead of trusting lens-flavored prose. Surfacing a real gap and asking for direction is a success, not a failure.
@@ -411,8 +413,11 @@ pr_review:
       qualified: unrelated + substantial + not-already-covered   # state how each of the three was met
       # kind: redispatch — the correction is obvious/known:
       dispatch_tool: <build_minor.sh | build.sh | research.sh
-                     | plan_draft.sh | plan_refine.sh | plan_sprint.sh>
-                                     # A PLANNING hold names ALL THREE, in that order.
+                     | plan_refine.sh | plan_sprint.sh>
+                                     # A PLANNING hold names those TWO, in that order — they
+                                     # are what the parent's loop-back actually runs.
+                                     # `plan_draft.sh` is NOT a redispatch target: the author
+                                     # runs once and the loop never re-enters it.
                                      # TYPE-MATCHED FIRST, then sized (see Stage 4).
       dispatch_context: |
         <the exact scoped task that dispatch_tool --pr ${PR_NUMBER} would carry:

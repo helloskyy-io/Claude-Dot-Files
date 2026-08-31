@@ -6,7 +6,7 @@ The comment must contain these two sections:
 
 **FIRST LINE, ALWAYS: `Rigour tier: <one file | new contract | safety control> — <N> mutations.`** Sized before you test, not justified after. **`0 mutations` is correct and common on the first tier.**
 
-**A RESEARCH CYCLE REPORTS ITS OWN INSTRUMENT, NOT A TRANSLATION OF THIS ONE.** Mutation testing assumes an executable deliverable; a paper's verification is quote-checking and link resolution. Write `Rigour tier: research — <N> spans re-checked, <N> links resolved` and say against which pinned SHA. Answering in the code register and explaining the translation is a worse answer than the true one.
+**A RUN WHOSE DELIVERABLE IS PROSE REPORTS ITS OWN INSTRUMENT, NOT A TRANSLATION OF THIS ONE.** Mutation testing assumes an executable artifact; a paper or a plan is verified by link resolution, quote fidelity at a pinned SHA, arithmetic re-derivation and criteria counts. Write `Rigour tier: <research|planning> — <what you actually checked, with counts>`, naming the SHA where a claim was checked against another ref. Answering in the code register and explaining the translation is a worse answer than the true one.
 
 List NON-OBVIOUS decisions made during this run. One bullet per decision, format:
 `**[High/Medium/Low]** <what was decided>. Alternatives: <what else was considered>. Why: <brief rationale>.`

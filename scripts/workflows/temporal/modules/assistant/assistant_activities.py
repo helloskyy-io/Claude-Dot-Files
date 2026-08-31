@@ -1668,6 +1668,11 @@ def ci_verdict(pr: str, *, repo_root: Path) -> tuple[routing.CiVerdict, list[str
     blocking, advisory, readable = read_check_policy(repo_root)
     if not readable:
         return routing.CiVerdict.UNREADABLE_POLICY, []
+    # DOES THE REPO DECLARE A POLICY AT ALL? `read_check_policy` answers
+    # `([], [], True)` both for a missing file and for a file that declares
+    # nothing blocking, so the fact is stat'd here rather than threaded
+    # through its return — one call, at the only site that needs it.
+    policy_declared = (repo_root / routing.POLICY_PATH).is_file()
 
     cmd = ["pr", "checks", pr, "--json", "name,state"]
     # `--repo` IS NOT PASSED, and this comment is why rather than an omission.
@@ -1762,6 +1767,12 @@ def ci_verdict(pr: str, *, repo_root: Path) -> tuple[routing.CiVerdict, list[str
             # declared. Both messages fired on one run. See the guard in
             # build_workflow.
             return routing.CiVerdict.GATE_DID_NOT_RUN, sorted(blocking)
+        # NO POLICY FILE vs A POLICY THAT DECLARES NOTHING. Both pass the
+        # gate and neither is green, but only the first means the repo has
+        # not configured one — and an operator reading the note has to know
+        # which before deciding whether to go looking.
+        if not policy_declared:
+            return routing.CiVerdict.NO_POLICY, undeclared
         return routing.CiVerdict.NO_CHECKS, undeclared
 
     failed = [str(c["name"]) for c in gating

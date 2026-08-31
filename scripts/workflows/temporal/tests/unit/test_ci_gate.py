@@ -165,12 +165,13 @@ def test_a_repo_with_NO_CI_AT_ALL_is_not_mistaken_for_an_unreadable_reply(
     most — they are planning-heavy and code-light.
 
     NO POLICY HERE, DELIBERATELY. `tmp_path` carries no `check-policy.yaml`, which
-    is the shape of a repo that declares no gate, and NO_CHECKS is then the right
-    answer. The companion test below covers the repo that DOES declare one.
+    is the shape of a repo that declares no gate, and NO_POLICY is then the right
+    answer — sharpened from NO_CHECKS on 2026-08-31 when the two facts were
+    split. The companion test below covers the repo that DOES declare one.
     """
     _gh(monkeypatch, None, stdout="", stderr=_NO_CHECKS_STDERR, returncode=1)
     verdict, _extra = act.ci_verdict("1", repo_root=tmp_path)
-    assert verdict is CiVerdict.NO_CHECKS, (
+    assert verdict is CiVerdict.NO_POLICY, (
         f"a repo with no CI read as {verdict}. There is nothing to gate on and "
         f"nothing a human can rule on — holding here blocks every planning run "
         f"on every repo without a pipeline, permanently."
@@ -356,10 +357,17 @@ def test_a_declaration_that_is_not_a_mapping_is_unreadable(monkeypatch, tmp_path
     assert act.ci_verdict("1", repo_root=tmp_path)[0] is CiVerdict.UNREADABLE_POLICY
 
 
-def test_an_absent_declaration_is_NO_CHECKS_not_unreadable(monkeypatch, tmp_path):
-    """A repo may legitimately have no gate. That is a skip, not a stop."""
+def test_an_absent_declaration_is_NO_POLICY_not_unreadable(monkeypatch, tmp_path):
+    """A repo may legitimately have no gate. That is a skip, not a stop.
+
+    NO_POLICY RATHER THAN NO_CHECKS SINCE 2026-08-31, and the split is the whole
+    point: `tmp_path` holds no `check-policy.yaml` at all, which is a different
+    fact from a policy file that declares nothing blocking. Both pass the gate;
+    only this one means the repo has not configured one, and an operator reading
+    the note should not have to go and look to find that out.
+    """
     _gh(monkeypatch, [{"name": "suite", "state": "SUCCESS"}])
-    assert act.ci_verdict("1", repo_root=tmp_path)[0] is CiVerdict.NO_CHECKS
+    assert act.ci_verdict("1", repo_root=tmp_path)[0] is CiVerdict.NO_POLICY
 
 
 def test_a_DIFFERENT_repos_check_name_gates_it(monkeypatch, tmp_path):
