@@ -1,6 +1,6 @@
 """plan-draft's own I/O — one consumer each, so §10.1 rule 3 puts them here.
 
-[`workflow-scripts.md` § Location](../../../../../../../docs/standards/workflow-scripts.md)
+[`workflow-scripts.md` § Location](/opt/skyy-net/skyynet-master-planning/standards/workflow-scripts.md)
 restates §10.1 rule 3 as BINDING and mechanical — *"consumer count decides, never
 taste"* — and rule 6 gives a workflow folder its place to grow the helpers it has
 earned. Everything DEFINED below has exactly one consumer: `plan_draft_workflow`.
@@ -28,7 +28,7 @@ column-comparators the planning family already shares:
     phase reuse a retired number*, or *did the run size the work in hours*.
 
 THE PHASE NUMBER IS IDENTITY, AND THAT IS WHY TWO OF THESE EXIST.
-[Documentation Standard § Phase Numbering and Roadmap Ordering](../../../../../../../docs/standards/documentation/documentation_standard.md)
+[Documentation Standard § Phase Numbering and Roadmap Ordering](/opt/skyy-net/skyynet-master-planning/standards/documentation/documentation_standard.md)
 is binding and states three separable layers: the phase NUMBER is immutable
 identity, the roadmap POSITION is the logical order, and the sprint position is
 execution order. A run that renumbers to express order has confused the first
@@ -228,7 +228,7 @@ def hour_hits(component: Path) -> Counter:
     other one in this workflow. `hour_estimates` answers *what estimates are in
     this plan*; the guard's question is *what estimates did THIS RUN write*, and
     those are different whenever the component already carried one. They already
-    do: `docs/development/reviews/` holds `~7h` and `~12.8 hours` today, and
+    do: `/opt/skyy-net/skyynet-master-planning/development/common/reviews` holds `~7h` and `~12.8 hours` today, and
     `plan-revision` — the unsplit planner this workflow is the write half of a
     replacement for — sizes work, so any component it planned carries estimates
     a `plan-draft` extending it never wrote.

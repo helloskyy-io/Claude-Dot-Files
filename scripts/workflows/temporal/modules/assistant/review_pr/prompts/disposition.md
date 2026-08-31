@@ -160,7 +160,7 @@ All three still block MERGE. Only LAUNDERED counts against the producing run.
 
 ### FILING AUTHORITY — you may file TRACKED ITEMS via intake (and you are the ONLY autonomous run that may)
 
-**HOW you file.** Deferred work lives in `tracked/<store>/`, one file per item, and a file needs a commit you do not have and must not have. So you file an **INTAKE**: `gh issue create --label tracked-intake` — the API call you always made. [Tracked Items Standard §5.0](../../../../../../../docs/standards/documentation/tracked_items_standard.md) exempts it from §5, and a named harvest moves it into the store and closes it. **The issue is a conveyor, never a record** — cite the item it becomes, never the intake.
+**HOW you file.** Deferred work lives in `tracked/<store>/`, one file per item, and a file needs a commit you do not have and must not have. So you file an **INTAKE**: `gh issue create --label tracked-intake` — the API call you always made. [Tracked Items Standard §5.0](/opt/skyy-net/skyynet-master-planning/standards/documentation/tracked_items_standard.md) exempts it from §5, and a named harvest moves it into the store and closes it. **The issue is a conveyor, never a record** — cite the item it becomes, never the intake.
 
 **The intake body IS the item**, so there is no second format to learn. Frontmatter, then the prose:
 
@@ -202,7 +202,7 @@ For a standards amendment add `--target` and `--anchor`: they are the one field 
 
 **Self-check for a novel case — if I get this wrong, is the failure LOUD or QUIET?** A false no-change outcome is **loud**: no plan was produced and the operator sees it immediately. A buried deferral is **quiet**: the PR still reads clean and nobody notices. **The gate exists for the quiet one.** If getting it wrong would be loud, it is not the operation this constrains.
 
-**QUESTION 0 COMES BEFORE PLACEMENT — DEFECT OR PROPOSAL?** [Architecture Standard § 4 Memory](../../../../../../../docs/standards/architecture/architectural_standard.md) is binding and states this; the full reasoning is [`memory-model.md` §1.1](../../../../../../../docs/guide/memory-model.md). Do not restate it here — apply it.
+**QUESTION 0 COMES BEFORE PLACEMENT — DEFECT OR PROPOSAL?** [Architecture Standard § 4 Memory](/opt/skyy-net/skyynet-master-planning/standards/architecture/architecture_standard.md) is binding and states this; the full reasoning is [`memory-model.md` §1.1](/opt/skyy-net/skyynet-master-planning/guide/memory-model.md). Do not restate it here — apply it.
 
 - **A DEFECT** — something already built or already decided behaves wrongly, or a decision the existing research and planning do not supply is now blocking. Continue to placement.
 - **A PROPOSAL** — capability that does not exist yet and would be *added*. **It goes to `tracked/candidates/` and it is NEVER an issue item**, however clean its done-state looks. **Bias here when it reads either way:** a proposal misfiled as a candidate costs a triage pass; a proposal misfiled as an issue costs an operator's day.
@@ -519,7 +519,7 @@ This token is the only thing an automated caller reads from you. It does not cha
 
 **AFTER you have printed the verdict line**, call the structured-output tool exactly once with the typed exit record.
 
-> **THE ORDER IS LOAD-BEARING AND IT WAS WRONG.** This stage originally said *call the tool, then print the verdict*. **The measured shape:** Zero of its twelve assistant text blocks contained a verdict; a complete review with five dispositioned findings failed its completion contract and the parent could not route it. **A tool call is a natural terminal action** — after emitting the record the work feels finished, so a trailing text line does not get written. Printing the verdict FIRST makes the completion signal unconditional, and the tool call after it emits no text so the gate still reads the verdict as the last text block. This is the typed exit record defined by `docs/standards/exit-protocol.md` §2.1 — **small, and it carries references rather than payloads.** It is NOT a second copy of your disposition comment: it holds only what a caller branches on plus the finding ids a later pass needs.
+> **THE ORDER IS LOAD-BEARING AND IT WAS WRONG.** This stage originally said *call the tool, then print the verdict*. **The measured shape:** Zero of its twelve assistant text blocks contained a verdict; a complete review with five dispositioned findings failed its completion contract and the parent could not route it. **A tool call is a natural terminal action** — after emitting the record the work feels finished, so a trailing text line does not get written. Printing the verdict FIRST makes the completion signal unconditional, and the tool call after it emits no text so the gate still reads the verdict as the last text block. This is the typed exit record defined by `/opt/skyy-net/skyynet-master-planning/standards/exit-protocol.md` §2.1 — **small, and it carries references rather than payloads.** It is NOT a second copy of your disposition comment: it holds only what a caller branches on plus the finding ids a later pass needs.
 
 | Field | What you put in it |
 |---|---|

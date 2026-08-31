@@ -23,7 +23,7 @@
 #   ./research-refresh.sh <research-dir> --all     # force-refresh every paper
 #
 # Logging: JSONL log to <repo>/.claude/logs/research-refresh-<ts>.jsonl
-# See docs/standards/workflow-scripts.md for the standard this script follows.
+# See /opt/skyy-net/skyynet-master-planning/standards/workflow-scripts.md for the standard this script follows.
 
 set -euo pipefail
 

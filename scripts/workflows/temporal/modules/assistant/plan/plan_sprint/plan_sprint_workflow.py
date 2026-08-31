@@ -66,7 +66,7 @@ FORBIDDEN_PATHS = (
     r"^docs/standards/",        # "Append to or edit `direction.md`" and the rest
     # THE TRACKED STORES, ADDED 2026-08-26 WITH THE FLIP, AND IT RESTORES A
     # PROPERTY RATHER THAN ADDING ONE. `candidates.md` used to live under
-    # `docs/standards/architecture/research/`, so it was already inside a
+    # `/opt/skyy-net/skyynet-master-planning/standards/architecture/research`, so it was already inside a
     # forbidden tree and `permitted_paths` was a CARVE-OUT of it. The store is
     # root-relative now — that is what lets one implementation serve every repo
     # — and `tracked/` matches neither prefix above, so the flip silently took
@@ -83,7 +83,7 @@ def permitted_paths(sprint_rel: str) -> tuple[str, ...]:
 
     Computed from the sprint path rather than hard-coded because the path is a
     parameter — `--sprint` moves it, and a boundary that assumed
-    `docs/development/sprint.md` would fail a correct run in any repo that keeps
+    `/opt/skyy-net/skyynet-master-planning/development/sprints.md` would fail a correct run in any repo that keeps
     its plan elsewhere.
 
     IT WAS TWO GRANTS UNTIL 2026-08-19. The second was `candidates.md`, held so

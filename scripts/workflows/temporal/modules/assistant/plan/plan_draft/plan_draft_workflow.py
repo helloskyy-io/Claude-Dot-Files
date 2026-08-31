@@ -50,7 +50,7 @@ WHAT IT DOES NOT DO, AND EACH IS A DECISION RATHER THAN AN OMISSION:
     and is read-only here.
 
 THE ASYMMETRY WITH SPRINTS IS THE RULE, NOT AN INCONSISTENCY.
-[Documentation Standard § Sprint Structure](../../../../../../../docs/standards/documentation/documentation_standard.md)
+[Documentation Standard § Sprint Structure](/opt/skyy-net/skyynet-master-planning/standards/documentation/documentation_standard.md)
 binds *component sprints are named, never numbered*, because there an ordinal
 encodes a judgement the plan exists to revise. **Phases are identities; sprints
 are sequences.**
@@ -112,7 +112,7 @@ FORBIDDEN_PATHS = (
     r"^docs/standards/",        # "...or anything else under `docs/standards/`"
     # THE TRACKED STORES, ADDED 2026-08-26 WITH THE FLIP, AND IT RESTORES A
     # PROPERTY RATHER THAN ADDING ONE. `candidates.md` used to live under
-    # `docs/standards/architecture/research/`, so it was already inside a
+    # `/opt/skyy-net/skyynet-master-planning/standards/architecture/research`, so it was already inside a
     # forbidden tree and `permitted_paths` was a CARVE-OUT of it. The store is
     # root-relative now — that is what lets one implementation serve every repo
     # — and `tracked/` matches neither prefix above, so the flip silently took
@@ -565,7 +565,7 @@ def run_plan_draft(*, repo_root: Path, worktree: Path, component: Path,
     # on post-run STATE instead. A component that already carried an estimate —
     # one `plan-revision` wrote, or a human did — failed this on every future
     # dispatch, permanently and with a message that named this run as the author.
-    # `docs/development/reviews/` carries two such strings today.
+    # `/opt/skyy-net/skyynet-master-planning/development/common/reviews` carries two such strings today.
     new_hours = own.hour_hits(wt_component) - before_hours
     hours = own.hour_estimates(wt_component, worktree, only=new_hours)
     if hours:

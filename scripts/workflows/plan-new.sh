@@ -22,7 +22,7 @@
 #   6. EPICS — identify major features per phase
 #   7. DEPENDENCIES — map internal and external
 #   8. SECURITY — initial security review
-#   9. ROADMAP — assemble into docs/development/sprint.md
+#   9. ROADMAP — assemble into /opt/skyy-net/skyynet-master-planning/development/sprints.md
 #  10. DOCUMENTATION — set up four-bucket docs layout, CLAUDE.md, file_structure.txt
 #  11. ARCHITECT REVIEW — review tech stack, architecture, system overview for consistency
 #  12. PLANNER REVIEW — review phases, epics, dependencies for actionability and completeness
@@ -49,9 +49,9 @@
 # Logging:
 #   Every run writes a structured JSONL log to .claude/logs/plan-new-<ts>.jsonl
 #
-# See docs/guide/workflows.md for the full
+# See /opt/skyy-net/skyynet-master-planning/guide/workflows.md for the full
 # architectural context behind this workflow.
-# See docs/standards/workflow-scripts.md for the standard this script follows.
+# See /opt/skyy-net/skyynet-master-planning/standards/workflow-scripts.md for the standard this script follows.
 
 set -euo pipefail
 
@@ -341,7 +341,7 @@ Guiding principles: boring is beautiful, team expertise matters, operational sim
 ## Stage 4: ARCHITECTURE
 Design the high-level architecture.
 
-Create `docs/standards/architecture/architectural_standard.md` with:
+Create `/opt/skyy-net/skyynet-master-planning/standards/architecture/architecture_standard.md` with:
 - **Component diagram:** Major pieces and how they connect
 - **Data flow:** Request lifecycle, write path, read path, background processing
 - **External integrations:** Third-party APIs, webhooks, identity providers
@@ -391,7 +391,7 @@ Create `docs/standards/architecture/security.md` capturing foundational security
 ## Stage 9: ROADMAP
 Assemble everything into the top-level roadmap.
 
-Create `docs/development/sprint.md` with:
+Create `/opt/skyy-net/skyynet-master-planning/development/sprints.md` with:
 - Overview (1-2 paragraph summary of what and why)
 - Top-level success criteria from Stage 2
 - Phase listing with status, descriptions, and links to phase docs

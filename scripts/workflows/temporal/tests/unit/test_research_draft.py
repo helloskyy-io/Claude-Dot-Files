@@ -354,7 +354,7 @@ def _render_write_minor(monkeypatch, tmp_path: Path) -> str:
     """
     research_dir = tmp_path / "docs" / "development" / "widget" / "research"
     research_dir.mkdir(parents=True)
-    upstream = tmp_path / "docs" / "standards" / "architecture" / "research"
+    upstream = tmp_path / "standards" / "architecture" / "research"
     (upstream / "raw").mkdir(parents=True)
     (upstream / "raw" / "a-paper.md").write_text("# upstream\n")
     (upstream / "synthesis.md").write_text("# synthesis\n")
@@ -411,13 +411,15 @@ def test_the_pool_pointer_runs_BOTH_directions_and_neither_arm_is_silent() -> No
     sys.path.insert(0, str(_MODULES))
     from assistant.research import research_activities as act
 
-    repo = Path(__file__).resolve().parents[5]
-    assert (repo / "docs" / "standards").is_dir(), (
-        f"repo root resolved to {repo}, which has no docs/standards — the parent "
-        f"count is wrong and every assertion below would compare empty blocks"
-    )
-    product = repo / "docs/standards/architecture/research"
-    component = repo / "docs/development/persistent-memory-protocol/research"
+    # THE CORPUS LIVES IN THE PLANNING REPO SINCE THE 2026-08-31 CONSOLIDATION,
+    # so this walks the sibling rather than this one. Derived rather than
+    # hardcoded: the two repos are siblings on every machine that holds both.
+    repo = Path(__file__).resolve().parents[5].parent / "skyynet-master-planning"
+    if not (repo / "standards").is_dir():
+        pytest.skip(f"no planning repo beside this one at {repo} — this test "
+                    f"compares real corpus blocks and has nothing to read")
+    product = repo / "standards/architecture/research"
+    component = repo / "development/edge-assistant/persistent-memory-protocol/research"
 
     up_c = act.upstream_block(component, repo)
     up_p = act.upstream_block(product, repo)

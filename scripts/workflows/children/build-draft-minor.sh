@@ -35,9 +35,9 @@
 #   Every run writes a structured JSONL log to .claude/logs/build-minor-<ts>.jsonl
 #   regardless of --verbose mode. Use for post-mortem analysis of runs.
 #
-# See docs/guide/workflows.md for the full
+# See /opt/skyy-net/skyynet-master-planning/guide/workflows.md for the full
 # architectural context behind this workflow.
-# See docs/standards/workflow-scripts.md for the standard this script follows.
+# See /opt/skyy-net/skyynet-master-planning/standards/workflow-scripts.md for the standard this script follows.
 
 set -euo pipefail
 

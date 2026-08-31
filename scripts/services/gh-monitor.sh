@@ -12,7 +12,7 @@
 # Designed to run as a systemd oneshot service triggered by gh-monitor.timer.
 # Uses bash + gh CLI only — zero Claude/AI tokens burned on polling.
 #
-# See docs/standards/services.md for the conventions this script follows.
+# See /opt/skyy-net/skyynet-master-planning/standards/services.md for the conventions this script follows.
 
 set -euo pipefail
 

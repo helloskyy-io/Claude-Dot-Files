@@ -107,6 +107,13 @@ def tree(tmp_path: Path) -> Path:
     arithmetic honest without building two trees.
     """
     (tmp_path / "docs" / "development").mkdir(parents=True, exist_ok=True)
+    # the successor layout too — runner defaults name `development/sprints.md`,
+    # which is what MDC and skyynet-master-planning both use.
+    (tmp_path / "development").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "development" / "sprints.md").write_text("# Sprints\n")
+    # and the product research pool at the successor's depth, which is what
+    # `--research` now defaults to.
+    (tmp_path / "standards" / "architecture" / "research").mkdir(parents=True, exist_ok=True)
     (tmp_path / "r" / "raw").mkdir(parents=True)
     return tmp_path
 
@@ -1054,6 +1061,10 @@ def repo(tmp_path: Path) -> Path:
                        capture_output=True)
 
     (tmp_path / "docs" / "development").mkdir(parents=True, exist_ok=True)
+    # the successor layout too — runner defaults name `development/sprints.md`,
+    # which is what MDC and skyynet-master-planning both use.
+    (tmp_path / "development").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "development" / "sprints.md").write_text("# Sprints\n")
     (tmp_path / "docs" / "development" / "sprint.md").write_text("## Sprint: X\n")
     git("init", "-q", "-b", "main")
     git("-c", "user.email=t@t", "-c", "user.name=t", "add", "-A")
@@ -1342,7 +1353,13 @@ def _fixture_repo(tmp_path: Path) -> Path:
     _render(tmp_path / "tracked" / "candidates",
             _table([("C-d1uhacwn", "`ship`"), ("C-p5qvm3e7", "")]))
     (tmp_path / "docs" / "development").mkdir(parents=True, exist_ok=True)
+    # the successor layout too — runner defaults name `development/sprints.md`,
+    # which is what MDC and skyynet-master-planning both use.
+    (tmp_path / "development").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "development" / "sprints.md").write_text("# Sprints\n")
     (tmp_path / "docs" / "development" / "sprint.md").write_text("# Sprint\n")
+    # `--research` defaults to the successor's depth since the consolidation.
+    (tmp_path / "standards" / "architecture" / "research").mkdir(parents=True, exist_ok=True)
     return tmp_path
 
 

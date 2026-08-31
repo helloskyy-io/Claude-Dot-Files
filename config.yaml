@@ -349,7 +349,7 @@ max_turns:
 # turn bound. The cause is still unidentified, so a recurrence is not excluded.
 # This names the exposure; it proposes no remedy, and re-opening the choice
 # without new data is the legislating-from-a-single-run failure that
-# `docs/standards/workflow-scripts.md` § Bounded composition names.
+# `/opt/skyy-net/skyynet-master-planning/standards/workflow-scripts.md` § Bounded composition names.
 #
 # WHAT THE MEASUREMENT SAYS SO FAR, taken 2026-08-11 with
 # `python3 scripts/helpers/measure/replay_run_resources.py` over 10 sound records:
@@ -398,7 +398,7 @@ resource_limits:
 # symlink, or resolves inside any git working tree — the last because a run can
 # edit repo config, and a journal inside a checkout gets committed and pushed.
 #
-# Full reasoning: docs/development/persistent-memory-protocol/phase1_the_run_bag.md
+# Full reasoning: /opt/skyy-net/skyynet-master-planning/development/edge-assistant/persistent-memory-protocol/phase1_the_run_bag.md
 journal:
   # Absolute path. Empty means "use the documented default for `deployment`
   # below" — which is a documented default, not a silent fallback: a shape with

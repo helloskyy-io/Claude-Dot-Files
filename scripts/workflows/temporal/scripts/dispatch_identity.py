@@ -14,7 +14,7 @@ parent, and may or may not be a run, can now begin.
   `resolve_identity`    — the dispatch boundary: validate, or mint and announce
 
 WHY A NAME MINTED INSIDE THE WORK IS THE DEFECT AND NOT A DETAIL. The reliability
-pool under `docs/development/temporal-integration/` surveyed six systems that
+pool under `/opt/skyy-net/skyynet-master-planning/development/edge-assistant/temporal-integration` surveyed six systems that
 name a unit of work — Temporal, GitHub Actions, GitLab, systemd, message queues
 and the IETF `Idempotency-Key` draft — and found NONE that mints the name inside
 the work. Under an at-least-once orchestrator a name minted inside a retried step

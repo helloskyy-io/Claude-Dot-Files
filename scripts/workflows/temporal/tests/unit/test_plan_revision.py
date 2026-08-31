@@ -274,9 +274,10 @@ def test_the_plan_is_pointed_at_the_thesis_and_every_pool(tmp_path) -> None:
     from assistant.plan import plan_activities as act
     from assistant.plan.plan_revision import plan_revision_workflow as wf
 
-    (tmp_path / "docs/standards/architecture").mkdir(parents=True)
-    (tmp_path / "docs/standards/architecture/problem-statement.md").write_text("# thesis")
-    (tmp_path / "docs/standards/architecture/research/raw").mkdir(parents=True)
+    (tmp_path / "standards/architecture").mkdir(parents=True)
+    (tmp_path / "standards/architecture/problem-statement.md").write_text("# thesis")
+    (tmp_path / "standards/architecture/research/raw").mkdir(parents=True)
+    (tmp_path / "standards" / "architecture" / "research").mkdir(parents=True, exist_ok=True)
     (tmp_path / "docs/development/widget/research/raw").mkdir(parents=True)
     (tmp_path / "docs/development/widget/research/raw/p.md").write_text("paper")
     (tmp_path / "docs/development/widget/research/synthesis.md").write_text("syn")

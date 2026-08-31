@@ -57,7 +57,7 @@
 # Logging:
 #   Every run writes a structured JSONL log to .claude/logs/review-sprint-<ts>.jsonl
 #
-# See docs/standards/workflow-scripts.md for the standard this script follows.
+# See /opt/skyy-net/skyynet-master-planning/standards/workflow-scripts.md for the standard this script follows.
 
 set -euo pipefail
 
@@ -280,11 +280,11 @@ Establish the sprint context and repo structure before specialist analysis dispa
 
 3. **Prior sprint reviews:** look for prior `docs/development/reviews/review-sprint-*.md` files. If they exist, scan for findings that were deferred or marked watch-for — those should be checked against current state.
 
-4. **CPI decisions log:** read `CLAUDE_DOT_FILES_ROOT/docs/development/cpi-decisions.md` (the path is provided in the workflow context — it points at the claude-dot-files repo, not the analyzed repo). This log lists every finding from prior CPI cycles with explicit watch-criteria. Use it as input to Stage 5 (Synthesize): findings in this run that match a prior deferral's watch-criteria should be flagged as **recurrences** with the original deferral context, raising their priority for shipping. The synthesized executive summary should explicitly call out which findings are NEW vs RECURRING (with cycle reference).
+4. **CPI decisions log:** read `CLAUDE_DOT_FILES_ROOT//opt/skyy-net/skyynet-master-planning/development/common/cpi-decisions.md` (the path is provided in the workflow context — it points at the claude-dot-files repo, not the analyzed repo). This log lists every finding from prior CPI cycles with explicit watch-criteria. Use it as input to Stage 5 (Synthesize): findings in this run that match a prior deferral's watch-criteria should be flagged as **recurrences** with the original deferral context, raising their priority for shipping. The synthesized executive summary should explicitly call out which findings are NEW vs RECURRING (with cycle reference).
 
 4. **Repo structure inventory:** scan top-level directories. Note where source lives, where tests live, where docs live. This grounds the whole-repo analysis in Stage 2.
 
-5. **Testing infrastructure inventory:** check for `docs/standards/testing.md`, `testing/run-all.sh`, suite runners under `testing/suites/`, master-runner invocation patterns. Stage 3 (Run Tests) and Stage 4 (Build Missing Tests) depend on this.
+5. **Testing infrastructure inventory:** check for `/opt/skyy-net/skyynet-master-planning/standards/testing/testing_standard.md`, `testing/run-all.sh`, suite runners under `testing/suites/`, master-runner invocation patterns. Stage 3 (Run Tests) and Stage 4 (Build Missing Tests) depend on this.
 
 Produce a brief inventory that grounds the rest of the workflow.
 

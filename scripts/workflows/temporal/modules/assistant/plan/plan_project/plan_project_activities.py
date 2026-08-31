@@ -3,7 +3,7 @@
 Every function here serves the PARENT's decisions: which components are new,
 where their research pool belongs, and — since `plan-candidates` — creating that
 pool for a candidate triage has agreed to. Nothing else in the family calls any
-of them, and [`workflow-scripts.md` § Location](../../../../../../../docs/standards/workflow-scripts.md)
+of them, and [`workflow-scripts.md` § Location](/opt/skyy-net/skyynet-master-planning/standards/workflow-scripts.md)
 restates §10.1 rule 3 as BINDING and mechanical — *"consumer count decides,
 never taste"*. Rule 6 gives a one-file workflow folder its place to grow the
 helper it has earned.
@@ -250,7 +250,7 @@ def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> Scaf
         THE TALLY THAT USED TO BE IN THAT SENTENCE IS GONE ON PURPOSE, and its
         removal is the same correction one altitude up. It read *"of 17
         components, 3 … 9 … 5"*: internally consistent, and wrong against the
-        tree, because it counted `docs/development/reviews/` — which
+        tree, because it counted `/opt/skyy-net/skyynet-master-planning/development/common/reviews` — which
         `plan_activities.existing_work` excludes BY NAME as not a component, four
         lines from where the count was taken. A restated figure over mutable
         state is a copy with no gate on it, and this one was written by the very

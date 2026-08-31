@@ -36,7 +36,7 @@ Items intentionally NOT addressed in this PR but tracked for follow-up. The find
 
 **If you cannot verify it, you may not defer to it.** Fix the item, or SURFACE it plainly with no pointer at all. An honest 'no home for this' is worth more than a plausible pointer to nothing — and a naked surfaced item gets picked up downstream, while a laundered one gets filed away as handled.
 
-**FIRST, BEFORE PLACEMENT — is this a DEFECT or a PROPOSAL?** [Architecture Standard § 4 Memory](../../../../../../docs/standards/architecture/architectural_standard.md) binds this; apply it rather than re-deriving it.
+**FIRST, BEFORE PLACEMENT — is this a DEFECT or a PROPOSAL?** [Architecture Standard § 4 Memory](/opt/skyy-net/skyynet-master-planning/standards/architecture/architecture_standard.md) binds this; apply it rather than re-deriving it.
 
 - **DEFECT** — something already built or already decided behaves wrongly, or a decision the research and planning do not supply is now blocking. Continue below.
 - **PROPOSAL** — capability that does not exist and would be *added*. It belongs in **`tracked/candidates/`**, never `tracked/issues/`, whatever its done-state looks like. Bias here when a finding reads either way.
@@ -45,7 +45,7 @@ Items intentionally NOT addressed in this PR but tracked for follow-up. The find
 
   **Name the `component` this candidate belongs to — in the item YOU are writing, and in no other.** An existing `docs/development/<name>/` if it extends one, a new name if it does not. **A blank means nothing is scaffolded for it.** You are the one who knows: you have just written the proposal, and anything downstream would be guessing from a one-line summary. A blank is an unanswered question rather than an error, so leave it blank rather than inventing a name you are not sure of. **Do not fill in the cell on a row somebody else filed** — that is guessing from a summary, it is checked cell-by-cell on every pre-existing row, and it does not stay a guess: `plan-candidates` turns a component name into a committed `docs/development/<name>/`.
 
-  **Why the reviewer and not you** ([`finding-routing.md`](../../../../../../docs/standards/finding-routing.md) § 4): the judge is not the author. It applies to a proposal exactly as it does to a defect — *defect-or-proposal* is itself a call you have an interest in. The reviewer reaches a file surface by INTAKE, so it is no longer barred from filing.
+  **Why the reviewer and not you** ([`finding-routing.md`](/opt/skyy-net/skyynet-master-planning/standards/finding-routing.md) § 4): the judge is not the author. It applies to a proposal exactly as it does to a defect — *defect-or-proposal* is itself a call you have an interest in. The reviewer reaches a file surface by INTAKE, so it is no longer barred from filing.
 
   **Surfacing is the mechanism, not a fallback — so make it findable.** Give the item its own heading in the PR body with consequence, remedy and intended store. What dies at merge is a finding the reviewer could not locate, and that is now the only way one is lost.
 

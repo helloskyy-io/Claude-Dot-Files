@@ -576,6 +576,8 @@ def test_the_runner_REFUSES_a_component_outside_the_repo(tmp_path: Path, capsys)
 
     repo = tmp_path / "repo"
     (repo / "docs" / "development").mkdir(parents=True)
+    (repo / "development").mkdir(parents=True, exist_ok=True)
+    (repo / "development" / "sprints.md").write_text("# Sprints\n")
     subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
     (tmp_path / "outside").mkdir()
 

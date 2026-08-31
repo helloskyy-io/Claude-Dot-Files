@@ -21,8 +21,8 @@
 # drift is loud rather than discovered months later.
 #
 # WHAT BELONGS LOCALLY INSTEAD:
-#   docs/standards/temporal/README.md                     applicability — what binds now vs at port time
-#   docs/standards/temporal/claude-dot-files-addendum.md  rules that are genuinely OURS
+#   /opt/skyy-net/skyynet-master-planning/standards/temporal/README.md                     applicability — what binds now vs at port time
+#   /opt/skyy-net/skyynet-master-planning/standards/temporal/claude-dot-files-addendum.md  rules that are genuinely OURS
 #
 # Usage:
 #   scripts/helpers/vendor-standards.sh            re-vendor from source

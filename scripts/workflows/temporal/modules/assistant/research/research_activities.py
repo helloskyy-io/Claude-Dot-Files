@@ -179,7 +179,7 @@ def _tracked_candidates(research_dir: Path) -> Path:
 
 # Research Standard §1 names TWO altitudes and one location each. The product
 # pool is a single known path; everything else is a component pool.
-PRODUCT_POOL = Path("docs/standards/architecture/research")
+PRODUCT_POOL = Path("standards/architecture/research")
 
 
 def altitude(research_dir: Path, repo_root: Path) -> str:
@@ -201,7 +201,7 @@ def altitude(research_dir: Path, repo_root: Path) -> str:
     return "PRODUCT" if rel == PRODUCT_POOL else "COMPONENT"
 
 
-COMPONENT_ROOT = Path("docs/development")
+COMPONENT_ROOT = Path("development")
 
 
 def component_pools_block(research_dir: Path, repo_root: Path) -> str:
@@ -228,7 +228,16 @@ def component_pools_block(research_dir: Path, repo_root: Path) -> str:
     root = repo_root / COMPONENT_ROOT
     if not root.is_dir():
         return ""
-    pools = sorted(p for p in root.glob("*/research") if p.is_dir())
+    # TWO DEPTHS, UNIONED, because the planning layout is BUCKETED and this used
+    # to assume it was not. `skyynet-master-planning` and `mdc-master-planning`
+    # both nest a component under an axis — `development/edge-assistant/<c>/` and
+    # `development/common/<c>/` — so a single-level glob returned nothing and a
+    # PRODUCT run rendered NO feature-pool pointer at all: a full cycle could not
+    # see what the feature investigations had already established. Globbing both
+    # depths keeps an unbucketed repo working rather than trading one assumption
+    # for another.
+    pools = sorted({p for depth in ("*/research", "*/*/research")
+                    for p in root.glob(depth) if p.is_dir()})
     if not pools:
         return ""
     rows, total = [], 0

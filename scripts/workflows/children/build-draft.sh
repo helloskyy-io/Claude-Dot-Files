@@ -39,9 +39,9 @@
 # Logging:
 #   Every run writes a structured JSONL log to .claude/logs/build-draft-<ts>.jsonl
 #
-# See docs/guide/workflows.md for the full
+# See /opt/skyy-net/skyynet-master-planning/guide/workflows.md for the full
 # architectural context behind this workflow.
-# See docs/standards/workflow-scripts.md for the standard this script follows.
+# See /opt/skyy-net/skyynet-master-planning/standards/workflow-scripts.md for the standard this script follows.
 
 set -euo pipefail
 
@@ -286,14 +286,14 @@ Run tests relevant to the changes, following the project's testing standard.
 1. **Call-shape match:** does the test invoke the code the way the REAL callers do? A test calling a function directly while every caller uses command substitution \`\$( )\` exercises a different execution context — errexit is cleared in a subshell, so the test cannot observe the failure the callers will hit. Match the caller's shape.
 2. **Verified negative control** (required for structural/contract/grep-style tests): demonstrate the assertion actually FIRES when the property is violated. Temporarily break the property in a scratch copy, confirm the test goes red, restore. A contract test that cannot fail is worse than no test — it manufactures confidence. (Measured: a contract-grep asserted the return path and was structurally blind to the raise channel; three credential exits were live behind it.)
 
-**Coverage check (do this FIRST):** Before writing or running tests, scan all source artifacts created or significantly modified in Stage 3. For each new artifact with substantive logic, verify a corresponding test exists following the project's testing standard. What counts as a "corresponding test" depends on the framework — consult the project's `docs/standards/testing.md` for the framework-specific mapping. Common patterns:
+**Coverage check (do this FIRST):** Before writing or running tests, scan all source artifacts created or significantly modified in Stage 3. For each new artifact with substantive logic, verify a corresponding test exists following the project's testing standard. What counts as a "corresponding test" depends on the framework — consult the project's `/opt/skyy-net/skyynet-master-planning/standards/testing/testing_standard.md` for the framework-specific mapping. Common patterns:
 - Python: `<name>.py` → `test_<name>.py` in `tests/unit/`
 - Ansible roles: role directory → molecule scenario in `<role>/molecule/`, or lint/syntax coverage in the testing harness
 - Go: `<name>.go` → `<name>_test.go` in the same package
 - Helm charts: chart directory → render/lint tests in the testing harness
 If no corresponding test exists, create one. If tests genuinely cannot be created at this stage (e.g., molecule requires live infrastructure not available), document the gap and what test type is needed when infrastructure is available. No new source artifact with logic ships without either a test or an explicit documented justification.
 
-- Discover the project's test hierarchy: look for `docs/standards/testing.md`, then `testing/run-all.sh`, then `<component>/tests/` directories
+- Discover the project's test hierarchy: look for `/opt/skyy-net/skyynet-master-planning/standards/testing/testing_standard.md`, then `testing/run-all.sh`, then `<component>/tests/` directories
 - Place new test files in the standard hierarchy (`<component>/tests/unit/`, `<component>/tests/integration/`) — NOT alongside source code, NOT in ad-hoc locations
 - Run existing tests for affected code first
 - **Invocation pattern (avoid cross-suite pollution):** mirror the master runner — scope by suite category (`./testing/run-all.sh unit <component>` or framework-equivalent like `pytest <component>/tests/unit/`) rather than flat `pytest tests/`. Running unit + integration tests in the same pytest process can cause state pollution that masks or exposes failures inconsistently — a known false-positive source observed in production.

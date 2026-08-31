@@ -212,7 +212,13 @@ BUDGETS: dict[str, int] = {
     #     The path is resolved from `__file__` rather than configured, so it is
     #     right on every machine and in every consuming repo with nobody
     #     maintaining it.
-    "review_pr/prompts/disposition.md": 87_180,
+    # +68 on 2026-08-31 for the SkyyNet consolidation: planning and standards
+    # moved to `skyynet-master-planning`, so every reference became an ABSOLUTE
+    # cross-repo path instead of `docs/...`. That is MDC's own convention —
+    # `skyy-command` cites its planning repo the same way, hundreds of times —
+    # and it is the only form that resolves from a worktree of another repo.
+    # NO INSTRUCTION WAS ADDED; the same sentences got longer.
+    "review_pr/prompts/disposition.md": 87_248,
     "plan/plan_revision/prompts/stages_1_to_5.md": 22_506,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-f0lfdhmm's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the
@@ -449,7 +455,13 @@ BUDGETS: dict[str, int] = {
     # stale, and correctly declined to fix what it believed it had no grant on.
     # Against Prompt economy: it changes what the model DOES, and no reasoner can
     # infer a write grant from a prompt that lists the file under reading.
-    "plan/plan_draft/prompts/plan_draft.md": 24_206,
+    # +177 on 2026-08-31 for the SkyyNet consolidation: planning and standards
+    # moved to `skyynet-master-planning`, so every reference became an ABSOLUTE
+    # cross-repo path instead of `docs/...`. That is MDC's own convention —
+    # `skyy-command` cites its planning repo the same way, hundreds of times —
+    # and it is the only form that resolves from a worktree of another repo.
+    # NO INSTRUCTION WAS ADDED; the same sentences got longer.
+    "plan/plan_draft/prompts/plan_draft.md": 24_383,
     # 15_510 -> 13_204: the `research-analyst` re-dispatch is gone. The verify
     # child holds Write/Edit and applies the critic's findings itself, so the
     # rules that existed only to coordinate a second writing agent went with it
@@ -525,7 +537,13 @@ BUDGETS: dict[str, int] = {
     # the prompt was the only thing stopping it, wrongly.
     # This is the THIRD instance of C-zwzepum0's class in this one file today,
     # which is why its count moved rather than a new candidate being filed.
-    "plan/plan_refine/prompts/plan_refine.md": 18649,
+    # +112 on 2026-08-31 for the SkyyNet consolidation: planning and standards
+    # moved to `skyynet-master-planning`, so every reference became an ABSOLUTE
+    # cross-repo path instead of `docs/...`. That is MDC's own convention —
+    # `skyy-command` cites its planning repo the same way, hundreds of times —
+    # and it is the only form that resolves from a worktree of another repo.
+    # NO INSTRUCTION WAS ADDED; the same sentences got longer.
+    "plan/plan_refine/prompts/plan_refine.md": 18_761,
     # RATCHETED DOWN 14_437 -> 9_896, the other side of the same move. It stays
     # above the FLOOR, so it keeps its line rather than dropping off the table.
     # Then 9_896 -> 9_908, the same twelve substituted-away bytes as above.
@@ -642,7 +660,13 @@ BUDGETS: dict[str, int] = {
     #     run had to choose between reporting and acting. Stated now: the line
     #     figure is a GUIDE, the source rate is BINDING, and an in-rate overrun is
     #     reported and carried rather than cut.
-    "research/research_draft/prompts/draft.md": 21_071,
+    # +33 on 2026-08-31 for the SkyyNet consolidation: planning and standards
+    # moved to `skyynet-master-planning`, so every reference became an ABSOLUTE
+    # cross-repo path instead of `docs/...`. That is MDC's own convention —
+    # `skyy-command` cites its planning repo the same way, hundreds of times —
+    # and it is the only form that resolves from a worktree of another repo.
+    # NO INSTRUCTION WAS ADDED; the same sentences got longer.
+    "research/research_draft/prompts/draft.md": 21_104,
     "build/build_draft_minor/prompts/update_pr.md": 10_675,
     # SHARED FRAGMENTS ARE THE EXPENSIVE ONES — every workflow that includes one
     # pays for it, so a byte here costs more than a byte in any single prompt.

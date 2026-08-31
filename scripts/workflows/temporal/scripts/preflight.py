@@ -116,7 +116,7 @@ def _did_you_mean(repo_root, missing) -> str:
 
     REPORTS WHAT IS THERE; IT NEVER PICKS. A default is written for one repo's
     layout and every other repo inherits it — `--sprint` defaults to
-    `docs/development/sprint.md`, and MDC keeps its at `development/sprints.md`.
+    `/opt/skyy-net/skyynet-master-planning/development/sprints.md`, and MDC keeps its at `development/sprints.md`.
     The failure is a bare absent path that reads like a typo, so it costs a round
     trip per repo to discover it was a default at all. Measured: two consecutive
     launches lost to it on 2026-08-31.

@@ -142,7 +142,7 @@ FORBIDDEN_PATHS = (
     r"^docs/standards/",        # "...or anything else under `docs/standards/`"
     # THE TRACKED STORES, ADDED 2026-08-26 WITH THE FLIP, AND IT RESTORES A
     # PROPERTY RATHER THAN ADDING ONE. `candidates.md` used to live under
-    # `docs/standards/architecture/research/`, so it was already inside a
+    # `/opt/skyy-net/skyynet-master-planning/standards/architecture/research`, so it was already inside a
     # forbidden tree and `permitted_paths` was a CARVE-OUT of it. The store is
     # root-relative now — that is what lets one implementation serve every repo
     # — and `tracked/` matches neither prefix above, so the flip silently took

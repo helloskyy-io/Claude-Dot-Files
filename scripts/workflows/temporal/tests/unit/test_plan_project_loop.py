@@ -568,6 +568,8 @@ def _git(repo: Path, *args: str) -> str:
 def real_repo(tmp_path: Path) -> Path:
     repo = tmp_path / "r"
     (repo / "docs" / "development").mkdir(parents=True)
+    (repo / "development").mkdir(parents=True, exist_ok=True)
+    (repo / "development" / "sprints.md").write_text("# Sprints\n")
     _git(repo.parent, "init", "-q", "r")
     _git(repo, "config", "user.email", "t@t")
     _git(repo, "config", "user.name", "t")

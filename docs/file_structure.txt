@@ -532,6 +532,10 @@ claude-dot-files/
 │                   │                                #   lines), never the word — a naive sweep flags seven correct functions. And the raise must be
 │                   │                                #   able to ESCAPE: wait_for_ci raises inside a try its own except catches, so any(ast.Raise)
 │                   │                                #   called the shipped defect correct
+│                   ├── test_every_placeholder_has_a_supplier.py # Every ${PLACEHOLDER} a prompt consumes has a value
+│                   │                                #   from whoever renders it, INCLUDING through a shared fragment inserted as a
+│                   │                                #   value. MDC #204 lost its whole review stage to one that did not — the plan
+│                   │                                #   was written and pushed, then the run exited 1 before review-pr
 │                   ├── test_no_loop_back_re_enters_the_AUTHOR.py # A loop-back re-enters the CORRECTOR, never the author.
 │                   │                                #   `plan` re-dispatched plan-draft every correction pass for its whole life;
 │                   │                                #   MDC #173 turned 7 planned phases into 10, $97, never converged

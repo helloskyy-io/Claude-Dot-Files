@@ -43,7 +43,7 @@ its consumer count puts it:
 
 `candidate_decisions` was briefly argued to belong elsewhere
 anyway, as "the same concern as their neighbours".
-[`workflow-scripts.md` § Location](../../../../../../docs/standards/workflow-scripts.md)
+[`workflow-scripts.md` § Location](/opt/skyy-net/skyynet-master-planning/standards/workflow-scripts.md)
 restates §10.1 rule 3 as BINDING and forecloses exactly that argument — *"consumer
 count decides, never taste"* — and rule 6 gives a workflow folder its place to
 grow a helper it has earned. The row-level primitives they need are exported
@@ -181,7 +181,7 @@ _PHASE_DOC_REF = re.compile(r"\bphase\d+[\w.-]*\.md\b", re.I)
 #
 # `status` IS THE STANDARD'S, NOT THIS MODULE'S, and it changed at the flip.
 # The table carried `open` / `closed`; [Tracked Items Standard §4]
-# (../../../../../docs/standards/documentation/tracked_items_standard.md) gives
+# (/opt/skyy-net/skyynet-master-planning/standards/documentation/tracked_items_standard.md) gives
 # the candidates store the terminal states **`adopted` · `rejected`**. Those are
 # not renamings of `closed` — they say WHICH WAY it closed, which `closed` never
 # did, and §4.2 prunes them on different clocks (14 days against six months)
@@ -976,8 +976,8 @@ def grants_that_vanished(before: dict[str, str], after: dict[str, str],
     wins over `forbidden` in `boundary_crossings` unconditionally, so the one
     file each workflow's override exists FOR is the one file whose disappearance
     nothing observed. Demonstrated end-to-end before it was fixed: `plan-sprint`
-    deleting `docs/development/sprint.md` returned a PR URL and a green run, and
-    so did `git mv docs/development/sprint.md notes.md` — the operator's
+    deleting `/opt/skyy-net/skyynet-master-planning/development/sprints.md` returned a PR URL and a green run, and
+    so did `git mv /opt/skyy-net/skyynet-master-planning/development/sprints.md notes.md` — the operator's
     cross-domain sequencing surface, which `standards-governance.md` protects
     with a human-in-the-loop rule, gone with every guard reporting clean.
 
@@ -1115,8 +1115,8 @@ def existing_work(tree: Path, research_dir: Path) -> str:
     return "\n".join(lines)
 
 
-PROBLEM_STATEMENT = Path("docs/standards/architecture/problem-statement.md")
-PRODUCT_POOL = Path("docs/standards/architecture/research")
+PROBLEM_STATEMENT = Path("standards/architecture/problem-statement.md")
+PRODUCT_POOL = Path("standards/architecture/research")
 COMPONENT_ROOT = Path("docs/development")
 
 

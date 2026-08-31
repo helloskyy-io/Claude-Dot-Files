@@ -51,9 +51,9 @@ Read, in this order, and do not skip any:
 
 1. **`${CANDIDATES_PATH}`** — the running list, including its header sections. Note which rows have a blank `decision` (untriaged, your job) versus a set one (already ruled, leave alone unless new evidence overturns it).
 2. **`${RESEARCH_DIR}/synthesis.md`** — what the PRODUCT-level evidence currently says. **This is your evidence input. DO NOT READ THE RAW PAPERS.** The Research Standard is explicit that downstream consumers take the synthesis and never the pool, and a triage pass that opens 21 papers is an hour-long run doing a job the synthesis already did. The paper *list* below is for coverage checking only — noticing a title the synthesis never mentions. **Open a paper only if a specific candidate cannot be ruled on without it, and say in your report which one and why.**
-3. **`docs/standards/architecture/problem-statement.md`** — the thesis and the differentiators. **You never edit this.** You read it because a candidate that serves no stated differentiator is a candidate you should be sceptical of.
-4. **`docs/standards/architecture/architectural_standard.md`** — the binding vocabulary and the seams. A candidate that violates a seam is a `reject`, and the reason is the seam.
-5. **`docs/standards/architecture/stack_reference.md`** — what we run on and **what we deliberately do not**. A candidate contradicting a settled stack decision is a `reject`, and the reason is that it was already decided. Note its "What we do NOT use" section: that list exists because a research cycle once costed out a product ruled out three weeks earlier.
+3. **`/opt/skyy-net/skyynet-master-planning/standards/architecture/problem-statement.md`** — the thesis and the differentiators. **You never edit this.** You read it because a candidate that serves no stated differentiator is a candidate you should be sceptical of.
+4. **`/opt/skyy-net/skyynet-master-planning/standards/architecture/architecture_standard.md`** — the binding vocabulary and the seams. A candidate that violates a seam is a `reject`, and the reason is the seam.
+5. **`/opt/skyy-net/skyynet-master-planning/standards/architecture/stack_reference.md`** — what we run on and **what we deliberately do not**. A candidate contradicting a settled stack decision is a `reject`, and the reason is that it was already decided. Note its "What we do NOT use" section: that list exists because a research cycle once costed out a product ruled out three weeks earlier.
 
 ${EXISTING_WORK}
 
@@ -71,9 +71,9 @@ Report what you found: how many candidates are untriaged, and anything in the ev
 
 **Judge it against the trajectory, and the trajectory is written down. Read it before you rule:**
 
-- **`docs/standards/architecture/problem-statement.md`** — what this project IS and what differentiates it. **A candidate that does not serve the thesis is a well-formed answer to a question nobody asked**, however true it is.
+- **`/opt/skyy-net/skyynet-master-planning/standards/architecture/problem-statement.md`** — what this project IS and what differentiates it. **A candidate that does not serve the thesis is a well-formed answer to a question nobody asked**, however true it is.
 - **The PROJECT-level research pool and its synthesis** — what the evidence has established about direction. A candidate pointing away from a settled direction needs a reason better than *"it would also work."*
-- **`docs/development/sprint.md`** — what is already being built, and in what order. **A candidate an existing sprint already covers is not new work; it is a duplicate wearing a new id.**
+- **`/opt/skyy-net/skyynet-master-planning/development/sprints.md`** — what is already being built, and in what order. **A candidate an existing sprint already covers is not new work; it is a duplicate wearing a new id.**
 - **The component roadmaps it touches** — a candidate already planned as a phase somewhere is likewise not new.
 
 **Tells that a candidate is a `reject` even though it is sound:** it improves something the platform is not building; it serves a use case the problem statement excludes; it is real but so far from the trajectory that doing it now costs more in attention than it returns; it is already covered and the filer did not know.
@@ -137,7 +137,7 @@ This exists because **`ship` and `reject` are both wrong answers for an open que
 
 **How to file one.** **Set `decision: requires review` on the candidate and stop.** That is the whole of it — the item itself is the record, and the field is what the operator reads.
 
-**There is no second queue any more.** A `D-NNN` row in a `direction.md` beside the pool used to be filed here as well. That file was deleted on 2026-08-26: every row it held pointed at a candidate that still existed carrying this exact decision, so the second surface added an id and nothing else, and nobody ever ruled the rows it accumulated. **Do not recreate it** — [Tracked Items Standard §8](../../../../../../../../docs/standards/documentation/tracked_items_standard.md) names a second surface for a class that already has one as a violation.
+**There is no second queue any more.** A `D-NNN` row in a `direction.md` beside the pool used to be filed here as well. That file was deleted on 2026-08-26: every row it held pointed at a candidate that still existed carrying this exact decision, so the second surface added an id and nothing else, and nobody ever ruled the rows it accumulated. **Do not recreate it** — [Tracked Items Standard §8](/opt/skyy-net/skyynet-master-planning/standards/documentation/tracked_items_standard.md) names a second surface for a class that already has one as a violation.
 
 - **Say WHY the operator and not you**, in the item's body, in one or two sentences. *"Two defensible answers and the evidence does not pick"* is a ruling; *"this is hard"* is not.
 - **You never set `status`.** `adopted` and `rejected` are a later process's.

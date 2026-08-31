@@ -30,8 +30,8 @@ def main(argv=None) -> int:
     # still reads as being under `repo_root`. The `..` has to be collapsed first,
     # which is `.resolve()`'s job and `resolve_operator_paths`' whole subject.
     p.add_repo_path("component", kind="dir",
-                    help="the planned component, e.g. docs/development/workflow-decomposition")
-    p.add_repo_path("--sprint", default="docs/development/sprint.md")
+                    help="the planned component, e.g. /opt/skyy-net/skyynet-master-planning/development/edge-assistant/workflow-decomposition")
+    p.add_repo_path("--sprint", default="development/sprints.md")
     p.add_argument("--pr", dest="pr_number", help="update an existing plan-sprint PR")
     p.add_argument("--task-file", dest="task_file",
                    help="operator context or a correction runway, from a file")

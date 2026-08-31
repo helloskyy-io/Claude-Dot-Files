@@ -47,7 +47,7 @@ nothing here has to change to allow it.
   a mid-build surprise.
 
 The full reasoning for every decision this package implements is in
-`docs/development/persistent-memory-protocol/phase1_the_run_bag.md`, which is the
+`/opt/skyy-net/skyynet-master-planning/development/edge-assistant/persistent-memory-protocol/phase1_the_run_bag.md`, which is the
 authority; the docstrings here carry the half a reader of the code needs.
 """
 

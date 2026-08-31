@@ -6,7 +6,7 @@
 # This is the continuous process improvement (CPI) workflow. It:
 #   1. Scans .claude/logs/ for recent JSONL logs
 #   2. Invokes Claude with the workflow-analysis methodology to analyze them
-#   3. Produces a report at docs/development/reviews/review-YYYY-MM-DD.md
+#   3. Produces a report at /opt/skyy-net/skyynet-master-planning/development/common/reviewsreview-YYYY-MM-DD.md
 #
 # Usage:
 #   ./review-runs.sh
@@ -28,8 +28,8 @@
 # Logging:
 #   Every run writes a structured JSONL log to .claude/logs/review-runs-<ts>.jsonl
 #
-# See docs/development/sprint.md Phase 5a for the design context.
-# See docs/standards/workflow-scripts.md for the standard this script follows.
+# See /opt/skyy-net/skyynet-master-planning/development/sprints.md Phase 5a for the design context.
+# See /opt/skyy-net/skyynet-master-planning/standards/workflow-scripts.md for the standard this script follows.
 
 set -euo pipefail
 
@@ -103,7 +103,7 @@ Analyzes recent workflow logs and produces a structured improvement report.
 
 Run this from INSIDE the repo whose logs you want to analyze. Logs are stored
 per-repo at <repo>/.claude/logs/ — each repo accumulates its own workflow
-history. The report is written to <repo>/docs/development/reviews/.
+history. The report is written to <repo>//opt/skyy-net/skyynet-master-planning/development/common/reviews.
 
 Options:
   --days <N>      Analyze logs from the last N days (default: 7)
@@ -230,10 +230,10 @@ TODAY=$(date +%Y-%m-%d)
 SOURCE_REPO_NAME="$(basename "$MAIN_REPO_ROOT")"
 SOURCE_MACHINE="$(hostname -s)"
 
-# Reports always go to claude-dot-files/docs/development/reviews/ — single
+# Reports always go to claude-dot-files//opt/skyy-net/skyynet-master-planning/development/common/reviews — single
 # searchable location across all analyzed repos and machines. Filename
 # includes the source repo so reports never collide.
-REPORT_DIR="${CLAUDE_DOT_FILES_ROOT}/docs/development/reviews"
+REPORT_DIR="${CLAUDE_DOT_FILES_ROOT}//opt/skyy-net/skyynet-master-planning/development/common/reviews"
 REPORT_FILE="${REPORT_DIR}/review-${SOURCE_REPO_NAME}-${TODAY}.md"
 
 # Log for THIS run (the review workflow itself) stays with the analyzed repo's
@@ -300,7 +300,7 @@ ${PROMPT_FILE_LIST}
 
 1. GATHER: Read each of the log files listed above. For very large logs, focus on the result events, tool call patterns, and any error events. Use the Grep tool to extract key events efficiently rather than reading entire files if they are large.
 
-   **Also read the CPI decisions log** at \`${CLAUDE_DOT_FILES_ROOT}/docs/development/cpi-decisions.md\` — it lists every finding deferred from prior cycles with explicit watch-criteria. Use this as input to Step 3 (SCORE): findings in this run that match a prior deferral's watch-criteria should be flagged as **recurrences** with the original deferral context, raising their priority for shipping.
+   **Also read the CPI decisions log** at \`${CLAUDE_DOT_FILES_ROOT}//opt/skyy-net/skyynet-master-planning/development/common/cpi-decisions.md\` — it lists every finding deferred from prior cycles with explicit watch-criteria. Use this as input to Step 3 (SCORE): findings in this run that match a prior deferral's watch-criteria should be flagged as **recurrences** with the original deferral context, raising their priority for shipping.
 
 2. ANALYZE: Use the workflow-analysis skill methodology to analyze the logs. Look for:
    - Inefficiencies (unnecessary tool calls, redundant reads, scope creep)
@@ -334,7 +334,7 @@ ${PROMPT_FILE_LIST}
    - Medium-Confidence Findings (with evidence, recommendation, needs)
    - Low-Confidence Findings (with watch-for notes)
    - Patterns Resolved Since Last Review (look for prior reviews matching \`review-${SOURCE_REPO_NAME}-*.md\` in the same directory — compare only against reviews of THIS repo)
-   - Recurrences from CPI Decisions Log (any finding in this report that matches a watch-criteria from \`${CLAUDE_DOT_FILES_ROOT}/docs/development/cpi-decisions.md\` — note the original deferral cycle and current evidence count, e.g., "TS-2 surface-only boundary ambiguity — DEFERRED at review-sprint run #1, 2026-05-03 — recurring this cycle, watch-criteria met")
+   - Recurrences from CPI Decisions Log (any finding in this report that matches a watch-criteria from \`${CLAUDE_DOT_FILES_ROOT}//opt/skyy-net/skyynet-master-planning/development/common/cpi-decisions.md\` — note the original deferral cycle and current evidence count, e.g., "TS-2 surface-only boundary ambiguity — DEFERRED at review-sprint run #1, 2026-05-03 — recurring this cycle, watch-criteria met")
    - Metrics (average turns, token usage, failure types, trends)
    - Summary (2-3 sentences: health, top priority, trend)
 
@@ -347,7 +347,7 @@ ${PROMPT_FILE_LIST}
 - Cite specific log evidence for every finding
 - If the logs look clean, say so — don't invent problems
 - Always disclose sample size and confidence level
-- If prior reviews exist in docs/development/reviews/, check them for resolved patterns
+- If prior reviews exist in /opt/skyy-net/skyynet-master-planning/development/common/reviews, check them for resolved patterns
 - Focus on patterns, not one-off anomalies (unless severe)
 - For known-large files (sprint.md, standards docs, .jsonl logs), use limit:200 on first read or run wc -l to check size first — unbounded reads on large files cause errors
 EOF

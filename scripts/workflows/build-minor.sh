@@ -58,8 +58,8 @@
 # against $25-50. If the review keeps surfacing structural or standards
 # problems, the task was mis-sized and belongs on build.sh.
 #
-# See docs/guide/workflows.md for the dual-flow model.
-# See docs/standards/workflow-scripts.md for the standard this script follows.
+# See /opt/skyy-net/skyynet-master-planning/guide/workflows.md for the dual-flow model.
+# See /opt/skyy-net/skyynet-master-planning/standards/workflow-scripts.md for the standard this script follows.
 
 set -euo pipefail
 

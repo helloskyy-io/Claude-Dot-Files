@@ -28,7 +28,7 @@ from modules.assistant.plan.plan.plan_workflow import run_plan  # noqa: E402
 
 BANNER = "=" * 64
 DEFAULT_CANDIDATES = "tracked/candidates"
-DEFAULT_SPRINT = "docs/development/sprint.md"
+DEFAULT_SPRINT = "development/sprints.md"
 
 
 def _parser() -> RepoPathParser:

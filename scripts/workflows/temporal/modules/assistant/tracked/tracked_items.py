@@ -1,7 +1,7 @@
 """The Tracked Items contract, in code — four stores, one shape.
 
 THIS MODULE IS THE CONSUMER SIDE OF A VERSIONED CONTRACT IT DOES NOT OWN.
-`docs/standards/documentation/tracked_items_standard.md` §2 and §3 are the
+`/opt/skyy-net/skyynet-master-planning/standards/documentation/tracked_items_standard.md` §2 and §3 are the
 contract; that document is its owner and this conforms to it. The standard is
 VENDORED, so a disagreement is resolved upstream and re-vendored, never by
 editing either side here.

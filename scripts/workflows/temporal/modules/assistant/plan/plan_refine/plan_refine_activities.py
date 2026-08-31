@@ -1,6 +1,6 @@
 """plan-refine's own I/O — one consumer each, so §10.1 rule 3 puts them here.
 
-[`workflow-scripts.md` § Location](../../../../../../../docs/standards/workflow-scripts.md)
+[`workflow-scripts.md` § Location](/opt/skyy-net/skyynet-master-planning/standards/workflow-scripts.md)
 restates §10.1 rule 3 as BINDING and mechanical — *"consumer count decides, never
 taste"* — and rule 6 gives a workflow folder its place to grow the helpers it has
 earned. Everything below has exactly one consumer: `plan_refine_workflow`.
@@ -57,7 +57,7 @@ phase_docs_of = act.phase_docs
 # non-conformant legacy name it points at is still a phase it points at.
 #
 # IT MATCHES A CROSS-COMPONENT LINK TOO, AND THAT IS DELIBERATE RATHER THAN
-# TOLERATED. `docs/development/memory-management-framework/roadmap.md` links
+# TOLERATED. `/opt/skyy-net/skyynet-master-planning/development/edge-assistant/memory-management-framework/roadmap.md` links
 # three of `persistent-memory-protocol`'s phase docs — measured, not supposed, by
 # running this reader against the live file — so the reference set is genuinely
 # wider than the component's own phases. For the GUARD that is the property

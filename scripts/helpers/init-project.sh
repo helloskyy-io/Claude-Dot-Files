@@ -286,7 +286,7 @@ else
 ## Documentation
 
 This project follows the four-bucket documentation layout:
-- \`docs/standards/architecture/\` — THE WHY: architecture standards, system design
+- \`/opt/skyy-net/skyynet-master-planning/standards/architecture\` — THE WHY: architecture standards, system design
 - \`docs/development/\` — THE WHAT: roadmap, phases, features
 - \`docs/standards/\` — THE HOW: conventions, patterns
 - \`docs/guide/\` — OPERATING MANUAL: user-facing docs

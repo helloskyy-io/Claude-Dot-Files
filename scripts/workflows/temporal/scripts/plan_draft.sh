@@ -8,7 +8,7 @@
 # Usage:
 #   ./plan_draft.sh docs/development/fleet-reliability
 #   ./plan_draft.sh docs/development/managed-configuration --dry-run
-#   ./plan_draft.sh docs/development/mcp-servers --pr 42 --verbose
+#   ./plan_draft.sh /opt/skyy-net/skyynet-master-planning/development/edge-assistant/mcp-servers --pr 42 --verbose
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 exec python3 "${SCRIPT_DIR}/run_plan_draft.py" "$@"

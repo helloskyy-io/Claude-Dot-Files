@@ -16,7 +16,7 @@ nominated four items for merging and one of four survived reading them.
 
     python3 scripts/helpers/similar-candidates.py "the finding, in your words"
     python3 scripts/helpers/similar-candidates.py --store standards \\
-        --target docs/standards/workflow-scripts.md --anchor '§ Composition' "..."
+        --target /opt/skyy-net/skyynet-master-planning/standards/workflow-scripts.md --anchor '§ Composition' "..."
 
 WHY IT EXISTS AT ALL. `recurrence.py` shipped 2026-08-26 with the ranking and the
 rendered block, and the prompts shipped the same day telling every filer to
