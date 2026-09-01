@@ -3,13 +3,19 @@
 # init-project.sh — Initialize a new project with standard scaffolding
 #
 # Pure bash utility (no AI, no Claude, zero tokens). Creates the mechanical
-# foundation that plan-new.sh and other workflows expect: git repo, GitHub
-# remote, folder structure, .gitignore, and minimal entry-point files.
+# foundation the tooling expects: git repo, GitHub remote, folder structure,
+# the four tracked-item stores, .gitignore, and minimal entry-point files.
 #
 # Fully idempotent — safe to run multiple times. Skips anything already set up.
 #
-# Called automatically by plan-new.sh when no git repo is detected, but can
-# also be run standalone for manual project initialization.
+# STANDALONE, AND THAT IS THE RULING RATHER THAN AN OBSERVATION. This line used
+# to say it was "called automatically by plan-new.sh". `plan-new.sh` is in the
+# FROZEN bash fleet and nothing under scripts/workflows/temporal/ references
+# this script, so its only integration point no longer runs — a live script
+# whose caller is frozen. Creating a repository is an OPERATOR act, not a
+# dispatch act: nothing in the Python fleet creates repos, and nothing should,
+# because a dispatch is pointed AT a tree it did not make. So: an operator runs
+# this, by hand, once, before any dispatch is aimed at the result.
 #
 # Usage:
 #   ./init-project.sh "project-name"
@@ -32,7 +38,8 @@
 #
 # What it does NOT do:
 #   - No AI invocation (zero tokens)
-#   - No requirements, architecture, or planning (that's plan-new.sh)
+#   - No requirements, architecture, or planning — a `plan` dispatch does that,
+#     pointed at the repo this creates
 #   - No tech stack decisions
 #   - No detailed documentation content
 
@@ -56,7 +63,7 @@ Examples:
   $(basename "$0") "my-project" --org helloskyy-io --public
 
 This creates the bare-minimum scaffolding for a new project.
-Run plan-new.sh afterwards to define requirements, architecture, and roadmap.
+Then point a planning dispatch at the result to define requirements and roadmap.
 EOF
     exit 1
 fi
@@ -266,6 +273,16 @@ ${PROJECT_NAME}/
 │   ├── guide/                     # OPERATING MANUAL: user-facing docs
 │   └── file_structure.txt         # This file
 │
+├── tracked/                       # THE FOUR TRACKED-ITEM STORES — one file per
+│   │                              #   item, random ids, count on recurrence
+│   ├── issues/                    # Defects in live code (I-)
+│   ├── operations/                # Operating notes (O-) — HUMAN-ONLY
+│   ├── candidates/                # Proposals (C-)
+│   └── standards/                 # Amendments to a named standard (S-)
+│
+├── testing/                       # check-policy.yaml is owed with the first
+│                                  #   CI workflow — see testing/README.md
+│
 ├── .gitignore                     # Git ignore rules
 ├── CLAUDE.md                      # Project instructions for Claude
 └── README.md                      # Repo documentation
@@ -293,7 +310,7 @@ This project follows the four-bucket documentation layout:
 
 ## Getting Started
 
-This project was scaffolded by \`init-project.sh\`. Run \`plan-new.sh\` to define requirements, architecture, and roadmap.
+This project was scaffolded by \`init-project.sh\`. Point a planning dispatch at it to define requirements, architecture and roadmap.
 
 ## Rules
 
@@ -309,7 +326,7 @@ else
     cat > README.md <<READMEMD
 # ${PROJECT_NAME}
 
-> Project scaffolded by [init-project.sh](https://github.com/helloskyy-io/Claude-Dot-Files). Run \`plan-new.sh\` to define this project.
+> Project scaffolded by [init-project.sh](https://github.com/helloskyy-io/Claude-Dot-Files). Point a planning dispatch at it to define this project.
 
 ## Documentation
 
@@ -321,6 +338,90 @@ TBD
 READMEMD
     echo "✓ README.md created"
 fi
+
+# ---------------------------------------------------------------------------
+# Step 4b: the four tracked-item stores
+#
+# WHY THE SCAFFOLD OWES THESE. `--candidates` defaults to `tracked/candidates`
+# on every planning entry point, so without them each dispatch needs the flag and
+# the failure an operator sees is a bare missing path they read as a typo. They
+# are also where `harvest-intake.py` writes, so a repo without them cannot drain
+# its own intake.
+#
+# ROOT-RELATIVE, NOT UNDER docs/. `tracked/issues/` resolves identically in every
+# repo, which is what lets ONE implementation serve all of them.
+# ---------------------------------------------------------------------------
+if [[ -d "tracked" ]]; then
+    echo "✓ tracked/ already exists — skipping"
+else
+    mkdir -p tracked/{issues,operations,candidates,standards}
+    for store in issues operations candidates standards; do
+        : > "tracked/${store}/.gitkeep"
+    done
+    cat > tracked/README.md <<'TRACKEDMD'
+# Tracked items
+
+Four stores, per the **Tracked Items Standard**. **The folder's initial letter IS
+the id prefix.**
+
+- `issues/` — defects in live code, found out of scope (`I-`)
+- `operations/` — human-in-the-loop operating notes (`O-`) — **human-only; no autonomous write, ever**
+- `candidates/` — proposals: capability that does not exist yet (`C-`)
+- `standards/` — amendments to a named standard, with an anchor (`S-`)
+
+One file per item, random ids so any filer can write without coordinating, and a
+recurrence **increments `count`** on the existing item rather than opening a
+second one. `count` is what triage sorts on first.
+TRACKEDMD
+    echo "✓ tracked/ created (issues, operations, candidates, standards)"
+fi
+
+# ---------------------------------------------------------------------------
+# Step 4c: testing/
+#
+# `check-policy.yaml` IS DELIBERATELY NOT CREATED, and an empty one is worse than
+# none. With no file the tooling reports the TRUE sentence — "declares no check
+# policy; nothing was gated on and nothing was expected to be." With an empty
+# file it reports "declares a policy and none of it reported, so its workflows
+# may have been filtered out of this change", which is false, and false on EVERY
+# run until CI exists.
+# ---------------------------------------------------------------------------
+if [[ -d "testing" ]]; then
+    echo "✓ testing/ already exists — skipping"
+else
+    mkdir -p testing
+    cat > testing/README.md <<'TESTINGMD'
+# Testing
+
+Per the **Testing Standard**.
+
+## `check-policy.yaml` is owed, and deliberately absent
+
+**It is created with the first CI workflow, not before.** The build parent reads
+it to learn which checks gate a merge. With no workflows in the repo, no file is
+the *true* statement — the tooling reports *"declares no check policy; nothing
+was gated on and nothing was expected to be."* An empty policy would instead
+report *"declares a policy and none of it reported"*, implying workflows were
+filtered out of the change. **Wrong sentence, and wrong on every run.**
+
+**When the first workflow lands, this file is part of that PR**, and the Testing
+Standard's clause binds it: an automated check that can fail is either on the
+merge path or declared advisory, and there is no third state.
+TESTINGMD
+    echo "✓ testing/ created (README.md; check-policy.yaml owed with the first workflow)"
+fi
+
+# ---------------------------------------------------------------------------
+# NOT SCAFFOLDED: the sprint file.
+#
+# `--sprint` defaults to `development/sprints.md`, which is the PLANNING-repo
+# layout. This scaffold writes `docs/development/`, the product-repo layout. The
+# two disagree, and which one a new product repo should carry depends on whether
+# product repos EMBED their planning or POINT AT a planning repo — an
+# organisation-level question under discussion, not something to settle by
+# picking one here. Until it is ruled, pass `--sprint <path>`; preflight already
+# names the file it found when the default misses.
+# ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
 # Step 5: .claude directory (for worktrees, logs, state)
@@ -412,6 +513,6 @@ echo
 echo "Project '${PROJECT_NAME}' is ready."
 echo
 echo "Next steps:"
-echo "  plan-new.sh \"${PROJECT_NAME}\" \"description of the project\""
+echo "  run_plan_draft.py --repo \"$(pwd)\" docs/development/<component>"
 echo "  Or start working interactively: claude"
 echo
