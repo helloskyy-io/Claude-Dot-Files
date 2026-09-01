@@ -82,7 +82,29 @@ import pytest  # noqa: E402
 
 @pytest.fixture(autouse=True, scope="session")
 def _journal_root_is_never_the_operators(tmp_path_factory):
-    """Point every bag this suite opens at a temporary root, for the whole session."""
+    """Point every bag this suite opens at a temporary root, for the whole session.
+
+    ⚠ AUTOUSE AND SESSION-SCOPED, WHICH MAKES *WHEN* YOU RESOLVE THE ROOT PART OF
+    THE TEST'S MEANING. A test body runs INSIDE this fixture, so resolving the
+    journal root there yields the sandbox above — never the operator's root. An
+    integration test that means to read the REAL journal must resolve it at
+    MODULE scope, which runs at collection time and therefore before any fixture.
+
+    THE FAILURE IS A SKIP, WHICH IS WHY IT NEEDS SAYING HERE. The sandbox root
+    does not exist until a bag is opened in it, so an in-body resolution raises
+    `JournalRootError`; a tier that turns that into `pytest.skip` then reports an
+    environment-sounding reason — "no journal on this machine" — on a machine
+    holding a journal full of bags. A skip that is really a scoping bug and a
+    skip that is really a fresh clone are indistinguishable in a summary table,
+    and `run-all.sh` prints the same word for both.
+
+    MEASURED TWICE. `tests/integration/test_a_real_bag_validates.py` resolves at
+    module scope and carried no comment saying why, so the constraint survived as
+    one file's habit. `tests/integration/test_citations_verify_offline.py` then
+    shipped a tier that passed vacuously via skip on a machine holding bags, and
+    was corrected the same way. Both depend on this fixture's scope; stating it
+    at the fixture reaches the next such file, which neither of them can.
+    """
     from modules.journal import journal_activities
 
     sandbox = tmp_path_factory.mktemp("journal-sandbox")

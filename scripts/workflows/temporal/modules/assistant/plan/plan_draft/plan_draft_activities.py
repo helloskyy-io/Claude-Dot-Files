@@ -70,7 +70,10 @@ from ..plan_activities import plan_boxes, plan_docs  # noqa: F401
 # "Filename pattern (binding)" block: `phase{N}_{descriptor}.md` canonical, with
 # `phase{N}{a-z}_{descriptor}.md` as rule 6's narrow sub-letter carve-out.
 # Anchored at both ends because the whole point is that no OTHER form is valid.
-_PHASE_FILE = re.compile(r"^phase(\d+)([a-z]?)_[a-z0-9_-]+\.md$")
+# `\A…\Z` for the reason `_LOOKS_LIKE_A_PHASE` carries: `$` matches before a
+# trailing newline, and this pattern is what decides whether a NAME is a
+# conformant phase doc.
+_PHASE_FILE = re.compile(r"\Aphase(\d+)([a-z]?)_[a-z0-9_-]+\.md\Z")
 
 # PROMOTED TO THE SHARED SURFACE WHEN `plan-refine` BECAME A SECOND CONSUMER, per
 # §10.1 rule 3 — *consumer count decides, never taste*. Reached through `own.` so

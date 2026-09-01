@@ -190,7 +190,16 @@ _HERE = Path(__file__).resolve().parent
 # `verify`'s graph, and the discriminator beside it starts the same walk at
 # `content_activities`, which legitimately does import the fetcher. An absence
 # with no demonstrated presence is the vacuity this file exists to refuse.
-_PINNED = (36, 25)
+# 36 -> 38 and 25 -> 27 when a `build-refine` correction pass added the two
+# class-checks this PR's findings were instances of:
+# `test_journal_regex_anchors.py` (a `^…$` anywhere in `modules/journal/`) and
+# `test_journal_operator_tools_separate_typo_from_finding.py` (an operator-named
+# target that is not there must be USAGE on every bag-inspection tool). BOTH
+# numbers moved because each ships its own literal control rather than being
+# grandfathered — and the anchor guard's control is not decoration: exercising
+# it is how its recogniser was found blind to `re.compile(r"…" % N)`, which is
+# the spelling of the digest gate that IS r7(b)'s path safety.
+_PINNED = (38, 27)
 
 
 # GRANDFATHERED — walks the tree, has no literal control, PREDATES this rule.

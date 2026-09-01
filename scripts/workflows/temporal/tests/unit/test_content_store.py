@@ -63,6 +63,14 @@ def test_the_digest_is_the_only_input_to_the_path() -> None:
     SAMPLE_DIGEST + "0",
     "",
     "sha256:" + SAMPLE_DIGEST,
+    # A TRAILING NEWLINE, because `$` does not mean end-of-string. This gate
+    # was `re.compile(r"^…$")` and returned for this value — composing it onto
+    # a path in the function whose docstring says such a value is refused
+    # rather than composed. `test_journal_regex_anchors.py` holds the CLASS
+    # (no `^`/`$` anywhere in `modules/journal/`); this row is the instance,
+    # here in the battery a reader extending "what is not a digest" will open.
+    SAMPLE_DIGEST + "\n",
+    "\n" + SAMPLE_DIGEST,
 ])
 def test_a_value_that_is_not_a_digest_never_reaches_a_path(hostile: str) -> None:
     """The gate is on the WAY IN, so no traversal has to be contained on the way out.

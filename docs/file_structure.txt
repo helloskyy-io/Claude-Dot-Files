@@ -238,8 +238,7 @@ claude-dot-files/
 │           │                                        #   which are NOT kickoffs: they are what a run checks before, what an operator checks
 │           │                                        #   after (validate_bag asks whether a bag's bytes match its manifest; verify_citations
 │           │                                        #   asks whether the claims in it still stand against the sources they were made from),
-│           │                                        #   who
-│           │                                        #   NAMES the run, and what the run DERIVED. All four live here because they are
+│           │                                        #   who NAMES the run, and what the run DERIVED. All five live here because they are
 │           │                                        #   launch concerns rather than workflow concerns. None is named run_*.py, and that
 │           │                                        #   is load-bearing — the entrypoint sweeps glob that prefix, so a helper wearing it
 │           │                                        #   is swept as a runner and fails five guards at once (measured 2026-09-01)
@@ -630,6 +629,17 @@ claude-dot-files/
 │                   │                                #   declares why it cannot escape — so ADDING a join is what fails. The battery beside it
 │                   │                                #   catches the other half: reverting a guard leaves the declaration standing and true of
 │                   │                                #   nothing, which the sweep alone reads as covered
+│                   ├── test_journal_regex_anchors.py # The ANCHOR spelling of the same class-check shape: `$` matches before a TRAILING
+│                   │                                #   newline, so `re.compile(r"^…$")` is an anchored-LOOKING validator that admits one.
+│                   │                                #   Two instances — the digest gate that IS r7(b)'s path safety, then _LABEL_RE, still
+│                   │                                #   unconverted at the commit that published the sweep as exhaustive. Sweeps every
+│                   │                                #   re.compile in the package; a pattern it cannot READ fails separately, which is how
+│                   │                                #   the %-formatted digest gate was found invisible to the sweep's own first draft
+│                   ├── test_journal_operator_tools_separate_typo_from_finding.py # A target the operator MISTYPED must not be
+│                   │                                #   reported as a bag that failed. verify.main was fixed for this; validate.main did the
+│                   │                                #   mirror image and was left standing, printing result: FAIL with lifecycle, redacted
+│                   │                                #   and a payload size asserted about a bag that does not exist. Population DERIVED —
+│                   │                                #   every scripts/*.py importing validate or verify — so a third tool inherits the rule
 │                   ├── journal_entrypoint_facts.py  # WHAT THE ENTRYPOINT POPULATION IS, discovered once for the guards that ask — the
 │                   │                                #   bag-open sweep, the prose-figure guard and the run-id sweep. A helper and not a
 │                   │                                #   shared test module because test_test_tree_hygiene refuses test-imports-test; two

@@ -110,7 +110,15 @@ LABEL_INCOMPLETE = "Journal-Incomplete"            # zero or one; "true" => inco
 LABEL_GAP = "Journal-Gap"                          # zero or more; what was lost
 LABEL_SEALED_AT = "Journal-Sealed-At"              # exactly one, once sealed
 
-_LABEL_RE = re.compile(r"^([^:\s][^:]*):\s?(.*)$")
+# `\A…\Z` AND NOT `^…$`: `$` also matches immediately BEFORE a trailing
+# newline, so an anchored-looking validator silently accepts one. Both
+# callers here feed `splitlines()` output, so no newline reaches this
+# pattern today and the anchor is not load-bearing on them — it becomes
+# load-bearing the moment a caller hands it a raw line, which is exactly
+# the change nobody would notice. `test_journal_regex_anchors.py` fails on
+# any `^`/`$` added anywhere in this package, so this is a property of
+# `modules/journal/` rather than of this line.
+_LABEL_RE = re.compile(r"\A([^:\s][^:]*):\s?(.*)\Z")
 _SAFE_SEGMENT_RE = re.compile(r"[^A-Za-z0-9._-]+")
 
 

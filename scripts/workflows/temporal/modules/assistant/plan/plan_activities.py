@@ -799,7 +799,12 @@ def checked_boxes(path: Path) -> Counter:
 #
 # CASE-INSENSITIVE ON BOTH HALVES: a legacy `PHASE3.MD` is a phase doc whoever
 # spelled it, and its disappearance is an offence just the same.
-_LOOKS_LIKE_A_PHASE = re.compile(r"^phase.*\.md$", re.I)
+# `\A…\Z` AND NOT `^…$`: `$` also matches immediately BEFORE a trailing
+# newline, which a POSIX filename may end with, so the anchor that refuses
+# `phase9_x.md.bak` above would have admitted `phase9_x.md\n`. Swept from
+# `modules/journal/`, where the same spelling let a digest carrying a newline
+# through the gate that derives an on-disk path.
+_LOOKS_LIKE_A_PHASE = re.compile(r"\Aphase.*\.md\Z", re.I)
 
 
 def phase_docs(component: Path) -> dict[str, str]:

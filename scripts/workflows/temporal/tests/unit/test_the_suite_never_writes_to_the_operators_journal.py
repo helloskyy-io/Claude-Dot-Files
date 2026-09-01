@@ -186,9 +186,16 @@ def test_the_population_this_sweeps_MATCHES_THE_TREE() -> None:
     # The sibling copy this message names in `tests/conftest.py` no longer
     # states a count — it was changed to name the population instead, which is
     # why there is nothing to update there this time.
-    assert len(modules) == 7, (
+    #
+    # 7 → 8 on 2026-09-01, one correction pass later: the class-check written
+    # for that same finding —
+    # `test_journal_operator_tools_separate_typo_from_finding.py` — drives
+    # `main()` on EVERY bag-inspection entrypoint it discovers, which is the
+    # point of it. Confirmed it cannot litter the operator's root: every case
+    # passes a `tmp_path` child, and each tool returns before reaching a bag.
+    assert len(modules) == 8, (
         f"{len(modules)} test module(s) under {UNIT_DIR} drive an entrypoint "
-        f"`main()`; it was 6 when this was pinned. Found: "
+        f"`main()`; it was 7 when this was pinned. Found: "
         f"{[m.name for m in modules]}.\n"
         f"If a module was ADDED, it now runs inside the subprocess sweep below "
         f"and this number goes up. If the count DROPPED, the discovery "

@@ -323,6 +323,11 @@ def main(argv: list[str] | None = None) -> int:
     Exit 0 only if every bag validated. A flag is NOT a failure — a redacted or
     incomplete bag whose bytes match its manifest exits 0, because those flags
     describe the run and `ok` describes the bytes.
+
+    EXIT CODES: 0 every bag valid · 1 a bag failed validation · 2 usage (no
+    argument, a target that is not a directory, or a directory holding no bags).
+    1 and 2 are kept apart deliberately: an operator typo and a corrupt journal
+    need opposite remedies, so they must not share a number.
     """
     args = list(sys.argv[1:] if argv is None else argv)
     if not args:
@@ -332,7 +337,20 @@ def main(argv: list[str] | None = None) -> int:
     reports: list[BagReport] = []
     for raw in args:
         target = Path(raw).expanduser()
-        if (target / BAGIT_FILE).is_file() or not target.is_dir():
+        # A PATH THE OPERATOR NAMED THAT IS NOT THERE IS USAGE, NOT A FAILED BAG.
+        # Routing it into `validate_bag` printed a full `result: FAIL` report —
+        # asserting `lifecycle`, `redacted`, `incomplete` and a payload size about
+        # a bag that does not exist — and exited 1, the code that means a bag's
+        # bytes did not match its manifest. On the tool an operator reaches for
+        # BECAUSE the journal is what has gone wrong, that answers a typo with
+        # "your journal is broken". Same rule `verify.main` applies, and the two
+        # deliberately agree here even though they deliberately disagree about
+        # what `validate_bag`/`verify_bag` return for the same path: the
+        # programmatic structural result below is for callers, not for operators.
+        if not target.is_dir():
+            print(f"not a directory: {target}", file=sys.stderr)
+            return 2
+        if (target / BAGIT_FILE).is_file():
             reports.append(validate_bag(target))
             continue
         children = sorted(p for p in target.iterdir() if p.is_dir())
