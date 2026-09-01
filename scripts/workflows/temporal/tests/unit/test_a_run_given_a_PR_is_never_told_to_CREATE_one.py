@@ -68,7 +68,13 @@ _ASSISTANT = Path(act.__file__).resolve().parent
 
 # Arguments that do NOT change which prompt is selected: the task's text, where it
 # runs, and how loud it is. Everything else is an axis.
-_NON_AXIS = frozenset({"description", "repo_root", "worktree", "context", "verbose"})
+# `prefer_repo` is a NON-AXIS, and the distinction is the point of this set: it is
+# consulted AFTER the child has run, to pick this dispatch's own PR out of a run
+# that legitimately opened one in another repo too (a phase build flips checkboxes
+# in the planning repo). It never reaches `render`, so it cannot change which
+# wrapper is selected or what the child is told. Added 2026-09-01.
+_NON_AXIS = frozenset({"description", "repo_root", "worktree", "context", "verbose",
+                       "prefer_repo"})
 
 # The axes this file's cross-product knows how to vary, and a value for each that
 # is distinguishable in a rendered prompt.

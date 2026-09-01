@@ -173,10 +173,29 @@ PR_URL_COMPLETION_ERE = r"https://github\.com/[^ )/]+/[^ )/]+/pull/[0-9]+"
 PR_OR_ISSUE_COMPLETION_ERE = r"https://github\.com/[^ )/]+/[^ )/]+/(pull|issues)/[0-9]+"
 
 
-def extract_pr_url(output: str) -> str | None:
+def extract_pr_url(output: str, *, prefer_repo: str | None = None) -> str | None:
     """Last PR URL in a run's output — the completion contract's payload.
 
     Last, not first: a run may mention an existing PR before opening its own.
+
+    `prefer_repo` NARROWS THE SELECTION TO THE DISPATCH'S OWN REPOSITORY, and it
+    exists because "last" stopped being sufficient on 2026-09-01. A build whose
+    PHASE DOC lives in another repo legitimately opens TWO PRs — the code here,
+    and the phase doc's `[ ]` -> `[x]` flips there, which the Documentation
+    Standard explicitly permits a dispatch to make for work it completed. The
+    child opened `Claude-Dot-Files#162` and then `skyynet-master-planning#4`, so
+    "last" returned the planning PR, `pr_number_from_url` correctly refused it,
+    and a build that had ALREADY SUCCEEDED (+1991/-215, CI green) died at the
+    handoff with its work stranded.
+
+    THIS IS A SELECTION HINT AND NOT A CHECK, which is why it may default to
+    None where `pr_number_from_url`'s `expected_repo` may not. That parameter
+    decides whether a wrong repo is REFUSED; this one decides which of several
+    right-looking URLs is asked about. On no match it falls back to the last URL
+    overall RATHER THAN None — so the caller still reaches
+    `pr_number_from_url` and gets its precise "a child reported a PR URL in X
+    while this dispatch is operating in Y" message, instead of the vaguer
+    "produced no PR URL" that a None would raise one layer up.
 
     Returns the matched URL and not the whole line, so a caller never has to
     re-parse. `assistant_activities.extract_pr_url` and
@@ -184,7 +203,13 @@ def extract_pr_url(output: str) -> str | None:
     there would be a second copy that stays green in its own tests.
     """
     matches = [m.group(0) for m in PR_URL.finditer(output)]
-    return matches[-1] if matches else None
+    if not matches:
+        return None
+    if prefer_repo is not None:
+        own = [u for u in matches if pr_identity(u)[0] == prefer_repo]
+        if own:
+            return own[-1]
+    return matches[-1]
 
 
 def pr_identity(url: str) -> tuple[str, str]:

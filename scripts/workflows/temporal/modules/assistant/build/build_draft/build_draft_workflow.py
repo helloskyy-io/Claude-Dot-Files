@@ -25,7 +25,7 @@ MAX_TURNS_KEY = WORKFLOW_KEY
 COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 
 
-def run_draft(*, description: str, repo_root: Path, worktree: Path,
+def run_draft(*, description: str, repo_root: Path, prefer_repo: str | None = None, worktree: Path,
               pr_number: str | None = None,
               plan_path: str | None = None, context: str = "",
               verbose: bool = False) -> str:
@@ -114,7 +114,16 @@ def run_draft(*, description: str, repo_root: Path, worktree: Path,
         verbose=verbose,
     )
 
-    url = act.extract_pr_url(output)
+    # NARROWED TO THIS DISPATCH'S REPO. A phase build opens a second PR in the
+    # planning repo for its checkbox flips, and that one is reported LAST.
+    #
+    # PASSED IN, NEVER DERIVED HERE. Deriving it would mean a `git` call on
+    # `repo_root` inside the handoff, and `repo_root` is not always a real tree
+    # at this point — the prompt gates drive this function with a synthetic
+    # `/main/checkout` to read what the child is TOLD, and a filesystem call
+    # turns those into FileNotFoundError. The parent already computes the slug
+    # for `pr_number_from_url`; one derivation, handed down.
+    url = act.extract_pr_url(output, prefer_repo=prefer_repo)
     if not url:
         raise RuntimeError(
             "build-draft produced no PR URL — cannot hand off to refine. "

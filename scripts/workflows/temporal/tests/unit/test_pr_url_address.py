@@ -737,3 +737,58 @@ def test_the_instruction_check_can_actually_FAIL(tmp_path: Path) -> None:
         'return "report its URL as your FINAL line"\n')
     assert any(_FINAL_LINE_URL.search(p.read_text())
                for p in _instruction_surface(tmp_path / "family" / "wf" / "wf_workflow.py"))
+
+
+# --- SELECTING among several right-looking URLs ------------------------------
+#
+# "Last match" was sufficient while a run opened at most one PR. A build whose
+# PHASE DOC lives in another repo opens TWO — the code, and the phase doc's
+# checkbox flips, which the Documentation Standard explicitly permits a dispatch
+# to make for work it completed in that PR. Measured 2026-09-01: the child opened
+# Claude-Dot-Files#162 then skyynet-master-planning#4, "last" returned the
+# planning PR, `pr_number_from_url` correctly refused it, and a build that had
+# already succeeded (+1991/-215, CI green) died at the handoff.
+
+_TWO_REPOS = (
+    "opened the code PR https://github.com/o/code/pull/162\n"
+    "then recorded the flips in https://github.com/o/planning/pull/4\n"
+)
+
+
+def test_without_a_preference_the_LAST_url_still_wins() -> None:
+    """The incumbent contract is unchanged for every caller that states nothing."""
+    assert routing.extract_pr_url(_TWO_REPOS) == "https://github.com/o/planning/pull/4"
+
+
+def test_a_preferred_repo_selects_ITS_url_even_when_it_is_not_last() -> None:
+    """THE FIX. The dispatch's own PR is the one in the dispatch's own repo."""
+    assert routing.extract_pr_url(_TWO_REPOS, prefer_repo="o/code") == \
+        "https://github.com/o/code/pull/162"
+
+
+def test_a_preference_that_matches_NOTHING_falls_back_rather_than_returning_None() -> None:
+    """The caller must still reach `pr_number_from_url`'s precise refusal.
+
+    Returning None here would raise "produced no PR URL" one layer up — which
+    names the wrong cause and sends the reader looking for a child that printed
+    nothing, when a child printed a URL in the wrong repository. The fallback
+    keeps the specific message reachable.
+    """
+    url = routing.extract_pr_url(_TWO_REPOS, prefer_repo="o/absent")
+    assert url == "https://github.com/o/planning/pull/4"
+    with pytest.raises(ValueError, match="while this dispatch is operating in"):
+        routing.pr_number_from_url(url, expected_repo="o/absent")
+
+
+def test_the_preference_takes_the_LAST_url_within_the_preferred_repo() -> None:
+    """A run may update its own PR and print the URL more than once."""
+    text = ("https://github.com/o/code/pull/1\n"
+            "https://github.com/o/planning/pull/4\n"
+            "https://github.com/o/code/pull/162\n")
+    assert routing.extract_pr_url(text, prefer_repo="o/code") == \
+        "https://github.com/o/code/pull/162"
+
+
+def test_no_urls_at_all_is_still_None_whatever_the_preference() -> None:
+    """The vacuity case: a preference must not manufacture a URL."""
+    assert routing.extract_pr_url("nothing here", prefer_repo="o/code") is None

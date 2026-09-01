@@ -99,6 +99,9 @@ def run_build(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildRes
     # `task_text`, and nowhere else.
     pr_url = draft.run_draft(
         description=description, repo_root=repo_root, worktree=worktree,
+        # The slug this dispatch is operating in, so the handoff picks THIS
+        # repo's PR out of a run that legitimately opened one elsewhere too.
+        prefer_repo=slug,
         pr_number=task.pr_number,
         plan_path=path_for_the_model(repo_root, task.plan_path),
         verbose=task.verbose,
