@@ -110,6 +110,12 @@ _STREAMING_POPEN = {
 _OTHER_LAUNCH_SPELLINGS = frozenset({"call", "check_call", "check_output", "getoutput",
                                      "getstatusoutput"})
 
+# The two `os` functions that launch a shell. `os` is not refused when aliased —
+# it is RESOLVED — because unlike `subprocess` it is imported all over this tree
+# for reasons that have nothing to do with launching, so a blanket refusal of
+# `import os as X` would be a rule about the wrong thing.
+_OS_LAUNCH_SPELLINGS = frozenset({"system", "popen"})
+
 
 def where_or_module(stack: list[str]) -> str:
     return stack[0] if stack else "<module>"
@@ -120,10 +126,23 @@ class _Launches(ast.NodeVisitor):
 
     def __init__(self, rel: str) -> None:
         self.rel = rel
+        # Names reaching `os`. Seeded so a control snippet with no import in it
+        # still reads `os.system`, and replaced per-module by `visit_Module`.
+        self._os_names: set[str] = {"os"}
         self.func: list[str] = []
         self.runs: list[tuple[str, str, int, bool]] = []
         self.popens: list[tuple[str, str, int]] = []
         self.other: list[tuple[str, str, int, str]] = []
+
+    def visit_Module(self, node: ast.Module):  # noqa: N802
+        # RESOLVED UP FRONT rather than as the walk passes the import: a
+        # function-local `import os as _os` is visited after every call in the
+        # functions above it, so binding on arrival leaves those unresolved.
+        self._os_names = {"os"} | {
+            a.asname or a.name
+            for n in ast.walk(node) if isinstance(n, ast.Import)
+            for a in n.names if a.name == "os"}
+        self.generic_visit(node)
 
     def visit_FunctionDef(self, node: ast.FunctionDef):  # noqa: N802
         self.func.append(node.name)
@@ -154,17 +173,32 @@ class _Launches(ast.NodeVisitor):
             elif f.attr in _OTHER_LAUNCH_SPELLINGS:
                 self.other.append((self.rel, where, node.lineno, f"subprocess.{f.attr}"))
         elif (isinstance(f, ast.Attribute) and isinstance(f.value, ast.Name)
-                and f.value.id == "os" and f.attr in {"system", "popen"}):
+                and f.value.id in self._os_names and f.attr in _OS_LAUNCH_SPELLINGS):
             self.other.append((self.rel, where_or_module(self.func), node.lineno,
-                               f"os.{f.attr}"))
+                               f"{f.value.id}.{f.attr}"))
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node: ast.ImportFrom):  # noqa: N802
         # `from subprocess import run` defeats the attribute matcher entirely.
+        #
+        # `os` IS HELD TO THE SAME RULE, and it was not when this was written.
+        # The matcher below tests `f.value.id == "os"` for `system`/`popen`, so
+        # `from os import system` and `import os as _os` walked past it exactly
+        # as the `subprocess` spellings did — the residue of a fix applied to the
+        # site it was found at rather than to the class. Only the two LAUNCHING
+        # names are refused: `from os import environ` is ubiquitous and has
+        # nothing to do with this guard.
         if node.module == "subprocess":
             for alias in node.names:
                 self.other.append((self.rel, "<import>", node.lineno,
                                    f"from subprocess import {alias.name}"))
+        elif node.module == "os":
+            # `from os import *` binds both launch names, so it is refused as a
+            # whole rather than left as a spelling nobody looked at.
+            for alias in node.names:
+                if alias.name in _OS_LAUNCH_SPELLINGS or alias.name == "*":
+                    self.other.append((self.rel, "<import>", node.lineno,
+                                       f"from os import {alias.name}"))
         self.generic_visit(node)
 
     def visit_Import(self, node: ast.Import):  # noqa: N802
@@ -327,6 +361,17 @@ def test_the_bounded_predicate_discriminates(snippet: str, expect_bounded: bool,
         pytest.param("os.system(cmd)", "os.system", id="os-system"),
         pytest.param("from subprocess import run", "a direct import", id="import-from"),
         pytest.param("import subprocess as sp", "an aliased import", id="import-as"),
+        # THE `os` HALF, WHICH WAS THE RESIDUE. The two `subprocess` spellings
+        # were closed at the site they were found at; the identical pair on `os`
+        # was one `elif` away and stayed open.
+        pytest.param("import os as _os\n_os.system(cmd)", "an aliased `os.system`",
+                     id="os-aliased"),
+        pytest.param("import os as _os\n_os.popen(cmd)", "an aliased `os.popen`",
+                     id="os-popen-aliased"),
+        pytest.param("from os import system", "`os.system` reached by from-import",
+                     id="os-import-from"),
+        pytest.param("from os import *", "the star import, which binds both "
+                     "launch names", id="os-import-star"),
     ],
 )
 def test_the_other_spelling_detector_discriminates(snippet: str, why: str) -> None:
@@ -341,6 +386,34 @@ def test_the_control_does_not_flag_ordinary_code() -> None:
     v = _Launches("<control>")
     v.visit(ast.parse("import subprocess\nx = json.loads(r.stdout)\nos.path.join(a, b)\n"))
     assert v.other == [] and v.runs == [] and v.popens == []
+
+
+@pytest.mark.parametrize(
+    ("snippet", "why"),
+    [
+        pytest.param("import os as _os\n_os.path.join(a, b)",
+                     "an aliased `os` used for something that is not a launch",
+                     id="aliased-os-benign"),
+        pytest.param("from os import environ\nx = environ['HOME']",
+                     "the from-import spelling of a name that launches nothing",
+                     id="os-environ"),
+        pytest.param("import os\nos.fspath(p)", "an ordinary `os` call",
+                     id="os-fspath"),
+    ],
+)
+def test_resolving_os_ALIASES_does_not_invent_a_launch(snippet: str, why: str) -> None:
+    """THE COST OF RESOLVING RATHER THAN REFUSING, and why it is the right side.
+
+    `subprocess` is refused when aliased because a module imports it for exactly
+    one reason. `os` is not: this tree imports it everywhere for `environ`,
+    `fspath` and `path`, so refusing `import os as X` would be a rule about
+    aliasing rather than about launching, and would be answered by an exemption
+    list that says nothing. Resolving costs this control instead — the detector
+    must follow the alias to the two LAUNCH names and to nothing else.
+    """
+    v = _Launches("<control>")
+    v.visit(ast.parse(snippet))
+    assert v.other == [], f"{why} was wrongly read as a launch: {v.other}"
 
 
 @pytest.mark.parametrize(
