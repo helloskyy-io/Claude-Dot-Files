@@ -6,6 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from preflight import RepoPathParser  # noqa: E402
 from dispatch_identity import add_identity_arguments, resolve_identity  # noqa: E402
+from modules.assistant.review_pr import review_pr_activities as review_act  # noqa: E402
 from modules.assistant import assistant_activities as act_shared  # noqa: E402
 from modules.journal import journal_activities as journal  # noqa: E402
 from modules.assistant.plan import plan_activities as act  # noqa: E402
@@ -35,6 +36,18 @@ def main(argv=None) -> int:
     p.add_argument("--pr", dest="pr_number", help="update an existing plan-sprint PR")
     p.add_argument("--task-file", dest="task_file",
                    help="operator context or a correction runway, from a file")
+    # THE PARENT COULD SET THIS AND AN OPERATOR COULD NOT, WHICH MADE A
+    # HAND-DISPATCHED CORRECTION SILENTLY RUN THE DEFAULT JOB. `disposition.md`
+    # tells an operator to dispatch this child by hand against a held PR; the
+    # flag drives a real prompt substitution (`${CORRECTION_NOTE}`) and was
+    # reachable only from `plan_workflow`. Measured on MDC #204: dispatched at a
+    # PR carrying nine findings, the run re-derived its estimates, concurred with
+    # all of them, reported success, and closed nothing — $8.60 and 64 turns, and
+    # the failure was invisible because the run was correct for the pass it was
+    # actually given. The documented workaround was to write "THIS IS A
+    # CORRECTION PASS" into a `--task-file`, which is this flag wearing a costume.
+    p.add_argument("--correction-pass", dest="correction_pass", action="store_true",
+                   help="a prior disposition returned HOLD with a scoped runway; close it")
     p.add_argument("--verbose", "-v", action="store_true")
     p.add_argument("--dry-run", action="store_true", help="count and render; no model, no spend")
 
@@ -51,6 +64,32 @@ def main(argv=None) -> int:
         return 1
 
     sprint, component = resolved["sprint"], resolved["component"]
+
+    # A HELD PR DISPATCHED WITHOUT `--correction-pass` IS ALMOST ALWAYS THE FLAG
+    # BEING FORGOTTEN, and the run that follows is the expensive-and-invisible one
+    # `--correction-pass` above describes. REFUSED rather than warned: a wrong
+    # refusal costs one re-invocation with a flag this message names, and a wrong
+    # PROCEED was measured at $8.60, 64 turns, nine findings left open, and a
+    # success report on top. Asked in preflight, before any worktree exists, per
+    # the standard's "validate arguments before doing anything destructive".
+    #
+    # AN UNREADABLE THREAD IS NOT A CLEAN ONE. `unclosed_hold` answers None when
+    # it could not read, which degrades to a warning: an offline machine or a
+    # rate limit must not block work, and must not read as all-clear either.
+    if a.pr_number and not a.correction_pass:
+        held = review_act.unclosed_hold(a.pr_number, repo_root)
+        if held is None:
+            print(f"  ! could not read PR {a.pr_number}'s thread, so an open hold "
+                  f"cannot be ruled out; proceeding with the default pass.",
+                  file=sys.stderr)
+        elif held:
+            print(f"\n\u2717 PR {a.pr_number} carries {len(held)} finding(s) still on "
+                  f"`disposition: hold`: {', '.join(held)}.\n"
+                  f"  This run would do its DEFAULT job, close none of them, and "
+                  f"report success.\n"
+                  f"  Re-run with --correction-pass to close the runway, or pass "
+                  f"--task-file if you meant something else.", file=sys.stderr)
+            return 1
 
     try:
         sizing = act.phase_sizing(component)
@@ -123,7 +162,8 @@ def main(argv=None) -> int:
         url = wf.run_plan_sprint(repo_root=repo_root, worktree=worktree,
                                  sprint_path=sprint, component=component,
                                  pr_number=a.pr_number, context=context,
-                                 verbose=a.verbose)
+                                 verbose=a.verbose,
+                                 correction_pass=a.correction_pass)
     except (RuntimeError, FileNotFoundError, ValueError) as exc:
         print(f"\n✗ {exc}", file=sys.stderr)
         return 1

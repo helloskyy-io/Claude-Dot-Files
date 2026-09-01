@@ -560,6 +560,10 @@ POSITIONAL_SELECTORS = {
     ("review_pr_activities.py", "thread_snapshot"),
     # Not a window at all — one matched pair of quote characters off a token.
     ("review_pr_helper.py", "_unquote"),
+    # "The most recent pass's block", asked by a run that posted nothing to the
+    # thread and so has no nonce to match on. Position is the only signal it has;
+    # this is the one place that spells it.
+    ("review_pr_helper.py", "latest_pass_block"),
 }
 
 

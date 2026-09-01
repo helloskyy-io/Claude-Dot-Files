@@ -46,7 +46,7 @@ def main(argv=None) -> int:
     # runner must remember is one the next runner omits, invisibly; a
     # declaration that IS the check has nothing to omit.
     p.add_repo_path("component", kind="dir",
-                    help="the component directory, e.g. docs/development/fleet-reliability")
+                    help="the component directory, e.g. development/edge-assistant/fleet-reliability")
     p.add_argument("--repo", dest="repo_target", help="target repo — a FILESYSTEM PATH, never a gh slug")
     p.add_repo_path("--candidates", default=DEFAULT_CANDIDATES)
     p.add_argument("--pr", dest="pr_number", help="update an existing plan-draft PR")

@@ -386,6 +386,25 @@ def this_pass_block(window: Sequence[str], invocation_id: str) -> str | None:
     return window[index] if index is not None else None
 
 
+def latest_pass_block(window: Sequence[str]) -> str | None:
+    """The MOST RECENT pass's block on the thread. None if the window is empty.
+
+    A DIFFERENT QUESTION FROM `this_pass_block`, AND IT HAS NO NONCE TO ASK WITH.
+    That one answers *"which block did I post"* and identifies it by invocation
+    id. This one is asked by a run that posted nothing and is reading someone
+    else's thread — a corrector checking whether the PR it was pointed at still
+    carries an open hold — so there is no identity to match on and position is
+    the whole of the available signal.
+
+    NAMED RATHER THAN INLINED at the one call site, because
+    `test_selecting_from_the_END_of_a_sequence_happens_only_where_it_is_owned`
+    is right that a `[-1]` written wherever it is needed is how the thread-window
+    consumers drifted apart before. Position is legitimate here; being the only
+    place that spells it is what keeps it reviewable.
+    """
+    return window[-1] if window else None
+
+
 def this_pass_selected_by_identity(window: Sequence[str], invocation_id: str) -> bool:
     """Did the nonce decide which block is this pass's, or did position?
 

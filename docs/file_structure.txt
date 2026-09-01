@@ -301,6 +301,10 @@ claude-dot-files/
 │                   │                                #   and the hang that is TERMINAL because retrying it turns a ~6min ceiling into ~18min
 │                   ├── test_every_subprocess_the_fleet_launches_is_bounded.py # No `subprocess.run` in the production tree may omit
 │                   │                                #   `timeout=`; `Popen` is exempt only by NAME, for the two streaming child dispatches
+│                   ├── test_a_held_PR_is_refused_without_the_correction_flag.py # `--correction-pass` was
+│                   │                                #   settable by the parent and by no operator, so a hand
+│                   │                                #   dispatch at a held PR ran its DEFAULT job and reported
+│                   │                                #   success — $8.60, nine findings left open (MDC #204)
 │                   ├── test_a_gh_reply_is_checked_for_SHAPE_not_only_parsed.py # Every `gh`-reply `json.loads` asks what SHAPE came
 │                   │                                #   back — a decode guard alone lets `{"message": …}` through to a `TypeError`
 │                   ├── test_a_new_branch_STARTS_FROM_THE_DEFAULT_BRANCH.py # A run with no --pr is cut from the DEFAULT BRANCH, never the

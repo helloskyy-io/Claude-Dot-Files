@@ -260,3 +260,37 @@ def run_disposition(prompt: str, repo_root: Path, model_key: str,
         max_turns=_shared.max_turns(MAX_TURNS_KEY), verbose=verbose,
         exit_record_schema=exit_record_schema, log_file=log_file, invocation_id=invocation_id,
     )
+
+
+def unclosed_hold(pr_number: str, repo_root: Path) -> list[str] | None:
+    """Finding ids the PR's LATEST `pr_review:` block left on `disposition: hold`.
+
+    WHY THIS EXISTS, MEASURED ON MDC #204. A corrector child dispatched by hand
+    with `--pr N` against a held PR has every signal it needs sitting on the
+    thread and no reason to look, because nothing tells it it is correcting. The
+    run then does its default job correctly, reports success, and closes none of
+    the findings — $8.60 and 64 turns to discover, and the failure is invisible
+    precisely because the run was right about the pass it was actually given.
+
+    THE LATEST BLOCK ONLY, NOT THE UNION. Each pass restates the full finding set
+    with its current disposition, so a finding held in pass 1 and fixed in pass 2
+    appears in both. Unioning would report a hold that the next pass already
+    closed and refuse a legitimate run forever after.
+
+    `None` MEANS "COULD NOT READ", WHICH IS NOT "NOTHING HELD". A missing `gh`, a
+    rate limit or an offline machine must not block work, so the caller degrades
+    to a warning; only a definite empty list means the thread is genuinely clear.
+    Returning `[]` on a failed read would silently convert every unreadable
+    thread into a clean bill of health, which is the same invisible-success shape
+    this function was written to close.
+    """
+    try:
+        blocks = pr_review_blocks(pr_number, repo_root)
+    except Exception:
+        return None
+    latest = helper.latest_pass_block(blocks)
+    if latest is None:
+        return []
+    return sorted(fid for fid, disp in
+                  helper.finding_dispositions_in_block(latest)
+                  if disp == "hold")

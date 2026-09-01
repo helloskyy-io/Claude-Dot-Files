@@ -36,7 +36,7 @@ def _parser() -> RepoPathParser:
                        description="Plan ONE component end to end: write, verify, size, "
                                    "reconcile the sprint, disposition.")
     p.add_repo_path("component", kind="dir",
-                    help="the component directory, e.g. docs/development/<name>")
+                    help="the component directory, e.g. development/<edge>/<name>")
     p.add_argument("--repo", dest="repo_target",
                    help="target repo — a FILESYSTEM PATH, never a gh slug")
     p.add_repo_path("--candidates", default=DEFAULT_CANDIDATES)
