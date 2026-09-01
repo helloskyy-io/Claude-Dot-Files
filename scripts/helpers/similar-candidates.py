@@ -30,10 +30,43 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from pathlib import Path as pathlib_Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "workflows/temporal"))
 
 from modules.assistant.tracked import recurrence, tracked_items  # noqa: E402
+
+
+def _default_root() -> tuple[pathlib_Path | None, tuple]:
+    """The repo that owns `tracked/`, when the caller did not say.
+
+    AN ABSOLUTE SCRIPT PATH DID NOT MAKE THE STORE LOOKUP ABSOLUTE, and the
+    prompt told three consecutive review passes that it did — *"the path above is
+    absolute and resolves from any repo, so a failure means something real is
+    wrong."* `--repo-root` defaulted to `"."`, so every invocation from a
+    dispatch's worktree failed with *"no tracked store at <worktree>/tracked"*.
+    A failure that is meant to signal something real, and fires every time,
+    trains the reader to ignore it — which is the cost this defect actually had.
+
+    THE ORDER IS CWD FIRST. A repo that owns its own stores answers for itself,
+    which keeps this working in `image-manager` and anywhere else, unchanged.
+    Only when CWD has none does it look sideways, at the siblings of the repo
+    this script lives in — one of which is the planning repo holding the stores
+    the tooling repo does not.
+
+    AMBIGUITY IS REFUSED, NOT GUESSED. Two siblings with stores means the caller
+    has to say which, because ranking a finding against the wrong ecosystem's
+    items is worse than not ranking it.
+    """
+    cwd = pathlib_Path.cwd()
+    if (cwd / tracked_items.TRACKED_ROOT).is_dir():
+        return cwd, ()
+    siblings = sorted(
+        d for d in pathlib_Path(__file__).resolve().parents[3].iterdir()
+        if d.is_dir() and (d / tracked_items.TRACKED_ROOT).is_dir())
+    if len(siblings) == 1:
+        return siblings[0], ()
+    return None, tuple(siblings)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -46,7 +79,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--store", default="candidates",
                     choices=sorted(tracked_items.STORES),
                     help="which store to search (default: candidates)")
-    ap.add_argument("--repo-root", default=".", type=Path)
+    ap.add_argument("--repo-root", default=None, type=Path,
+                    help="repo owning tracked/ (default: discovered — see "
+                         "`_default_root`)")
     ap.add_argument("--limit", type=int, default=5)
     # THE KEY FIELDS, PASSED WHEN THEY EXIST. `standards` is the one store with a
     # field pair that IDENTIFIES rather than narrows: two items naming the same
@@ -57,7 +92,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--component", help="candidates store: the owning component")
     args = ap.parse_args(argv)
 
-    root = (args.repo_root / tracked_items.TRACKED_ROOT).resolve()
+    repo_root, ambiguous = (args.repo_root, ()) if args.repo_root else _default_root()
+    if repo_root is None:
+        print(f"cannot tell which repo owns `tracked/` — candidates: "
+              f"{[str(c) for c in ambiguous]}. Pass --repo-root.", file=sys.stderr)
+        return 2
+    root = (repo_root / tracked_items.TRACKED_ROOT).resolve()
     if not root.is_dir():
         print(f"no tracked store at {root} — expected the four stores of Tracked "
               f"Items Standard §1.", file=sys.stderr)

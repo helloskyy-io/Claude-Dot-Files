@@ -47,6 +47,7 @@ from modules.assistant.research.research_refine import research_refine_workflow 
 from modules.assistant.research.research_draft import (
     research_draft_workflow as child,
 )
+from planning_corpus import PLANNING_ROOT, require_planning_corpus  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 CONFIG = REPO_ROOT / "config.yaml"
@@ -411,13 +412,22 @@ def test_the_pool_pointer_runs_BOTH_directions_and_neither_arm_is_silent() -> No
     sys.path.insert(0, str(_MODULES))
     from assistant.research import research_activities as act
 
-    # THE CORPUS LIVES IN THE PLANNING REPO SINCE THE 2026-08-31 CONSOLIDATION,
-    # so this walks the sibling rather than this one. Derived rather than
-    # hardcoded: the two repos are siblings on every machine that holds both.
-    repo = Path(__file__).resolve().parents[5].parent / "skyynet-master-planning"
-    if not (repo / "standards").is_dir():
-        pytest.skip(f"no planning repo beside this one at {repo} — this test "
-                    f"compares real corpus blocks and has nothing to read")
+    # THE CORPUS LIVES IN THE PLANNING REPO SINCE THE 2026-08-31 CONSOLIDATION.
+    #
+    # THIS SAID "derived rather than hardcoded" AND IT WAS HARDCODED — a fixed
+    # `parents[5]`, which is the repo root ONLY in the main checkout. Every
+    # autonomous dispatch runs from `.claude/worktrees/`, where it resolves one
+    # level too shallow to `.claude/worktrees/skyynet-master-planning`, and this
+    # test SKIPPED on every one of them with a reason reading "this machine has
+    # no planning repo." The machine had one. So the altitude control — a
+    # component run must not shop in the product pool, a product run must not
+    # write where it does not own — has asserted nothing in any producing run,
+    # and its skip was byte-indistinguishable from the legitimate no-corpus skip.
+    #
+    # `planning_root()` WALKS UP instead of counting, which is why it answers
+    # correctly from either tree. Found by `review-pr` on PR #166.
+    require_planning_corpus()
+    repo = PLANNING_ROOT
     product = repo / "standards/architecture/research"
     component = repo / "development/edge-assistant/persistent-memory-protocol/research"
 

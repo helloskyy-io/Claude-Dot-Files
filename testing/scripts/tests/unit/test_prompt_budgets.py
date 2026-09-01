@@ -218,7 +218,15 @@ BUDGETS: dict[str, int] = {
     # `skyy-command` cites its planning repo the same way, hundreds of times —
     # and it is the only form that resolves from a worktree of another repo.
     # NO INSTRUCTION WAS ADDED; the same sentences got longer.
-    "review_pr/prompts/disposition.md": 87_248,
+    # RAISED +42 on 2026-09-01, from 87_248, to correct a FALSE sentence rather
+    # than to add a lesson. It read "the path above is absolute and resolves
+    # from any repo, so a failure means something real is wrong" — the SCRIPT
+    # path is absolute, the STORE lookup was not, and three consecutive review
+    # passes on PR #166 each hit the failure and each reported it. A stated
+    # failure mode that fires every time trains the reader to ignore it, which
+    # is worse than the bytes. The replacement is SHORTER than the first three
+    # drafts of it; this is what is left after tightening.
+    "review_pr/prompts/disposition.md": 87_290,
     "plan/plan_revision/prompts/stages_1_to_5.md": 22_506,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-f0lfdhmm's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the

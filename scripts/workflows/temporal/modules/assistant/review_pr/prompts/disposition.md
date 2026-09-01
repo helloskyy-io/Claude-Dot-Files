@@ -186,7 +186,7 @@ python3 ${SIMILAR_CANDIDATES} --store <issues|candidates|standards> "<the findin
 
 For a standards amendment add `--target` and `--anchor`: they are the one field pair that IDENTIFIES rather than narrows, so an exact match is promoted and labelled. It hands you the few worth opening; **read those in full.** **If it is already there: increment its `count`, append a dated line under `## Recurrences` naming this PR, and file no intake.** That is a terminal disposition and its pointer is the existing item.
 
-**IF THAT COMMAND CANNOT RUN, SAY SO AND SEARCH BY HAND — do not file blind.** The path above is absolute and resolves from any repo, so a failure means something real is wrong. Fall back to `grep -ril "<two or three words of the subject>" <store>/` and read what it returns. **A filing that skipped the duplicate check must say it skipped it**, because the check is the only thing standing between a recurrence and a second item on top of an existing one.
+**IF THAT COMMAND CANNOT RUN, SAY SO AND SEARCH BY HAND — do not file blind.** The script path is absolute; **the store is not** — from a worktree pass `--repo-root <the repo owning tracked/>`. Any other failure is real. Fall back to `grep -ril "<two or three words of the subject>" <store>/` and read what it returns. **A filing that skipped the duplicate check must say it skipped it**, because the check is the only thing standing between a recurrence and a second item on top of an existing one.
 
 **Search on the subject, never on your wording** — a title states the CONSEQUENCE (§3), so titles read alike across items that are not the same. **When two are close and you cannot tell, FILE:** a duplicate costs one triage ruling, a wrong merge buries a finding under somebody else's.
 
