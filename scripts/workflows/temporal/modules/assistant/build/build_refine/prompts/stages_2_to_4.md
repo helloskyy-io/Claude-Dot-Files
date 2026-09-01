@@ -18,15 +18,15 @@ ${FIDELITY_NEEDS_A_SEPARATE_RUN}
 
 ${FIDELITY_EVIDENCE_DISCIPLINE}
 
+${FIDELITY_MUTATE_WHAT_YOU_ADDED}
+
 **ASK WHAT EACH GUARD DOES NOT LOOK AT.** A negative control proves the tests discriminate AS SCOPED — mutating a narrow guard still fails the narrow tests written for it. Every scope defect this fleet has shipped was invisible to that and visible to this. Name the inputs a guard never inspects.
 
 **SIZE THE CHANGE, THEN SET THE BAR — the maximum applied to everything is not rigour but the absence of judgement, and it is paid in wall-clock on every run.** One file, no contract change: one lens, and mutate only if the change IS a guard. A new module, contract or schema: mutate, multi-lens. A safety control, a gate or an authorization boundary: all of it. Name the tier in the decision log.
 
 **A MUTATION PROVES A GUARD DISCRIMINATES WITHIN ITS POPULATION, never that the population is COMPLETE.** A miss has four causes, not two: the guard is weaker than you thought (a finding); your model of the fixture was wrong; the test is coupled to what the mutation changed (tell: MORE failures than predicted, inside the mutated area); or the harness cannot reach a case at all (tell: a de-duplicating step — `set()`, "distinct names" — so ask whether one case stands in for two things that fail separately).
 
-**PRINT WHAT THE MUTATION ACTUALLY PRODUCED BEFORE YOU MEASURE ANYTHING.** A shell-escaping artifact makes a regex INVALID rather than wider, and the resulting failure count reads exactly like a guard finding. Echo the mutated value, then run the suite.
-
-${FIDELITY_MUTATE_WHAT_YOU_ADDED}
+**PRINT WHAT THE MUTATION ACTUALLY PRODUCED BEFORE YOU MEASURE ANYTHING, AND CONFIRM THE ARTIFACT STILL LOADS.** Two failures hide here and they have opposite tells. A shell-escaping artifact makes a regex INVALID rather than wider, and the resulting failure count reads exactly like a guard finding. A mutation that leaves the file unparseable fails COLLECTION — no assertion runs, and a `FAILED|passed` grep matches NOTHING, which on a fast skim reads as *nothing broke*. **A mutation that does not leave the artifact loadable has not been applied, and a null result is not a green one.** Echo the mutated value, `compile()` or import the file, then run the suite.
 
 Record fidelity gaps as findings and carry them into Stage 3 alongside the review findings.
 

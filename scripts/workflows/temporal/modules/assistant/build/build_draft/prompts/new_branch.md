@@ -14,9 +14,7 @@ ${STAGES_1_TO_4}
 - Create a new PR using 'gh pr create'. Title format: "build-draft: <short description>". In the body, include:
   - Summary of what was changed
   - Deviations from plan (if any)
-  - Review findings addressed and deferred
-  - Refactoring suggestions implemented and deferred
-  - Standards audit findings addressed and deferred
+  - Findings you surfaced for the next pass, with the store you believe each belongs in
   - Test results
 - Report the PR URL
 

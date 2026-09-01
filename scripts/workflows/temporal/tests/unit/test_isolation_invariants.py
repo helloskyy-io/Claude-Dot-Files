@@ -48,6 +48,7 @@ reachable the moment the PR merges.
 
 from __future__ import annotations
 
+import ast
 import importlib
 from pathlib import Path
 
@@ -83,6 +84,74 @@ def _workflow_modules() -> list[tuple[str, str]]:
     return found
 
 
+# The two predicates the classification is built from, declared ABOVE it: `_classify`
+# runs at import and calls them, so their definitions cannot sit below it.
+
+def _creates_a_worktree(source: str) -> bool:
+    """True when the source CALLS worktree_add — read from the AST, not the text.
+
+    IT USED TO MATCH THE LITERAL `"act.worktree_add("`, AND THAT MADE A GREEN
+    ASSERTION FALSE. `review_pr_workflow` calls `_shared.worktree_add(` — the
+    same function through a different alias — so it was filed under CHILDREN,
+    `test_child_does_not_create_its_own_worktree` passed while asserting
+    something untrue, and the module never reached
+    `test_parent_establishes_isolation`. The damage was the EXEMPTION, not the
+    false pass: the one assertion that would fire if it stopped cutting its
+    per-pass tree was never applied to it.
+
+    THE AST ALSO SETTLES THE PROSE CASE THE LITERAL WAS GUARDING. The old
+    predicate leaned on a trailing `(` to tell a call from a docstring mention;
+    a comment reading `# calls act.worktree_add(repo, name)` would have defeated
+    it. A comment is not a `Call` node, so the question stops being textual.
+
+    A FRAGMENT THAT IS NOT A MODULE falls back to the substring: the controls
+    below drive this on one-line samples, and a sample that cannot be parsed
+    should still be answerable rather than crash the control that uses it.
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return "worktree_add(" in source
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
+        if name == "worktree_add":
+            return True
+    return False
+
+def _receives_a_worktree_path(source: str) -> bool:
+    """True when a PUBLIC function in the module takes `worktree: Path`.
+
+    PUBLIC, NOT ANYWHERE IN THE TEXT, and the distinction decides the taxonomy.
+    A parent that CREATES isolation still passes it around internally — 
+    `build_workflow._refine_then_dispose` takes `worktree: Path` — so a
+    substring match reads four parents as also RECEIVING, which is the opposite
+    of what they do. Only the module's own entry point can receive isolation
+    from a caller; a private helper taking the same parameter is the parent
+    handing down what it just cut.
+
+    Falls back to the substring for a fragment that is not a module, so the
+    one-line controls below stay answerable.
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return "worktree: Path" in source
+    for node in tree.body:
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if node.name.startswith("_"):
+            continue
+        args = node.args
+        for a in (*args.posonlyargs, *args.args, *args.kwonlyargs):
+            ann = a.annotation
+            if (a.arg == "worktree" and isinstance(ann, ast.Name)
+                    and ann.id == "Path"):
+                return True
+    return False
+
 def _classify() -> tuple[list, list, list]:
     """Split the tree by what each module DOES, read from its source.
 
@@ -90,20 +159,37 @@ def _classify() -> tuple[list, list, list]:
     call-graph property, and a module that creates its own worktree is a parent
     no matter where it sits.
     """
-    children, parents, neither = [], [], []
+    children, parents, both, neither = [], [], [], []
     for dotted, src in _workflow_modules():
         short = dotted.rsplit(".", 1)[-1].removesuffix("_workflow")
         mod = importlib.import_module(dotted)
-        if "act.worktree_add(" in src:
-            parents.append(pytest.param(mod, id=short))
-        elif "worktree: Path" in src:
-            children.append(pytest.param(mod, id=short))
+        creates = _creates_a_worktree(src)
+        receives = _receives_a_worktree_path(src)
+        param = pytest.param(mod, id=short)
+        if creates and receives:
+            both.append(param)
+        elif creates:
+            parents.append(param)
+        elif receives:
+            children.append(param)
         else:
             neither.append(short)
-    return children, parents, neither
+    return children, parents, both, neither
 
 
-CHILDREN, PARENTS, UNCLASSIFIED = _classify()
+CHILDREN, PARENTS, BOTH, UNCLASSIFIED = _classify()
+
+# A module that RECEIVES a tree and also CUTS one. `review-pr` is the case and it
+# is legitimate: it is dispatched with its parent's worktree AND cuts a fresh
+# per-pass tree of the PR under review, because a loop-back needs one per pass.
+#
+# THE IF/ELIF THAT PRECEDED THIS COULD NOT SAY THAT. First branch won, so a
+# both-module was silently a PARENT and lost the two child invariants it
+# genuinely satisfies — or, while the creation predicate was alias-blind, was
+# silently a CHILD and lost the parent one. Naming the third state is what stops
+# the next such module being absorbed into whichever bucket the ordering favours.
+ESTABLISHES = PARENTS + BOTH          # asserted to CREATE isolation
+RECEIVES = CHILDREN + BOTH            # asserted to RECEIVE it
 
 
 def test_the_sweep_actually_found_workflows() -> None:
@@ -129,13 +215,8 @@ def test_every_workflow_is_classifiable() -> None:
     )
 
 
-def _creates_a_worktree(source: str) -> bool:
-    """True when the source CALLS worktree_add — a call, not a mention in prose."""
-    return "act.worktree_add(" in source
 
 
-def _receives_a_worktree_path(source: str) -> bool:
-    return "worktree: Path" in source
 
 
 def _conditionally_skips_isolation(source: str) -> bool:
@@ -172,7 +253,7 @@ def test_child_does_not_create_its_own_worktree(module) -> None:
     )
 
 
-@pytest.mark.parametrize("module", CHILDREN)
+@pytest.mark.parametrize("module", RECEIVES)
 def test_child_receives_a_worktree_path(module) -> None:
     assert _receives_a_worktree_path(inspect.getsource(module)), (
         f"{module.__name__} no longer takes a `worktree: Path` parameter — if it "
@@ -180,7 +261,7 @@ def test_child_receives_a_worktree_path(module) -> None:
     )
 
 
-@pytest.mark.parametrize("module", CHILDREN)
+@pytest.mark.parametrize("module", RECEIVES)
 def test_child_does_not_conditionally_skip_isolation(module) -> None:
     assert not _conditionally_skips_isolation(inspect.getsource(module)), (
         f"{module.__name__} reintroduced the `None if pr_number` ternary. That put "
@@ -191,7 +272,7 @@ def test_child_does_not_conditionally_skip_isolation(module) -> None:
 
 # --- parents: isolation is established exactly here ---------------------------
 
-@pytest.mark.parametrize("module", PARENTS)
+@pytest.mark.parametrize("module", ESTABLISHES)
 def test_parent_establishes_isolation(module) -> None:
     assert _creates_a_worktree(inspect.getsource(module)), (
         f"{module.__name__} no longer calls worktree_add. If the parent stops "
@@ -221,10 +302,25 @@ PREDICATE_CONTROLS = [
     ("creates_a_worktree/absent", _creates_a_worktree,
      "wt = passed_in_worktree", False),
 
+    # THE ALIAS THE PREDICATE WAS BLIND TO, and the controls were blind to it
+    # too — none of the three above is an aliased call, so the control set
+    # shared the predicate's hole and could not have caught it. This is the
+    # exact shape in `review_pr_workflow`.
+    ("creates_a_worktree/aliased-receiver", _creates_a_worktree,
+     "pr_tree = _shared.worktree_add(repo_root, name, ref)", True),
+    # A comment that CONTAINS a call. The old predicate leaned on a trailing
+    # `(` to tell a call from prose, which this defeats; the AST does not care.
+    ("creates_a_worktree/prose-with-parens", _creates_a_worktree,
+     "# the parent calls act.worktree_add(repo_root, name, ref) for us", False),
     ("receives_a_worktree_path/annotated", _receives_a_worktree_path,
-     "def run(*, worktree: Path) -> str:", True),
+     "def run(*, worktree: Path) -> str:\n    return ''", True),
+    # A PRIVATE helper taking the parameter is a parent handing down what it
+    # just cut, not a module receiving isolation. Reading this as "receives"
+    # classified four parents as also-children.
+    ("receives_a_worktree_path/private-helper", _receives_a_worktree_path,
+     "def _refine(task, *, worktree: Path) -> str:\n    return ''", False),
     ("receives_a_worktree_path/unannotated", _receives_a_worktree_path,
-     "def run(*, worktree) -> str:", False),
+     "def run(*, worktree) -> str:\n    return ''", False),
 
     ("conditionally_skips_isolation/ternary", _conditionally_skips_isolation,
      "name = None if pr_number else name", True),
