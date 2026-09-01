@@ -131,6 +131,13 @@ import sys as _s  # noqa: E402
 _s.path.insert(0, str(_REPO / "scripts" / "workflows" / "temporal" / "tests"))
 from planning_corpus import PLANNING_ROOT  # noqa: E402
 
+import sys as _cg_sys  # noqa: E402
+from pathlib import Path as _cg_Path  # noqa: E402
+_cg_sys.path.insert(0, str(_cg_Path(__file__).resolve().parents[4]
+                           / "scripts" / "workflows" / "temporal" / "tests"))
+from planning_corpus import require_planning_corpus  # noqa: E402
+
+
 # The markdown this gate claims to cover lives in BOTH repos since the prose
 # split from the tooling. A table renders or does not render regardless of which
 # tree holds it, so the population follows the documents rather than the code.
@@ -188,6 +195,7 @@ def _off_width(path: Path) -> list[str]:
 
 def test_there_are_enough_markdown_files_for_this_gate_to_mean_anything() -> None:
     """A population that silently collapsed to nothing passes everything."""
+    require_planning_corpus()
     files = _tracked_markdown()
     assert len(files) > 100, (
         f"only {len(files)} tracked `.md` files found — this gate claims to "
@@ -213,6 +221,7 @@ def test_the_TREE_WIDE_SCAN_finds_the_tables_that_are_actually_there() -> None:
     the rationale in the same words; the tree-wide module simply did not copy
     it. Measured today: 449 blocks over 3,476 lines in 228 files.
     """
+    require_planning_corpus()
     blocks = lines = 0
     for path in _tracked_markdown():
         found = table_blocks(_scan(path))
@@ -284,6 +293,7 @@ def test_EVERY_TABLE_ROW_IN_EVERY_TRACKED_MARKDOWN_FILE_RENDERS_WHOLE() -> None:
     single PR, in three different files; enumerating them did not converge and
     the sixth was live when the fifth was declared fixed.
     """
+    require_planning_corpus()
     wrong: list[str] = []
     for path in _tracked_markdown():
         wrong.extend(_off_width(path))
@@ -314,6 +324,7 @@ def test_EVERY_LINE_INSIDE_EVERY_TABLE_BLOCK_IS_ACTUALLY_A_ROW() -> None:
     file-shaped reasoning this module exists to correct. Measured across all
     tracked `.md` today: zero.
     """
+    require_planning_corpus()
     stray: list[str] = []
     for path in _tracked_markdown():
         stray.extend(f"{_display(path)}:{i + 1}" for i in stray_lines(_scan(path)))
@@ -354,6 +365,7 @@ def test_NO_TABLE_ROW_ANYWHERE_IN_THE_TREE_IS_SEVERED_FROM_ITS_BLOCK() -> None:
     from a written-standalone one. See its docstring for the residual that
     costs.
     """
+    require_planning_corpus()
     severed: list[str] = []
     for path in _tracked_markdown():
         severed.extend(f"{_display(path)}:{i + 1}" for i in severed_rows(_scan(path)))
@@ -658,6 +670,7 @@ def test_an_HTML_BLOCK_opener_is_the_residual_TREE_WIDE_TOO() -> None:
     docstring bullets — delete them in one commit or the surviving one starts
     describing a residual that no longer exists.
     """
+    require_planning_corpus()
     doc = ["| a | b |", "|---|---|", "| x | y |", "<div>html</div>", "| p | q |"]
     blocks = table_blocks(doc)
     assert blocks and len(blocks[0]) == 5, (

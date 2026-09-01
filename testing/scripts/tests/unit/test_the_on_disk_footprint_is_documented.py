@@ -48,6 +48,13 @@ from planning_corpus import PLANNING_ROOT  # noqa: E402
 from modules.journal.root import (DEPLOYMENT_SHAPES, JournalRootError,   # noqa: E402
                                   default_root_for)
 
+import sys as _cg_sys  # noqa: E402
+from pathlib import Path as _cg_Path  # noqa: E402
+_cg_sys.path.insert(0, str(_cg_Path(__file__).resolve().parents[4]
+                           / "scripts" / "workflows" / "temporal" / "tests"))
+from planning_corpus import require_planning_corpus  # noqa: E402
+
+
 # Where an OPERATOR looks, as opposed to where a planning document explains a
 # decision to a future engineer. A phase doc under docs/development/ deliberately
 # does NOT count — that is precisely the surface the journal root was already on
@@ -92,6 +99,7 @@ def _default_path_for(shape: str) -> str | None:
 
 def test_the_operator_surfaces_this_checks_against_actually_EXIST() -> None:
     """The control on the control: an assertion over an empty corpus passes silently."""
+    require_planning_corpus()
     docs = _operator_docs()
     assert len(docs) > 5, (
         f"only {len(docs)} operator-facing documents found under "
@@ -114,6 +122,7 @@ def test_the_no_default_exemption_is_only_what_it_says_it_is() -> None:
 def test_every_deployment_shape_s_default_root_is_named_where_an_operator_READS(
         shape: str) -> None:
     """THE REQUIREMENT. Undocumented state is state nobody backs up or deletes."""
+    require_planning_corpus()
     path = _default_path_for(shape)
     assert path, f"{shape} lost its default root — update _NO_DERIVABLE_DEFAULT"
 
@@ -142,4 +151,5 @@ def test_the_check_would_FAIL_on_an_undocumented_shape() -> None:
 
 def test_the_check_ACCEPTS_a_path_the_docs_do_name() -> None:
     """The other half: a guard that refuses everything discriminates nothing."""
+    require_planning_corpus()
     assert "~/.local/state/claude-dot-files/journal" in _documented_text()

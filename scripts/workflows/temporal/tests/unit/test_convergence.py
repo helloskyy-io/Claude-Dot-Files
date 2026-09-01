@@ -38,6 +38,13 @@ from modules.assistant.review_pr import exit_record as er
 from modules.assistant import routing
 from modules.assistant.review_pr import review_pr_helper as helper
 
+import sys as _cg_sys  # noqa: E402
+from pathlib import Path as _cg_Path  # noqa: E402
+_cg_sys.path.insert(0, str(_cg_Path(__file__).resolve().parents[5]
+                           / "scripts" / "workflows" / "temporal" / "tests"))
+from planning_corpus import require_planning_corpus  # noqa: E402
+
+
 # ANCHORED ON THIS FILE, NOT ON A MODULE. These were computed as
 # `Path(er.__file__).parents[N]`, which silently shifts by one the moment the
 # module moves — and `exit_record` moved into `review_pr/` on 2026-08-11,
@@ -1368,6 +1375,7 @@ def test_every_prose_copy_of_the_partition_matches_the_shipped_one(
     means the opposite of what it computes, and `autonomous-operation.md`
     explicitly tells a future consumer to rely on it.
     """
+    require_planning_corpus()
     # the three prose copies live in the planning repo since 2026-08-31
     path = PLANNING_ROOT / relative_path
     assert path.exists(), f"{relative_path} moved — the gate reads nothing"

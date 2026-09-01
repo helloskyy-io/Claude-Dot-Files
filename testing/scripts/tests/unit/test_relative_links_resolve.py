@@ -34,6 +34,13 @@ import sys as _s  # noqa: E402
 _s.path.insert(0, str(REPO_ROOT / "scripts" / "workflows" / "temporal" / "tests"))
 from planning_corpus import PLANNING_ROOT  # noqa: E402
 
+import sys as _cg_sys  # noqa: E402
+from pathlib import Path as _cg_Path  # noqa: E402
+_cg_sys.path.insert(0, str(_cg_Path(__file__).resolve().parents[4]
+                           / "scripts" / "workflows" / "temporal" / "tests"))
+from planning_corpus import require_planning_corpus  # noqa: E402
+
+
 # TWO ROOTS, ONE GATE. The prose moved to the planning repo while the tooling it
 # documents stayed here, so a link now breaks in either tree and the check that
 # used to see both halves must keep seeing both. Scanning only this repo after
@@ -186,6 +193,7 @@ def test_the_VENDORED_EXEMPTION_names_the_SEVEN_FILES_the_script_declares() -> N
     over-matched, local files would go unchecked, which is the hole this
     exemption was narrowed to close.
     """
+    require_planning_corpus()
     names = sorted(p.name for p in vendored_paths())
     assert names == sorted(EXPECTED), (
         f"the vendored set derived from {VENDOR_SCRIPT.name} is {names}. Either "

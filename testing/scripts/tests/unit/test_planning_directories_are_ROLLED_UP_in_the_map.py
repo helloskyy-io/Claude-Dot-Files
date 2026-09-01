@@ -114,6 +114,16 @@ import pytest
 # `prepend` mode and fails at COLLECTION otherwise, which `mutate.sh` reads as a
 # caught mutation (issue #72). `file_structure_map.py` is the remedy that rule
 # names, and it is why there is no third copy of this regex in the repo.
+import sys as _s  # noqa: E402
+_s.path.insert(0, str(Path(__file__).resolve().parents[4]
+                      / "scripts" / "workflows" / "temporal" / "tests"))
+from planning_corpus import skip_module_without_corpus  # noqa: E402
+
+# COLLECTION-TIME, because `_PLANNING` and `_TRACKED` below are module constants
+# read off the planning repo. Without this the module raises during collection on
+# a clone that has no sibling planning repo — which is every CI runner.
+skip_module_without_corpus()
+
 from file_structure_map import (  # noqa: E402
     PLANNING_MAP as MAP,
     map_paths,

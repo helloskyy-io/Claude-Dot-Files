@@ -107,6 +107,13 @@ _PROSE = (
 # was invisible to it rather than merely unregistered. That is this file's
 # own defect class, in its own supporting data.
 from prose_number_words import NUMBER_WORDS as _NUMBER_WORDS  # noqa: E402
+
+import sys as _cg_sys  # noqa: E402
+from pathlib import Path as _cg_Path  # noqa: E402
+_cg_sys.path.insert(0, str(_cg_Path(__file__).resolve().parents[5]
+                           / "scripts" / "workflows" / "temporal" / "tests"))
+from planning_corpus import require_planning_corpus  # noqa: E402
+
 _WORD_OF = {v: k for k, v in _NUMBER_WORDS.items()}
 
 
@@ -381,6 +388,7 @@ def test_every_entrypoint_figure_in_this_packages_prose_is_BOUND() -> None:
     An author writing a new figure gets told to bind it or declare it, which is
     the only version of this that converges.
     """
+    require_planning_corpus()
     unregistered: list[str] = []
     wrong: list[str] = []
 
@@ -420,6 +428,7 @@ def test_the_swept_prose_is_NOT_EMPTY() -> None:
     figures — a rename or a moved doc that silently emptied the population is
     the failure mode this file could not otherwise report.
     """
+    require_planning_corpus()
     missing = [p.as_posix() for p in _PROSE if not p.is_file()]
     assert not missing, f"swept prose file(s) no longer exist: {missing}"
 
@@ -445,6 +454,7 @@ def test_no_prose_enumerates_a_bag_STATE_that_does_not_exist() -> None:
     a wider one would flag every path and every `open|sealed` alternation in the
     package.
     """
+    require_planning_corpus()
     offenders: list[str] = []
     for path in _PROSE:
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):

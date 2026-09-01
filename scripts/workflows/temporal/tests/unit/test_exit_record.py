@@ -44,6 +44,13 @@ from review_run_fakes import (  # noqa: E402
     _with_comments,
 )
 
+import sys as _cg_sys  # noqa: E402
+from pathlib import Path as _cg_Path  # noqa: E402
+_cg_sys.path.insert(0, str(_cg_Path(__file__).resolve().parents[5]
+                           / "scripts" / "workflows" / "temporal" / "tests"))
+from planning_corpus import require_planning_corpus  # noqa: E402
+
+
 # ANCHORED ON THIS FILE, NOT ON A MODULE. These were computed as
 # `Path(er.__file__).parents[N]`, which silently shifts by one the moment the
 # module moves — and `exit_record` moved into `review_pr/` on 2026-08-11,
@@ -1422,6 +1429,7 @@ def test_protocol_SS4s_reason_column_is_exactly_the_shipped_vocabulary() -> None
     means an operator is reading §4 for a bin the code never writes, or binning
     into one §4 does not document.
     """
+    require_planning_corpus()
     protocol = PLANNING_ROOT / "standards" / \
         "exit-protocol.md"
     assert protocol.exists(), f"the protocol moved: {protocol}"

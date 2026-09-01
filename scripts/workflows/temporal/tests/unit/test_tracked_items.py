@@ -34,6 +34,13 @@ from modules.assistant.tracked import tracked_items as own
 
 from planning_corpus import PLANNING_ROOT, require_planning_corpus  # noqa: E402
 
+import sys as _cg_sys  # noqa: E402
+from pathlib import Path as _cg_Path  # noqa: E402
+_cg_sys.path.insert(0, str(_cg_Path(__file__).resolve().parents[5]
+                           / "scripts" / "workflows" / "temporal" / "tests"))
+from planning_corpus import require_planning_corpus  # noqa: E402
+
+
 REPO = Path(__file__).resolve().parents[5]
 # The standard and the stores live in the planning repo since 2026-08-31.
 STANDARD = PLANNING_ROOT / "standards/documentation/tracked_items_standard.md"
@@ -58,6 +65,7 @@ def test_the_vendored_standard_is_PRESENT_before_anything_is_checked_against_it(
     test: a missing standard must fail LOUDLY and by name, not as an empty
     parametrize that reports green.
     """
+    require_planning_corpus()
     assert STANDARD.is_file(), (
         f"{STANDARD.relative_to(REPO)} is missing. It is VENDORED from "
         f"MDC-Master-Planning — restore it with scripts/helpers/vendor-standards.sh"
@@ -71,6 +79,7 @@ def test_every_store_PREFIX_matches_what_the_standard_declares() -> None:
     table is a second source that rots — the repo rule this whole exercise
     exists to serve.
     """
+    require_planning_corpus()
     text = STANDARD.read_text()
     declared: dict[str, str] = {}
     for line in text.splitlines():
@@ -95,6 +104,7 @@ def test_every_store_PREFIX_matches_what_the_standard_declares() -> None:
 
 def test_the_SHARED_CORE_is_exactly_what_section_3_lists() -> None:
     """§3's six fields, in §3's order. Field ORDER is part of the uniformity."""
+    require_planning_corpus()
     block = re.search(r"```yaml\n(.*?)```", STANDARD.read_text(), re.S)
     assert block, "§3's frontmatter example is gone — the contract shape changed"
     declared = tuple(
@@ -108,6 +118,7 @@ def test_the_SHARED_CORE_is_exactly_what_section_3_lists() -> None:
 
 def test_all_four_store_DIRECTORIES_exist() -> None:
     """A store the standard names and the repo lacks is a filer's crash later."""
+    require_planning_corpus()
     missing = [s.name for s in own.STORES.values() if not (TRACKED / s.name).is_dir()]
     assert not missing, f"tracked stores not created: {missing}"
 

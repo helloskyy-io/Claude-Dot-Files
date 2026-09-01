@@ -41,6 +41,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "modules"))
 from planning_corpus import PLANNING_ROOT  # noqa: E402
 from assistant.plan import plan_activities as A  # noqa: E402
 
+import sys as _cg_sys  # noqa: E402
+from pathlib import Path as _cg_Path  # noqa: E402
+_cg_sys.path.insert(0, str(_cg_Path(__file__).resolve().parents[5]
+                           / "scripts" / "workflows" / "temporal" / "tests"))
+from planning_corpus import require_planning_corpus  # noqa: E402
+
+
 
 def _roadmap(tmp_path: Path, body: str) -> Path:
     comp = tmp_path / "component"
@@ -178,6 +185,7 @@ def test_the_checkbox_KEY_IS_INERT_on_this_repos_real_roadmaps() -> None:
     primary pass found nothing. So this compares the parser against itself with
     the key disabled — exact, and it cannot go stale when a plan is re-sized.
     """
+    require_planning_corpus()
     repo = Path(__file__).resolve().parents[5]
     # Components are bucketed by edge in the planning repo, and `Path.glob`'s
     # `*` does NOT cross `/` (unlike a git pathspec), so both depths are asked

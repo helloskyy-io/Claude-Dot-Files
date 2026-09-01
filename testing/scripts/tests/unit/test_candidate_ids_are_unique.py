@@ -47,6 +47,13 @@ _s.path.insert(0, str(_p.Path(__file__).resolve().parents[4]
                      / "scripts" / "workflows" / "temporal" / "tests"))
 from planning_corpus import PLANNING_ROOT  # noqa: E402
 
+import sys as _cg_sys  # noqa: E402
+from pathlib import Path as _cg_Path  # noqa: E402
+_cg_sys.path.insert(0, str(_cg_Path(__file__).resolve().parents[4]
+                           / "scripts" / "workflows" / "temporal" / "tests"))
+from planning_corpus import require_planning_corpus  # noqa: E402
+
+
 _CANDIDATES = PLANNING_ROOT / "tracked" / "candidates"
 
 # THE ID NOW LIVES IN TWO PLACES AND BOTH ARE CHECKED: the filename, which §2
@@ -80,6 +87,7 @@ def _ids() -> list[str]:
 
 def test_the_candidates_store_is_where_it_is_declared_to_be() -> None:
     """If it moves, every assertion below passes against nothing."""
+    require_planning_corpus()
     assert _CANDIDATES.is_dir(), (
         f"{_CANDIDATES} does not exist. finding-routing.md §7 sends every "
         f"producing run's proposal here; a moved store means this check has "
@@ -89,6 +97,7 @@ def test_the_candidates_store_is_where_it_is_declared_to_be() -> None:
 
 def test_there_are_enough_items_for_this_check_to_mean_anything() -> None:
     """A vacuity floor: uniqueness over zero ids holds trivially."""
+    require_planning_corpus()
     assert len(_ids()) > 30
 
 

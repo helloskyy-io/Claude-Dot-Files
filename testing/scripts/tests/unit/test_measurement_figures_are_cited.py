@@ -39,6 +39,13 @@ _s.path.insert(0, str(_p.Path(__file__).resolve().parents[4]
                      / "scripts" / "workflows" / "temporal" / "tests"))
 from planning_corpus import PLANNING_ROOT  # noqa: E402
 
+import sys as _cg_sys  # noqa: E402
+from pathlib import Path as _cg_Path  # noqa: E402
+_cg_sys.path.insert(0, str(_cg_Path(__file__).resolve().parents[4]
+                           / "scripts" / "workflows" / "temporal" / "tests"))
+from planning_corpus import require_planning_corpus  # noqa: E402
+
+
 MMF = PLANNING_ROOT / "development" / "edge-assistant" / "memory-management-framework"
 PHASE5 = MMF / "phase5_convergence_stopping.md"
 ROADMAP = MMF / "roadmap.md"
@@ -141,6 +148,7 @@ def test_a_phase_doc_states_its_figures_in_exactly_one_section() -> None:
     `_docs_declaring_a_measurement_section` for why that widening was available
     without taking C-523klr8n's ruling.
     """
+    require_planning_corpus()
     assert PHASE5.exists(), f"the phase doc moved: {PHASE5}"
     docs = _docs_declaring_a_measurement_section()
     assert PHASE5 in docs, (
@@ -179,6 +187,7 @@ def test_the_roadmap_cites_every_phases_figures_and_never_restates_them() -> Non
     standing evidence for widening it. Both were fixed in the same PR that
     widened this. See `_phase_labels` for why the population is read off disk.
     """
+    require_planning_corpus()
     assert ROADMAP.exists(), f"the roadmap moved: {ROADMAP}"
     scoped = _roadmap_phase_lines()
     assert scoped, "no phase lines found in the roadmap — the gate read nothing"
@@ -213,6 +222,7 @@ def test_the_roadmap_sweep_covers_every_phase_doc_on_disk() -> None:
     which has already answered the question for itself is no longer skipped
     because the OTHERS have not.
     """
+    require_planning_corpus()
     labels = _phase_labels()
     docs = sorted(p.name for p in MMF.glob("phase*.md"))
     assert docs, f"no phase docs found under {MMF} — the enumeration read nothing"

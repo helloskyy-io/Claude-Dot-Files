@@ -76,6 +76,13 @@ _s.path.insert(0, str(Path(__file__).resolve().parents[4]
                       / "scripts" / "workflows" / "temporal" / "tests"))
 from planning_corpus import PLANNING_ROOT  # noqa: E402
 
+import sys as _cg_sys  # noqa: E402
+from pathlib import Path as _cg_Path  # noqa: E402
+_cg_sys.path.insert(0, str(_cg_Path(__file__).resolve().parents[4]
+                           / "scripts" / "workflows" / "temporal" / "tests"))
+from planning_corpus import require_planning_corpus  # noqa: E402
+
+
 # The papers and everything they FEED moved to the planning repo, which has no
 # `docs/` level — pools sit directly under `development/` and `standards/`.
 ROOT = PLANNING_ROOT
@@ -185,6 +192,7 @@ def _ratchet(
 
 
 def test_no_NEW_dead_feeds_target() -> None:
+    require_planning_corpus()
     dead = _dead()
     new = {k: v for k, v in dead.items() if k not in ACCEPTED}
     assert not new, (
@@ -203,6 +211,7 @@ def _current_ratchet() -> tuple[list[str], list[str]]:
 
 def test_a_REPOINTED_target_leaves_the_baseline() -> None:
     """The ratchet. Without it the baseline is a permanent excuse list."""
+    require_planning_corpus()
     repaired, _ = _current_ratchet()
     assert not repaired, (
         "these baseline entries no longer point at nothing — the target came back "
@@ -220,6 +229,7 @@ def test_a_DELETED_pointer_is_NOT_a_repaired_one() -> None:
     the evidence it was supposed to fix, and the baseline gets shorter while the
     tree gets worse.
     """
+    require_planning_corpus()
     _, gone = _current_ratchet()
     assert not gone, (
         "a baseline entry stopped being dead because its `Feeds:` line stopped "

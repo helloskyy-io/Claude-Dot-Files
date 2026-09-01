@@ -48,6 +48,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from modules.assistant.plan import plan_activities as act  # noqa: E402
 from modules.assistant.plan.plan_project import plan_project_activities as own  # noqa: E402
 
+import sys as _cg_sys  # noqa: E402
+from pathlib import Path as _cg_Path  # noqa: E402
+_cg_sys.path.insert(0, str(_cg_Path(__file__).resolve().parents[5]
+                           / "scripts" / "workflows" / "temporal" / "tests"))
+from planning_corpus import require_planning_corpus  # noqa: E402
+
+
 _HEADER = (
     "| ID | Candidate | `component` | Source | `decision` | `size` | `status` | Note |\n"
     "|---|---|---|---|---|---|---|---|\n"
@@ -496,6 +503,7 @@ def test_the_REAL_candidates_file_parses_and_every_cell_is_in_vocabulary() -> No
     live store drifted out of the shape they assume. This is the one
     assertion that reads what the pipeline will actually read.
     """
+    require_planning_corpus()
     real = PLANNING_ROOT / "tracked" / "candidates"
     rows = act.candidate_rows(real, missing_hint="x")
     assert len(rows) > 30, "too few rows parsed for this to mean anything"
@@ -854,6 +862,7 @@ def test_THE_REAL_CANDIDATES_FILE_PARSES_UNDER_THE_TIGHTENED_CHECK() -> None:
     non-zero rather than pinned — a pinned figure goes stale on the next filing,
     and the failure this guards against is the parse returning nothing.
     """
+    require_planning_corpus()
     # `parents[5]` is the repo root from `tests/unit/`, the idiom this suite
     # already uses in eight modules — see `journal_entrypoint_facts.REPO_ROOT`.
     real = PLANNING_ROOT / "tracked" / "candidates"

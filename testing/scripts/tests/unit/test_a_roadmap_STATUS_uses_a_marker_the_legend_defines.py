@@ -39,6 +39,13 @@ _s.path.insert(0, str(_p.Path(__file__).resolve().parents[4]
                      / "scripts" / "workflows" / "temporal" / "tests"))
 from planning_corpus import PLANNING_ROOT  # noqa: E402
 
+import sys as _cg_sys  # noqa: E402
+from pathlib import Path as _cg_Path  # noqa: E402
+_cg_sys.path.insert(0, str(_cg_Path(__file__).resolve().parents[4]
+                           / "scripts" / "workflows" / "temporal" / "tests"))
+from planning_corpus import require_planning_corpus  # noqa: E402
+
+
 # sprints.md (plural) in the planning repo, and components are bucketed by edge.
 SPRINT = PLANNING_ROOT / "development" / "sprints.md"
 COMPONENTS = PLANNING_ROOT / "development" / "edge-assistant"
@@ -71,6 +78,7 @@ def test_the_legend_is_PARSEABLE_before_anything_is_checked_against_it() -> None
     than arriving as "no roadmap has a legal marker", which reads as the
     opposite problem.
     """
+    require_planning_corpus()
     assert SPRINT.is_file(), f"{SPRINT} is missing — it defines the vocabulary"
     markers = _legend()
     assert len(markers) >= 4, (
@@ -82,6 +90,7 @@ def test_the_legend_is_PARSEABLE_before_anything_is_checked_against_it() -> None
 
 def test_there_are_roadmaps_to_check() -> None:
     """The second half of the same vacuity floor: no roadmaps, no coverage."""
+    require_planning_corpus()
     assert _roadmaps(), f"no component roadmap found under {COMPONENTS}"
 
 

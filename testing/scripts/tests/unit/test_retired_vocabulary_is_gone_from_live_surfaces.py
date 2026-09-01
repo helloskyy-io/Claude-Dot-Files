@@ -115,6 +115,13 @@ import sys as _s  # noqa: E402
 _s.path.insert(0, str(_REPO / "scripts" / "workflows" / "temporal" / "tests"))
 from planning_corpus import PLANNING_ROOT  # noqa: E402
 
+import sys as _cg_sys  # noqa: E402
+from pathlib import Path as _cg_Path  # noqa: E402
+_cg_sys.path.insert(0, str(_cg_Path(__file__).resolve().parents[4]
+                           / "scripts" / "workflows" / "temporal" / "tests"))
+from planning_corpus import require_planning_corpus  # noqa: E402
+
+
 # TWO ROOTS. The prose this sweeps moved to the planning repo while the code it
 # describes stayed here. Sweeping one root would leave the half that actually
 # CONTAINS the retired vocabulary unread, and report clean — the precise
@@ -453,6 +460,7 @@ def test_no_live_surface_carries_a_retired_taxonomy_label() -> None:
     next author two vocabularies for one thing with no way to tell whether they
     denote the same record.
     """
+    require_planning_corpus()
     offenders = []
     for absolute, relative in _tracked():
         # THIS MODULE'S OWN EXEMPTION IS ITS `RECORD_SURFACES` ENTRY AND NOTHING
@@ -577,6 +585,7 @@ def test_the_sweep_reads_a_real_corpus() -> None:
     `git ls-files` failing, or the worktree resolving somewhere unexpected,
     would make the sweep above pass on an empty list.
     """
+    require_planning_corpus()
     tracked = _tracked()
     assert len(tracked) > 200, (
         f"the sweep read only {len(tracked)} tracked files from {_REPO} — the "
@@ -592,6 +601,7 @@ def test_every_declared_RECORD_SURFACE_still_carries_a_label() -> None:
     exempting nothing — and the next live file that lands under that prefix
     inherits the exemption without anyone deciding to give it one.
     """
+    require_planning_corpus()
     stale = []
     for prefix, reason in RECORD_SURFACES.items():
         target = _prefix_path(prefix)
@@ -772,6 +782,7 @@ def test_the_exemption_semantics_hold_for_EVERY_declared_surface() -> None:
     module docstring already rules that out of scope), and whether an entry's
     stated reason is true. It proves the mechanism, never the judgement.
     """
+    require_planning_corpus()
     wrong_notation = [
         f"{prefix!r} (is_dir={_prefix_path(prefix).is_dir()}, "
         f"spelled {'with' if prefix.endswith('/') else 'without'} a trailing slash)"

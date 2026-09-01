@@ -65,6 +65,13 @@ import sys as _s  # noqa: E402
 _s.path.insert(0, str(REPO / "scripts" / "workflows" / "temporal" / "tests"))
 from planning_corpus import PLANNING_ROOT  # noqa: E402
 
+import sys as _cg_sys  # noqa: E402
+from pathlib import Path as _cg_Path  # noqa: E402
+_cg_sys.path.insert(0, str(_cg_Path(__file__).resolve().parents[4]
+                           / "scripts" / "workflows" / "temporal" / "tests"))
+from planning_corpus import require_planning_corpus  # noqa: E402
+
+
 # EVERY SURFACE THAT PRESCRIBES A PATH TO SOMEONE, not only the prompts a model
 # reads. The first version of this guard walked `modules/assistant` alone, and
 # `review-pr` immediately found the class still live on the two surfaces it
@@ -703,6 +710,7 @@ def test_the_DOCS_RESIDUE_inventory_still_MATCHES_THE_TREE() -> None:
     here. The record is a judgement about PATHS; comparing it at file granularity
     asserts less than it claims.
     """
+    require_planning_corpus()
     found = _residue_under(PLANNING_ROOT, PLANNING_ROOT)
     recorded = {f: set(e.paths) for f, e in DOCS_RESIDUE.items()}
 

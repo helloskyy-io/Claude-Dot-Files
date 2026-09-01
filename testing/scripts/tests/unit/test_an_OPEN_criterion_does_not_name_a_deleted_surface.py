@@ -47,7 +47,9 @@ import pytest
 import sys as _s, pathlib as _p
 _s.path.insert(0, str(_p.Path(__file__).resolve().parents[4]
                      / "scripts" / "workflows" / "temporal" / "tests"))
-from planning_corpus import PLANNING_ROOT  # noqa: E402
+from planning_corpus import skip_module_without_corpus, PLANNING_ROOT  # noqa: E402
+
+skip_module_without_corpus()
 
 # The planning corpus moved to skyynet-master-planning; components are bucketed
 # by edge there, but a git pathspec `*` crosses `/`, so one pattern covers both.
