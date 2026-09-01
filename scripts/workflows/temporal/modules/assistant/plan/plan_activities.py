@@ -1050,13 +1050,26 @@ def existing_work(tree: Path, research_dir: Path) -> str:
     """
     lines: list[str] = []
 
-    comps = sorted(d for d in (tree / "docs" / "development").iterdir()
-                   if d.is_dir() and d.name != "reviews")
+    # Components sit one level below their edge bucket; `common/reviews/` is a
+    # records directory, not a component.
+    def _is_component(d: Path) -> bool:
+        """The two shapes the corpus uses: roadmap+phases, or a single one-pager.
+
+        Filtering on SHAPE rather than on depth is what keeps the edge BUCKETS
+        (`development/edge-assistant/`) out of the list without hardcoding their
+        names — a new edge is handled on the day it is created.
+        """
+        return d.is_dir() and ((d / "roadmap.md").is_file()
+                               or (d / f"{d.name}.md").is_file())
+
+    comps = sorted({d for depth in ("*", "*/*")
+                    for d in (tree / COMPONENT_ROOT).glob(depth)
+                    if _is_component(d)})
     lines.append("**Existing components** (a candidate may belong inside one rather than needing its own sprint section):")
     for c in comps:
         syn = c / "research" / "synthesis.md"
         mark = " — **HAS COMPONENT RESEARCH**: `" + str(syn.relative_to(tree)) + "`" if syn.exists() else ""
-        lines.append(f"  - `docs/development/{c.name}/`{mark}")
+        lines.append(f"  - `{c.relative_to(tree)}/`{mark}")
 
     withres = [c for c in comps if (c / "research" / "synthesis.md").exists()]
     if withres:
@@ -1117,7 +1130,12 @@ def existing_work(tree: Path, research_dir: Path) -> str:
 
 PROBLEM_STATEMENT = Path("standards/architecture/problem-statement.md")
 PRODUCT_POOL = Path("standards/architecture/research")
-COMPONENT_ROOT = Path("docs/development")
+# No `docs/` level: the planning corpus lives in `skyynet-master-planning`, whose
+# layout mirrors MDC's — `standards/` and `development/` sit at the repo root.
+# `PROBLEM_STATEMENT` and `PRODUCT_POOL` above were migrated with the corpus and
+# this constant was not, which left the plan family half-pointed at a tree that
+# no longer exists while the two neighbouring constants resolved correctly.
+COMPONENT_ROOT = Path("development")
 
 
 def evidence_block(tree: Path) -> str:
@@ -1160,7 +1178,13 @@ def evidence_block(tree: Path) -> str:
         syn = "synthesis.md" if (pool / "synthesis.md").is_file() else "NO synthesis"
         return pool.relative_to(tree), len(papers), syn
 
-    features = [_pool(d) for d in sorted((tree / COMPONENT_ROOT).glob("*/research")) if d.is_dir()]
+    # TWO DEPTHS, UNIONED — same reason as `research_activities`: components are
+    # bucketed by edge (`development/edge-assistant/<c>/`), so a single-level glob
+    # finds the BUCKETS and reports every feature pool as absent. A plan run that
+    # cannot see the research is the failure this evidence block exists to prevent.
+    features = [_pool(d) for d in sorted(
+        {p for depth in ("*/research", "*/*/research")
+         for p in (tree / COMPONENT_ROOT).glob(depth) if p.is_dir()})]
     product = _pool(tree / PRODUCT_POOL) if (tree / PRODUCT_POOL).is_dir() else None
     has_thesis = (tree / PROBLEM_STATEMENT).is_file()
     if not (features or product or has_thesis):
@@ -1169,7 +1193,7 @@ def evidence_block(tree: Path) -> str:
     lines = ["--- evidence available to this plan (READ-ONLY, you never write to any of it) ---", ""]
     lines += [
         "**THE CONVENTION, because this workflow is told no file structure and must not guess it:**",
-        "every feature under `docs/development/<feature>/` may hold its own `research/` pool —",
+        "every feature under `development/<edge>/<feature>/` may hold its own `research/` pool —",
         "`raw/` for the papers and `synthesis.md` rolled up. **The pool belonging to the feature you",
         "are planning is your PRIMARY evidence**, and a synthesis is written to be consumed by",
         "exactly this step.",

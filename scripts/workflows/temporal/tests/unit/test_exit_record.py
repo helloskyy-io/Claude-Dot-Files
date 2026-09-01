@@ -29,6 +29,8 @@ from pathlib import Path
 
 import pytest
 
+from planning_corpus import PLANNING_ROOT  # noqa: E402
+
 from modules.assistant.review_pr import exit_record as er
 from modules.assistant import routing
 from modules.assistant.review_pr import review_pr_helper as helper
@@ -1420,7 +1422,7 @@ def test_protocol_SS4s_reason_column_is_exactly_the_shipped_vocabulary() -> None
     means an operator is reading §4 for a bin the code never writes, or binning
     into one §4 does not document.
     """
-    protocol = Path(__file__).resolve().parents[5] / "docs" / "standards" / \
+    protocol = PLANNING_ROOT / "standards" / \
         "exit-protocol.md"
     assert protocol.exists(), f"the protocol moved: {protocol}"
 

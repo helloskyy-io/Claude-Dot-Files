@@ -184,7 +184,11 @@ def test_the_TEMPLATE_exemption_is_only_what_it_says_it_is() -> None:
     the exempted set is pinned by name.
     """
     exempt = sorted(p for p in _mapped_paths() if TEMPLATE.search(p))
-    assert exempt == ["docs/standards/architecture/research/raw/<topic>.md"], (
+    # EMPTY since the research pools moved to the planning repo with the rest of
+    # the prose. An empty exemption is the strictest state this can be in — every
+    # row must name a real file — so it is pinned at `[]` rather than deleted:
+    # the pin is what makes a NEW template row a decision instead of a default.
+    assert exempt == [], (
         f"the set of template rows in the map changed: {exempt}. Each one is "
         f"exempt from the file-exists assertion, so a new member is a new hole — "
         f"confirm it really is a naming convention and not a typo, then add it here."

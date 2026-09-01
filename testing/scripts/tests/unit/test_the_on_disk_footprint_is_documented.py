@@ -41,6 +41,9 @@ import pytest
 _REPO = pathlib.Path(__file__).resolve().parents[4]
 
 sys.path.insert(0, str(_REPO / "scripts" / "workflows" / "temporal"))
+sys.path.insert(0, str(_REPO / "scripts" / "workflows" / "temporal" / "tests"))
+
+from planning_corpus import PLANNING_ROOT  # noqa: E402
 
 from modules.journal.root import (DEPLOYMENT_SHAPES, JournalRootError,   # noqa: E402
                                   default_root_for)
@@ -49,7 +52,8 @@ from modules.journal.root import (DEPLOYMENT_SHAPES, JournalRootError,   # noqa:
 # decision to a future engineer. A phase doc under docs/development/ deliberately
 # does NOT count — that is precisely the surface the journal root was already on
 # when it was reported as undocumented.
-_OPERATOR_SURFACES = ("CLAUDE.md", "README.md", "docs/guide")
+_OPERATOR_SURFACES = ((_REPO, "CLAUDE.md"), (_REPO, "README.md"),
+                      (PLANNING_ROOT, "guide"))
 
 # A shape with no derivable default is a documented refusal, not a gap: the
 # container shape has no path this code could name that would not be a guess.
@@ -64,8 +68,8 @@ _DOCUMENTED_ENV = {"HOME": "/home/OPERATOR"}
 
 def _operator_docs() -> list[pathlib.Path]:
     found: list[pathlib.Path] = []
-    for surface in _OPERATOR_SURFACES:
-        target = _REPO / surface
+    for root, surface in _OPERATOR_SURFACES:
+        target = root / surface
         if target.is_file():
             found.append(target)
         elif target.is_dir():

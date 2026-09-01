@@ -34,7 +34,7 @@ ${PLAN_INVENTORY}
 | Name the `component` you believe a surfaced proposal belongs to | |
 | | **Tick a completion checkbox** — nothing has been built |
 | | Write ANY `tracked/` store — you surface, `review-pr` files |
-| | Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/` |
+| | Edit `problem-statement.md`, `architecture_standard.md`, or anything else under `standards/` |
 | | **Delete anything** — a phase doc or the roadmap |
 | | Decide WHEN this component gets built, or where it sits against other work |
 

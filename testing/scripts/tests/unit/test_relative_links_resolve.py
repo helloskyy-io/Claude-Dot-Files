@@ -30,6 +30,28 @@ from vendored_standards import EXPECTED, VENDOR_SCRIPT, vendored_paths
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 
+import sys as _s  # noqa: E402
+_s.path.insert(0, str(REPO_ROOT / "scripts" / "workflows" / "temporal" / "tests"))
+from planning_corpus import PLANNING_ROOT  # noqa: E402
+
+# TWO ROOTS, ONE GATE. The prose moved to the planning repo while the tooling it
+# documents stayed here, so a link now breaks in either tree and the check that
+# used to see both halves must keep seeing both. Scanning only this repo after
+# the split would have left the ENTIRE doc corpus unguarded while still
+# reporting green — the exact silent-pass shape the vacuity floors below exist
+# to catch, arriving by a route no floor was watching.
+ROOTS = (REPO_ROOT, PLANNING_ROOT)
+
+
+def _rel(p: Path) -> Path:
+    """The path relative to whichever root owns it."""
+    for root in ROOTS:
+        try:
+            return p.relative_to(root)
+        except ValueError:
+            continue
+    return p
+
 # A markdown link whose target is neither a URL nor a bare in-page anchor.
 LINK = re.compile(r"\[[^\]]+\]\((?!https?:|mailto:|#|/)([^)\s]+?)(?:#[^)]*)?\)")
 
@@ -91,7 +113,7 @@ def _owned(rel: Path) -> bool:
     parts = rel.parts
     if "raw" in parts:
         return False
-    if (REPO_ROOT / rel).resolve() in vendored_paths():
+    if any((root / rel).resolve() in vendored_paths() for root in ROOTS):
         return False
     # A TEST'S STRING LITERALS ARE FIXTURES, NOT LINKS. `test_measurement_
     # figures_are_cited.py` holds `"see [Phase 5 § Measurement](phase5_...md)"`
@@ -105,16 +127,17 @@ def _owned(rel: Path) -> bool:
 
 def _files() -> list[Path]:
     out: list[Path] = []
-    for pattern in SEARCHED:
-        for p in REPO_ROOT.rglob(pattern):
-            rel = p.relative_to(REPO_ROOT)
-            if SKIP_PARTS & set(rel.parts):
-                continue
-            if any(d in p.parents for d in SKIP_DIRS):
-                continue
-            if not _owned(rel):
-                continue
-            out.append(p)
+    for root in ROOTS:
+        for pattern in SEARCHED:
+            for p in root.rglob(pattern):
+                rel = p.relative_to(root)
+                if SKIP_PARTS & set(rel.parts):
+                    continue
+                if any(d in p.parents for d in SKIP_DIRS):
+                    continue
+                if not _owned(rel):
+                    continue
+                out.append(p)
     return sorted(out)
 
 
@@ -150,7 +173,7 @@ def _broken(path: Path) -> list[tuple[str, str]]:
                 (".md", ".py", ".sh", ".txt", ".yaml", ".yml")):
             continue
         if not (path.parent / target).resolve().exists():
-            bad.append((target, str(path.relative_to(REPO_ROOT))))
+            bad.append((target, str(_rel(path))))
     return bad
 
 
@@ -170,7 +193,7 @@ def test_the_VENDORED_EXEMPTION_names_the_SEVEN_FILES_the_script_declares() -> N
         f"or the parse broke, in which case this gate's exemption is wrong in "
         f"one of the two directions the comment describes.")
 
-    missing = sorted(str(p.relative_to(REPO_ROOT)) for p in vendored_paths()
+    missing = sorted(str(_rel(p)) for p in vendored_paths()
                      if not p.is_file())
     assert not missing, (
         f"the script declares vendored files not in the tree: {missing}. The "
@@ -242,7 +265,7 @@ def test_every_link_ANCHOR_resolves() -> None:
             if not target.is_file():
                 continue          # the file check above owns this case
             if m.group(2) not in _slugs(target):
-                broken.append((f.relative_to(REPO_ROOT), m.group(1), m.group(2)))
+                broken.append((_rel(f), m.group(1), m.group(2)))
 
     assert not broken, (
         f"{len(broken)} link(s) name a heading that does not exist:\n"

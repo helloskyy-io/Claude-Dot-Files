@@ -34,8 +34,14 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[4]
-SPRINT = REPO / "docs" / "development" / "sprint.md"
-COMPONENTS = REPO / "docs" / "development"
+import sys as _s, pathlib as _p  # noqa: E402
+_s.path.insert(0, str(_p.Path(__file__).resolve().parents[4]
+                     / "scripts" / "workflows" / "temporal" / "tests"))
+from planning_corpus import PLANNING_ROOT  # noqa: E402
+
+# sprints.md (plural) in the planning repo, and components are bucketed by edge.
+SPRINT = PLANNING_ROOT / "development" / "sprints.md"
+COMPONENTS = PLANNING_ROOT / "development" / "edge-assistant"
 
 #: `**Status: <marker> <words>**` at the head of a roadmap. Anchored to the line
 #: start so a marker QUOTED inside prose — which several roadmaps do when

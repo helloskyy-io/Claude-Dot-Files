@@ -81,13 +81,13 @@ _SWEEPS_THE_COUNTS = re.compile(
 
 @pytest.fixture
 def tree(tmp_path: Path) -> Path:
-    (tmp_path / "docs" / "development" / "alpha" / "research" / "raw").mkdir(parents=True)
-    (tmp_path / "docs" / "development" / "beta").mkdir(parents=True)
+    (tmp_path / "development" / "alpha" / "research" / "raw").mkdir(parents=True)
+    (tmp_path / "development" / "beta").mkdir(parents=True)
     return tmp_path
 
 
 def _component(tree: Path, name: str = "alpha") -> Path:
-    return tree / "docs" / "development" / name
+    return tree / "development" / name
 
 
 def _write(component: Path, name: str, body: str = "# x\n") -> Path:
@@ -157,7 +157,7 @@ def test_a_citation_names_the_FILE_and_the_LINE(tree: Path) -> None:
     c = _component(tree)
     _write(c, own.ROADMAP, "# Alpha\n\nintro\n\n## Phase 1 (~8 hrs)\n")
     assert own.hour_citations(c, tree) == [
-        "docs/development/alpha/roadmap.md:5: ~8 hrs"]
+        "development/alpha/roadmap.md:5: ~8 hrs"]
 
 
 @pytest.mark.parametrize("line", [
@@ -343,7 +343,7 @@ def test_a_DROPPED_phase_reference_is_the_offence_the_boundary_cannot_see(
     """
     c = _planned(tree)
     before = own.roadmap_phase_links(c)
-    permitted = wf.permitted_paths(Path("docs/development/alpha"), _CANDS)
+    permitted = wf.permitted_paths(Path("development/alpha"), _CANDS)
 
     (c / own.ROADMAP).write_text(
         "# Alpha\n\n## Phase 1 — the first thing (~8 hrs)\n"
@@ -356,8 +356,8 @@ def test_a_DROPPED_phase_reference_is_the_offence_the_boundary_cannot_see(
         "the plan; if this stops firing, a judge can re-plan the component "
         "through the one file it may write")
     assert act.boundary_crossings(
-        {"docs/development/alpha/roadmap.md": "a"},
-        {"docs/development/alpha/roadmap.md": "b"},
+        {"development/alpha/roadmap.md": "a"},
+        {"development/alpha/roadmap.md": "b"},
         wf.FORBIDDEN_PATHS, permitted) == [], (
         "the boundary check is BLIND here by construction — that blindness is "
         "the entire reason the link reader has to exist")
@@ -428,8 +428,8 @@ def test_the_inventory_NAMES_every_phase_doc_rather_than_counting_them(
     c = _planned(tree)
     block = own.plan_inventory(c, tree)
     assert "2 phase doc(s)" in block
-    assert "`docs/development/alpha/phase1_the_first_thing.md`" in block
-    assert "`docs/development/alpha/phase2_the_gated_one.md`" in block
+    assert "`development/alpha/phase1_the_first_thing.md`" in block
+    assert "`development/alpha/phase2_the_gated_one.md`" in block
     assert "GATED phase" in block, (
         "a roadmap entry with no phase doc must be named as a phase that still "
         "gets an estimate; without it the floor reads as the whole requirement")
@@ -439,7 +439,7 @@ def test_the_inventory_does_NOT_report_a_CROSS_COMPONENT_link_as_a_phase(
         tree: Path) -> None:
     """FOUND BY RUNNING THE TOOL, not by reading it, and it is a real corpus shape.
 
-    `docs/development/memory-management-framework/roadmap.md` links THREE of
+    `development/memory-management-framework/roadmap.md` links THREE of
     `persistent-memory-protocol`'s phase docs, so a reference count over that
     real file reads 9 against 6 docs on disk. The reader is deliberately broad —
     the guard wants to see a sibling cross-reference deleted too — but handing a
@@ -507,22 +507,22 @@ def test_the_grant_reaches_the_ROADMAP_and_NOT_the_phase_doc_beside_it(
     evidence and must stay read-only, and a grant shaped `[^/]+\.md$` reaches no
     subdirectory by construction. That is what this fixture now proves.
     """
-    permitted = wf.permitted_paths(Path("docs/development/alpha"), _CANDS)
+    permitted = wf.permitted_paths(Path("development/alpha"), _CANDS)
     before = _state({
-        "docs/development/alpha/roadmap.md": "a",
-        "docs/development/alpha/phase1_a.md": "a",
-        "docs/development/alpha/notes.md": "a",
-        "docs/development/alpha/research/synthesis.md": "a",
-        "docs/development/beta/roadmap.md": "a",
-        "docs/development/sprint.md": "a",
-        "docs/standards/architecture/problem-statement.md": "a",
+        "development/alpha/roadmap.md": "a",
+        "development/alpha/phase1_a.md": "a",
+        "development/alpha/notes.md": "a",
+        "development/alpha/research/synthesis.md": "a",
+        "development/beta/roadmap.md": "a",
+        "development/sprint.md": "a",
+        "standards/architecture/problem-statement.md": "a",
     })
     after = {k: "CHANGED" for k in before}
     assert act.boundary_crossings(before, after, wf.FORBIDDEN_PATHS, permitted) == [
-        "docs/development/alpha/research/synthesis.md",
-        "docs/development/beta/roadmap.md",
-        "docs/development/sprint.md",
-        "docs/standards/architecture/problem-statement.md",
+        "development/alpha/research/synthesis.md",
+        "development/beta/roadmap.md",
+        "development/sprint.md",
+        "standards/architecture/problem-statement.md",
     ], (
         "expected every TOP-LEVEL doc in this component to be inside the grant "
         "and `research/` to be outside it — the evidence a run plans against "
@@ -532,20 +532,20 @@ def test_the_grant_reaches_the_ROADMAP_and_NOT_the_phase_doc_beside_it(
 
 def test_a_SIBLING_component_s_roadmap_is_not_granted(tree: Path) -> None:
     """The grant names one component; `roadmap.md` exists in sixteen directories."""
-    permitted = wf.permitted_paths(Path("docs/development/alpha"), _CANDS)
-    before = _state({"docs/development/beta/roadmap.md": "a"})
+    permitted = wf.permitted_paths(Path("development/alpha"), _CANDS)
+    before = _state({"development/beta/roadmap.md": "a"})
     assert act.boundary_crossings(
         before, {k: "CHANGED" for k in before},
-        wf.FORBIDDEN_PATHS, permitted) == ["docs/development/beta/roadmap.md"]
+        wf.FORBIDDEN_PATHS, permitted) == ["development/beta/roadmap.md"]
 
 
 def test_a_component_whose_name_PREFIXES_another_is_not_granted_it(tree: Path) -> None:
     """`alpha` must not grant `alpha-two`, which a prefix match would."""
-    permitted = wf.permitted_paths(Path("docs/development/alpha"), _CANDS)
-    before = _state({"docs/development/alpha-two/roadmap.md": "a"})
+    permitted = wf.permitted_paths(Path("development/alpha"), _CANDS)
+    before = _state({"development/alpha-two/roadmap.md": "a"})
     assert act.boundary_crossings(
         before, {k: "CHANGED" for k in before},
-        wf.FORBIDDEN_PATHS, permitted) == ["docs/development/alpha-two/roadmap.md"]
+        wf.FORBIDDEN_PATHS, permitted) == ["development/alpha-two/roadmap.md"]
 
 
 def test_the_component_name_is_ESCAPED_before_it_becomes_a_pattern(tree: Path) -> None:
@@ -557,16 +557,16 @@ def test_the_component_name_is_ESCAPED_before_it_becomes_a_pattern(tree: Path) -
     reaches `v2x1-migration/roadmap.md` too. Every other boundary test here uses
     `alpha`, which has no metacharacter to escape.
     """
-    permitted = wf.permitted_paths(Path("docs/development/v2.1-migration"), _CANDS)
-    before = _state({"docs/development/v2x1-migration/roadmap.md": "a"})
+    permitted = wf.permitted_paths(Path("development/v2.1-migration"), _CANDS)
+    before = _state({"development/v2x1-migration/roadmap.md": "a"})
     assert act.boundary_crossings(
         before, {k: "CHANGED" for k in before},
         wf.FORBIDDEN_PATHS, permitted) == [
-        "docs/development/v2x1-migration/roadmap.md"], (
+        "development/v2x1-migration/roadmap.md"], (
         "the grant matched a sibling whose name differs by one character — the "
         "component segment reached the regex unescaped")
 
-    own_file = {"docs/development/v2.1-migration/roadmap.md": "a"}
+    own_file = {"development/v2.1-migration/roadmap.md": "a"}
     assert act.boundary_crossings(
         own_file, {k: "CHANGED" for k in own_file},
         wf.FORBIDDEN_PATHS, permitted) == [], "and its own roadmap is still granted"
@@ -593,9 +593,9 @@ def test_every_granted_path_is_also_watched_for_DELETION(tree: Path) -> None:
     OPPOSITE things — an absent key is `BASELINE`, i.e. *git never reported this
     path*, which is how a run may legitimately CREATE a permitted file.
     """
-    permitted = wf.permitted_paths(Path("docs/development/alpha"), _CANDS)
+    permitted = wf.permitted_paths(Path("development/alpha"), _CANDS)
     before = _state({
-        "docs/development/alpha/roadmap.md": "a",
+        "development/alpha/roadmap.md": "a",
         # AN ITEM, not the store directory: the grant covers what a run writes,
         # and a run writes item files. Deleting one is how a ruled candidate
         # silently stops existing, which is what this check has to catch.
@@ -605,7 +605,7 @@ def test_every_granted_path_is_also_watched_for_DELETION(tree: Path) -> None:
         "the exemption is unconditional, so the boundary check is BLIND here — "
         "that blindness is the reason the check below must exist")
     assert act.grants_that_vanished(before, after, permitted) == [
-        "docs/development/alpha/roadmap.md",
+        "development/alpha/roadmap.md",
     ]
 
 
@@ -628,8 +628,8 @@ def _runner():
 
 def _repo(tmp_path: Path) -> Path:
     repo = tmp_path / "repo"
-    (repo / "docs" / "development" / "alpha").mkdir(parents=True)
-    (repo / "docs" / "standards" / "architecture" / "research").mkdir(parents=True)
+    (repo / "development" / "alpha").mkdir(parents=True)
+    (repo / "standards" / "architecture" / "research").mkdir(parents=True)
     # THE STORE IS A DIRECTORY, and an EMPTY one is a legitimate repo state — a
     # component can be planned before anything is proposed. The runner's
     # preflight asks whether the pool exists, not whether it holds anything.
@@ -667,7 +667,7 @@ def test_the_runner_REFUSES_a_component_with_NO_roadmap(
     where that is true.
     """
     repo = _repo(tmp_path)
-    assert _runner().main(["docs/development/alpha", "--repo", str(repo)]) == 1
+    assert _runner().main(["development/alpha", "--repo", str(repo)]) == 1
     err = capsys.readouterr().err
     assert "no roadmap.md" in err and "plan_draft.sh" in err, (
         f"the refusal must name the missing file AND the workflow that writes "
@@ -722,7 +722,7 @@ def _harness(monkeypatch: pytest.MonkeyPatch, tree: Path, writes):
         # makes every assertion about that boundary vacuous.
         seen.update(str(p.relative_to(comp)) for p in comp.rglob("*.md")
                     if p.is_file())
-        return {f"docs/development/alpha/{n}":
+        return {f"development/alpha/{n}":
                 (hashlib.sha256((comp / n).read_bytes()).hexdigest()
                  if (comp / n).is_file() else act.ABSENT) for n in seen}
 
@@ -1226,20 +1226,20 @@ def test_a_PR_pass_is_NOT_refused_when_the_plan_is_only_on_the_PRs_BRANCH(
     """
     repo, runner, calls = _repo(tmp_path), _runner(), []
     _pr_lookup(monkeypatch, "plan-draft-1787204416",
-               f"docs/development/alpha/{own.ROADMAP}\n", calls)
+               f"development/alpha/{own.ROADMAP}\n", calls)
     _record_side_effects(monkeypatch, runner, calls)
 
-    rc = runner.main(["docs/development/alpha", "--repo", str(repo), "--pr", "132"])
+    rc = runner.main(["development/alpha", "--repo", str(repo), "--pr", "132"])
     err = capsys.readouterr().err
     assert rc == 0, (
         f"a plan that exists on the PR's branch was refused anyway — this is the "
         f"defect measured on PR #130, one layer down; stderr was {err!r}")
-    assert not (repo / "docs" / "development" / "alpha" / own.ROADMAP).is_file(), (
+    assert not (repo / "development" / "alpha" / own.ROADMAP).is_file(), (
         "the fixture stopped discriminating: the roadmap is present LOCALLY, so "
         "this run would pass with the PR-branch lookup deleted entirely")
     ls_tree = ("git", "ls-tree", "-r", "--name-only",
                "origin/plan-draft-1787204416", "--",
-               f"docs/development/alpha/{own.ROADMAP}")
+               f"development/alpha/{own.ROADMAP}")
     assert "run_plan_refine" in calls, (
         f"the run never reached the dispatch, so the `not in calls` assertions "
         f"in the refusing cases below are vacuous — the recorder never fires; "
@@ -1270,7 +1270,7 @@ def test_a_PR_pass_IS_refused_when_the_plan_is_on_NEITHER_tree(
     _pr_lookup(monkeypatch, "some-branch", "", calls)
     _record_side_effects(monkeypatch, runner, calls)
 
-    rc = runner.main(["docs/development/alpha", "--repo", str(repo), "--pr", "132"])
+    rc = runner.main(["development/alpha", "--repo", str(repo), "--pr", "132"])
     err = capsys.readouterr().err
     assert rc == 1, "a component with no plan on either tree was accepted"
     assert "open_run_bag" not in calls and "worktree_add" not in calls, (
@@ -1306,19 +1306,19 @@ def test_a_PR_pass_IS_refused_when_the_plan_is_HERE_but_NOT_on_the_PRs_BRANCH(
     sitting in front of them.
     """
     repo, runner, calls = _repo(tmp_path), _runner(), []
-    (repo / "docs" / "development" / "alpha" / own.ROADMAP).write_text(
+    (repo / "development" / "alpha" / own.ROADMAP).write_text(
         "# Alpha\n\n## Phase 1 — a thing (~4 hrs)\n")
     _pr_lookup(monkeypatch, "some-branch", "", calls)
     _record_side_effects(monkeypatch, runner, calls)
 
-    rc = runner.main(["docs/development/alpha", "--repo", str(repo), "--pr", "132"])
+    rc = runner.main(["development/alpha", "--repo", str(repo), "--pr", "132"])
     err = capsys.readouterr().err
     assert rc == 1, (
         f"a plan present ONLY in this checkout was accepted for a --pr pass, so "
         f"the run proceeds against a branch that does not carry it; stderr was "
         f"{err!r}")
     assert ("git", "ls-tree", "-r", "--name-only", "origin/some-branch", "--",
-            f"docs/development/alpha/{own.ROADMAP}") in calls, (
+            f"development/alpha/{own.ROADMAP}") in calls, (
         f"the PR's branch was never asked — the local file answered on its "
         f"behalf, which is the short-circuit this test exists to pin; the calls "
         f"were {calls!r}")
@@ -1389,7 +1389,7 @@ def test_a_PR_LOOKUP_that_FAILS_stops_the_run_and_says_so_rather_than_guessing(
     _pr_lookup(monkeypatch, "some-branch", "", calls, raise_on=raise_on)
     _record_side_effects(monkeypatch, runner, calls)
 
-    rc = runner.main(["docs/development/alpha", "--repo", str(repo), "--pr", "132"])
+    rc = runner.main(["development/alpha", "--repo", str(repo), "--pr", "132"])
     out, err = capsys.readouterr()
     assert rc == 1, f"{unreadable} and the run continued anyway"
     assert err.startswith("\n✗ "), (
@@ -1454,16 +1454,16 @@ def test_a_DRY_RUN_on_a_PR_pass_SAYS_the_counts_came_from_a_TREE_WITHOUT_the_pla
     """
     repo, runner, calls = _repo(tmp_path), _runner(), []
     _pr_lookup(monkeypatch, "plan-draft-1787204416",
-               f"docs/development/alpha/{own.ROADMAP}\n", calls)
+               f"development/alpha/{own.ROADMAP}\n", calls)
     _record_side_effects(monkeypatch, runner, calls)
 
-    rc = runner.main(["docs/development/alpha", "--repo", str(repo),
+    rc = runner.main(["development/alpha", "--repo", str(repo),
                       "--pr", "132", "--dry-run"])
     out, err = capsys.readouterr()
     assert rc == 0, (
         f"the dry run did not complete, so nothing below is exercising its "
         f"output; stderr was {err!r}")
-    assert not (repo / "docs" / "development" / "alpha" / own.ROADMAP).is_file(), (
+    assert not (repo / "development" / "alpha" / own.ROADMAP).is_file(), (
         "the fixture stopped discriminating: with the roadmap present LOCALLY "
         "the two trees agree and there is nothing for this test to catch")
     assert "Sized now  : 0 estimate(s)" in out and "floor is 0" in out, (
@@ -1474,7 +1474,7 @@ def test_a_DRY_RUN_on_a_PR_pass_SAYS_the_counts_came_from_a_TREE_WITHOUT_the_pla
     assert "Counted in : this checkout" in out, (
         f"the preview does not name the tree its counts came from, so a local "
         f"reading is presented as a preview of the dispatched run; got {out!r}")
-    assert "does NOT carry docs/development/alpha/roadmap.md" in out, (
+    assert "does NOT carry development/alpha/roadmap.md" in out, (
         f"the preview does not say this checkout lacks the plan, so the zeros "
         f"above read as a plan that was never written; got {out!r}")
     assert "origin/plan-draft-1787204416" in out, (
@@ -1514,13 +1514,13 @@ def test_a_DRY_RUN_still_names_its_tree_and_DROPS_the_caveat_when_the_plan_IS_he
     every dry run, while "the plan is elsewhere" is true only when it is.
     """
     repo, runner, calls = _repo(tmp_path), _runner(), []
-    (repo / "docs" / "development" / "alpha" / own.ROADMAP).write_text(
+    (repo / "development" / "alpha" / own.ROADMAP).write_text(
         "# Alpha\n\n## Phase 1 — a thing (~4 hrs)\n")
     _pr_lookup(monkeypatch, "plan-draft-1787204416",
-               f"docs/development/alpha/{own.ROADMAP}\n", calls)
+               f"development/alpha/{own.ROADMAP}\n", calls)
     _record_side_effects(monkeypatch, runner, calls)
 
-    rc = runner.main(["docs/development/alpha", "--repo", str(repo),
+    rc = runner.main(["development/alpha", "--repo", str(repo),
                       "--pr", "132", "--dry-run"])
     out, err = capsys.readouterr()
     assert rc == 0, f"the dry run did not complete; stderr was {err!r}"
@@ -1564,13 +1564,13 @@ def test_a_DRY_RUN_with_NO_pr_still_NAMES_the_tree_it_counted(
     network round-trip behind a purely local preview.
     """
     repo, runner, calls = _repo(tmp_path), _runner(), []
-    (repo / "docs" / "development" / "alpha" / own.ROADMAP).write_text(
+    (repo / "development" / "alpha" / own.ROADMAP).write_text(
         "# Alpha\n\n## Phase 1 — a thing (~4 hrs)\n")
     _pr_lookup(monkeypatch, "plan-draft-1787204416",
-               f"docs/development/alpha/{own.ROADMAP}\n", calls)
+               f"development/alpha/{own.ROADMAP}\n", calls)
     _record_side_effects(monkeypatch, runner, calls)
 
-    rc = runner.main(["docs/development/alpha", "--repo", str(repo), "--dry-run"])
+    rc = runner.main(["development/alpha", "--repo", str(repo), "--dry-run"])
     out, err = capsys.readouterr()
     assert rc == 0, f"the dry run did not complete; stderr was {err!r}"
     assert "Sized now  : 1 estimate(s)" in out, (
@@ -1672,7 +1672,7 @@ def test_a_DRY_RUN_caveat_may_NOT_claim_a_count_is_ZERO_when_that_COUNT_IS_NOT(
     that shipped, and each failure message names which of the two it is.
     """
     repo, runner, calls = _repo(tmp_path), _runner(), []
-    component = repo / "docs" / "development" / "alpha"
+    component = repo / "development" / "alpha"
     # NAMES THAT MATCH `act._LOOKS_LIKE_A_PHASE` (`^phase.*\.md$`), which is read
     # from the module rather than guessed — a fixture whose files do not match it
     # prints `0 of its own` and this test then passes for the WRONG reason,
@@ -1681,10 +1681,10 @@ def test_a_DRY_RUN_caveat_may_NOT_claim_a_count_is_ZERO_when_that_COUNT_IS_NOT(
     (component / "phase1_first.md").write_text("# Phase 1\n")
     (component / "phase2_second.md").write_text("# Phase 2\n")
     _pr_lookup(monkeypatch, "plan-draft-1787204416",
-               f"docs/development/alpha/{own.ROADMAP}\n", calls)
+               f"development/alpha/{own.ROADMAP}\n", calls)
     _record_side_effects(monkeypatch, runner, calls)
 
-    rc = runner.main(["docs/development/alpha", "--repo", str(repo),
+    rc = runner.main(["development/alpha", "--repo", str(repo),
                       "--pr", "132", "--dry-run"])
     out, err = capsys.readouterr()
     assert rc == 0, (

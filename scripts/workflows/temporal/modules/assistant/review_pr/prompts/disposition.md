@@ -170,7 +170,7 @@ store: issues | candidates | standards
 status: open
 filed_by: review-pr
 repo: <for issues — where the work lands>
-component: <for candidates — the docs/development/<name>/ it belongs to>
+component: <for candidates — the development/<edge>/<name>/ it belongs to>
 target: <for standards — the standard file>
 anchor: <for standards — the section, precise enough to act on>
 ---
@@ -453,7 +453,7 @@ pr_review:
           (5) WHEN THE ARTIFACT UNDER REPAIR IS ITSELF AN ENUMERATION OF SOMETHING
              DERIVABLE, PRESCRIBE THE RECONCILIATION, NOT AN INSERTION. `docs/file_structure.txt`
              is the live example: it enumerates every tracked file. A prescription to "add the
-             `docs/standards/` subtree" gets executed exactly and leaves the map wrong one node
+             `standards/` subtree" gets executed exactly and leaves the map wrong one node
              over, costing a whole HOLD loop to find the residue. The remedy is a LOOP over the
              derivable set (`git ls-files`) with set-equality as the predicate. **This does not
              conflict with (4): when the artifact is an enumeration, the reconciliation IS the

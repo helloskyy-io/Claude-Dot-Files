@@ -22,7 +22,7 @@ ${WORKING_SET}
 | Name the `component` on a row YOU append | **Touch `sprint.md` at all** — you hold no authorization over it |
 | | Write or edit any phase doc |
 | | Design *how* anything gets built |
-| | Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/` |
+| | Edit `problem-statement.md`, `architecture_standard.md`, or anything else under `standards/` |
 | | **Delete anything** — a candidate item, or the store |
 
 **`sprint.md` is not yours, and this is not a formality.** The sprint plan is the operator's cross-domain sequencing surface and the standing rule is that dispatches never write it. `plan-sprint` carries a specific, bounded override for it; **you do not.** If a candidate you ship looks like it needs a sprint section, say so in your report and stop — `plan-sprint` runs after you and that is its call to make.

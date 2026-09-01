@@ -105,11 +105,18 @@ COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 # what it means: an allowlist alone would say nothing about the fifteen sibling
 # components, and `sprint.md` lives in that same directory.
 FORBIDDEN_PATHS = (
-    r"^docs/development/",      # "Write or edit ANY file under another component"
+    # NO `docs/` LEVEL. These are matched against REPO-RELATIVE paths in the
+    # planning repo, whose layout puts `development/` and `standards/` at the
+    # root. While they still read `^docs/...` they matched NOTHING, so the
+    # deny-then-grant-back shape below was granting back out of an empty deny
+    # — every sibling component was writable and the boundary reported itself
+    # as enforced. A boundary that cannot fire is worse than none: it is read
+    # as coverage.
+    r"^development/",      # "Write or edit ANY file under another component"
     r"(^|/)sprints?\.md$",      # "WRITE or edit `sprint.md`" — also caught above,
                                 #   stated separately because the prohibition is
                                 #   about the FILE and outlives this directory
-    r"^docs/standards/",        # "...or anything else under `docs/standards/`"
+    r"^standards/",        # "...or anything else under `standards/`"
     # THE TRACKED STORES, ADDED 2026-08-26 WITH THE FLIP, AND IT RESTORES A
     # PROPERTY RATHER THAN ADDING ONE. `candidates.md` used to live under
     # `/opt/skyy-net/skyynet-master-planning/standards/architecture/research`, so it was already inside a
@@ -336,7 +343,7 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
         "act.components_this_run_had_no_right_to — one comparator per column, "
         "because each column is prohibited for a different reason and the "
         "comparator docstring is where that reason is recorded",
-    "Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/`":
+    "Edit `problem-statement.md`, `architecture_standard.md`, or anything else under `standards/`":
         "FORBIDDEN_PATHS `^docs/standards/` less permitted_paths, same mechanism",
     "**Delete anything** — a candidate row, a phase doc, or a planning file":
         "act.ids_deleted over the candidate id snapshots and over the phase-doc "

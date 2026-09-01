@@ -239,29 +239,29 @@ def test_every_mechanism_is_named_or_the_judgement_is_reasoned(mod, prompt_name:
 def test_triage_forbids_the_files_it_may_not_write_and_permits_the_two_it_must() -> None:
     """The declaration is checked against concrete paths, not read as prose.
 
-    `docs/standards/` is forbidden wholesale and the two files this workflow
+    `standards/` is forbidden wholesale and the two files this workflow
     EXISTS to write live inside it, so a missing exception would fail every
     correct run — and an over-broad exception would silently re-open the tree.
     """
-    forbidden = ("docs/development/sprint.md",
-                 "docs/development/temporal-integration/phase-1.md",
-                 "docs/standards/architecture/problem-statement.md",
-                 "docs/standards/workflow-scripts.md",
+    forbidden = ("development/sprint.md",
+                 "development/temporal-integration/phase-1.md",
+                 "standards/architecture/problem-statement.md",
+                 "standards/workflow-scripts.md",
                  # `direction.md` DELETED 2026-08-26 — the second queue for the
                  # `requires review` disposition. It is forbidden now like any
                  # other standards path, with no carve-out, because there is
                  # nothing there to write.
-                 "docs/standards/architecture/research/direction.md")
+                 "standards/architecture/research/direction.md")
     # AN ITEM IN THE POOL, not the pool directory: `tracked/` is forbidden as a
     # tree and the grant carves back the item files a run actually writes.
     permitted = ("tracked/candidates/C-d1uhacwn.md",)
     for path in forbidden:
         assert act.boundary_crossings({}, {path: "h"}, triage.FORBIDDEN_PATHS,
-                                      triage.permitted_paths(Path("tracked/candidates"), Path("docs/standards/architecture/research"))) == [path], (
+                                      triage.permitted_paths(Path("tracked/candidates"), Path("standards/architecture/research"))) == [path], (
             f"triage-candidates may edit {path} undetected")
     for path in permitted:
         assert act.boundary_crossings({}, {path: "h"}, triage.FORBIDDEN_PATHS,
-                                      triage.permitted_paths(Path("tracked/candidates"), Path("docs/standards/architecture/research"))) == [], (
+                                      triage.permitted_paths(Path("tracked/candidates"), Path("standards/architecture/research"))) == [], (
             f"triage-candidates cannot do its job: {path} is blocked")
 
 
@@ -281,7 +281,7 @@ def test_plan_sprint_permits_ONLY_its_override() -> None:
     `direction.md` was and remains absent: appending to it is
     `triage-candidates`'s alone.
     """
-    rel_sprint = "docs/development/sprint.md"
+    rel_sprint = "development/sprint.md"
     allowed = sprint.permitted_paths(rel_sprint)
     assert act.boundary_crossings({}, {rel_sprint: "h"}, sprint.FORBIDDEN_PATHS,
                                   allowed) == [], "plan-sprint blocked from its own override"
@@ -290,9 +290,9 @@ def test_plan_sprint_permits_ONLY_its_override() -> None:
         sprint.FORBIDDEN_PATHS, allowed) == [
         "tracked/candidates/C-d1uhacwn.md"], (
         "plan-sprint can still reach the candidates pool — the grant outlived its job")
-    for path in ("docs/standards/architecture/research/direction.md",
-                 "docs/development/temporal-integration/phase-1.md",
-                 "docs/standards/finding-routing.md"):
+    for path in ("standards/architecture/research/direction.md",
+                 "development/temporal-integration/phase-1.md",
+                 "standards/finding-routing.md"):
         assert act.boundary_crossings({}, {path: "h"}, sprint.FORBIDDEN_PATHS,
                                       allowed) == [path], (
             f"plan-sprint may edit {path} undetected")
@@ -301,7 +301,7 @@ def test_plan_sprint_permits_ONLY_its_override() -> None:
 def test_a_sprint_file_kept_somewhere_else_is_still_the_permitted_one() -> None:
     """`--sprint` moves the plan, so the exception is computed rather than fixed.
 
-    A hard-coded `docs/development/sprint.md` would fail every correct run in a
+    A hard-coded `development/sprint.md` would fail every correct run in a
     repo that keeps its plan elsewhere — and the failure would arrive after the
     PR was already open.
     """

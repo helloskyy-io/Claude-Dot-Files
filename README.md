@@ -8,9 +8,9 @@ Everything here is Python, markdown and git. There is no server, no daemon and n
 
 - **Parent/child workflows** — the flagship pattern. A workflow that both writes code and rules on the review findings about it will defend its own work; no amount of prompt engineering fixes that. So the run that authors is no longer the run that judges. [How it works](#the-flagship-parentchild-workflows)
 - **Verification over narrative** — every reviewing actor is bound to check claims against the artifact rather than the account of it. A PR body, a run's summary, a prior pass's prescription and an agent's finding are all *claims about* the code; none of them are the code
-- **Git-native memory** — no state files, no bookmarks: the record's own to-do bit is what marks work as current. One API surface and four file surfaces carry it — PR threads for change-outcomes, and the four [`tracked/`](tracked/) stores: `issues/` (defects), `operations/` (continuity, human-only), `candidates/` (proposals) and `standards/` (amendments to a named standard). `/standup` reads them into a morning brief and **writes on three**. [The memory model](docs/guide/memory-model.md)
+- **Git-native memory** — no state files, no bookmarks: the record's own to-do bit is what marks work as current. One API surface and four file surfaces carry it — PR threads for change-outcomes, and the four `skyynet-master-planning/tracked/` stores: `issues/` (defects), `operations/` (continuity, human-only), `candidates/` (proposals) and `standards/` (amendments to a named standard). `/standup` reads them into a morning brief and **writes on three**. `skyynet-master-planning/guide/memory-model.md`
 - **Continuous process improvement** — `review-runs` analyses Claude's own workflow logs across repos; every finding lands in an append-only decisions log as ship / defer / reject with explicit watch-criteria. Nothing is deferred without a condition that would bring it back. *(It is the one workflow still living only in the frozen bash tree — porting it is a named phase of Temporal Integration, and it is the one of the four with a real run history.)*
-- **12 agents · 17 skills · 11 workflows · 10 slash commands** — model-tiered per role, web-enabled only where ground truth lives outside the repo. [Full roster](docs/guide/operations.md)
+- **12 agents · 17 skills · 11 workflows · 10 slash commands** — model-tiered per role, web-enabled only where ground truth lives outside the repo. `skyynet-master-planning/guide/operations.md`
 
 ## The flagship: parent/child workflows
 
@@ -31,7 +31,7 @@ Neither child inherits the other's context. The handoff is git — the PR, its d
 
 Two properties fell out that were not the original goal. Each child boundary is a **retry/resume point**, which a monolith cannot have. And the completion contract that makes `exit 0` mean *finished* turns out to be the entire interface between runs — a parent needs a child's exit code plus one stable identifier on its final line, which is why composition here needs no framework.
 
-[Full rationale and the escalation ladder →](docs/guide/workflows.md)
+`skyynet-master-planning/guide/workflows.md`
 
 ## Quick start
 
@@ -49,7 +49,7 @@ claude                # interactive
 /standup              # what needs attention this morning
 ```
 
-Prerequisites, VM and Ansible paths, troubleshooting: **[Deployment guide →](docs/guide/deployment.md)**
+Prerequisites, VM and Ansible paths, troubleshooting: **`skyynet-master-planning/guide/deployment.md`**
 
 ## Two modes
 
@@ -68,7 +68,7 @@ Eleven entrypoints in all — three build tiers, six planning, two research. `--
 
 Every run writes a JSONL log to `.claude/logs/` — which is what the CPI loop later reads.
 
-**[Operations guide →](docs/guide/operations.md)** — the memory model, the daily loop, and a one-entry reference for every workflow, agent, command, skill and rule.
+**`skyynet-master-planning/guide/operations.md`** — the memory model, the daily loop, and a one-entry reference for every workflow, agent, command, skill and rule.
 
 ## Safety
 
@@ -78,20 +78,20 @@ Autonomous runs pass `--dangerously-skip-permissions`, so the `PreToolUse` hook 
 
 | | |
 |---|---|
-| **[Deployment](docs/guide/deployment.md)** | Install, sync, VMs, Ansible, troubleshooting |
-| **[Operations](docs/guide/operations.md)** | Running it day to day; the full roster |
-| **[Workflows](docs/guide/workflows.md)** | Architecture: the split, model management, escalation |
-| **[CPI cycle](docs/guide/cpi-cycle.md)** | How the system improves itself |
-| **[Sprint plan / roadmap](docs/development/sprint.md)** | Dual purpose: the project roadmap across components, and the tracker for work in flight |
-| **[Decisions log](docs/development/cpi-decisions.md)** | Append-only record of every ship / defer / reject, with evidence |
-| **[Standards](docs/standards/)** | Binding rules for contributing — workflows, agents, skills, hooks, services, docs |
+| **`skyynet-master-planning/guide/deployment.md`** | Install, sync, VMs, Ansible, troubleshooting |
+| **`skyynet-master-planning/guide/operations.md`** | Running it day to day; the full roster |
+| **`skyynet-master-planning/guide/workflows.md`** | Architecture: the split, model management, escalation |
+| **`skyynet-master-planning/guide/cpi-cycle.md`** | How the system improves itself |
+| **`skyynet-master-planning/development/sprints.md`** | Dual purpose: the project roadmap across components, and the tracker for work in flight |
+| **`skyynet-master-planning/development/common/cpi-decisions.md`** | Append-only record of every ship / defer / reject, with evidence |
+| **`skyynet-master-planning/standards/`** | Binding rules for contributing — workflows, agents, skills, hooks, services, docs |
 | **[File structure](docs/file_structure.txt)** | Annotated map of the whole repo |
 
 ## Status and direction
 
 Actively developed and in daily production use across several repos.
 
-**[`docs/development/sprint.md`](docs/development/sprint.md) is the single source for what is planned and where it stands**, and it serves a dual purpose: a **project roadmap** across every component, and the **sprint tracker** for the work in flight. It is not restated here — a second copy is a copy that goes stale.
+**`skyynet-master-planning/development/sprints.md` is the single source for what is planned and where it stands**, and it serves a dual purpose: a **project roadmap** across every component, and the **sprint tracker** for the work in flight. It is not restated here — a second copy is a copy that goes stale.
 
 What it gives you at a glance:
 
@@ -101,7 +101,7 @@ What it gives you at a glance:
 
 **Phases are cited by NAME, never by number.** The number is identity, like a ticket number, and it lives in the filename where the tooling reads it; the roadmap lists in *build* order, which is not numeric order. Temporal Integration builds 1, 2, 3, **9**, 4, 5, 6 — `review-runs` was split out late and took the next free number while sitting where it actually builds. An ordinal in a sprint line is a claim about sequence that the sequence does not honour.
 
-The [decisions log](docs/development/cpi-decisions.md) is the other half of the honest record. It carries rejected items and withdrawn claims alongside shipped ones, including cases where a finding was retracted after its evidence did not hold.
+The `skyynet-master-planning/development/common/cpi-decisions.md` is the other half of the honest record. It carries rejected items and withdrawn claims alongside shipped ones, including cases where a finding was retracted after its evidence did not hold.
 
 ## Contributing
 

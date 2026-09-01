@@ -59,6 +59,9 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[5]
 TEMPORAL = REPO_ROOT / "scripts" / "workflows" / "temporal"
 
 sys.path.insert(0, str(TEMPORAL))
+sys.path.insert(0, str(TEMPORAL / "tests"))
+
+from planning_corpus import PLANNING_ROOT  # noqa: E402
 
 # THE ENTRYPOINT POPULATION IS IMPORTED, NOT RE-DERIVED. A second copy of
 # "which files are the parents" in this file would be the very defect the file
@@ -94,7 +97,7 @@ _PROSE = (
        TEMPORAL / "tests" / "unit" / "test_every_parent_opens_a_run_bag.py",
        TEMPORAL / "tests" / "unit" / "test_the_suite_never_writes_to_the_operators_journal.py",
        TEMPORAL / "tests" / "integration" / "test_a_real_bag_validates.py",
-       REPO_ROOT / "docs" / "development" / "persistent-memory-protocol" / "phase1_the_run_bag.md",
+       PLANNING_ROOT / "development" / "edge-assistant" / "persistent-memory-protocol" / "phase1_the_run_bag.md",
        REPO_ROOT / "docs" / "file_structure.txt"]
 )
 

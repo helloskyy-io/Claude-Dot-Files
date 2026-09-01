@@ -71,7 +71,14 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[4]
+import sys as _s  # noqa: E402
+_s.path.insert(0, str(Path(__file__).resolve().parents[4]
+                      / "scripts" / "workflows" / "temporal" / "tests"))
+from planning_corpus import PLANNING_ROOT  # noqa: E402
+
+# The papers and everything they FEED moved to the planning repo, which has no
+# `docs/` level — pools sit directly under `development/` and `standards/`.
+ROOT = PLANNING_ROOT
 _FEEDS = re.compile(r"^Feeds:\s*(.+)$", re.M)
 _TARGET = re.compile(r"[\w./-]+\.md")
 
@@ -112,7 +119,7 @@ def _declared() -> list[tuple[Path, set[str] | None]]:
     (measured 2026-08-22: nine dead targets either way, and the one paper it
     recovers resolves cleanly) — it only stops the guard skipping papers.
     """
-    papers = sorted(ROOT.glob("docs/**/research/raw/*.md"))
+    papers = sorted(ROOT.glob("**/research/raw/*.md"))
     assert len(papers) > 10, (
         f"only {len(papers)} papers found under {ROOT} — the glob is wrong, and a "
         f"guard that reads nothing passes silently"

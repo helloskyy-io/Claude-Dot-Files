@@ -62,8 +62,15 @@ COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 # observed rather than trusted: the file the override opens sits inside the same
 # directory as the phase docs it must not touch.
 FORBIDDEN_PATHS = (
-    r"^docs/development/",      # "Write or edit any phase doc"
-    r"^docs/standards/",        # "Append to or edit `direction.md`" and the rest
+    # NO `docs/` LEVEL. These are matched against REPO-RELATIVE paths in the
+    # planning repo, whose layout puts `development/` and `standards/` at the
+    # root. While they still read `^docs/...` they matched NOTHING, so the
+    # deny-then-grant-back shape below was granting back out of an empty deny
+    # — every sibling component was writable and the boundary reported itself
+    # as enforced. A boundary that cannot fire is worse than none: it is read
+    # as coverage.
+    r"^development/",      # "Write or edit any phase doc"
+    r"^standards/",        # "Append to or edit `direction.md`" and the rest
     # THE TRACKED STORES, ADDED 2026-08-26 WITH THE FLIP, AND IT RESTORES A
     # PROPERTY RATHER THAN ADDING ONE. `candidates.md` used to live under
     # `/opt/skyy-net/skyynet-master-planning/standards/architecture/research`, so it was already inside a

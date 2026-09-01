@@ -111,6 +111,17 @@ import pytest
 _REPO = Path(__file__).resolve().parents[4]
 _MAP = _REPO / "docs" / "file_structure.txt"
 
+import sys as _s  # noqa: E402
+_s.path.insert(0, str(_REPO / "scripts" / "workflows" / "temporal" / "tests"))
+from planning_corpus import PLANNING_ROOT  # noqa: E402
+
+# TWO ROOTS. The prose this sweeps moved to the planning repo while the code it
+# describes stayed here. Sweeping one root would leave the half that actually
+# CONTAINS the retired vocabulary unread, and report clean — the precise
+# "reads nothing, looks green" failure the vacuity test below exists to catch,
+# arriving through the corpus rather than through `git ls-files`.
+_ROOTS = (_REPO, PLANNING_ROOT)
+
 # THE LABEL, IN EVERY SPELLING THAT HAS ACTUALLY SHIPPED IN THIS REPO.
 #
 # The lookarounds are `[a-zA-Z0-9]` rather than `\b` ON PURPOSE, and it is the
@@ -131,14 +142,14 @@ RETIRED_LABEL = re.compile(
 # Each entry is a path prefix relative to the repo root, with the reason it is a
 # record — the reason is the thing under review when this list is edited.
 RECORD_SURFACES: dict[str, str] = {
-    "docs/development/memory-management-framework/":
+    "development/edge-assistant/memory-management-framework/":
         "the retired component's own docs — the record of what it built",
-    "docs/development/sprint.md":
+    "development/sprints.md":
         "the completed MMF sprint entry",
-    "docs/development/cpi-decisions.md":
+    "development/common/cpi-decisions.md":
         "the append-only decisions log, including the ruling that made these "
         "exclusions",
-    "docs/development/persistent-memory-protocol/roadmap.md":
+    "development/edge-assistant/persistent-memory-protocol/roadmap.md":
         "§ Reading the old names is the translation table that keeps every "
         "other exclusion readable, and the applied amendment preserves its "
         "original entry verbatim. FILE-WIDE, and that is broader than the two "
@@ -149,7 +160,7 @@ RECORD_SURFACES: dict[str, str] = {
         "nothing would assert — a disclosed gap traded for an undisclosed one. "
         "The residual is stated here so the judgement is reviewable rather "
         "than invisible",
-    "docs/development/persistent-memory-protocol/research/":
+    "development/edge-assistant/persistent-memory-protocol/research/":
         "research papers and their digests — a record of what was read",
     "tracked/candidates/":
         "the SAME proposal rows as the entry below, moved on 2026-08-26 when "
@@ -159,7 +170,7 @@ RECORD_SURFACES: dict[str, str] = {
         "home rather than the rows losing it by being moved. Rewriting a "
         "migrated proposal's own words to satisfy a later taxonomy would "
         "falsify the record this exemption exists to preserve",
-    "docs/standards/architecture/research/":
+    "standards/architecture/research/":
         "candidates.md's proposal rows, and the pool's synthesis and topic "
         "queues, are records of what was proposed at the time. This is the one "
         "standards-tree path autonomous runs may WRITE to every cycle, so the "
@@ -254,12 +265,24 @@ def _is_record(path: str, *, is_dir: bool = False) -> str | None:
     return None
 
 
-def _tracked() -> list[str]:
-    out = subprocess.run(
-        ["git", "-C", str(_REPO), "ls-files"],
-        capture_output=True, text=True, check=True,
-    ).stdout.split("\n")
-    return [line for line in out if line]
+def _prefix_path(prefix: str) -> Path:
+    """A RECORD_SURFACES key resolved against whichever root holds it."""
+    for root in _ROOTS:
+        if (root / prefix).exists():
+            return root / prefix
+    return _REPO / prefix          # absent: the staleness test below says so
+
+
+def _tracked() -> list[tuple[Path, str]]:
+    """Every tracked file in both roots, as (absolute path, repo-relative)."""
+    out: list[tuple[Path, str]] = []
+    for root in _ROOTS:
+        listing = subprocess.run(
+            ["git", "-C", str(root), "ls-files"],
+            capture_output=True, text=True, check=True,
+        ).stdout.split("\n")
+        out.extend((root / line, line) for line in listing if line)
+    return out
 
 
 def _normalised(path: Path) -> str:
@@ -431,7 +454,7 @@ def test_no_live_surface_carries_a_retired_taxonomy_label() -> None:
     denote the same record.
     """
     offenders = []
-    for relative in _tracked():
+    for absolute, relative in _tracked():
         # THIS MODULE'S OWN EXEMPTION IS ITS `RECORD_SURFACES` ENTRY AND NOTHING
         # ELSE. It used to also carry `relative.endswith(Path(__file__).name)`,
         # a second, path-blind exemption: move this module and the declared
@@ -443,7 +466,7 @@ def test_no_live_surface_carries_a_retired_taxonomy_label() -> None:
         if relative == "docs/file_structure.txt":
             continue        # scoped by line, in its own test below
         try:
-            text = _normalised(_REPO / relative)
+            text = _normalised(absolute)
         except (OSError, UnicodeDecodeError):
             continue        # binary or unreadable; nothing to read a label in
         found = sorted({m.group(0) for m in RETIRED_LABEL.finditer(text)})
@@ -571,7 +594,7 @@ def test_every_declared_RECORD_SURFACE_still_carries_a_label() -> None:
     """
     stale = []
     for prefix, reason in RECORD_SURFACES.items():
-        target = _REPO / prefix
+        target = _prefix_path(prefix)
         candidates = (
             sorted(p for p in target.rglob("*") if p.is_file())
             if target.is_dir() else [target]
@@ -750,10 +773,10 @@ def test_the_exemption_semantics_hold_for_EVERY_declared_surface() -> None:
     stated reason is true. It proves the mechanism, never the judgement.
     """
     wrong_notation = [
-        f"{prefix!r} (is_dir={(_REPO / prefix).is_dir()}, "
+        f"{prefix!r} (is_dir={_prefix_path(prefix).is_dir()}, "
         f"spelled {'with' if prefix.endswith('/') else 'without'} a trailing slash)"
         for prefix in RECORD_SURFACES
-        if (_REPO / prefix).is_dir() != prefix.endswith("/")
+        if _prefix_path(prefix).is_dir() != prefix.endswith("/")
     ]
     assert not wrong_notation, (
         "a RECORD_SURFACES key's trailing slash disagrees with what is on "

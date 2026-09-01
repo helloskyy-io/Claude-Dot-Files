@@ -106,7 +106,7 @@ def tree(tmp_path: Path) -> Path:
     re-root it under the worktree; passing the same path for both keeps that
     arithmetic honest without building two trees.
     """
-    (tmp_path / "docs" / "development").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "development").mkdir(parents=True, exist_ok=True)
     # the successor layout too — runner defaults name `development/sprints.md`,
     # which is what MDC and skyynet-master-planning both use.
     (tmp_path / "development").mkdir(parents=True, exist_ok=True)
@@ -122,7 +122,7 @@ def tree(tmp_path: Path) -> Path:
 def stub_context(monkeypatch: pytest.MonkeyPatch) -> None:
     """Silence the helpers that shell out or walk the real tree.
 
-    `existing_work` runs `gh` and iterates `docs/development/`; the reader
+    `existing_work` runs `gh` and iterates `development/`; the reader
     reads a file; `worktree_state` runs `git` and the fixture tree is not a
     repository. None of them is what any assertion here is about, and
     `existing_work` making a live subprocess call would put a network dependency
@@ -274,7 +274,7 @@ def _run_sprint(tree: Path) -> str:
     all"*, which `boundary_crossings` enforces against the one permitted path.
     Strictly stronger, and enforced by a mechanism that needs no column readers.
     """
-    comp = tree / "docs" / "development" / "alpha"
+    comp = tree / "development" / "alpha"
     comp.mkdir(parents=True, exist_ok=True)
     if not (comp / "roadmap.md").is_file():
         (comp / "roadmap.md").write_text("### Phase 1 — a thing\n\n**Est: ~4 hours**\n")
@@ -302,7 +302,7 @@ def test_plan_sprint_FAILS_when_it_touched_the_decision_column(
     reader does not model.
 
     The fixture moves with it, twice over. `candidates.md` now sits under
-    `docs/standards/` because that is the prefix `FORBIDDEN_PATHS` names — a file
+    `standards/` because that is the prefix `FORBIDDEN_PATHS` names — a file
     at the tree root matched no rule at all — and the offence is staged through
     `_crossing`, this module's own idiom, because the shared fixture stubs
     `worktree_state` to a CONSTANT and a constant cannot express an edit.
@@ -312,7 +312,7 @@ def test_plan_sprint_FAILS_when_it_touched_the_decision_column(
     denied by one rule rather than four.
     """
     _fake_run(sprint, monkeypatch)
-    _crossing(monkeypatch, "docs/standards/architecture/research/candidates.md")
+    _crossing(monkeypatch, "standards/architecture/research/candidates.md")
 
     with pytest.raises(RuntimeError, match="outside its authorization"):
         _run_sprint(tree)
@@ -581,7 +581,7 @@ def test_triage_FAILS_when_it_edited_the_sprint_plan(
     f = tree / "tracked" / "candidates"
     _render(f, _table([("C-d1uhacwn", "")]))
     _fake_run(triage, monkeypatch, writes=_table([("C-d1uhacwn", "`ship`")]), path=f)
-    _crossing(monkeypatch, "docs/development/sprint.md")
+    _crossing(monkeypatch, "development/sprint.md")
 
     with pytest.raises(RuntimeError, match="outside its authorization"):
         _run_triage(tree)
@@ -634,7 +634,7 @@ def test_NEITHER_workflow_may_name_the_component_on_somebody_elses_row(
     column split happened; `component` arrived with neither, and it is the higher
     stake of the three: `plan-candidates` runs in the parent immediately after
     these two and turns whatever the cell says into a committed
-    `docs/development/<name>/` on the same branch. A guessed name is not a bad
+    `development/<name>/` on the same branch. A guessed name is not a bad
     cell, it is a directory and two research dispatches.
     """
     f = tree / "tracked" / "candidates"
@@ -854,9 +854,9 @@ def test_the_dry_run_renders_the_SAME_correction_note_a_live_run_does() -> None:
 # the model all of them were enforced.
 
 @pytest.mark.parametrize("path", [
-    "docs/development/temporal-integration/phase-1.md",   # "any phase doc"
-    "docs/standards/architecture/problem-statement.md",   # named explicitly
-    "docs/standards/workflow-scripts.md",                 # "anything else under"
+    "development/temporal-integration/phase-1.md",   # "any phase doc"
+    "standards/architecture/problem-statement.md",   # named explicitly
+    "standards/workflow-scripts.md",                 # "anything else under"
 ])
 def test_triage_FAILS_when_it_reached_outside_its_authorization(
         tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch,
@@ -889,7 +889,7 @@ def test_triage_is_NOT_failed_for_writing_the_two_files_it_exists_to_write(
         path: str) -> None:
     """NEGATIVE CONTROL, and the one this guard would most easily get wrong.
 
-    Both files live UNDER `docs/standards/`, which the same table forbids
+    Both files live UNDER `standards/`, which the same table forbids
     wholesale. A boundary without the exception fails every correct run — and it
     would fail it after the PR was already open, which is the worst moment to
     discover a guard is wrong.
@@ -977,7 +977,7 @@ def test_plan_sprint_FAILS_when_it_appended_to_the_operators_inbox(
     f = tree / "tracked" / "candidates"
     _render(f, _table([("C-d1uhacwn", "`ship`")]))
     _fake_run(sprint, monkeypatch)
-    _crossing(monkeypatch, "docs/standards/architecture/research/direction.md")
+    _crossing(monkeypatch, "standards/architecture/research/direction.md")
 
     with pytest.raises(RuntimeError, match="outside its authorization"):
         _run_sprint(tree)
@@ -1060,12 +1060,12 @@ def repo(tmp_path: Path) -> Path:
         subprocess.run(["git", *args], cwd=str(tmp_path), check=True,
                        capture_output=True)
 
-    (tmp_path / "docs" / "development").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "development").mkdir(parents=True, exist_ok=True)
     # the successor layout too — runner defaults name `development/sprints.md`,
     # which is what MDC and skyynet-master-planning both use.
     (tmp_path / "development").mkdir(parents=True, exist_ok=True)
     (tmp_path / "development" / "sprints.md").write_text("# Sprints\n")
-    (tmp_path / "docs" / "development" / "sprint.md").write_text("## Sprint: X\n")
+    (tmp_path / "development" / "sprint.md").write_text("## Sprint: X\n")
     git("init", "-q", "-b", "main")
     git("-c", "user.email=t@t", "-c", "user.name=t", "add", "-A")
     git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "base")
@@ -1085,13 +1085,13 @@ def test_renaming_the_sprint_file_AWAY_is_seen_as_editing_it(repo: Path) -> None
     import subprocess
 
     before = act.worktree_state(repo)
-    subprocess.run(["git", "mv", "docs/development/sprint.md",
-                    "docs/development/notes.md"], cwd=str(repo), check=True,
+    subprocess.run(["git", "mv", "development/sprint.md",
+                    "development/notes.md"], cwd=str(repo), check=True,
                    capture_output=True)
     crossed = act.boundary_crossings(before, act.worktree_state(repo),
                                      triage.FORBIDDEN_PATHS,
-                                     triage.permitted_paths(Path("docs/standards/architecture/research/candidates.md"), Path("docs/standards/architecture/research")))
-    assert "docs/development/sprint.md" in crossed, (
+                                     triage.permitted_paths(Path("standards/architecture/research/candidates.md"), Path("standards/architecture/research")))
+    assert "development/sprint.md" in crossed, (
         f"a renamed-away sprint plan read as untouched; observed {crossed}")
 
 
@@ -1104,17 +1104,17 @@ def test_an_uncommitted_edit_counts_and_so_does_a_committed_one(repo: Path) -> N
     import subprocess
 
     before = act.worktree_state(repo)
-    (repo / "docs" / "development" / "sprint.md").write_text("## Sprint: X\n\nedited\n")
+    (repo / "development" / "sprint.md").write_text("## Sprint: X\n\nedited\n")
     assert act.boundary_crossings(before, act.worktree_state(repo),
                                   triage.FORBIDDEN_PATHS,
-                                     triage.permitted_paths(Path("docs/standards/architecture/research/candidates.md"), Path("docs/standards/architecture/research")))
+                                     triage.permitted_paths(Path("standards/architecture/research/candidates.md"), Path("standards/architecture/research")))
 
     subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t",
                     "commit", "-aqm", "edit"], cwd=str(repo), check=True,
                    capture_output=True)
     assert act.boundary_crossings(before, act.worktree_state(repo),
                                   triage.FORBIDDEN_PATHS,
-                                     triage.permitted_paths(Path("docs/standards/architecture/research/candidates.md"), Path("docs/standards/architecture/research"))), (
+                                     triage.permitted_paths(Path("standards/architecture/research/candidates.md"), Path("standards/architecture/research"))), (
         "committing the edit made it invisible — the diff half of the observer "
         "is not reading the base ref")
 
@@ -1129,7 +1129,7 @@ def test_a_file_a_PREVIOUS_child_changed_is_not_charged_to_this_run(repo: Path) 
     """
     import subprocess
 
-    d = repo / "docs" / "standards" / "architecture" / "research"
+    d = repo / "standards" / "architecture" / "research"
     d.mkdir(parents=True)
     (d / "direction.md").write_text("| `D-001` | r | w | `C-d1uhacwn` | `open` |\n")
     subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t",
@@ -1139,7 +1139,7 @@ def test_a_file_a_PREVIOUS_child_changed_is_not_charged_to_this_run(repo: Path) 
                    capture_output=True)
 
     before = act.worktree_state(repo)          # plan-sprint starts here
-    rel = "docs/development/sprint.md"
+    rel = "development/sprint.md"
     assert act.boundary_crossings(before, act.worktree_state(repo),
                                   sprint.FORBIDDEN_PATHS,
                                   sprint.permitted_paths(rel)) == [], (
@@ -1159,7 +1159,7 @@ def test_a_DELETED_sprint_plan_is_seen_by_the_real_observer(repo: Path, how: str
     only because `--no-renames` splits the pair.
 
     Three spellings, because they defeat different things. Deleting the file is
-    the plain case. `git mv` OUT of `docs/development/` also slips past
+    the plain case. `git mv` OUT of `development/` also slips past
     `boundary_crossings` entirely — the destination matches no forbidden pattern
     and the source half is exempted as permitted — so nothing at all fired for
     it, and the assertion below pins that. `git mv` WITHIN the directory is the
@@ -1170,9 +1170,9 @@ def test_a_DELETED_sprint_plan_is_seen_by_the_real_observer(repo: Path, how: str
     """
     import subprocess
 
-    rel = "docs/development/sprint.md"
+    rel = "development/sprint.md"
     destination = {"renamed-out-of-the-tree": "notes.md",
-                   "renamed-within-the-tree": "docs/development/notes.md"}
+                   "renamed-within-the-tree": "development/notes.md"}
     before = act.worktree_state(repo)
     if how == "deleted":
         (repo / rel).unlink()
@@ -1198,7 +1198,7 @@ def test_a_sprint_plan_merely_EDITED_is_not_read_as_vanished(repo: Path) -> None
     assertion above would still pass — while failing every correct run, which is
     the shape that gets a guard deleted rather than fixed.
     """
-    rel = "docs/development/sprint.md"
+    rel = "development/sprint.md"
     before = act.worktree_state(repo)
     (repo / rel).write_text("## Sprint: X\n\n- [ ] a new milestone\n")
 
@@ -1339,12 +1339,12 @@ def _fixture_repo(tmp_path: Path) -> Path:
     also resolves every declared operator path.
     """
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
-    research = tmp_path / "docs" / "standards" / "architecture" / "research"
+    research = tmp_path / "standards" / "architecture" / "research"
     research.mkdir(parents=True)
     # `plan-sprint` takes a COMPONENT since 2026-08-19 and reads its roadmap for
     # the phase estimates, so the fixture repo needs one for its dry run to
     # render. `triage-candidates` ignores it.
-    comp = tmp_path / "docs" / "development" / "alpha"
+    comp = tmp_path / "development" / "alpha"
     comp.mkdir(parents=True, exist_ok=True)
     (comp / "roadmap.md").write_text("### Phase 1 — a thing\n\n**Est: ~4 hours**\n")
     # THE STORE IS ROOT-RELATIVE, not under the research tree — that is what
@@ -1352,12 +1352,12 @@ def _fixture_repo(tmp_path: Path) -> Path:
     # (Tracked Items §1), and it is where the runners now default.
     _render(tmp_path / "tracked" / "candidates",
             _table([("C-d1uhacwn", "`ship`"), ("C-p5qvm3e7", "")]))
-    (tmp_path / "docs" / "development").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "development").mkdir(parents=True, exist_ok=True)
     # the successor layout too — runner defaults name `development/sprints.md`,
     # which is what MDC and skyynet-master-planning both use.
     (tmp_path / "development").mkdir(parents=True, exist_ok=True)
     (tmp_path / "development" / "sprints.md").write_text("# Sprints\n")
-    (tmp_path / "docs" / "development" / "sprint.md").write_text("# Sprint\n")
+    (tmp_path / "development" / "sprint.md").write_text("# Sprint\n")
     # `--research` defaults to the successor's depth since the consolidation.
     (tmp_path / "standards" / "architecture" / "research").mkdir(parents=True, exist_ok=True)
     return tmp_path
@@ -1390,7 +1390,7 @@ def test_the_dry_run_of_each_entrypoint_RUNS_and_renders(
     if module_name == "run_plan_sprint":
         # `plan-sprint` gained a required positional on 2026-08-19: it acts on
         # ONE planned component now, where it used to walk the candidate table.
-        argv.insert(0, "docs/development/alpha")
+        argv.insert(0, "development/alpha")
     assert kickoff.main(argv) == 0
 
 
@@ -1422,7 +1422,7 @@ def test_the_dry_run_would_FAIL_on_a_values_dict_that_had_drifted(
 
     argv = ["--repo", str(repo), "--dry-run"]
     if module_name == "run_plan_sprint":
-        argv.insert(0, "docs/development/alpha")   # required positional since 2026-08-19
+        argv.insert(0, "development/alpha")   # required positional since 2026-08-19
     assert kickoff.main(argv) == 1, (
         "a prompt slot the script does not supply rendered anyway — the dry "
         "run reported success over a preview no model would ever receive")

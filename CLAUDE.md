@@ -18,12 +18,7 @@ claude-dotfiles/
 │   └── skills/                  ← reusable skill definitions (.md files)
 ├── install.sh                   ← creates individual symlinks into ~/.claude/
 ├── docs/
-│   ├── architecture/             ← THE WHY: architecture standards, system design
-│   ├── development/              ← THE WHAT: roadmap, phases, features
-│   ├── guide/                    ← OPERATING MANUAL: user-facing docs
-│   ├── standards/                ← THE HOW: conventions and patterns
-│   └── file_structure.txt        ← annotated map of the repo
-├── tracked/                      ← the four tracked-item stores (issues/operations/candidates/standards)
+│   └── file_structure.txt        ← annotated map of THIS repo
 ├── testing/                      ← Tier 1 + 2 of the Testing Standard: run-all.sh, suites/
 ├── conftest.py                   ← repo-root pytest memory guardrail (RLIMIT_AS)
 ├── pytest.ini                    ← pins rootdir so that guardrail is invocation-agnostic
@@ -31,6 +26,8 @@ claude-dotfiles/
 ```
 
 This is an orientation sketch, not the exhaustive map — `docs/file_structure.txt` is that, and it is authoritative. (`scripts/` is a top-level directory this sketch has never listed.)
+
+**The prose lives in the planning repo.** Standards (THE HOW), development plans (THE WHAT), architecture (THE WHY), the operator guide, and the four tracked-item stores are all in `/opt/skyy-net/skyynet-master-planning/`, which is authoritative for them — this repo keeps only code, config, and the map of its own tree. The test suite reads that corpus through `scripts/workflows/temporal/tests/planning_corpus.py`, so renaming a component there moves a gate here.
 
 **Documentation layout follows the four-bucket convention** (see `config/skills/documentation-structure.md`). Each bucket answers one question: architecture (WHY), development (WHAT), standards (HOW), guide (USER-FACING).
 

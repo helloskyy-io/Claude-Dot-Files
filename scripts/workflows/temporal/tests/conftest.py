@@ -96,3 +96,14 @@ def _journal_root_is_never_the_operators(tmp_path_factory):
         yield sandbox / "journal"
     finally:
         journal_activities.CONFIG_PATH = real
+
+# `tests/` on the path so a unit test can `from planning_corpus import ...`.
+# The corpus moved to the sibling planning repo on 2026-08-31 and seventeen tests
+# assert against the live one; they share ONE resolver rather than each deriving
+# a path, because seventeen copies of "where is the corpus" is seventeen chances
+# to be wrong about it.
+import sys as _sys
+from pathlib import Path as _Path
+_TESTS = str(_Path(__file__).resolve().parent)
+if _TESTS not in _sys.path:
+    _sys.path.insert(0, _TESTS)

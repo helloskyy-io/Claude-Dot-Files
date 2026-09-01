@@ -278,15 +278,19 @@ def test_the_plan_is_pointed_at_the_thesis_and_every_pool(tmp_path) -> None:
     (tmp_path / "standards/architecture/problem-statement.md").write_text("# thesis")
     (tmp_path / "standards/architecture/research/raw").mkdir(parents=True)
     (tmp_path / "standards" / "architecture" / "research").mkdir(parents=True, exist_ok=True)
-    (tmp_path / "docs/development/widget/research/raw").mkdir(parents=True)
-    (tmp_path / "docs/development/widget/research/raw/p.md").write_text("paper")
-    (tmp_path / "docs/development/widget/research/synthesis.md").write_text("syn")
-    (tmp_path / "docs/development/empty/research/raw").mkdir(parents=True)
+    # BOTH DEPTHS, deliberately: `widget` sits under an edge bucket the way the
+    # real corpus does, and `empty` sits directly under `development/` the way an
+    # unbucketed repo does. A fixture with only one shape would pass against a
+    # single-level glob, which is the defect this union was written to fix.
+    (tmp_path / "development/edge-assistant/widget/research/raw").mkdir(parents=True)
+    (tmp_path / "development/edge-assistant/widget/research/raw/p.md").write_text("paper")
+    (tmp_path / "development/edge-assistant/widget/research/synthesis.md").write_text("syn")
+    (tmp_path / "development/empty/research/raw").mkdir(parents=True)
 
     block = act.evidence_block(tmp_path)
     assert "problem-statement.md" in block, "the plan is not shown the thesis it must serve"
-    assert "docs/development/widget/research  (1 papers, synthesis.md)" in block
-    assert "docs/development/empty/research  (0 papers, NO synthesis)" in block, (
+    assert "development/edge-assistant/widget/research  (1 papers, synthesis.md)" in block
+    assert "development/empty/research  (0 papers, NO synthesis)" in block, (
         "an empty pool was dropped — a planner cannot tell 'no papers' from "
         "'not listed', and will assume the topic was covered"
     )
@@ -297,7 +301,7 @@ def test_the_plan_is_pointed_at_the_thesis_and_every_pool(tmp_path) -> None:
         "the project pool is listed before the feature pools, which tells a generic "
         "planning run to start with the least specific evidence available"
     )
-    assert "docs/development/<feature>/" in block, (
+    assert "development/<edge>/<feature>/" in block, (
         "the block no longer teaches the pool convention — this is the one planning "
         "child that is told no file structure and must not infer it"
     )

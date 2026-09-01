@@ -28,7 +28,7 @@ ${RESEARCH_INVENTORY}
 | Name the `component` you believe a surfaced proposal belongs to | Write or edit anything under ANOTHER component, or under your own `research/` |
 | | **Tick a completion checkbox** — you have built nothing |
 | | Set `decision`, `size`, `status`, or another filer's `component` in the candidates file |
-| | Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/` |
+| | Edit `problem-statement.md`, `architecture_standard.md`, or anything else under `standards/` |
 | | **Delete anything** — a candidate row, a phase doc, or a planning file |
 | | Decide WHEN this component gets built, or where it sits against other work |
 

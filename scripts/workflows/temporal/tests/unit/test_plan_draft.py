@@ -23,7 +23,7 @@ THE FOUR ARE NOT EQUALLY OBVIOUS, and the two easy ones are the traps:
     that quoted one. Those three lines are the negative fixture below, taken
     verbatim from the tree.
   * **The write boundary** is the one whose fixture must not be symmetric. A
-    component path granted back out of a wholesale `docs/development/` denial
+    component path granted back out of a wholesale `development/` denial
     reads correct against its own component and says nothing about a SIBLING, so
     every boundary case here uses two components rather than one.
 """
@@ -47,13 +47,13 @@ from modules.assistant.plan.plan_draft import plan_draft_workflow as wf  # noqa:
 
 @pytest.fixture
 def tree(tmp_path: Path) -> Path:
-    (tmp_path / "docs" / "development" / "alpha" / "research" / "raw").mkdir(parents=True)
-    (tmp_path / "docs" / "development" / "beta").mkdir(parents=True)
+    (tmp_path / "development" / "alpha" / "research" / "raw").mkdir(parents=True)
+    (tmp_path / "development" / "beta").mkdir(parents=True)
     return tmp_path
 
 
 def _component(tree: Path, name: str = "alpha") -> Path:
-    return tree / "docs" / "development" / name
+    return tree / "development" / name
 
 
 def _write(component: Path, name: str, body: str = "# x\n") -> Path:
@@ -261,8 +261,8 @@ def test_research_papers_named_like_phases_are_NOT_phase_docs(tree: Path) -> Non
 # --- hours: the guard that must NOT over-fire ------------------------------
 
 # Verbatim from this repo's planning docs, found with
-#   grep -rniE '(hrs|hours)' docs/development/memory-management-framework/ \
-#                            docs/development/persistent-memory-protocol/
+#   grep -rniE '(hrs|hours)' development/memory-management-framework/ \
+#                            development/persistent-memory-protocol/
 # which returns exactly these three lines and nothing else. There are ZERO hour
 # estimates in the tree, so every real occurrence of the word is prose — and a
 # word-keyed guard would fail three correct runs on the first component quoting
@@ -311,7 +311,7 @@ def test_an_hour_ESTIMATE_is_caught(tree: Path, text: str, label: str) -> None:
     _write(c, "roadmap.md", f"# Alpha\n\n{text}\n")
     found = own.hour_estimates(c, tree)
     assert len(found) == 1, f"{label}: expected one finding, got {found}"
-    assert found[0].startswith("docs/development/alpha/roadmap.md:3:"), (
+    assert found[0].startswith("development/alpha/roadmap.md:3:"), (
         f"the citation must name the file and the line — the operator's next "
         f"question is always WHERE. Got {found[0]!r}")
 
@@ -350,7 +350,7 @@ def test_the_hour_and_checkbox_GUARDS_COVER_THE_WHOLE_WRITE_GRANT(tree: Path) ->
     c = _component(tree)
     _write(c, "notes.md", "# Notes\n\nSizing: ~8h\n\n- [x] already done\n")
     assert own.hour_estimates(c, tree) == [
-        "docs/development/alpha/notes.md:3: Sizing: ~8h"]
+        "development/alpha/notes.md:3: Sizing: ~8h"]
     assert own.plan_boxes(c) == Counter({"already done": 1})
 
 
@@ -384,21 +384,21 @@ def test_the_boundary_grants_the_component_and_denies_its_SIBLING(tree: Path) ->
     are exercised here in one comparison, so the grant and the denial are
     separable in the result.
     """
-    permitted = wf.permitted_paths(Path("docs/development/alpha"), Path("tracked/candidates"))
+    permitted = wf.permitted_paths(Path("development/alpha"), Path("tracked/candidates"))
     before = _state({
-        "docs/development/alpha/roadmap.md": "a",
-        "docs/development/beta/roadmap.md": "a",
-        "docs/development/sprint.md": "a",
-        "docs/development/alpha/research/synthesis.md": "a",
-        "docs/standards/architecture/problem-statement.md": "a",
+        "development/alpha/roadmap.md": "a",
+        "development/beta/roadmap.md": "a",
+        "development/sprint.md": "a",
+        "development/alpha/research/synthesis.md": "a",
+        "standards/architecture/problem-statement.md": "a",
     })
     after = {k: "CHANGED" for k in before}
     crossed = act.boundary_crossings(before, after, wf.FORBIDDEN_PATHS, permitted)
     assert crossed == [
-        "docs/development/alpha/research/synthesis.md",
-        "docs/development/beta/roadmap.md",
-        "docs/development/sprint.md",
-        "docs/standards/architecture/problem-statement.md",
+        "development/alpha/research/synthesis.md",
+        "development/beta/roadmap.md",
+        "development/sprint.md",
+        "standards/architecture/problem-statement.md",
     ], (
         "expected the sibling component, the sprint plan, the run's own research "
         "pool and the thesis to be crossings, and only the component's top-level "
@@ -414,16 +414,16 @@ def test_the_grant_reaches_NO_subdirectory_of_the_component(tree: Path) -> None:
     grows `notes/` or `diagrams/` is covered with no rule to remember. Asserted
     over a directory that does not exist today, which is the whole claim.
     """
-    permitted = wf.permitted_paths(Path("docs/development/alpha"), Path("tracked/candidates"))
+    permitted = wf.permitted_paths(Path("development/alpha"), Path("tracked/candidates"))
     before = _state({
-        "docs/development/alpha/phase1_a.md": "a",
-        "docs/development/alpha/research/raw/p.md": "a",
-        "docs/development/alpha/some_future_dir/x.md": "a",
+        "development/alpha/phase1_a.md": "a",
+        "development/alpha/research/raw/p.md": "a",
+        "development/alpha/some_future_dir/x.md": "a",
     })
     after = {k: "CHANGED" for k in before}
     assert act.boundary_crossings(before, after, wf.FORBIDDEN_PATHS, permitted) == [
-        "docs/development/alpha/research/raw/p.md",
-        "docs/development/alpha/some_future_dir/x.md",
+        "development/alpha/research/raw/p.md",
+        "development/alpha/some_future_dir/x.md",
     ]
 
 
@@ -432,15 +432,15 @@ def test_a_component_whose_name_PREFIXES_another_is_not_granted_it(tree: Path) -
 
     The grant is anchored at `^` and the component segment is followed by `/`, so
     the match cannot run past the directory name. Worth an assertion rather than
-    an argument: `docs/development/` holds sixteen sibling slugs and several
+    an argument: `development/` holds sixteen sibling slugs and several
     share prefixes.
     """
-    permitted = wf.permitted_paths(Path("docs/development/alpha"), Path("tracked/candidates"))
-    before = _state({"docs/development/alpha-two/roadmap.md": "a"})
+    permitted = wf.permitted_paths(Path("development/alpha"), Path("tracked/candidates"))
+    before = _state({"development/alpha-two/roadmap.md": "a"})
     after = {k: "CHANGED" for k in before}
     assert act.boundary_crossings(
         before, after, wf.FORBIDDEN_PATHS, permitted) == [
-        "docs/development/alpha-two/roadmap.md"]
+        "development/alpha-two/roadmap.md"]
 
 
 def test_the_component_name_is_ESCAPED_before_it_becomes_a_pattern(tree: Path) -> None:
@@ -454,15 +454,15 @@ def test_the_component_name_is_ESCAPED_before_it_becomes_a_pattern(tree: Path) -
     SIBLING is the one failure the whole module exists to prevent, and every
     other boundary test here uses `alpha`, which has no metacharacter to escape.
     """
-    permitted = wf.permitted_paths(Path("docs/development/v2.1-migration"), Path("tracked/candidates"))
-    before = _state({"docs/development/v2x1-migration/roadmap.md": "a"})
+    permitted = wf.permitted_paths(Path("development/v2.1-migration"), Path("tracked/candidates"))
+    before = _state({"development/v2x1-migration/roadmap.md": "a"})
     after = {k: "CHANGED" for k in before}
     assert act.boundary_crossings(before, after, wf.FORBIDDEN_PATHS, permitted) == [
-        "docs/development/v2x1-migration/roadmap.md"], (
+        "development/v2x1-migration/roadmap.md"], (
         "the grant matched a sibling whose name differs by one character — the "
         "component segment reached the regex unescaped")
 
-    own_file = {"docs/development/v2.1-migration/roadmap.md": "a"}
+    own_file = {"development/v2.1-migration/roadmap.md": "a"}
     assert act.boundary_crossings(
         own_file, {k: "CHANGED" for k in own_file},
         wf.FORBIDDEN_PATHS, permitted) == [], "and its own component is still granted"
@@ -482,16 +482,16 @@ def test_every_granted_path_is_also_watched_for_DELETION(tree: Path) -> None:
     being failed for it. This fixture used `{}` and observed nothing; the guard
     was right and the fixture's model of `worktree_state` was wrong.
     """
-    permitted = wf.permitted_paths(Path("docs/development/alpha"), Path("tracked/candidates"))
+    permitted = wf.permitted_paths(Path("development/alpha"), Path("tracked/candidates"))
     before = _state({
-        "docs/development/alpha/roadmap.md": "a",
+        "development/alpha/roadmap.md": "a",
     })
     after = {k: act.ABSENT for k in before}
     assert act.boundary_crossings(before, after, wf.FORBIDDEN_PATHS, permitted) == [], (
         "the exemption is unconditional, so the boundary check is BLIND here — "
         "that blindness is the reason the check below must exist")
     assert act.grants_that_vanished(before, after, permitted) == [
-        "docs/development/alpha/roadmap.md",
+        "development/alpha/roadmap.md",
     ]
 
 
@@ -575,7 +575,7 @@ def test_the_runner_REFUSES_a_component_outside_the_repo(tmp_path: Path, capsys)
     import run_plan_draft as runner
 
     repo = tmp_path / "repo"
-    (repo / "docs" / "development").mkdir(parents=True)
+    (repo / "development").mkdir(parents=True)
     (repo / "development").mkdir(parents=True, exist_ok=True)
     (repo / "development" / "sprints.md").write_text("# Sprints\n")
     subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
@@ -622,7 +622,7 @@ def _harness(monkeypatch: pytest.MonkeyPatch, tree: Path, writes):
     def snapshot(*_a: object, **_k: object) -> dict[str, str]:
         seen.update(p.name for p in comp.iterdir()
                     if p.is_file() and p.suffix == ".md")
-        return {f"docs/development/alpha/{n}":
+        return {f"development/alpha/{n}":
                 ("digest" if (comp / n).is_file() else act.ABSENT) for n in seen}
 
     monkeypatch.setattr(act, "worktree_state", snapshot)
@@ -697,7 +697,7 @@ def test_a_PRE_EXISTING_violation_of_a_PROHIBITION_does_not_fail_a_clean_run(
     THIS WAS RED, and on exactly one of the four: `hour_estimates` scanned
     post-run STATE, so an estimate somebody else wrote failed the run with a
     message asserting *"plan-draft wrote 1 hour estimate(s)"*. Reproduced
-    against `docs/development/reviews/`, which carries `~7h` and `~12.8 hours`
+    against `development/reviews/`, which carries `~7h` and `~12.8 hours`
     today, and against `plan-revision` — the unsplit planner that DOES size work,
     so any component it planned is one this workflow could never extend.
 

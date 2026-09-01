@@ -115,13 +115,18 @@ import pytest
 # caught mutation (issue #72). `file_structure_map.py` is the remedy that rule
 # names, and it is why there is no third copy of this regex in the repo.
 from file_structure_map import (  # noqa: E402
-    MAP,
+    PLANNING_MAP as MAP,
     map_paths,
     partially_listed,
-    tracked,
+    planning_tracked,
 )
 
-_DEVELOPMENT = "docs/development"
+#: `development/<edge-bucket>/<component>` — the bucket level was added when the
+#: corpus moved to the planning repo and adopted MDC's edge taxonomy. Naming the
+#: ROOT rather than a bucket keeps the derivation bucket-agnostic: a component
+#: under a NEW edge is covered on the day that edge exists, which is the same
+#: argument that made this derived rather than a list of three.
+_DEVELOPMENT = "development"
 _PHASE_DOC = re.compile(r"^phase\d+_.*\.md$")
 _ROADMAP = "roadmap.md"
 
@@ -176,7 +181,7 @@ def _unreachable(map_paths: set[str], directories: set[str]) -> list[str]:
                   if d not in map_paths and _DEVELOPMENT not in map_paths)
 
 
-_TRACKED = [str(p) for p in tracked()]
+_TRACKED = [str(p) for p in planning_tracked()]
 _PLANNING = _planning_directories(_TRACKED)
 
 
@@ -269,35 +274,34 @@ def test_the_reachability_check_FIRES_only_when_NOTHING_reaches_the_directory() 
     `docs/development/` ancestor reaches it and that run cannot write the map. If
     someone re-tightens this to own-row, this assertion is what stops it.
     """
-    widget = {"docs/development/widget"}
+    widget = {"development/edge-assistant/widget"}
 
     reaches_nothing = map_paths(
-        "claude-dot-files/\n"
-        "├── docs/\n"
-        "│   ├── standards/                           # a different subtree entirely\n"
+        "skyynet-master-planning/\n"
+        "├── standards/                               # a different subtree entirely\n"
     )
-    assert _unreachable(reaches_nothing, widget) == ["docs/development/widget"], (
+    assert _unreachable(reaches_nothing, widget) == ["development/edge-assistant/widget"], (
         "the predicate did not report a planning directory that no entry in the "
         "sample reaches, so every green result above is unproven. NOTE the sample "
         "does carry a `docs/` row: an ANY-ANCESTOR reading of reachability is "
         "satisfied by it and is therefore vacuous, which is what this case pins.")
 
     ancestor_only = map_paths(
-        "claude-dot-files/\n"
-        "├── docs/\n"
-        "│   ├── development/                         # rolled up, no component rows\n"
+        "skyynet-master-planning/\n"
+        "├── development/\n"
+        "│   ├── edge-assistant/                      # rolled up, no component rows\n"
     )
     assert not _unreachable(ancestor_only, widget), (
-        "the predicate fired on a component reached through its docs/development/ "
+        "the predicate fired on a component reached through its development/<edge>/ "
         "ancestor. That is the state a plan-draft run leaves behind when it "
         "writes the first roadmap.md and phase doc into a directory the map has no "
         "row for yet — and that run's write grant excludes docs/file_structure.txt, "
         "so failing here is C-pky2l2b6 recreated by the module that exists to retire it.")
 
     own_row = map_paths(
-        "claude-dot-files/\n"
-        "├── docs/\n"
-        "│   ├── development/\n"
+        "skyynet-master-planning/\n"
+        "├── development/\n"
+        "│   ├── edge-assistant/\n"
         "│   │   ├── widget/                          # its own annotated row\n"
     )
     assert not _unreachable(own_row, widget), (
@@ -314,37 +318,37 @@ def test_the_detector_FIRES_on_a_map_that_ENUMERATES_a_planning_directory() -> N
     whole tree.
     """
     tracked = [
-        "docs/development/widget/roadmap.md",
-        "docs/development/widget/phase1_first.md",
-        "docs/development/widget/phase2_second.md",
-        "docs/development/widget/research/raw/topic.md",
-        "docs/development/one-pager/one-pager.md",   # not the roadmap+phases shape
+        "development/edge-assistant/widget/roadmap.md",
+        "development/edge-assistant/widget/phase1_first.md",
+        "development/edge-assistant/widget/phase2_second.md",
+        "development/edge-assistant/widget/research/raw/topic.md",
+        "development/edge-assistant/one-pager/one-pager.md",   # not the roadmap+phases shape
         "scripts/helpers/thing.sh",
     ]
     planning = _planning_directories(tracked)
-    assert planning == {"docs/development/widget"}, (
+    assert planning == {"development/edge-assistant/widget"}, (
         f"the derivation returned {planning}. It must find the roadmap+phases "
         f"component and must NOT claim the one-file component or a research "
         f"subdirectory.")
 
     enumerated = (
-        "claude-dot-files/\n"
-        "├── docs/\n"
-        "│   ├── development/\n"
+        "skyynet-master-planning/\n"
+        "├── development/\n"
+        "│   ├── edge-assistant/\n"
         "│   │   ├── widget/                          # a component\n"
         "│   │   │   ├── roadmap.md                   # listed by name\n"
         "│   │   │   ├── phase1_first.md              # listed by name\n"
         "│   │   │   └── research/                    # rolled up\n"
     )
     assert _per_file_rows(map_paths(enumerated), planning, tracked) == {
-        "docs/development/widget": ["phase1_first.md", "roadmap.md"]
+        "development/edge-assistant/widget": ["phase1_first.md", "roadmap.md"]
     }, ("the detector did not report the per-file rows this sample plainly has, "
         "so every green result above is unproven.")
 
     rolled_up = (
-        "claude-dot-files/\n"
-        "├── docs/\n"
-        "│   ├── development/\n"
+        "skyynet-master-planning/\n"
+        "├── development/\n"
+        "│   ├── edge-assistant/\n"
         "│   │   ├── widget/                          # a component\n"
         "│   │   │   └── research/                    # rolled up\n"
     )
@@ -352,7 +356,7 @@ def test_the_detector_FIRES_on_a_map_that_ENUMERATES_a_planning_directory() -> N
         "the detector fired on the shape the map now uses — a component row plus "
         "a research/ subdirectory row and nothing else. A guard that cannot tell "
         "that from the defect would be turned off within a week.")
-    assert "docs/development/widget" in map_paths(rolled_up), (
+    assert "development/edge-assistant/widget" in map_paths(rolled_up), (
         "the rolled-up sample must still REACH the component, or the "
         "reachability check above is asserting against a parser that lost it.")
 
@@ -391,7 +395,7 @@ def test_THE_SAME_PREDICATE_STILL_GOES_RED_on_a_genuinely_enumerated_directory()
     The check above could be green because the roll-up works, or because
     `partially_listed` stopped seeing anything. Adding an unlisted file to a
     directory the map really does enumerate must still be reported — the map's
-    per-file detail is untouched everywhere outside `docs/development/`, and this
+    per-file detail is untouched everywhere outside a planning directory, and this
     is what says so.
 
     THE TARGET IS DERIVED, NOT NAMED. A hardcoded directory silently stops being
@@ -400,10 +404,11 @@ def test_THE_SAME_PREDICATE_STILL_GOES_RED_on_a_genuinely_enumerated_directory()
     mapped = map_paths(MAP.read_text())
     enumerated = sorted({
         parent for path in _TRACKED
-        if (parent := path.rpartition("/")[0]).startswith("scripts/")
+        if (parent := path.rpartition("/")[0])
+        and not any(parent.startswith(d) for d in _PLANNING)
         and path in mapped
     })
-    assert enumerated, ("no directory under scripts/ is enumerated in the map any "
+    assert enumerated, ("no non-planning directory is enumerated in the map any "
                         "more — this control has nothing to fire on and proves "
                         "nothing. Pick another still-enumerated subtree.")
 

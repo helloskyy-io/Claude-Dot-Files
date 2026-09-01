@@ -38,6 +38,14 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[4]
 MAP = REPO / "docs" / "file_structure.txt"
 
+import sys as _s  # noqa: E402
+_s.path.insert(0, str(REPO / "scripts" / "workflows" / "temporal" / "tests"))
+from planning_corpus import PLANNING_ROOT  # noqa: E402
+
+#: The planning repo's own map. Each repo maps ITS OWN tree — the planning
+#: directories this gate is about live there, so the gate reads that map.
+PLANNING_MAP = PLANNING_ROOT / "docs" / "file_structure.txt"
+
 # A tree line's leaf: `│   ├── run_log.py    # annotation`. The captured PREFIX is
 # what gives the depth — the map indents four characters per level — and the name
 # carries a trailing slash on directory entries, stripped so `tests/` composes
@@ -54,6 +62,13 @@ EXCLUDED_NAMES = frozenset({".gitkeep"})
 # The map's own convention for a variable path segment: `raw/<topic>.md` names a
 # naming rule, not a file.
 TEMPLATE = re.compile(r"<[^>]+>")
+
+
+def planning_tracked() -> list[str]:
+    """`git ls-files` for the planning repo, as repo-relative strings."""
+    out = subprocess.run(["git", "ls-files"], cwd=PLANNING_ROOT,
+                         capture_output=True, text=True, check=True).stdout
+    return [line for line in out.split("\n") if line]
 
 
 def tracked() -> list[Path]:

@@ -1,7 +1,7 @@
 # Testing
 
 How to run the suite and how to add a test. The binding rules are in
-[`../docs/standards/testing/`](../docs/standards/testing/) — start with that
+`skyynet-master-planning/standards/testing/` — start with that
 directory's `README.md`, which states which half of the vendored standard
 applies here.
 
@@ -30,7 +30,7 @@ one `.bats` file here. It ships with the first bats test, not before it.
 
 **`testing/scripts/mutate.sh` drives pytest only** — `run_leg` hardcodes
 `python3 -m pytest "$TARGET"`. Mutation evidence is binding
-([`docs/standards/testing/README.md`](../docs/standards/testing/README.md)
+(`skyynet-master-planning/standards/testing/README.md`
 lists it as **YES**), so a test written in a framework this harness cannot
 drive cannot satisfy that rule today. Know this while planning a framework,
 not mid-implementation: it is the structural reason a bats suite for
@@ -56,7 +56,7 @@ whole tier reports **PASS having asserted nothing** on a CI runner. That is the
 category-present-but-nothing-ran case, which is a different thing from the
 category being absent, and `run-all.sh` cannot currently tell them apart — no
 pytest exit code carries an executed-test count. It is the same gap
-[`C-abieu0fg`](../tracked/candidates/) already
+`skyynet-master-planning/tracked/candidates/` already
 describes for `mutate.sh`'s legs, met here through a second tool. **So an
 integration test is never the evidence that a guard works** — write the unit
 test that runs everywhere, and let the integration tier confirm the shape

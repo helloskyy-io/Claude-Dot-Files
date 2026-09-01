@@ -34,7 +34,12 @@ import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
-MMF = REPO_ROOT / "docs" / "development" / "memory-management-framework"
+import sys as _s, pathlib as _p  # noqa: E402
+_s.path.insert(0, str(_p.Path(__file__).resolve().parents[4]
+                     / "scripts" / "workflows" / "temporal" / "tests"))
+from planning_corpus import PLANNING_ROOT  # noqa: E402
+
+MMF = PLANNING_ROOT / "development" / "edge-assistant" / "memory-management-framework"
 PHASE5 = MMF / "phase5_convergence_stopping.md"
 ROADMAP = MMF / "roadmap.md"
 

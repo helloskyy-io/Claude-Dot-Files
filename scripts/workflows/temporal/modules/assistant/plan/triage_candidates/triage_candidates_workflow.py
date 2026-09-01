@@ -65,8 +65,15 @@ COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 # else is not covered, which is cheap to widen when a second consumer exists.
 FORBIDDEN_PATHS = (
     r"(^|/)sprints?\.md$",      # "Touch `sprint.md` at all"
-    r"^docs/development/",      # "Write or edit any phase doc"
-    r"^docs/standards/",        # "...or anything else under `docs/standards/`"
+    # NO `docs/` LEVEL. These are matched against REPO-RELATIVE paths in the
+    # planning repo, whose layout puts `development/` and `standards/` at the
+    # root. While they still read `^docs/...` they matched NOTHING, so the
+    # deny-then-grant-back shape below was granting back out of an empty deny
+    # — every sibling component was writable and the boundary reported itself
+    # as enforced. A boundary that cannot fire is worse than none: it is read
+    # as coverage.
+    r"^development/",      # "Write or edit any phase doc"
+    r"^standards/",        # "...or anything else under `standards/`"
     # THE TRACKED STORES, ADDED 2026-08-26 WITH THE FLIP, AND IT RESTORES A
     # PROPERTY RATHER THAN ADDING ONE. `candidates.md` used to live under
     # `/opt/skyy-net/skyynet-master-planning/standards/architecture/research`, so it was already inside a
@@ -158,7 +165,7 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
         "workflow is required to write. Its report MUST say what it noticed "
         "about a shipped candidate, so the observable that would separate "
         "designing from reporting is the prose itself.",
-    "Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/`":
+    "Edit `problem-statement.md`, `architecture_standard.md`, or anything else under `standards/`":
         "FORBIDDEN_PATHS `^docs/standards/` less permitted_paths, same mechanism",
     "**Delete anything** — a candidate item, or the store":
         "act.ids_deleted over both id snapshots, and act.grants_that_vanished "

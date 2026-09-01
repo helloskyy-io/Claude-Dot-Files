@@ -31,6 +31,8 @@ from pathlib import Path
 
 import pytest
 
+from planning_corpus import PLANNING_ROOT  # noqa: E402
+
 from modules.assistant import convergence as cv
 from modules.assistant.review_pr import exit_record as er
 from modules.assistant import routing
@@ -1328,11 +1330,11 @@ def test_an_INDETERMINATE_assessment_agrees_with_NOTHING() -> None:
 # twice with every test green: *"BOTH WERE THE DOCUMENT AND THE CODE
 # DISAGREEING, NOT EITHER BEING WRONG ALONE, and no check compared them."*
 PARTITION_RESTATEMENTS = (
-    ("docs/standards/exit-protocol.md", "§2.1's field table — what a Phase 4 "
+    ("standards/exit-protocol.md", "§2.1's field table — what a Phase 4 "
      "implementer reads for the field's contract"),
-    ("docs/guide/memory-model.md", "§4.1's consumer map — what a run-log "
+    ("guide/memory-model.md", "§4.1's consumer map — what a run-log "
      "consumer reads to join the two channels"),
-    ("docs/development/memory-management-framework/phase5_convergence_stopping.md",
+    ("development/edge-assistant/memory-management-framework/phase5_convergence_stopping.md",
      "step 3's checkbox — the phase's own statement of its ruling"),
 )
 
@@ -1362,7 +1364,8 @@ def test_every_prose_copy_of_the_partition_matches_the_shipped_one(
     means the opposite of what it computes, and `autonomous-operation.md`
     explicitly tells a future consumer to rely on it.
     """
-    path = _REPO_ROOT / relative_path
+    # the three prose copies live in the planning repo since 2026-08-31
+    path = PLANNING_ROOT / relative_path
     assert path.exists(), f"{relative_path} moved — the gate reads nothing"
 
     match = _PARTITION.search(path.read_text(encoding="utf-8"))

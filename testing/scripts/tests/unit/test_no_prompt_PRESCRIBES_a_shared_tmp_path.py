@@ -61,6 +61,10 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[4]
 
+import sys as _s  # noqa: E402
+_s.path.insert(0, str(REPO / "scripts" / "workflows" / "temporal" / "tests"))
+from planning_corpus import PLANNING_ROOT  # noqa: E402
+
 # EVERY SURFACE THAT PRESCRIBES A PATH TO SOMEONE, not only the prompts a model
 # reads. The first version of this guard walked `modules/assistant` alone, and
 # `review-pr` immediately found the class still live on the two surfaces it
@@ -265,7 +269,7 @@ class Residue(NamedTuple):
 # DO NOT RETYPE THE `paths` SETS. They are the output of `_fixed_paths` over
 # `git ls-files docs`, and the test below is what reconciles them.
 DOCS_RESIDUE: dict[str, Residue] = {
-    "docs/standards/temporal/worker_deployment_standard.md": Residue(
+    "standards/temporal/worker_deployment_standard.md": Residue(
         frozenset({"/tmp/claude-deploy-new-workers.sh"}),
         "NOT FIX-CLASS, and this is the entry that makes the remedy non-mechanical. "
         "Two reasons, and NEITHER is 'it conforms to the naming convention' — that "
@@ -281,7 +285,7 @@ DOCS_RESIDUE: dict[str, Residue] = {
         "shape. The inventory records a human judgement the predicate cannot make; "
         "that is why the two verdicts differ without contradicting.",
     ),
-    "docs/guide/claude_code_orchestration.md": Residue(
+    "guide/claude_code_orchestration.md": Residue(
         frozenset({"/tmp/workflow/plan.md", "/tmp/workflow/plan-v2.md",
                    "/tmp/workflow/security.md"}),
         "NOT FIX-CLASS. `/tmp/workflow/*.md` inside a hypothetical `plan-draft.sh` "
@@ -289,18 +293,18 @@ DOCS_RESIDUE: dict[str, Residue] = {
         "retires the pattern: 'The original said `/tmp/workflow/*.md`… the handoff "
         "between stages is the PR'. Illustration of a rejected approach.",
     ),
-    "docs/development/reviews/review-skyy-command-2026-07-24.md": Residue(
+    "development/common/reviews/review-skyy-command-2026-07-24.md": Residue(
         frozenset({"/tmp/claude-pr-body.md"}),
         "NOT FIX-CLASS. A dated review recording that `/tmp/claude-pr-body.md` was "
         "the file 43% of read-before-Edit failures concentrated on. A record of "
         "what happened, which is the `EXPLANATORY` shape.",
     ),
-    "docs/development/reviews/review-mdc-master-planning-2026-05-03.md": Residue(
+    "development/common/reviews/review-mdc-master-planning-2026-05-03.md": Residue(
         frozenset({"/tmp/claude-migration-sprint1.sed"}),
         "NOT FIX-CLASS. A dated review quoting the `sed` invocation that was run. "
         "A record of what happened.",
     ),
-    "docs/standards/architecture/research/raw/code_routed_control_flow.md": Residue(
+    "standards/architecture/research/raw/code_routed_control_flow.md": Residue(
         frozenset({"/tmp/argo_arg_N.txt"}),
         "NOT FIX-CLASS. Quotes Argo's own documentation (`@/tmp/argo_arg_N.txt`) "
         "while describing a third-party tool's parameter passing. Not ours to "
@@ -699,7 +703,7 @@ def test_the_DOCS_RESIDUE_inventory_still_MATCHES_THE_TREE() -> None:
     here. The record is a judgement about PATHS; comparing it at file granularity
     asserts less than it claims.
     """
-    found = _residue_under(REPO / "docs", REPO)
+    found = _residue_under(PLANNING_ROOT, PLANNING_ROOT)
     recorded = {f: set(e.paths) for f, e in DOCS_RESIDUE.items()}
 
     assert not _inventory_mismatch(found, recorded), (

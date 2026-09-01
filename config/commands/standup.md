@@ -3,7 +3,7 @@ Run a standup: read the operations store, sweep the platform's git-native memory
 **You take exactly THREE kinds of action, and they are the complete list:**
 
 1. **Update the operations store** — edit the item files under `tracked/operations/`
-2. **Drain the intake** — `python3 scripts/helpers/harvest-intake.py --repo-root <repo>`, then commit what it wrote. **This is not optional housekeeping**: [Tracked Items Standard §5.0](../../docs/standards/documentation/tracked_items_standard.md) exempts the intake from the retirement of GitHub Issues *on condition that a named harvest cadence empties it*, and this is that cadence. **An intake nobody drains is a second store, which §8 calls a violation.**
+2. **Drain the intake** — `python3 scripts/helpers/harvest-intake.py --repo-root <repo>`, then commit what it wrote. **This is not optional housekeeping**: `skyynet-master-planning/standards/documentation/tracked_items_standard.md` exempts the intake from the retirement of GitHub Issues *on condition that a named harvest cadence empties it*, and this is that cadence. **An intake nobody drains is a second store, which §8 calls a violation.**
 3. **Close an issue you verified is done** — `gh issue close <N> --comment <evidence>`
 
 Everything else is read-only: do not merge, do not dispatch, do not comment on an open PR, and **edit no file other than the item files under `tracked/operations/` and whatever the harvest writes into `tracked/`**.
@@ -46,7 +46,7 @@ It exists because live-operational work — a multi-day vendor migration, an inc
 
 1. **EXCLUDE it from the Stage 1 open-issue enumeration.** It must not appear twice, and it must **never be aging-flagged** — a permanent artifact is not a stalled one. The anti-rot flag exists for issues that should have closed; firing it on the one document designed to persist is backwards.
 2. **Never apply the issue-disposition obligation to it.** That obligation binds a *container* that is supposed to close. An operations item's obligation binds the *item* (below). Do not merge the two taxonomies — forcing operations into the issue enum would require inventing an exit for *pruned*, which is a schema violation, not a convenience.
-3. **Render its structure; do not re-derive it.** Group the items by `state:` into **readiness states** — an item moves `BLOCKED` → `READY` → `IN FLIGHT` → `RESOLVED` — and that ordering is exactly how an operator triages: *what can I actually do right now.* Preserve that order and preserve each item's fields verbatim, including `ownership:` and `blocked_on:` even when the answer is "none". Those fields are deliberate forward compatibility: an agent asking *"what is ready, and which of it is mine?"* answers it from `ready:` + `ownership:` with no schema change. **If you normalise or reformat an item, that property is lost.** [Tracked Items Standard §3 and §4](../../docs/standards/documentation/tracked_items_standard.md) document the format and are the shape-of-record — the rendering below is a VIEW, derived from the files and never edited in place of them.
+3. **Render its structure; do not re-derive it.** Group the items by `state:` into **readiness states** — an item moves `BLOCKED` → `READY` → `IN FLIGHT` → `RESOLVED` — and that ordering is exactly how an operator triages: *what can I actually do right now.* Preserve that order and preserve each item's fields verbatim, including `ownership:` and `blocked_on:` even when the answer is "none". Those fields are deliberate forward compatibility: an agent asking *"what is ready, and which of it is mine?"* answers it from `ready:` + `ownership:` with no schema change. **If you normalise or reformat an item, that property is lost.** `skyynet-master-planning/standards/documentation/tracked_items_standard.md` document the format and are the shape-of-record — the rendering below is a VIEW, derived from the files and never edited in place of them.
 
 ## Stage 1 — Sweep (dumb, complete enumeration)
 
@@ -86,7 +86,7 @@ For EVERY item in EVERY source, reach one of these — and **write the first thr
 
 **Evidence, per resolution, stated in the tally.** *"T-05 — PR #31 merged, all three tiers exist, 297 tests"* is evidence. *"T-05 looks done"* is not, and resolving on that stamps a lie the pruning rule will later act on.
 
-Then edit the item file under `tracked/operations/` directly. **Preserve each item's shape exactly** — the six core fields of [Tracked Items Standard §3](../../docs/standards/documentation/tracked_items_standard.md) in their order, then the store's own `state:`, `ownership:` and `blocked_on:`, present even when the answer is "none". You are updating values, never reshaping the file.
+Then edit the item file under `tracked/operations/` directly. **Preserve each item's shape exactly** — the six core fields of `skyynet-master-planning/standards/documentation/tracked_items_standard.md` in their order, then the store's own `state:`, `ownership:` and `blocked_on:`, present even when the answer is "none". You are updating values, never reshaping the file.
 
 **Two fields are NOT yours even here.** `ready:` is the operator's alone (§4) — it is an authorisation to act, not a statement about blockedness, and an item can be entirely unblocked and still `not-ready` because it is not its turn. And `id:` never changes: ids are immutable and never reused, terminal state included.
 

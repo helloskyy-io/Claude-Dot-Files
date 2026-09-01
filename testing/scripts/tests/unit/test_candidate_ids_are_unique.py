@@ -42,7 +42,12 @@ import re
 from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[4]
-_CANDIDATES = _REPO / "tracked" / "candidates"
+import sys as _s, pathlib as _p  # noqa: E402
+_s.path.insert(0, str(_p.Path(__file__).resolve().parents[4]
+                     / "scripts" / "workflows" / "temporal" / "tests"))
+from planning_corpus import PLANNING_ROOT  # noqa: E402
+
+_CANDIDATES = PLANNING_ROOT / "tracked" / "candidates"
 
 # THE ID NOW LIVES IN TWO PLACES AND BOTH ARE CHECKED: the filename, which §2
 # makes authoritative, and the item's own `id` field. The filesystem refuses two

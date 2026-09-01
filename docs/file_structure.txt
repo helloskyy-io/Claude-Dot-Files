@@ -69,145 +69,13 @@ claude-dot-files/
 │       │                                            #   UNRECOVERABLE*, and this is not. Fails OPEN, for the same reason
 │       └── notify-done.sh                           # Stop: desktop notification via notify-send
 │
-├── docs/
-│   ├── file_structure.txt                           # This file (annotated repo map)
-│   │
-│   ├── development/                                 # WHAT — active work tracking
-│   │   ├── cpi-decisions.md                         # Append-only CPI decisions log (ship/defer/reject with watch-criteria)
-│   │   ├── skyy-net-seed-handoff.md                 # Canonical handoff: 15 settled Temporal/Skyy-Net-seed decisions D1-D15, security
-│   │   │                                            #   surface, milestone 1 (read before resuming that work). D13-D15 are the
-│   │   │                                            #   operator's 2026-08-19 deployment brief — temporary starter destroyed not
-│   │   │                                            #   migrated, permanent cluster a future sprint inherited from MDC, no workload
-│   │   │                                            #   tier — and D13 SUPERSEDES D11's mTLS clause
-│   │   ├── sprint.md                                # The sprint plan — what gets built and in what order. NEVER a history lesson
-│   │   │
-│   │   │                                            # One FOLDER per sprint, directly under development/ (there is no phases/ level).
-│   │   │                                            # Two shapes, both per the convention in sprint.md:
-│   │   │                                            #   <name>/<name>.md                 fits in one phase (all but one today)
-│   │   │                                            #   <name>/roadmap.md + phase{N}_*.md  outgrows one phase. Don't create to be tidy
-│   │   │                                            # research/, where present, holds the component's evidence:
-│   │   │                                            #   <name>/research/raw/<topic>.md   the pool — one mini-paper per topic
-│   │   │                                            #   <name>/research/synthesis.md     what the pool means HERE. NON-BINDING
-│   │   │                                            #
-│   │   │                                            # A COMPONENT DIRECTORY IS ROLLED UP HERE ON PURPOSE — roadmap.md and the phase
-│   │   │                                            #   docs get NO per-file line, and adding one is a defect rather than an
-│   │   │                                            #   improvement. Their per-phase detail is maintained in the component's own
-│   │   │                                            #   roadmap.md; a second copy here is a source of truth kept by an actor that
-│   │   │                                            #   cannot read it, since `plan-draft`'s write grant is
-│   │   │                                            #   `docs/development/<component>/[^/]+\.md` and excludes THIS file. Writing a
-│   │   │                                            #   phase doc is that workflow's entire job, so every plan it produced landed a
-│   │   │                                            #   RED map-coverage suite it was structurally forbidden to fix — measured on
-│   │   │                                            #   PR #111 and again on PR #123, and filed as C-pky2l2b6. research/ keeps its line:
-│   │   │                                            #   it is a SUBDIRECTORY, so it is a roll-up of its own and adding it enumerates
-│   │   │                                            #   nothing. Pinned by
-│   │   │                                            #   testing/scripts/tests/unit/test_planning_directories_are_ROLLED_UP_in_the_map.py
-│   │   ├── autonomous-execution/                    # COMPLETE — the workflow fleet; skills-preloading fix, lean agents, log-as-evidence
-│   │   ├── autonomous-operation/                    # NOT DESIGNED — the tier above parents; gated on typed memory + durable execution
-│   │   ├── continuous-process-improvement/          # IN PROGRESS — two evidence sources; why the ruling is always a human's
-│   │   ├── cross-device-sync/                       # COMPLETE — install.sh, idempotency as the enabling feature
-│   │   ├── explore-claude-directory/                # COMPLETE — portable vs machine-local; projects/ is path-keyed
-│   │   ├── local-ai-offloading/                     # NOTES PREDATING PLANNING (Apr 2026) — GPU offload; integration points now stale
-│   │   ├── mcp-servers/                             # NOTES PREDATING PLANNING (Apr 2026) — scopes, transports, Docker reference
-│   │   ├── memory-management-framework/             # Phases 1-2 COMPLETE (2026-08-08); Phase 3 COMPLETE (2026-08-10) — status lives in its phase doc, not restated here;
-│   │   │                                            #   Phase 5 BUILT AND MEASURED and GATING NOTHING (2026-08-09); Phases 4 and 6 planned.
-│   │   │                                            #   First component on the roadmap+phases shape sprint.md mandates
-│   │   │   └── research/                            # 2 papers + synthesis, both PASS-WITH-FIXES 2026-08-06
-│   │   ├── persistent-memory-protocol/              # IN PROGRESS — Phase 1 (journal root, run bag, validator) ships; ruled its OWN COMPONENT rather than a 7th phase
-│   │   │                                            #   of memory-management-framework; the reasoning is in roadmap.md and C-xh8nvwqn's
-│   │   │                                            #   `decision` is deliberately left blank for the operator. Second component here
-│   │   │   │                                        #   on the roadmap+phases shape. A GATED phase still gets its doc — a gate is a scheduling
-│   │   │   │                                        #   fact, never a reason to leave a design unwritten (revised 2026-08-13). The phase COUNT
-│   │   │   │                                        #   is deliberately NOT restated here — roadmap.md is the authority (C-523klr8n)
-│   │   │   └── research/                          # 2 papers + synthesis. synthesis.md is an operator+PM DECISION RECORD (15 concepts
-│   │   │                                            #   with provenance), NOT a research artifact — it says so and forbids citing it as
-│   │   │                                            #   evidence. cross_node_memory_protocol.md is SUPERSEDED by its own header
-│   │   ├── planning-and-agents/                     # COMPLETE — distinct-lens principle; Cursor-port abandoned for skills
-│   │   ├── safety-and-guardrails/                   # COMPLETE — two-layer model; block-dangerous.sh is load-bearing
-│   │   ├── workflow-decomposition/                  # 🟡 IN PROGRESS per sprint.md — two phases complete (build-family decomposition; Family alignment).
-│   │   │                                            #   Five planned, rollout order: Nothing a run relies on is invisible → Dual-mode children →
-│   │   │                                            #   What configuration a run absorbed → Every producer names its consumer →
-│   │   │                                            #   Managed configuration, and whose tier wins. The last is a roadmap entry with no phase doc, by design.
-│   │   │                                            #   Phase numbers survive in the FILENAMES only; they are identity, never rollout order.
-│   │   │   └── research/                          # 2 papers + synthesis, both PASS-WITH-FIXES; fork_vs_parameterize_drift_signal backs Family alignment,
-│   │   │                                            #   invocation_contract backs Dual-mode children, Nothing a run relies on is invisible,
-│   │   │                                            #   What configuration a run absorbed and — through the 2026-08-28 split — Every producer names its consumer
-│   │   ├── temporal-integration/                    # 🟡 IN PROGRESS per sprint.md — Stage A built, nothing orchestrated, no server.
-│   │   │                                            #   PLANNED 2026-08-19 (Phase 9 added 2026-08-20): roadmap.md + phase docs (count not restated).
-│   │   │                                            #   Rollout order 1 → 2 → 3 → 9 → 4 → 5 → 6 → 7 → 8; numbers are IDENTITY, not order.
-│   │   │                                            #   Phases 7-8 are roadmap entries with NO doc, deliberately — gated on
-│   │   │                                            #   MDC's cluster work. research/ holds SIX papers — activity_retry_boundary
-│   │   │                                            #   is native and backs Phase 3; the other five are the reliability pool
-│   │   │                                            #   moved here 2026-08-19 when Fleet Reliability dissolved, and four of
-│   │   │                                            #   those five feed OTHER components (issue #125 rules their re-homing)
-│   │   └── reviews/                                 # CPI review reports (review-runs.sh output)
-│   │       ├── review-2026-04-10.md
-│   │       ├── review-2026-04-24-mdc-master-planning.md
-│   │       ├── review-2026-04-24-skyy-command.md
-│   │       ├── review-desired-state-sturdy-wheat-pelican-2026-07-24.md
-│   │       ├── review-mdc-ansible-collections-2026-07-24.md
-│   │       ├── review-mdc-master-planning-2026-05-03.md
-│   │       ├── review-mdc-master-planning-2026-05-09.md
-│   │       ├── review-mdc-master-planning-2026-07-24.md
-│   │       ├── review-skyy-command-2026-05-03.md
-│   │       ├── review-skyy-command-2026-05-09.md
-│   │       └── review-skyy-command-2026-07-24.md
-│   │
-│   ├── guide/                                       # USER-FACING — operating manuals
-│   │   ├── puma-temp-workflows.md                   # THE OPERATOR'S OWN WORKING DOC — hand-written, not fleet output.
-│   │   │                                            #   Mapped so the completeness gate is green; whether it stays, moves
-│   │   │                                            #   or is untracked is the operator's call and is not made here
-│   │   ├── deployment.md                            # DEPLOYMENT — install/sync model, prerequisites, local + VM + Ansible paths, services, troubleshooting
-│   │   ├── operations.md                            # THE OPERATING MANUAL — memory model orientation, daily loop, and the single roster of every workflow/agent/command/skill/rule
-│   │   ├── memory-model.md                          # THE MEMORY FRAMEWORK — the working record as a substrate-free interface, this fleet's five-surface binding, per-field consumer lists, the addressing convention
-│   │   ├── workflows.md                             # Workflow architecture — the build split, model management, escalation ladder, MAX_TURNS table
-│   │   ├── cpi-cycle.md                             # CPI cycle methodology (run-decide-log loop)
-│   │   ├── claude_code_agents.md                    # PLATFORM BACKGROUND — what agents are, frontmatter, tool guardrails, dispatch patterns
-│   │   ├── claude_code_headless.md                  # PLATFORM BACKGROUND — headless mode, the three outcomes, completion contracts, worktrees
-│   │   ├── claude_code_orchestration.md             # PLATFORM BACKGROUND — orchestration options and which one this repo landed on
-│   │   ├── claude_code_rules.md                     # PLATFORM BACKGROUND — rules vs CLAUDE.md, when to split
-│   │   └── claude_code_skills.md                    # PLATFORM BACKGROUND — skills and context-aware methodology
-│   │
-│   └── standards/                                   # HOW — binding rules for how things are done
-│       ├── architecture/                            # WHY the system is shaped this way — high-level overviews, not numbered ADRs
-│       │   ├── research/                            # PRODUCT-LEVEL research — findings that could change WHAT we build, not how
-│       │   │   │                                    #   A WORKING SURFACE, not curated product — an autonomous run MAY append here;
-│       │   │   │                                    #   only the `decision` and `status` RULINGS stay human-only (standards-governance.md)
-│       │   │   ├── README.md                        # What this altitude is for, and how it differs from a phase's own research/
-│       │   │   ├── topics.md                        # SIZE memory — tier, topic list with destinations, named gaps. Rewritten each run, never appended
-│       │   │   ├── raw/<topic>.md                   # The pool — one mini-paper per topic; seeded from the CSCI-6905.604 research project
-│       │   │   └── synthesis.md                     # What the pool means for the product's direction. NON-BINDING
-│       │   ├── README.md                            # What goes here vs the rest of standards/
-│       │   ├── problem-statement.md                 # THE WHY — the trade-off being closed, and that this repo is iteration 1 with coding as the first edge
-│       │   ├── stack_reference.md                   # WHAT WE RUN ON — settled stack decisions and what was ruled out. SEEDED, not complete: absence here is not a decision
-│       │   └── architectural_standard.md            # THE MAP — layers, composition, memory, the seams and their reasons. Concise by design; detail lives in standards/roadmap
-│       ├── research/                                # VENDORED (MIRROR) from MDC-Master-Planning — do not edit
-│       │   ├── README.md                            # The two altitudes — product vs phase — and what each unblocks
-│       │   └── research_standard.md                 # Mini-paper contract, source floor, confidence marking, revalidation
-│       ├── documentation/                           # VENDORED (MIRROR) from MDC-Master-Planning — do not edit
-│       │   ├── README.md                            # Applicability: what binds here, what is sprint-specific and ignored, and the CLAUDE.md-references-never-contains principle
-│       │   ├── documentation_standard.md            # Cross-references over repetition, cite-don't-re-list, standards state the rule not completion-state
-│       │   └── tracked_items_standard.md            # THE FOUR STORES — identity, the shared core, recurrence, pruning. §2/§3 are the `v1` contract tracked_items.py writes against
-│       ├── temporal/                                # VENDORED (MIRROR) from MDC-Master-Planning — do not edit; re-vendor via scripts/helpers/
-│       │   ├── README.md                            # Applicability: what binds NOW (§3, §3.4, §7) vs what waits for workers
-│       │   ├── claude-dot-files-addendum.md         # The ONLY locally-editable file here — rules genuinely ours (long LLM activities, a producer that can be confidently wrong)
-│       │   ├── stateful_patterns.md                 # Persistence boundaries, idempotent writes, cleanup on failure
-│       │   ├── temporal_standard.md                 # Three-layer architecture, ACTIVITY_MAP, directory structure
-│       │   └── worker_deployment_standard.md        # Worker segmentation, queue naming, immutable images
-│       ├── testing/                                 # VENDORED (MIRROR) — do not edit; re-vendor via scripts/helpers/. The README is ours and IS editable
-│       │   ├── README.md                            # Applicability: which half binds HERE, how this repo diverges, and § The gate — the six checks tests.yml runs
-│       │   └── testing_standard.md                  # The three-tier hierarchy this repo's testing/ implements, positive controls, test resource safety
-│       ├── agents.md                                # Standards for writing custom agents
-│       ├── exit-protocol.md                         # DRAFT, NOT BINDING — the child→parent handoff contract. Phase 3 wrote its answers in:
-│       │                                            #   §2 the envelope's three strata, §3 the split abstention vocabulary, §4 the nine
-│       │                                            #   ordered rules, §5 versioning. Still carries ⟨PHASE 4⟩ in §6 and is UNRATIFIED
-│       ├── finding-routing.md                       # WHERE A FINDING GOES — defect vs proposal, the four gates, who may write which surface.
-│       │                                            #   §4 is why a producing run places its own proposals in tracked/candidates/
-│       ├── hook-scripts.md                          # Standards for hook scripts (stdin JSON + jq, never env vars)
-│       ├── rules.md                                 # Standards for writing global rules
-│       ├── services.md                              # Standards for long-running services/daemons
-│       ├── skills.md                                # Standards for writing skills
-│       ├── slash-commands.md                        # Standards for slash commands
-│       └── workflow-scripts.md                      # Standards for autonomous workflow scripts
+├── docs/                                            # The prose that describes THIS repo's own tree. Everything
+│                                                    #   else — standards, development plans, the operator guide
+│                                                    #   and the four tracked-item stores — moved to the planning
+│                                                    #   repo `skyynet-master-planning/` and is authoritative there,
+│                                                    #   not here. The test suite reads that corpus through
+│                                                    #   `scripts/workflows/temporal/tests/planning_corpus.py`.
+│   └── file_structure.txt                           # This file (annotated repo map)
 │
 ├── scripts/                                         # ORGANIZING AXIS: *who invokes it?* — that one question explains every folder below
 │   ├── helpers/                                     # YOU run these. Pure bash, no AI, zero tokens
@@ -765,20 +633,6 @@ claude-dot-files/
 │                                                    #   satisfied its grep) and fails when one starts a run with no bag. Also checks ORDER —
 │                                                    #   the bag precedes the first side effect — with a self-contained non-conforming fixture
 │                                                    #   for both, and names the swept scope in its own failure message
-│
-├── tracked/                                         # THE FOUR TRACKED-ITEM STORES — one file per item, ids `<PREFIX>-<8 random base36>`.
-│   │                                                #   Root-relative on purpose: `tracked/issues/` resolves identically in every repo that
-│   │                                                #   adopts the contract, so there is ONE implementation rather than one per layout.
-│   │                                                #   Governed by docs/standards/documentation/tracked_items_standard.md (VENDORED, `v1`).
-│   │                                                #   ROLLED UP DELIBERATELY: the items are the data, they change every cycle, and a
-│   │                                                #   per-file map of them would be stale the day it was written. The RENDERED VIEW is
-│   │                                                #   how these are read; a folder of files is how they are safely WRITTEN concurrently.
-│   ├── README.md                                    # Which stores exist here and who runs each one's triage. Rules live in the standard
-│   ├── issues/                                      # A DEFECT — code, docs or the planning corpus — found while building something else
-│   ├── operations/                                  # Operating state and continuity. HUMAN-IN-THE-LOOP ONLY — no autonomous write, ever
-│   ├── candidates/                                  # A PROPOSAL — capability that should exist and does not. Filed by builds and dispatches.
-│   │                                                #   Absorbed `standards/architecture/research/candidates.md` (121 rows) on 2026-08-26
-│   └── standards/                                   # An amendment to a NAMED standard, with an anchor precise enough to act on
 │
 ├── testing/                                         # TIER 1 + TIER 2 of the Testing Standard's three-tier hierarchy
 │   ├── README.md                                    # How to run the suite and how to add a test

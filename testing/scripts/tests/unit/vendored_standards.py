@@ -33,6 +33,10 @@ from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[4]
 
+import sys as _s  # noqa: E402
+_s.path.insert(0, str(_REPO / "scripts" / "workflows" / "temporal" / "tests"))
+from planning_corpus import PLANNING_ROOT  # noqa: E402
+
 VENDOR_SCRIPT = _REPO / "scripts" / "helpers" / "vendor-standards.sh"
 
 # `FILES=( "<upstream-path>:<local-path>" ... )`. The LOCAL half is what lands
@@ -70,6 +74,6 @@ def vendored_paths() -> frozenset[Path]:
     """
     text = VENDOR_SCRIPT.read_text(encoding="utf-8")
     return frozenset(
-        (_REPO / "docs" / "standards" / local).resolve()
+        (PLANNING_ROOT / "standards" / local).resolve()
         for local in _ENTRY.findall(text)
     )

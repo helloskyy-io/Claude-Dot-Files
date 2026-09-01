@@ -44,7 +44,14 @@ from pathlib import Path
 
 import pytest
 
-REPO = Path(__file__).resolve().parents[4]
+import sys as _s, pathlib as _p
+_s.path.insert(0, str(_p.Path(__file__).resolve().parents[4]
+                     / "scripts" / "workflows" / "temporal" / "tests"))
+from planning_corpus import PLANNING_ROOT  # noqa: E402
+
+# The planning corpus moved to skyynet-master-planning; components are bucketed
+# by edge there, but a git pathspec `*` crosses `/`, so one pattern covers both.
+REPO = PLANNING_ROOT
 
 #: Surfaces deleted by the four-store migration. **Each is asserted GONE below**,
 #: so this list cannot silently describe a file that came back — an entry whose
@@ -84,8 +91,8 @@ _SURFACE = re.compile(r"`?\b(candidates|direction)\.md\b`?")
 
 def _planning_docs() -> list[Path]:
     out = subprocess.run(
-        ["git", "ls-files", "docs/development/*/roadmap.md",
-         "docs/development/*/phase*.md"],
+        ["git", "ls-files", "development/*/roadmap.md",
+         "development/*/phase*.md"],
         cwd=REPO, capture_output=True, text=True, check=True).stdout.split()
     return [REPO / p for p in out]
 

@@ -127,14 +127,26 @@ from gfm_table_scan import (
 
 _REPO = Path(__file__).resolve().parents[4]
 
+import sys as _s  # noqa: E402
+_s.path.insert(0, str(_REPO / "scripts" / "workflows" / "temporal" / "tests"))
+from planning_corpus import PLANNING_ROOT  # noqa: E402
+
+# The markdown this gate claims to cover lives in BOTH repos since the prose
+# split from the tooling. A table renders or does not render regardless of which
+# tree holds it, so the population follows the documents rather than the code.
+_ROOTS = (_REPO, PLANNING_ROOT)
+
 
 def _tracked_markdown() -> list[Path]:
     """Every `.md` file git tracks, which is the population this gate claims."""
-    out = subprocess.run(
-        ["git", "ls-files", "*.md"],
-        cwd=_REPO, capture_output=True, text=True, check=True,
-    ).stdout.split()
-    return [_REPO / name for name in out]
+    found: list[Path] = []
+    for root in _ROOTS:
+        out = subprocess.run(
+            ["git", "ls-files", "*.md"],
+            cwd=root, capture_output=True, text=True, check=True,
+        ).stdout.split()
+        found.extend(root / name for name in out)
+    return found
 
 
 def _display(path: Path) -> str:
@@ -146,10 +158,12 @@ def _display(path: Path) -> str:
     would leave the real predicate untested by the very tests written to prove
     it discriminates.
     """
-    try:
-        return str(path.relative_to(_REPO))
-    except ValueError:
-        return str(path)
+    for root in _ROOTS:
+        try:
+            return str(path.relative_to(root))
+        except ValueError:
+            continue
+    return str(path)
 
 
 def _scan(path: Path) -> list[str]:

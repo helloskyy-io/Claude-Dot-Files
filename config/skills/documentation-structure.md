@@ -59,7 +59,7 @@ Some files are navigation tools or metadata about the repo itself, not content. 
 
 **What goes here:**
 - **Standards docs** — the binding rules, one per topic (primary content)
-- **System overview** — `architectural_standard.md` with high-level description
+- **System overview** — `architecture_standard.md` with high-level description
 - **Component diagrams** — Mermaid or similar, showing relationships
 - **Data flow** — `data-flow.md` describing how data moves
 - **Tech stack** — `tech-stack.md` listing technologies and why they were chosen
@@ -646,7 +646,7 @@ The roadmap is the top-level tracking document. It shows phases and epics with *
 
 **Architecture:**
 - Standards: `<topic>.md` — named for the topic, never numbered
-- Other: descriptive name (e.g., `architectural_standard.md`, `tech-stack.md`)
+- Other: descriptive name (e.g., `architecture_standard.md`, `tech-stack.md`)
 
 **Development:**
 - Roadmap: always `sprint.md` at the top

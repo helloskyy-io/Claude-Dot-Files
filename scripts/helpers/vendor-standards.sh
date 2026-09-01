@@ -40,7 +40,10 @@ FILES=(
   "development/research/research_standard.md:research/research_standard.md"
   "development/testing/testing_standard.md:testing/testing_standard.md"
 )
-DEST="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/docs/standards"
+# The mirrors live in the PLANNING repo, beside the standards they sit among.
+# The script stays here because this is where tooling lives, not where docs do.
+_CDF="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+DEST="$(cd "$_CDF/.." && pwd)/skyynet-master-planning/standards"
 
 # The canonical repo lives in different places on workstations vs VMs.
 SRC=""

@@ -41,6 +41,8 @@ from pathlib import Path
 
 import pytest
 
+from planning_corpus import PLANNING_ROOT  # noqa: E402
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from modules.assistant.plan import plan_activities as act  # noqa: E402
@@ -494,8 +496,7 @@ def test_the_REAL_candidates_file_parses_and_every_cell_is_in_vocabulary() -> No
     live store drifted out of the shape they assume. This is the one
     assertion that reads what the pipeline will actually read.
     """
-    # parents[5]: unit -> tests -> temporal -> workflows -> scripts -> repo root.
-    real = Path(__file__).resolve().parents[5] / "tracked" / "candidates"
+    real = PLANNING_ROOT / "tracked" / "candidates"
     rows = act.candidate_rows(real, missing_hint="x")
     assert len(rows) > 30, "too few rows parsed for this to mean anything"
 
@@ -855,7 +856,7 @@ def test_THE_REAL_CANDIDATES_FILE_PARSES_UNDER_THE_TIGHTENED_CHECK() -> None:
     """
     # `parents[5]` is the repo root from `tests/unit/`, the idiom this suite
     # already uses in eight modules — see `journal_entrypoint_facts.REPO_ROOT`.
-    real = Path(__file__).resolve().parents[5] / "tracked" / "candidates"
+    real = PLANNING_ROOT / "tracked" / "candidates"
     assert real.is_dir(), f"the production candidates store moved: {real}"
     rows = act.candidate_rows(real, missing_hint="x")
     assert rows, "the production store parsed to zero items"

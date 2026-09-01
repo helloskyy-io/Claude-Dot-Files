@@ -135,11 +135,18 @@ COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 # each row's exact prompt text and fails when a row is reworded. That is the
 # coupling worth having, and it is per-workflow by construction.
 FORBIDDEN_PATHS = (
-    r"^docs/development/",      # "Edit a phase doc, or anything under another component"
+    # NO `docs/` LEVEL. These are matched against REPO-RELATIVE paths in the
+    # planning repo, whose layout puts `development/` and `standards/` at the
+    # root. While they still read `^docs/...` they matched NOTHING, so the
+    # deny-then-grant-back shape below was granting back out of an empty deny
+    # — every sibling component was writable and the boundary reported itself
+    # as enforced. A boundary that cannot fire is worse than none: it is read
+    # as coverage.
+    r"^development/",      # "Edit a phase doc, or anything under another component"
     r"(^|/)sprints?\.md$",      # "WRITE or edit `sprint.md`" — also caught above,
                                 #   stated separately because the prohibition is
                                 #   about the FILE and outlives this directory
-    r"^docs/standards/",        # "...or anything else under `docs/standards/`"
+    r"^standards/",        # "...or anything else under `standards/`"
     # THE TRACKED STORES, ADDED 2026-08-26 WITH THE FLIP, AND IT RESTORES A
     # PROPERTY RATHER THAN ADDING ONE. `candidates.md` used to live under
     # `/opt/skyy-net/skyynet-master-planning/standards/architecture/research`, so it was already inside a
@@ -355,7 +362,7 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
         "path check answers it one altitude up and the field checks have no "
         "subject here. Operator ruling 2026-08-26: a producing run surfaces and "
         "`review-pr` files, for all three autonomous stores, no exception",
-    "Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/`":
+    "Edit `problem-statement.md`, `architecture_standard.md`, or anything else under `standards/`":
         "FORBIDDEN_PATHS `^docs/standards/` less permitted_paths, same mechanism",
     "**Delete anything** — a phase doc or the roadmap":
         "act.ids_deleted over the candidate id snapshots for a ROW, "

@@ -38,6 +38,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "modules"))
 
+from planning_corpus import PLANNING_ROOT  # noqa: E402
 from assistant.plan import plan_activities as A  # noqa: E402
 
 
@@ -178,7 +179,12 @@ def test_the_checkbox_KEY_IS_INERT_on_this_repos_real_roadmaps() -> None:
     the key disabled — exact, and it cannot go stale when a plan is re-sized.
     """
     repo = Path(__file__).resolve().parents[5]
-    roadmaps = sorted(p.parent for p in (repo / "docs" / "development").glob("*/roadmap.md"))
+    # Components are bucketed by edge in the planning repo, and `Path.glob`'s
+    # `*` does NOT cross `/` (unlike a git pathspec), so both depths are asked
+    # for explicitly rather than assumed.
+    dev = PLANNING_ROOT / "development"
+    roadmaps = sorted({p.parent for pat in ("*/roadmap.md", "*/*/roadmap.md")
+                       for p in dev.glob(pat)})
     assert len(roadmaps) >= 4, f"vacuity floor: found {len(roadmaps)} roadmaps"
 
     disabled = re.compile(r"(?!x)x")          # matches nothing

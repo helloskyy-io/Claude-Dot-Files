@@ -32,9 +32,12 @@ import pytest
 
 from modules.assistant.tracked import tracked_items as own
 
+from planning_corpus import PLANNING_ROOT, require_planning_corpus  # noqa: E402
+
 REPO = Path(__file__).resolve().parents[5]
-STANDARD = REPO / "docs/standards/documentation/tracked_items_standard.md"
-TRACKED = REPO / "tracked"
+# The standard and the stores live in the planning repo since 2026-08-31.
+STANDARD = PLANNING_ROOT / "standards/documentation/tracked_items_standard.md"
+TRACKED = PLANNING_ROOT / "tracked"
 
 
 def _items() -> list[Path]:
