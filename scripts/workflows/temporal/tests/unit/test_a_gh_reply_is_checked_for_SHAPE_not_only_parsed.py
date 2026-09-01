@@ -33,6 +33,15 @@ WHAT THIS GUARD DOES NOT LOOK AT:
   * **`json.load`, `yaml.safe_load`, or a parse behind a helper.** It matches
     `json.loads` applied to something that is visibly a subprocess reply. A
     fourth spelling is invisible here.
+
+    `json` ITSELF IS NOW RESOLVED THROUGH ITS IMPORT BINDINGS, so `import json
+    as _j` / `_j.loads(...)` and `from json import loads` are in the census
+    rather than absent from it. That was NOT true until a class sweep reached
+    this site: the recogniser required the bare name, exactly as the journal
+    package's anchor sweep did, and a decode reached through an alias was not
+    reported unguarded — it was not seen, which reads as a clean tree. See
+    `_json_bindings`, and `test_a_guard_RESOLVES_the_module_it_MATCHES.py` for
+    the class.
   * **Replies that are never indexed.** A site that decodes and only ever passes
     the value onward is flagged anyway; that is the safe direction and it costs
     one `isinstance`.
@@ -100,9 +109,42 @@ def _is_reply(node: ast.AST) -> bool:
     return _is_gh_call(node)
 
 
+def _json_bindings(tree: ast.Module) -> tuple[set[str], set[str]]:
+    """`({names bound to `json`}, {names bound to `json.loads`})`.
+
+    `json` IS RESOLVED THROUGH ITS IMPORTS RATHER THAN HARD-CODED, and it was
+    hard-coded until a sweep for that class found this site. A recogniser keyed
+    on the bare module name is evaded by `import json as _j` / `_j.loads(...)`
+    and by `from json import loads`, so a `gh` reply decoded through either
+    spelling was not in the census AT ALL — not reported as unguarded, simply
+    absent, which is the direction that reads as a clean tree. The tree does not
+    alias `json` today; the habit is live elsewhere in it, and the closure this
+    guard publishes is population-wide.
+
+    `from json import *` binds `loads` under its own name and is expanded here
+    rather than declared as a hole; nothing in the tree uses it.
+
+    The class check is `test_a_guard_RESOLVES_the_module_it_MATCHES.py`.
+    """
+    modules = {"json"}
+    functions: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules |= {a.asname or a.name for a in node.names if a.name == "json"}
+        elif isinstance(node, ast.ImportFrom) and node.module == "json":
+            functions |= {a.asname or a.name for a in node.names
+                          if a.name == "loads"}
+            functions |= {"loads"} if any(a.name == "*" for a in node.names) else set()
+    return modules, functions
+
+
 class _Parses(ast.NodeVisitor):
     def __init__(self, rel: str) -> None:
         self.rel = rel
+        # Seeded so a snippet with no import statement still reads `json.loads`,
+        # and replaced per-module by `visit_Module`.
+        self._json_modules: set[str] = {"json"}
+        self._json_functions: set[str] = set()
         self.stack: list[ast.FunctionDef] = []
         # (file, enclosing FunctionDef NODE, line, bound name). The node and not
         # its name: `_run` and `_git` are closure names this tree reuses, and a
@@ -112,6 +154,13 @@ class _Parses(ast.NodeVisitor):
         # Decode calls already claimed by a named position, so the
         # catch-all `visit_Call` below does not report them a second time.
         self._handled: set[int] = set()
+
+    def visit_Module(self, node: ast.Module):  # noqa: N802
+        # RESOLVED UP FRONT, NOT AS THE WALK PASSES THE IMPORT. A function-local
+        # `import json as _j` is visited AFTER the calls in every function above
+        # it, so binding on arrival would leave the earlier ones unresolved.
+        self._json_modules, self._json_functions = _json_bindings(node)
+        self.generic_visit(node)
 
     def visit_FunctionDef(self, node: ast.FunctionDef):  # noqa: N802
         self.stack.append(node)
@@ -152,11 +201,16 @@ class _Parses(ast.NodeVisitor):
     def _maybe(self, value, targets) -> None:
         if isinstance(value, ast.Call):
             self._handled.add(id(value))
-        if not (isinstance(value, ast.Call)
-                and isinstance(value.func, ast.Attribute)
-                and value.func.attr == "loads"
-                and isinstance(value.func.value, ast.Name)
-                and value.func.value.id == "json"):
+        if not isinstance(value, ast.Call):
+            return
+        func = value.func
+        decodes = (
+            (isinstance(func, ast.Attribute) and func.attr == "loads"
+             and isinstance(func.value, ast.Name)
+             and func.value.id in self._json_modules)
+            or (isinstance(func, ast.Name) and func.id in self._json_functions)
+        )
+        if not decodes:
             return
         if not value.args:
             return
@@ -347,6 +401,26 @@ _GUARDED = ("def f(r):\n    x = json.loads(r.stdout)\n"
         pytest.param("def f(line):\n    e = json.loads(line)\n    return e['t']\n",
                      False, False, "a log line, which is a different population",
                      id="not-a-reply"),
+        pytest.param("import json as _j\ndef f(p):\n    x = _j.loads(gh(p))\n"
+                     "    return x[0]\n",
+                     True, False, "an ALIASED decode, which the bare-name "
+                     "recogniser did not see at all — absent from the census "
+                     "rather than reported unguarded",
+                     id="aliased-json"),
+        pytest.param("from json import loads\ndef f(p):\n    x = loads(gh(p))\n"
+                     "    return x[0]\n",
+                     True, False, "the from-import spelling, invisible to an "
+                     "attribute matcher by construction",
+                     id="from-import-json"),
+        pytest.param("from json import *\ndef f(p):\n    x = loads(gh(p))\n"
+                     "    return x[0]\n",
+                     True, False, "the star import, which binds `loads` under "
+                     "its own name", id="star-import-json"),
+        pytest.param("def f(p):\n    x = loads(gh(p))\n    return x[0]\n",
+                     False, False, "a bare `loads(...)` with NO `from json` "
+                     "import — some other function, and reading it as a decode "
+                     "would invent a finding",
+                     id="loads-not-from-json"),
     ],
 )
 def test_the_reply_and_guard_predicates_discriminate(

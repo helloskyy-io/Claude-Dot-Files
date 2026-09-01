@@ -120,9 +120,15 @@ NON_STARTING_FILES = {
         "the journal root; it starts nothing, cuts nothing and opens no bag — "
         "the entrypoint that built it does all three.",
     "validate_bag.py":
-        "an operator tool that READS a finished bag and prints a report. It is "
-        "the one file here that addresses the journal without being a run, and "
-        "opening a bag to validate one would be the tool recording itself.",
+        "an operator tool that READS a finished bag and prints a report. It "
+        "addresses the journal without being a run, and opening a bag to "
+        "validate one would be the tool recording itself.",
+    "verify_citations.py":
+        "the same shape as `validate_bag.py` beside it, asking the other "
+        "question: it READS a finished bag's citations and re-checks them "
+        "against the stored bytes. It starts no run and opens no bag — a "
+        "checker that recorded itself would grow the journal every time an "
+        "operator inspected it.",
 }
 
 # A shim is `<workflow>.sh` beside its runner: thin by design, it resolves the

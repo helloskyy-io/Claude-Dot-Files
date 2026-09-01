@@ -12,6 +12,20 @@ rather than where it lands and how it is read, it is in the wrong phase.
   `validate.py`            — re-hash the payload; report integrity and all three states
   `journal_activities.py`  — the activity a run invokes before anything else
 
+PHASE 2 ADDS THE CONTENT STORE, and it is five more files under this same package
+rather than a new child of `modules/`. That placement is a deliberate answer to a
+question the roadmap flagged as this phase's trigger: whether `modules/<capability>/`
+is an admitted shape beside `modules/<edge>/`. Keeping the store here means the
+precedent stays a single case and the operator's ruling is not forced by a build.
+It also matches what the code IS — the store lives inside a bag's payload, so it
+is the journal's own storage rather than a capability sitting beside it.
+
+  `content_store.py`       — bytes filed under their own checksum; the one read path
+  `citations.py`           — what was claimed, against which bytes, under which guarantee
+  `source_fetch.py`        — the fetch policy: https only, every hop re-checked, capped
+  `content_activities.py`  — capture and resolve as the store's two I/O boundaries
+  `verify.py`              — the read-path invariant run in bulk, with four exit codes
+
 DEPENDENCY-FREE ON THE WORKFLOW TREE, on purpose. Nothing here imports
 `modules.assistant`, so the validator can be loaded by a measurement helper or a
 future CPI sweep without dragging in the workflow modules — the same discipline
@@ -46,23 +60,46 @@ nothing here has to change to allow it.
   journal size as a requirement so the trigger fires on evidence rather than as
   a mid-build surprise.
 
-The full reasoning for every decision this package implements is in
-`/opt/skyy-net/skyynet-master-planning/development/edge-assistant/persistent-memory-protocol/phase1_the_run_bag.md`, which is the
-authority; the docstrings here carry the half a reader of the code needs.
+The full reasoning is in the phase docs under
+`/opt/skyy-net/skyynet-master-planning/development/edge-assistant/persistent-memory-protocol/`,
+which are the authority; the docstrings here carry the half a reader of the code
+needs. TWO of them apply, and naming only the first left half this package's
+decisions with no reachable authority:
+
+  `phase1_the_run_bag.md`      — the bag, its root, its states, its validator
+  `phase2_content_store.md`    — the store's shape (r7a), its path derivation
+                                 (r7b), its fetch policy (r7c), its single read
+                                 path (r7d), and the capture-provenance ruling
 """
 
 from __future__ import annotations
 
 from .bag import (JOURNAL_SCHEMA_VERSION, Bag, BagError, open_bag,
                   read_tag_file, utc_now)
+from .citations import (CAPTURE_HARVEST, CAPTURE_READ_TIME, Citation,
+                        CitationError, evidence_set_hash, new_citation,
+                        read_citations, record_citation,
+                        stage_evidence_hashes)
+from .content_activities import (capture_code_citation, capture_fetched_source,
+                                 capture_source, resolve_citation)
+from .content_store import (ContentStoreError, digest_of_bytes, load_object,
+                            object_relpath, store_bytes)
 from .journal_activities import (load_journal_config, mint_run_id,
                                  open_run_bag)
 from .root import JournalRootError, resolve_journal_root
+from .source_fetch import FetchPolicy, FetchRefused, fetch_source
 from .validate import BagReport, render_report, validate_bag
+from .verify import CitationResult, VerifyReport, verify_bag, verify_citation
 
 __all__ = [
-    "JOURNAL_SCHEMA_VERSION", "Bag", "BagError", "BagReport",
-    "JournalRootError", "load_journal_config", "mint_run_id", "open_bag",
-    "open_run_bag", "read_tag_file", "render_report", "resolve_journal_root",
-    "utc_now", "validate_bag",
+    "CAPTURE_HARVEST", "CAPTURE_READ_TIME", "JOURNAL_SCHEMA_VERSION", "Bag",
+    "BagError", "BagReport", "Citation", "CitationError", "CitationResult",
+    "ContentStoreError", "FetchPolicy", "FetchRefused", "JournalRootError",
+    "VerifyReport", "capture_code_citation", "capture_fetched_source",
+    "capture_source", "digest_of_bytes", "evidence_set_hash", "fetch_source",
+    "load_journal_config", "load_object", "mint_run_id", "new_citation",
+    "object_relpath", "open_bag", "open_run_bag", "read_citations",
+    "read_tag_file", "record_citation", "render_report", "resolve_citation",
+    "resolve_journal_root", "stage_evidence_hashes", "store_bytes", "utc_now",
+    "validate_bag", "verify_bag", "verify_citation",
 ]

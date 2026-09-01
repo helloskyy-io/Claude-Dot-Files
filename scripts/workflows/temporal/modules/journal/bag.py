@@ -65,6 +65,7 @@ __all__ = ["JOURNAL_SCHEMA_VERSION", "BAGIT_VERSION", "TAG_FILE_ENCODING",
            "open_bag", "read_tag_file", "utc_now", "payload_files",
            "payload_symlinks", "sha256_of", "contained_relpath",
            "RUN_ID_PERMITTED", "RUN_ID_PERMITTED_DESCRIPTION",
+           "safe_payload_segment",
            "RUN_ID_MAX_LENGTH", "validated_run_id", "folds_a_tag_line",
            "LABEL_SCHEMA_VERSION", "LABEL_REDACTION", "LABEL_INCOMPLETE",
            "LABEL_GAP", "LABEL_SEALED_AT", "BagState", "bag_state",
@@ -109,7 +110,15 @@ LABEL_INCOMPLETE = "Journal-Incomplete"            # zero or one; "true" => inco
 LABEL_GAP = "Journal-Gap"                          # zero or more; what was lost
 LABEL_SEALED_AT = "Journal-Sealed-At"              # exactly one, once sealed
 
-_LABEL_RE = re.compile(r"^([^:\s][^:]*):\s?(.*)$")
+# `\A…\Z` AND NOT `^…$`: `$` also matches immediately BEFORE a trailing
+# newline, so an anchored-looking validator silently accepts one. Both
+# callers here feed `splitlines()` output, so no newline reaches this
+# pattern today and the anchor is not load-bearing on them — it becomes
+# load-bearing the moment a caller hands it a raw line, which is exactly
+# the change nobody would notice. `test_journal_regex_anchors.py` fails on
+# any `^`/`$` added anywhere in this package, so this is a property of
+# `modules/journal/` rather than of this line.
+_LABEL_RE = re.compile(r"\A([^:\s][^:]*):\s?(.*)\Z")
 _SAFE_SEGMENT_RE = re.compile(r"[^A-Za-z0-9._-]+")
 
 
@@ -210,6 +219,33 @@ RUN_ID_MAX_LENGTH = 128
 # down, and a reader tightening this regex later needs to know why it is spelled
 # this way.
 _RUN_ID_RE = re.compile(r"\A[A-Za-z0-9._-]+\Z")
+
+
+def safe_payload_segment(name: str) -> str:
+    """A caller-supplied name reduced to ONE payload directory segment.
+
+    EXTRACTED FROM `Bag.writer_dir` WHEN THE CONTENT STORE NEEDED THE SAME RULE.
+    It is the same shape `contained_relpath` was extracted for: a rule this
+    package would otherwise hold two hand-written copies of, which is how the
+    four containment escapes already found here were produced. Every character
+    outside `[A-Za-z0-9._-]` maps to `-`, so no separator survives and no
+    segment can be a bare `..` that `mkdir` would follow; an input that reduces
+    to nothing yields `writer` rather than an empty component.
+
+    ⚠ THE DOTS-ONLY CASE IS EXPLICIT BECAUSE THE ALLOWLIST ADMITS `.`, AND THAT
+    HOLE WAS LIVE. `[A-Za-z0-9._-]` permits a dot, so `writer_dir("..")` slugged
+    to a bare `..` and joined onto the payload directory — the containment
+    declaration for that join said "no segment can be a bare `..`", and it was
+    describing a rule the code did not have. Nothing escaped in practice only
+    because `os.mkdir` fails on a directory that already exists and the caller
+    took the next ordinal; that is luck, not the rule. A dots-only name is not a
+    usable directory name in any case, so it takes the same fallback an empty
+    one does.
+    """
+    slug = _SAFE_SEGMENT_RE.sub("-", name).strip("-")
+    if not slug or set(slug) == {"."}:
+        return "writer"
+    return slug
 
 
 def validated_run_id(run_id: str) -> str:
@@ -447,7 +483,16 @@ def _append_tag_line(path: Path, label: str, value: str) -> None:
     and it makes the caller's mistake visible where it is made.
     """
     _refuse_folded_value(label, value)
-    with open(path, "a", encoding="utf-8") as handle:
+    # `O_NOFOLLOW` FOR THE SAME REASON `_write_tag_file` CARRIES IT — nothing
+    # this module writes is ever legitimately a symlink. This site appends to a
+    # file that function created, so the MODE is already right; only the follow
+    # was open. Found by a correction pass sweeping the class after
+    # `record_citation` was caught creating a file with neither rule, and fixed
+    # here rather than reported, because a sweep that names a second member and
+    # leaves it is not a sweep.
+    fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW,
+                 FILE_MODE)
+    with os.fdopen(fd, "a", encoding="utf-8") as handle:
         handle.write(f"{label}: {value}\n")
 
 
@@ -712,7 +757,7 @@ class Bag:
         to one store is the day this needs a sequence number. Cheap to add now,
         unrecoverable in old data.
         """
-        slug = _SAFE_SEGMENT_RE.sub("-", name).strip("-") or "writer"
+        slug = safe_payload_segment(name)
         for ordinal in range(1, 10_000):
             candidate = self.payload_dir / (slug if ordinal == 1 else f"{slug}-{ordinal}")
             try:

@@ -34,6 +34,7 @@ import pytest
 
 from modules.journal.bag import (BAGIT_FILE, BAG_INFO_FILE, MANIFEST_FILE,
                                  PAYLOAD_DIR, open_bag)
+from modules.journal.validate import main as validate_main
 from modules.journal.validate import render_report, validate_bag
 
 
@@ -225,6 +226,22 @@ def test_a_path_that_is_not_a_bag_reports_rather_than_raising(root: Path) -> Non
     assert not report.ok
     assert report.structural and "not a directory" in report.structural[0]
     assert (report.lifecycle, report.redacted, report.incomplete) == ("open", False, False)
+
+
+def test_main_still_reaches_exit_1_for_a_bag_that_really_failed(
+        root: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """The usage/finding split must not have taken the finding code with it.
+
+    `main` now answers 2 for a target that is not there, which is the whole point
+    of the split — and that is only worth anything if 1 still means what it meant.
+    `test_journal_operator_tools_separate_typo_from_finding.py` owns the 2 across
+    both tools; this owns the other side of the same distinction for this one.
+    """
+    bag = _bag(root, "broken", sealed=True, redacted=False, incomplete=False)
+    (bag.payload_dir / "child" / "payload.jsonl").unlink()
+
+    assert validate_main([str(bag.path)]) == 1
+    assert "result     : FAIL" in capsys.readouterr().out
 
 
 def test_a_malformed_manifest_line_is_STRUCTURAL_not_a_crash(root: Path) -> None:

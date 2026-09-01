@@ -80,6 +80,7 @@ from journal_entrypoint_facts import (ENTRYPOINTS_DIR,  # noqa: E402
 _PROSE = (
     sorted((TEMPORAL / "modules" / "journal").glob("*.py"))
     + [TEMPORAL / "scripts" / "validate_bag.py",
+       TEMPORAL / "scripts" / "verify_citations.py",
        TEMPORAL / "tests" / "conftest.py"]
     # THIS FILE IS EXCLUDED FROM ITS OWN SWEEP, and the reason is not
     # convenience: its negative controls QUOTE the defective prose verbatim, so
@@ -97,6 +98,21 @@ _PROSE = (
        TEMPORAL / "tests" / "unit" / "test_every_parent_opens_a_run_bag.py",
        TEMPORAL / "tests" / "unit" / "test_the_suite_never_writes_to_the_operators_journal.py",
        TEMPORAL / "tests" / "integration" / "test_a_real_bag_validates.py",
+       # ⚠ PHASE 2's SEVEN FILES, NAMED EXPLICITLY BECAUSE THE GLOB ABOVE
+       # MISSES ALL OF THEM. The unit glob is `test_journal_*.py` and the new
+       # tests are `test_content_store.py`, `test_citations.py`, and so on — so
+       # a population figure or a state enumeration written into any of them
+       # was invisible and the guard stayed green. That is the SAME gap this
+       # file already records against `journal_entrypoint_facts.py` two
+       # comments up, recurring one phase later because the remedy was a list
+       # of names rather than a rule about which files hold prose.
+       TEMPORAL / "tests" / "unit" / "test_content_store.py",
+       TEMPORAL / "tests" / "unit" / "test_citations.py",
+       TEMPORAL / "tests" / "unit" / "test_content_activities.py",
+       TEMPORAL / "tests" / "unit" / "test_source_fetch.py",
+       TEMPORAL / "tests" / "unit" / "test_verify_citations.py",
+       TEMPORAL / "tests" / "integration" / "test_citations_verify_offline.py",
+       PLANNING_ROOT / "development" / "edge-assistant" / "persistent-memory-protocol" / "phase2_content_store.md",
        PLANNING_ROOT / "development" / "edge-assistant" / "persistent-memory-protocol" / "phase1_the_run_bag.md",
        REPO_ROOT / "docs" / "file_structure.txt"]
 )
@@ -282,6 +298,20 @@ _DECLARED_NON_DERIVATIONS = {
     ("journal_activities.py", "nine of eleven"):
         "the same pre-fix figure carried into its consequence — nine of eleven "
         "RUNS would have recorded no worktree. Same absent ground truth.",
+    ("phase2_content_store.md", "two entry points"):
+        "NOT A POPULATION FIGURE, AND THE COLLISION IS IN THE PREDICATE RATHER "
+        "THAN IN THE PROSE. Phase 2 requirement 8 reads 'the store's two entry "
+        "points' — capture and resolve — which is ordinary English about two "
+        "functions, not a count of this fleet's kickoff entrypoints. It matches "
+        "because `_figures_in` tolerates `entry\\s?points?`, and every one of "
+        "the thirty-five registered figures in this file is written UNSPACED. "
+        "Narrowing the pattern to `entrypoints?` would drop the collision "
+        "without losing a single real figure — that is a change to a guard's "
+        "reach, so it is surfaced for the operator rather than made by a "
+        "correction pass, and this row is what keeps the sweep honest until "
+        "then. The same collision was hit one module over by the pass that "
+        "wrote the store, which reworded its own docstring; a phase doc in "
+        "another repository is not this repo's to reword.",
     ("phase1_the_run_bag.md", "nine of eleven entrypoints"):
         "the same pre-fix figure, in the doc that records why the 496-byte bag "
         "measurement was superseded. Not derivable for the same reason.",

@@ -227,10 +227,23 @@ claude-dot-files/
 │           │                                        #   the activity every entrypoint invokes before its first side effect. Nothing writes
 │           │                                        #   a run's CONTENT here — that is Phase 3. Imports no workflow module, so a
 │           │                                        #   measurement helper can load it without dragging in temporalio
+│           │                                        #   PHASE 2 ADDS THE CONTENT STORE here rather than as a new modules/ child, which
+│           │                                        #   keeps the modules/<capability> precedent a single case for the operator to rule
+│           │                                        #   on: content_store.py files a source's bytes under their own sha256, at a path
+│           │                                        #   derived from the computed digest ALONE (r7(b) — a source-controlled string in the
+│           │                                        #   path would write outside a store that sits inside the bag); citations.py holds
+│           │                                        #   what was claimed and, per row, WHICH guarantee it carries; source_fetch.py is the
+│           │                                        #   fetch policy the tree had no existing fetcher to inherit; content_activities.py
+│           │                                        #   is capture and resolve; verify.py is the one read path run in bulk. r7(a) is
+│           │                                        #   ruled PER-RUN and the store lives under data/, so the bag's own manifest already
+│           │                                        #   covers the cited bytes — Phase 7 ships them with the bag by construction and
+│           │                                        #   Phase 5's reachability pass is a no-op
 │           ├── scripts/                             # Kickoff entrypoints, until an SDK path replaces them — plus preflight.py,
-│           │                                        #   validate_bag.py, dispatch_identity.py and dispatch_context.py, which are NOT
-│           │                                        #   kickoffs: they are what a run checks before, what an operator checks after, who
-│           │                                        #   NAMES the run, and what the run DERIVED. All four live here because they are
+│           │                                        #   validate_bag.py, verify_citations.py, dispatch_identity.py and dispatch_context.py,
+│           │                                        #   which are NOT kickoffs: they are what a run checks before, what an operator checks
+│           │                                        #   after (validate_bag asks whether a bag's bytes match its manifest; verify_citations
+│           │                                        #   asks whether the claims in it still stand against the sources they were made from),
+│           │                                        #   who NAMES the run, and what the run DERIVED. All five live here because they are
 │           │                                        #   launch concerns rather than workflow concerns. None is named run_*.py, and that
 │           │                                        #   is load-bearing — the entrypoint sweeps glob that prefix, so a helper wearing it
 │           │                                        #   is swept as a runner and fails five guards at once (measured 2026-09-01)
@@ -277,10 +290,22 @@ claude-dot-files/
 │               │                                    #   a corpus that is no longer in this repo, and a copy per
 │               │                                    #   module is 17 chances to point at a stale path
 │               ├── integration/                    # Runs against what the FLEET actually wrote, not against a constructed fixture
-│               │   └── test_a_real_bag_validates.py # Every journal bag on THIS machine still validates. Skips — distinctly from passing —
-│               │                                    #   where no dispatch has run, because a clone has no journal and there is nothing
-│               │                                    #   honest to assert about that. Does NOT substitute for the entrypoint sweep: a fleet
-│               │                                    #   where ten of eleven had stopped opening bags would still pass on the eleventh's output
+│               │   ├── conftest.py                  # The `journal_root` fixture, at the package's own DIR_MODE rather than a bare 0o700
+│               │   │                                #   literal. tests/unit/conftest.py is not reachable from here — pytest resolves
+│               │   │                                #   conftest by directory — so this is the sibling copy, and it exists because the
+│               │   │                                #   same four lines had already been retyped three times in one file
+│               │   ├── test_a_real_bag_validates.py # Every journal bag on THIS machine still validates. Skips — distinctly from passing —
+│               │   │                                #   where no dispatch has run, because a clone has no journal and there is nothing
+│               │   │                                #   honest to assert about that. Does NOT substitute for the entrypoint sweep: a fleet
+│               │   │                                #   where ten of eleven had stopped opening bags would still pass on the eleventh's output
+│               │   └── test_citations_verify_offline.py # PMP Phase 2 r2 — the offline demonstration, and the network is DENIED rather
+│               │                                    #   than asserted absent: an LD_PRELOAD shim fails socket(), connect() and
+│               │                                    #   getaddrinfo() at the C library, below the code under test. A control fetch runs
+│               │                                    #   under the same shim FIRST and must fail, or the verify run proves only that
+│               │                                    #   nothing tried. unshare -rn is unavailable here — apparmor_restrict_unprivileged
+│               │                                    #   _userns is 1 — and that is recorded because "how the network was disabled" is a
+│               │                                    #   checklist item. Also walks one bag holding one of EACH outcome, and each outcome
+│               │                                    #   alone, so the mixed-run exit code cannot pass by accident
 │               ├── fixtures/                        # MEASURED inputs, not written ones
 │               │   └── schema_declared_run.jsonl    # A real CLI 2.1.224 run with --json-schema declared. Carries the finding that
 │               │                                    #   declaring a schema REPLACES .result with the structured output — the reason
@@ -616,6 +641,17 @@ claude-dot-files/
 │                   │                                #   declares why it cannot escape — so ADDING a join is what fails. The battery beside it
 │                   │                                #   catches the other half: reverting a guard leaves the declaration standing and true of
 │                   │                                #   nothing, which the sweep alone reads as covered
+│                   ├── test_journal_regex_anchors.py # The ANCHOR spelling of the same class-check shape: `$` matches before a TRAILING
+│                   │                                #   newline, so `re.compile(r"^…$")` is an anchored-LOOKING validator that admits one.
+│                   │                                #   Two instances — the digest gate that IS r7(b)'s path safety, then _LABEL_RE, still
+│                   │                                #   unconverted at the commit that published the sweep as exhaustive. Sweeps every
+│                   │                                #   re.compile in the package; a pattern it cannot READ fails separately, which is how
+│                   │                                #   the %-formatted digest gate was found invisible to the sweep's own first draft
+│                   ├── test_journal_operator_tools_separate_typo_from_finding.py # A target the operator MISTYPED must not be
+│                   │                                #   reported as a bag that failed. verify.main was fixed for this; validate.main did the
+│                   │                                #   mirror image and was left standing, printing result: FAIL with lifecycle, redacted
+│                   │                                #   and a payload size asserted about a bag that does not exist. Population DERIVED —
+│                   │                                #   every scripts/*.py importing validate or verify — so a third tool inherits the rule
 │                   ├── journal_entrypoint_facts.py  # WHAT THE ENTRYPOINT POPULATION IS, discovered once for the guards that ask — the
 │                   │                                #   bag-open sweep, the prose-figure guard and the run-id sweep. A helper and not a
 │                   │                                #   shared test module because test_test_tree_hygiene refuses test-imports-test; two
@@ -699,6 +735,38 @@ claude-dot-files/
 │                                                    #   Placement covers RunContext.build as well as open_run_bag — both raise a
 │                                                    #   RuntimeError carrying an operator remedy, and a guard watching only the older of
 │                                                    #   the two was measured blind to the newer one
+│                   ├── test_content_store.py        # PMP Phase 2 r7(b)/r7(d) — the on-disk path is a function of the COMPUTED DIGEST and
+│                   │                                #   of nothing else (asserted on the signature, not only the output: a URL, a filename
+│                   │                                #   or a Content-Disposition header has nowhere to enter), and every read re-hashes and
+│                   │                                #   fails closed. Flips ONE byte of a stored object and requires the refusal to name
+│                   │                                #   what the bytes actually hash to. Names what it does not look at: no socket, no quote
+│                   ├── test_citations.py            # The citation record — refused at construction rather than coerced, because nothing
+│                   │                                #   rewrites a written row. r7(c)'s ruling is tested AS DATA: `capture` has no default
+│                   │                                #   anywhere, so a harvested row cannot start being reported as a read-time one. r6's
+│                   │                                #   git ref carries no page_content_hash, and an abbreviated sha is refused — a prefix
+│                   │                                #   stops being unique as a repository grows. The evidence-set hash is a SET, so ten
+│                   │                                #   claims on one page are one piece of evidence
+│                   ├── test_source_fetch.py         # PMP Phase 2 r7(c)'s policy, and the most adversarial file in the package: the URL is
+│                   │                                #   model-influenceable and the response is DURABLY STORED and re-servable offline, so
+│                   │                                #   the payload outlives the request. Every redirect hop re-enters every check (the
+│                   │                                #   metadata-range bypass is a test, not a comment), EVERY resolved address is checked
+│                   │                                #   rather than the first, the size cap is enforced on the READ because Content-Length
+│                   │                                #   is the server's claim, and an encoded response is refused rather than decoded.
+│                   │                                #   Runs entirely offline — opener and resolver are parameters, which is what makes a
+│                   │                                #   hostile DNS answer testable at all. Does NOT close DNS rebinding, and says so
+│                   ├── test_content_activities.py   # PMP Phase 2 r8 — capture and resolve as the store's two I/O boundaries. Carries the
+│                   │                                #   FIFTH instance of this package's containment class: the caller-supplied stage name
+│                   │                                #   was composed onto the payload path directly, by the pass that had just read the
+│                   │                                #   module documenting the other four, and test_journal_containment.py is what said so.
+│                   │                                #   Also pins that an activity boundary does not make the call happen — what breaks the
+│                   │                                #   silence is verify reporting `missing` for bytes nobody captured
+│                   └── test_verify_citations.py     # PMP Phase 2 r3/r4 — four outcomes, four exit codes, because each has a different
+│                                                    #   remedy. Resolve BEFORE span, so a corrupt store is never reported as a wrong
+│                                                    #   quotation. Offline is asserted over verify's own STATIC import closure, not over
+│                                                    #   sys.modules — the package __init__ imports every submodule eagerly, so the obvious
+│                                                    #   check reports the fetcher as reached on a tree with no defect in it. Its
+│                                                    #   discriminator starts the same walk at content_activities, which legitimately does
+│                                                    #   import the fetcher
 │
 ├── testing/                                         # TIER 1 + TIER 2 of the Testing Standard's three-tier hierarchy
 │   ├── README.md                                    # How to run the suite and how to add a test
@@ -744,6 +812,14 @@ claude-dot-files/
 │   │                                                #   nobody has written yet. The coupling breaks at collection, which mutate.sh cannot read.
 │   │                                                #   TWO checks since PR #96: the import-statement one, and a second reading CALL ARGUMENTS,
 │   │                                                #   because a path LOAD emits no ast.Import node and slipped past the first one unseen
+│   │       ├── test_a_guard_RESOLVES_the_module_it_MATCHES.py # No AST guard recognises a module by its BARE NAME — repo-wide. A matcher
+│   │       │                                        #   keyed on `node.func.value.id == "re"` is evaded by `import re as _r`, and the
+│   │       │                                        #   evaded call is ABSENT from the guard's population rather than reported by it,
+│   │       │                                        #   which is the colour of a clean tree. RESOLVE the imports or REFUSE the aliased
+│   │       │                                        #   spelling; being neither is the finding. Keyed on the class after the identical
+│   │       │                                        #   defect hit four guards in four components — including one written to end the
+│   │       │                                        #   very class it then had (`test_journal_regex_anchors.py`, blind to an aliased
+│   │       │                                        #   `re`, with its own compensating honesty test blind the same way)
 │   │       ├── test_measurement_figures_are_cited.py # A figure with a denominator lives ONLY where the measurement is taken; every other
 │   │       │                                        #   mention cites it. Keyed on the class after fix-the-instances was MEASURED
 │   │       │                                        #   non-convergent over four passes on one PR — see tracked/candidates/ C-523klr8n
