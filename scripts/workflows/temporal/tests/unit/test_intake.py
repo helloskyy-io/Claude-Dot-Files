@@ -284,3 +284,75 @@ def test_a_RECURRENCE_intake_INCREMENTS_rather_than_duplicating(tmp_path) -> Non
         "the recurrence path must move `count`; that number is what makes a "
         "pattern distinguishable from noise at triage"
     )
+
+
+# --- EXPANSION intakes -------------------------------------------------------
+#
+# `review-pr` has emitted `EXPANSION of <ID>` since at least 2026-08-28 and the
+# harvest parsed only `RECURRENCE on <ID>`, so an intake naming its own target by
+# id was filed as a SECOND item beside it. That is the duplication the four
+# stores exist to prevent, produced by the mechanism meant to prevent it, and it
+# was found with 15 intakes queued and none of them drained.
+
+
+def _titled(number: int, store: str, title: str) -> dict:
+    """An intake whose TITLE is the thing under test."""
+    return {"number": number, "title": title,
+            "body": own.render_intake(ti.STORES[store], title=title,
+                                      body="the new evidence", filed_by="review-pr"),
+            "createdAt": "2026-08-28T10:00:00Z"}
+
+
+def test_an_EXPANSION_lands_on_the_NAMED_item_and_files_no_second_one(
+        root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """THE GUARD. The reviewer named the target; a new file contradicts it."""
+    existing = ti.file_item(root, ti.STORES["candidates"], title="the original",
+                            filed_by="review-pr", status="open", body="as written")
+    item_id = existing.stem
+    monkeypatch.setattr(own, "_gh", _FakeGh(
+        [_titled(1, "candidates", f"EXPANSION of {item_id} — it is larger than written")]))
+
+    moved, failed = own.harvest(root)
+
+    assert failed == []
+    assert moved == [(1, existing)], "the expansion did not land on its named item"
+    assert len(list((root / "candidates").glob("*.md"))) == 1, "a second item was filed"
+    assert "the new evidence" in existing.read_text()
+
+
+def test_an_EXPANSION_does_NOT_touch_count(
+        root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`count` measures RECURRENCE, and triage sorts on it.
+
+    An item that grew twice must not outrank a defect that genuinely happened
+    three times. Conflating the two corrupts the one ordering signal the stores
+    carry, which is the whole reason `count` was introduced.
+    """
+    existing = ti.file_item(root, ti.STORES["issues"], title="the original",
+                            filed_by="review-pr", status="open", body="as written")
+    before = ti.parse(existing)[0].get("count")
+    monkeypatch.setattr(own, "_gh", _FakeGh(
+        [_titled(2, "issues", f"EXPANSION of {existing.stem} — more of it")]))
+
+    own.harvest(root)
+
+    assert ti.parse(existing)[0].get("count") == before, (
+        "an expansion bumped `count`, which is the recurrence signal")
+
+
+def test_an_EXPANSION_naming_an_ITEM_THAT_DOES_NOT_EXIST_files_normally(
+        root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """THE CONTROL. An unresolvable id must not silently drop the finding.
+
+    A title can name an id that was never filed, or one deleted since. The
+    fallback is the ordinary path — file it as its own item — because losing a
+    finding to tidy a queue is the trade this design refuses everywhere else.
+    """
+    monkeypatch.setattr(own, "_gh", _FakeGh(
+        [_titled(3, "candidates", "EXPANSION of C-zzzzzzzz — names nothing")]))
+
+    moved, failed = own.harvest(root)
+
+    assert failed == []
+    assert len(list((root / "candidates").glob("*.md"))) == 1, "the finding was lost"
+    assert moved[0][1].stem != "C-zzzzzzzz"

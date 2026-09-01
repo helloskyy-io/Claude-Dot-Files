@@ -37,6 +37,17 @@ def main(argv: list[str] | None = None) -> int:
                     "and close it. The named harvest cadence of §5.0.")
     ap.add_argument("--repo-root", default=".", type=Path,
                     help="repo whose tracked/ directory receives the items")
+    # TWO REPOS, BECAUSE THE STORES AND THE INTAKES STOPPED BEING IN ONE.
+    # `review-pr` files against the repo whose PR it reviewed; the four stores
+    # moved to the planning repo on 2026-08-31. With a single `--repo-root` the
+    # harvest reads issues from the same place it writes files, so pointing it at
+    # the tooling repo fails ("no tracked store") and pointing it at the planning
+    # repo never sees the intakes at all — 15 sat undrained for four days, which
+    # is exactly the "an intake with no harvest is a second store" state §5.0
+    # names as a violation rather than a grey area.
+    ap.add_argument("--issues-repo", type=Path, default=None,
+                    help="repo whose tracked-intake issues are drained "
+                         "(default: --repo-root, which is the one-repo case)")
     ap.add_argument("--dry-run", action="store_true",
                     help="report what would move without writing or closing")
     args = ap.parse_args(argv)
@@ -50,7 +61,8 @@ def main(argv: list[str] | None = None) -> int:
               f"Tracked Items Standard §1. Nothing harvested.", file=sys.stderr)
         return 2
 
-    moved, failed = intake.harvest(root, cwd=args.repo_root, dry_run=args.dry_run)
+    issues_repo = args.issues_repo or args.repo_root
+    moved, failed = intake.harvest(root, cwd=issues_repo, dry_run=args.dry_run)
 
     verb = "would move" if args.dry_run else "harvested"
     for number, path in moved:

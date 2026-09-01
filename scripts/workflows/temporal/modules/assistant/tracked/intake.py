@@ -143,18 +143,39 @@ def open_intakes(cwd: Path | None = None) -> list[dict]:
 #: noise, and the harvest is the only writer that can tell them apart.
 _RECURRENCE = re.compile(r"^\s*RECURRENCE\s+on\s+([A-Z]-[0-9a-z]{8})\b", re.I)
 
+#: An EXPANSION intake — the reviewer says this belongs to an item that already
+#: exists and is LARGER than that item was written. Distinct from a recurrence:
+#: it appends evidence and leaves `count` alone, because `count` measures how
+#: often a thing happened and an expansion is one thing getting bigger.
+#:
+#: MEASURED: `review-pr` has emitted this form since at least 2026-08-28 and the
+#: harvest did not parse it, so an intake naming its own target by id would have
+#: been filed as a SECOND item beside it — the duplication the four stores exist
+#: to prevent, produced by the mechanism meant to prevent it.
+_EXPANSION = re.compile(r"^\s*EXPANSION\s+of\s+([A-Z]-[0-9a-z]{8})\b", re.I)
+
+
+def _item_by_id(root: Path, item_id: str) -> Path | None:
+    """The file for an id, in whichever of the four stores holds it."""
+    for store in ti.STORES.values():
+        candidate = root / store.name / f"{item_id}.md"
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _expansion_target(root: Path, title: str) -> Path | None:
+    """The item an EXPANSION intake names, if it resolves in any store."""
+    m = _EXPANSION.match(title or "")
+    return _item_by_id(root, m.group(1)) if m else None
+
 
 def _recurrence_target(root: Path, title: str) -> Path | None:
     """The item a recurrence intake names, if it resolves in any store."""
     m = _RECURRENCE.match(title or "")
     if not m:
         return None
-    item_id = m.group(1)
-    for store in ti.STORES.values():
-        candidate = root / store.name / f"{item_id}.md"
-        if candidate.is_file():
-            return candidate
-    return None
+    return _item_by_id(root, m.group(1))
 
 
 def harvest(root: Path, *, cwd: Path | None = None,
@@ -180,6 +201,7 @@ def harvest(root: Path, *, cwd: Path | None = None,
 
             existing = _already_filed(root, number)
             recurred = _recurrence_target(root, issue["title"])
+            expanded = _expansion_target(root, issue["title"])
             if existing is not None:
                 path = existing
             elif recurred is not None:
@@ -191,6 +213,15 @@ def harvest(root: Path, *, cwd: Path | None = None,
                              f"{date.today().isoformat()}: reported again via intake "
                              f"`#{number}` — {issue['title']}")
                 path = recurred
+            elif expanded is not None:
+                # APPEND, NEVER RE-FILE — see `_EXPANSION`. `count` is untouched.
+                if dry_run:
+                    moved.append((number, expanded))
+                    continue
+                ti.expand(expanded,
+                          f"expanded via intake `#{number}` — {issue['title']}",
+                          body)
+                path = expanded
             else:
                 status = fields.pop("status", "open")
                 filed_by = fields.pop("filed_by", "review-pr")

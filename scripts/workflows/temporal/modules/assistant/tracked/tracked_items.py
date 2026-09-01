@@ -257,6 +257,31 @@ def file_item(
     return path
 
 
+def expand(path: Path, note: str, body_text: str, *, today: date | None = None) -> None:
+    """Append new evidence to an existing item WITHOUT touching its `count`.
+
+    AN EXPANSION IS NOT A RECURRENCE, and conflating them corrupts the one signal
+    triage sorts on. A recurrence says *"this happened again"* — that is what
+    `count` measures. An expansion says *"the same item is larger than it was
+    written"*: new scope, a second site, a consequence nobody had priced. Bumping
+    `count` for one would make a single item that grew twice outrank a defect
+    that genuinely recurred three times.
+
+    WHY IT IS NOT A NEW ITEM EITHER: `review-pr` names the target explicitly
+    (`EXPANSION of <ID>`), so filing a second file is a duplicate of an item the
+    reviewer has already said this belongs to.
+    """
+    fields, body = parse(path)
+    stamped = f"### {(today or date.today()).isoformat()} · {note}"
+    section = "## Expansions"
+    block = f"{stamped}\n\n{body_text.strip()}\n"
+    if section in body:
+        body = body.rstrip("\n") + f"\n\n{block}"
+    else:
+        body = body.rstrip("\n") + f"\n\n{section}\n\n{block}"
+    path.write_text(render(fields, body))
+
+
 def increment(path: Path, note: str, *, today: date | None = None) -> int:
     """Bump `count` and append a dated recurrence line. Returns the new count.
 
