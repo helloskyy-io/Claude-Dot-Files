@@ -89,19 +89,29 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  Loop-back  : the whole chain below the author, up to 3 times\n")
         return 0
 
-    # EVERYTHING THIS RUN DERIVED, BUILT ONCE, AND SAID OUT LOUD BEFORE THE BAG
-    # OPENS. The worktree name is a field on it rather than an expression here;
-    # see `dispatch_context.py` for why eleven copies of that expression were the
-    # defect. The echo precedes bag-open, the worktree and every `gh` call.
-    ctx = RunContext.build(identity=resolve_identity(argv), repo_root=repo_root,
-                           workflow_key="plan", pr_number=a.pr_number, target=target)
-    ctx.echo()
-    journal.open_run_bag(run_id=ctx.run_id, writer=ctx.writer,
-                         repo_root=ctx.repo_root, workflow_key=ctx.workflow_key,
-                         worktree_name=ctx.worktree_name,
-                         journal_root=ctx.journal_root)
-
     try:
+        # EVERYTHING THIS RUN DERIVED, BUILT ONCE, AND SAID OUT LOUD BEFORE THE
+        # BAG OPENS. The worktree name is a field on it rather than an expression
+        # here; see `dispatch_context.py` for why eleven copies of that
+        # expression were the defect. The echo precedes bag-open, the worktree
+        # and every `gh` call.
+        #
+        # ⚠ INSIDE THE `try`, WHICH IT WAS NOT. This block sat above the handler
+        # in this one file of eleven, so `resolve_identity`'s refusal of a bad
+        # `--run-id` and `open_run_bag`'s refusal of a full journal — both
+        # `RuntimeError`s carrying operator-facing remedies — reached the
+        # operator as a traceback here and as a one-line diagnostic everywhere
+        # else. Resolving the journal root at the boundary added a THIRD raise
+        # to the unguarded region, which is what made a latent gap worth closing.
+        ctx = RunContext.build(identity=resolve_identity(argv), repo_root=repo_root,
+                               workflow_key="plan", pr_number=a.pr_number,
+                               target=target)
+        ctx.echo()
+        journal.open_run_bag(run_id=ctx.run_id, writer=ctx.writer,
+                             repo_root=ctx.repo_root, workflow_key=ctx.workflow_key,
+                             worktree_name=ctx.worktree_name,
+                             journal_root=ctx.journal_root)
+
         pr_url, verdict, notes = run_plan(
             component=component, repo_root=repo_root, worktree_name=ctx.worktree_name,
             sprint_path=sprint, candidates_path=cands,

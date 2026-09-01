@@ -174,7 +174,7 @@ def test_the_population_this_sweeps_MATCHES_THE_TREE() -> None:
     journal root, then update this number.
     """
     modules = _entrypoint_driving_modules()
-    assert len(modules) == 5, (
+    assert len(modules) == 6, (
         f"{len(modules)} test module(s) under {UNIT_DIR} drive an entrypoint "
         f"`main()`; it was 5 when this was pinned. Found: "
         f"{[m.name for m in modules]}.\n"

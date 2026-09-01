@@ -626,7 +626,7 @@ claude-dot-files/
 │                   │                                #   is DERIVED from splitlines() rather than from a remembered list, and the round trip
 │                   │                                #   is the property: for any accepted value, reading the file returns what was written
 │                   ├── test_dispatch_context.py     # The run context's behaviour: the worktree name follows the workflow key (every key,
-│                   │                                #   because the drift was in one of eleven), the object is frozen, the echo is gated on
+│                   │                                #   because the drift was in a single runner), the object is frozen, the echo is gated on
 │                   │                                #   `is_the_run` rather than on `minted` — a retry supplies its name and is exactly the
 │                   │                                #   caller who needs the echo — and the rehearsal renders the same object as the live
 │                   │                                #   run. Also two AST sweeps over the entrypoints: every one builds and echoes, and
@@ -674,7 +674,11 @@ claude-dot-files/
 │                                                    #   run_*.py by AST (never substring: the sibling sweep shipped green because a COMMENT
 │                                                    #   satisfied its grep) and fails when one starts a run with no bag. Also checks ORDER —
 │                                                    #   the bag precedes the first side effect — with a self-contained non-conforming fixture
-│                                                    #   for both, and names the swept scope in its own failure message
+│                                                    #   for both, and names the swept scope in its own failure message. And PLACEMENT: the
+│                                                    #   call must sit inside a `try` whose except catches RuntimeError, which its failure
+│                                                    #   message had demanded in prose since it was written while nothing checked it —
+│                                                    #   run_plan.py had drifted above the handler, turning a bad --run-id and a full journal
+│                                                    #   into tracebacks in one file of eleven and one-line diagnostics in the other ten
 │
 ├── testing/                                         # TIER 1 + TIER 2 of the Testing Standard's three-tier hierarchy
 │   ├── README.md                                    # How to run the suite and how to add a test

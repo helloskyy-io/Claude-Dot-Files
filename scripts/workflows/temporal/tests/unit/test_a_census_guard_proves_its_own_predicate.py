@@ -176,7 +176,7 @@ _HERE = Path(__file__).resolve().parent
 # literals driving `_loop_callees`, one of them a `while` that is not a loop-back
 # and must contribute nothing — and the control earned its place immediately by
 # catching the predicate collecting the loop's own TEST as a callee.
-_PINNED = (33, 22)
+_PINNED = (35, 24)
 
 
 # GRANDFATHERED — walks the tree, has no literal control, PREDATES this rule.

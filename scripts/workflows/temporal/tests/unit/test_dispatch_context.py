@@ -205,6 +205,62 @@ def test_the_REHEARSAL_and_the_LIVE_run_render_THE_SAME_OBJECT() -> None:
     assert derived_lines(rehearsal.render()) == derived_lines(same.render())
 
 
+# --- the per-pass tree a review cuts BENEATH the run's own -------------------
+#
+# HERE RATHER THAN BESIDE `run_review`, because the naming scheme is ONE rule
+# with two halves — a run-scoped stem from the context, plus a per-pass suffix —
+# and testing half of it in another file is how a rule ends up with two owners
+# that agree until one is edited. That is this component's own recurring defect.
+
+def _review_tree_name(worktree_name: str, pr_number: str, this_pass: int) -> str:
+    """The expression `review_pr_workflow` uses, read back from its source.
+
+    DERIVED FROM THE MODULE, NOT RETYPED. A literal here would be a second
+    statement of the same rule, which is exactly what this phase exists to stop —
+    so the f-string is lifted out of the file and evaluated, and a change to it
+    that breaks a property below fails rather than passing against a copy.
+    """
+    src = (FLEET / "modules" / "assistant" / "review_pr"
+           / "review_pr_workflow.py").read_text(encoding="utf-8")
+    marker = "worktree, f\""
+    start = src.index(marker, src.index("pr_tree = _shared.worktree_add")) + len(marker)
+    template = src[start:src.index('"', start)]
+    return eval(f'f"{template}"', {},  # noqa: S307 — the template is our own source
+                {"worktree_name": worktree_name, "task": type("T", (), {"pr_number": pr_number}),
+                 "this_pass": this_pass})
+
+
+def test_two_reviews_of_DIFFERENT_PRs_in_the_SAME_SECOND_do_not_collide() -> None:
+    """The regression the consolidation nearly shipped, asserted as itself.
+
+    The expression this replaced was `f"review-pr-{pr}-{int(time.time())}"`, and
+    the PR number in it was load-bearing: the context's stem is
+    `<workflow-key>-<ts>`, so two `review-pr` dispatches aimed at different PRs
+    that start in the same wall-clock second share a stem. On their first pass
+    they would have shared the whole directory, and `git worktree add` would
+    have failed one of them — loud, but avoidable and caused by this change.
+    """
+    stem = _ctx(workflow_key="review-pr").worktree_name
+    assert _review_tree_name(stem, "42", 1) != _review_tree_name(stem, "43", 1)
+
+
+def test_two_PASSES_of_ONE_review_do_not_collide() -> None:
+    """A loop-back cuts one tree per pass, which is why the tree is not a field.
+
+    A parent that HOLDs re-enters `run_review` on the same PR inside one run, so
+    the run-scoped stem is identical on both passes and only the pass number
+    separates them.
+    """
+    stem = _ctx(workflow_key="plan").worktree_name
+    assert _review_tree_name(stem, "42", 1) != _review_tree_name(stem, "42", 2)
+
+
+def test_the_review_tree_is_ROOTED_IN_the_runs_own_name() -> None:
+    """The stem is the run's, so a tree on disk is traceable to the bag record."""
+    stem = _ctx(workflow_key="review-pr").worktree_name
+    assert _review_tree_name(stem, "42", 1).startswith(f"{stem}-")
+
+
 # --- requirement 4, held structurally over the entrypoints -------------------
 
 def _entrypoints() -> list[Path]:

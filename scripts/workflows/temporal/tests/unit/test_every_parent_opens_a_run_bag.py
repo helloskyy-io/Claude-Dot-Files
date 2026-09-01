@@ -140,6 +140,60 @@ def _missing_bag_open(directory: Path) -> list[str]:
     return missing
 
 
+def _bag_open_outside_the_handler(directory: Path) -> list[str]:
+    """Entrypoints whose `open_run_bag` is not inside a `RuntimeError` handler.
+
+    ⚠ THE MESSAGE BELOW ALREADY DEMANDED THIS AND NOTHING CHECKED IT. The sweep
+    above asks that the call EXISTS; its own failure text says *"inside the try
+    block that prints RuntimeError"*, and that half was prose. Measured
+    2026-09-01 on `run_plan.py`: the block sat ABOVE the handler in one file of
+    eleven, so `resolve_identity`'s refusal of a bad `--run-id` and
+    `open_run_bag`'s refusal of a full journal — the two failures Phase 1 r9 and
+    Phase 9 exist to make diagnosable — reached the operator as a traceback there
+    and as a one-line diagnostic in the other ten. Nothing went red, because a
+    guard that checks presence cannot see placement.
+
+    KEYED ON THE HANDLER'S EXCEPTION SET, NOT ON "IS IT IN A TRY". A `try` whose
+    `except` catches only `ValueError` would satisfy the weaker property while
+    letting exactly these two escape, and `RuntimeError` is the type every layer
+    in this fleet raises with an operator-facing remedy attached
+    (`JournalRootError` and `BagError` both subclass it, deliberately, so this
+    one clause catches them).
+    """
+    offenders = []
+    for path in _entrypoints(directory):
+        tree = ast.parse(path.read_text(), filename=str(path))
+        guarded = set()
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Try):
+                continue
+            if not any(_names_runtime_error(h) for h in node.handlers):
+                continue
+            for stmt in node.body:
+                for inner in ast.walk(stmt):
+                    if _is_bag_open(inner):
+                        guarded.add(inner.lineno)
+        every = {n.lineno for n in ast.walk(tree) if _is_bag_open(n)}
+        for line in sorted(every - guarded):
+            offenders.append(f"{path.name}:{line}")
+    return offenders
+
+
+def _is_bag_open(node: ast.AST) -> bool:
+    return (isinstance(node, ast.Call)
+            and (getattr(node.func, "id", None) == BAG_OPEN
+                 or getattr(node.func, "attr", None) == BAG_OPEN))
+
+
+def _names_runtime_error(handler: ast.ExceptHandler) -> bool:
+    """`except RuntimeError`, or a tuple containing it. A bare `except:` counts."""
+    if handler.type is None:
+        return True
+    parts = (handler.type.elts if isinstance(handler.type, ast.Tuple)
+             else [handler.type])
+    return any(getattr(p, "id", None) == "RuntimeError" for p in parts)
+
+
 # --- the sweep -------------------------------------------------------------------
 
 def test_every_entrypoint_actually_opens_a_run_bag() -> None:
@@ -166,6 +220,74 @@ def test_every_entrypoint_actually_opens_a_run_bag() -> None:
         f"about arguments and never could.\n"
         f"SCOPE OF THIS SWEEP: {ENTRYPOINTS_DIR.relative_to(REPO_ROOT)}/run_*.py "
         f"and nothing else. A run initiated from anywhere else is INVISIBLE here.")
+
+
+def test_bag_open_is_INSIDE_the_handler_that_prints_the_refusal() -> None:
+    """The placement half, which the sweep above only ever stated in prose.
+
+    A bag-open above the handler turns two operator-facing refusals — an
+    unusable `--run-id`, a full or misconfigured journal root — into tracebacks,
+    for precisely the failures whose whole design argument is that they must be
+    diagnosable WITHOUT a working journal. Measured on `run_plan.py`: one file of
+    eleven had drifted, and every other check in this module passed it.
+    """
+    offenders = _bag_open_outside_the_handler(ENTRYPOINTS_DIR)
+    assert not offenders, (
+        f"these bag-opens are not inside a `try` that catches `RuntimeError`: "
+        f"{offenders}.\n"
+        f"  failing property: `JournalRootError` and `BagError` both subclass "
+        f"`RuntimeError` so that ONE handler prints the remedy the layer that "
+        f"knew what failed wrote. Outside it, the operator gets a traceback for "
+        f"a misconfiguration.\n"
+        f"  remedy: move the boundary block inside the entrypoint's existing "
+        f"`except (RuntimeError, ...)` block — `print(f\"\\n\u2717 {{exc}}\", "
+        f"file=sys.stderr); return 1`.")
+
+
+def test_THE_PLACEMENT_PREDICATE_DISCRIMINATES(tmp_path: Path) -> None:
+    """CONTROLS on `_bag_open_outside_the_handler`, on a self-contained tree.
+
+    A SCRATCH DIRECTORY, NOT THE FLEET, and that is the point: a control sharing
+    a fixture with the code under mutation over-fires on things the assertion
+    would only have caught by accident. These four files are written here and
+    nowhere else, so each verdict is attributable to exactly one shape.
+    """
+    cases = {
+        "run_guarded.py":
+            "def main(a):\n"
+            "    try:\n"
+            "        journal.open_run_bag(run_id=ctx.run_id)\n"
+            "    except (RuntimeError, FileNotFoundError):\n"
+            "        return 1\n",
+        "run_outside.py":
+            "def main(a):\n"
+            "    journal.open_run_bag(run_id=ctx.run_id)\n"
+            "    try:\n"
+            "        work()\n"
+            "    except RuntimeError:\n"
+            "        return 1\n",
+        "run_wrong_exception.py":
+            "def main(a):\n"
+            "    try:\n"
+            "        journal.open_run_bag(run_id=ctx.run_id)\n"
+            "    except ValueError:\n"
+            "        return 1\n",
+        "run_nested_guarded.py":
+            "def main(a):\n"
+            "    try:\n"
+            "        if a.x:\n"
+            "            journal.open_run_bag(run_id=ctx.run_id)\n"
+            "    except RuntimeError:\n"
+            "        return 1\n",
+    }
+    for name, src in cases.items():
+        (tmp_path / name).write_text(src, encoding="utf-8")
+
+    found = {o.split(":")[0] for o in _bag_open_outside_the_handler(tmp_path)}
+    assert found == {"run_outside.py", "run_wrong_exception.py"}, (
+        f"the predicate reported {found}; it must flag the call above the handler "
+        f"and the one under a handler that cannot catch the refusal, and must not "
+        f"flag a correctly-guarded call or one nested inside the guarded block")
 
 
 def test_the_sweep_is_not_vacuous() -> None:

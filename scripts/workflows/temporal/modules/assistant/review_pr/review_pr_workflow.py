@@ -204,8 +204,16 @@ def run_review(task: ReviewInput, worktree: Path, *,
     # The reviewer must read the PR's branch, not the repo's checkout. The name
     # DERIVES FROM THE ONE THIS RUN WAS GIVEN — no clock, and nothing assembled
     # from values this function was not handed.
+    #
+    # ⚠ THE PR NUMBER STAYS IN THE NAME AND THAT IS NOT DECORATION. The stem is
+    # `<workflow-key>-<ts>`, so two `review-pr` dispatches against DIFFERENT PRs
+    # that start in the same wall-clock second share a stem — and on their first
+    # pass they would share the whole directory. The expression this replaced
+    # carried `pr` for exactly that reason; dropping it in the consolidation
+    # would have been a regression the run-context field's own scope-of-effect
+    # docstring predicts ("two runs collide on one directory").
     pr_tree = _shared.worktree_add(
-        worktree, f"{worktree_name}-review-{this_pass}",
+        worktree, f"{worktree_name}-review-{task.pr_number}-{this_pass}",
         f"origin/{pr['headRefName']}",
     )
     # THE NONCE BINDS THE LOG'S NAME, not just the record inside it — this
