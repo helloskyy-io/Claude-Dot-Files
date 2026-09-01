@@ -174,6 +174,20 @@ _DISPOSITION = re.compile(r"^[ \t]*disposition:[ \t]*([^\s#]+)", re.MULTILINE)
 # denominator rather than adding a wrong entry to it.
 CONVERGED_FLAG = re.compile(r"^\s*converged:\s*(true|false)", re.MULTILINE)
 
+# The block's own VERDICT line. `routing._VERDICT` reads the run's terminal
+# output; this reads the durable record on the thread, which is what a LATER
+# actor has — `merge-pr` runs long after the reviewing process exited and its
+# stdout is gone.
+#
+# SAME NARROWNESS AS `CONVERGED_FLAG`, and for the same reason: `disposition.md`
+# emits exactly `verdict: MERGE | HOLD - redispatch | HOLD - needs-assistance`,
+# and a form nothing produces reads as None — which a caller must treat as
+# "cannot determine", never as "not MERGE". The failure direction is a REFUSAL
+# to merge, which is the safe one.
+BLOCK_VERDICT = re.compile(
+    r"^\s*verdict:\s*(MERGE|HOLD - (?:redispatch|needs-assistance))\s*$",
+    re.MULTILINE)
+
 
 def _unquote(token: str) -> str:
     """Strip one matched pair of surrounding quotes, and nothing else.

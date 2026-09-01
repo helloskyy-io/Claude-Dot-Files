@@ -82,6 +82,11 @@ claude-dot-files/
 │   │                                                #   (helpers/ = standalone executables you RUN; workflows/lib/ = bash you SOURCE. Different things, hence two folders)
 │   │   ├── similar-candidates.py                     # Which existing items to READ before filing one. A COMMAND, not a prompt value:
 │   │   │                                            #   the ranking needs the finding's text, which exists only mid-run. Ranks; never rules
+│   │   ├── merge-pr.py                              # Land a reviewed PR SET and drain the intake — the
+│   │   │                                            #   operator entry point to modules/assistant/merge/.
+│   │   │                                            #   Running it IS the approval, so there is no --yes;
+│   │   │                                            #   its preconditions ARE required-status-checks, which
+│   │   │                                            #   this account cannot buy
 │   │   ├── harvest-intake.py                        # THE NAMED HARVEST CADENCE of Tracked Items §5.0 — drains `tracked-intake` issues into
 │   │   │                                            #   tracked/<store>/ and closes them. Without it the intake exemption LAPSES and the
 │   │   │                                            #   intake becomes a second store, which §8 calls a violation. `/standup` runs it
@@ -312,6 +317,13 @@ claude-dot-files/
 │                   │                                #   and the hang that is TERMINAL because retrying it turns a ~6min ceiling into ~18min
 │                   ├── test_every_subprocess_the_fleet_launches_is_bounded.py # No `subprocess.run` in the production tree may omit
 │                   │                                #   `timeout=`; `Popen` is exempt only by NAME, for the two streaming child dispatches
+│                   ├── test_merge_pr_refuses_before_it_merges.py # Every unreadable signal is a REFUSAL,
+│                   │                                #   never an all-clear. The CI case is parametrised off
+│                   │                                #   the CiVerdict enum, so a new state is covered on the
+│                   │                                #   day it is added
+│                   ├── test_the_drain_and_the_merge_are_INDEPENDENT.py # They share no invariant, so a
+│                   │                                #   queue failure must not block a cleared merge and a
+│                   │                                #   refused merge must not withhold ruled findings
 │                   ├── test_a_held_PR_is_refused_without_the_correction_flag.py # `--correction-pass` was
 │                   │                                #   settable by the parent and by no operator, so a hand
 │                   │                                #   dispatch at a held PR ran its DEFAULT job and reported

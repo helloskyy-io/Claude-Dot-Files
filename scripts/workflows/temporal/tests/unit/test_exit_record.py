@@ -1315,6 +1315,20 @@ HELPER_ONLY_PATTERNS = frozenset({
     # tool acquires a reader, this belongs in the paired table above and this
     # entry is what has to be deleted to put it there.
     "RUN_ID_IN_BLOCK",
+    # The block's `verdict:` line, read by `merge_pr.thread_verdict`. NOT paired
+    # with `replay_pr_review_blocks.VERDICT` even though both read that field,
+    # and the reason is that they have different CONTRACTS rather than a shared
+    # one somebody forgot to gate.
+    #
+    # Replay's is `([A-Za-z]+)` — a measurement bucket, already declared
+    # REPLAY_ONLY above as a "block-level measurement field". It captures `HOLD`
+    # out of `HOLD - redispatch` and that is correct for counting passes.
+    # `BLOCK_VERDICT` GATES A MERGE, so it matches the exact vocabulary
+    # `disposition.md` emits and answers None to anything else — and None is a
+    # REFUSAL at the call site. Pairing them under the shape test would force one
+    # of the two to be wrong: the gate to accept a prefix, or the measurement to
+    # drop blocks it should still count.
+    "BLOCK_VERDICT",
 })
 
 
