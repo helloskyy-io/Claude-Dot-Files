@@ -475,7 +475,16 @@ def _append_tag_line(path: Path, label: str, value: str) -> None:
     and it makes the caller's mistake visible where it is made.
     """
     _refuse_folded_value(label, value)
-    with open(path, "a", encoding="utf-8") as handle:
+    # `O_NOFOLLOW` FOR THE SAME REASON `_write_tag_file` CARRIES IT — nothing
+    # this module writes is ever legitimately a symlink. This site appends to a
+    # file that function created, so the MODE is already right; only the follow
+    # was open. Found by a correction pass sweeping the class after
+    # `record_citation` was caught creating a file with neither rule, and fixed
+    # here rather than reported, because a sweep that names a second member and
+    # leaves it is not a sweep.
+    fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW,
+                 FILE_MODE)
+    with os.fdopen(fd, "a", encoding="utf-8") as handle:
         handle.write(f"{label}: {value}\n")
 
 
