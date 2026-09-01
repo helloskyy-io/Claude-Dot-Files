@@ -91,6 +91,30 @@ _DECLARED_TAG_VALUES = {
         "same call: `_refuse_folded_value` puts the value through "
         "`folds_a_tag_line`, which asks `read_tag_file`'s own parser rather "
         "than holding a list of line terminators.",
+    # ⚠ THE TWO ROWS BELOW ARE THE SWEEP MATCHING A SHAPE THAT IS NOT A TAG
+    # LINE, and they are declared rather than reworded around because the
+    # predicate is `<colon><space>` in an f-string and widening it to exclude
+    # these would cost it the composers it exists for. Neither expression can
+    # reach `_write_tag_file` or `_append_tag_line`: `verify.py` imports neither.
+    ("verify.py", "sha"):
+        "git_blob builds `<sha>:<path>`, an ARGUMENT TO `git cat-file`, not a "
+        "tag line — it is passed as one element of an argv list, never composed "
+        "into a file. `sha` is 40 hex characters by `GIT_REF_RE`, which "
+        "`parse_git_ref` enforces before this function is reached, so it cannot "
+        "carry a line break in any case.",
+    ("verify.py", "path"):
+        "the other half of that same `git cat-file` argument. It is handed to "
+        "git, which resolves it inside an OBJECT DATABASE rather than on the "
+        "filesystem, and it reaches no tag file; a line break in it makes git "
+        "report an unknown object, which surfaces as a `missing` outcome.",
+    ("verify.py", "outcome"):
+        "render_report writes to STDOUT, not to `bag-info.txt`. `outcome` is "
+        "one of the four module constants in `OUTCOMES`, assigned by this "
+        "module and never by a caller.",
+    ("verify.py", "counts[outcome]"):
+        "the same stdout line: an int from `VerifyReport.counts`, which counts "
+        "results. A tag line cannot be forged with an integer, and this is not "
+        "a tag line.",
 }
 
 # Spellings of a tag line this package must not use, because the sweep cannot

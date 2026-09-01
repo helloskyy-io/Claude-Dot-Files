@@ -83,9 +83,16 @@ _TRUSTED_JOINS = {
         "deny-list refused `a/b` and admitted a newline; the run id is also a "
         "tag VALUE, and `test_journal_tag_lines.py` is the sweep for that half.",
     ("bag.py", "slug if ordinal == 1 else f'{slug}-{ordinal}'"):
-        "writer_dir slugifies through _SAFE_SEGMENT_RE, which maps every "
-        "character outside [A-Za-z0-9._-] to '-', so no separator survives and "
-        "no segment can be a bare '..' that mkdir would follow.",
+        "writer_dir slugifies through `bag.safe_payload_segment`, which maps "
+        "every character outside [A-Za-z0-9._-] to '-' so no separator "
+        "survives, AND folds a dots-only result to 'writer' so the segment "
+        "cannot be a bare '..' or '.'. ⚠ THIS ROW USED TO CLAIM THE SECOND HALF "
+        "OF THAT WHILE THE CODE ONLY DID THE FIRST — the allowlist admits '.', "
+        "so `writer_dir('..')` slugged to '..' and joined onto the payload "
+        "directory. It escaped nothing only because `os.mkdir` fails on an "
+        "existing directory and the caller took the next ordinal, which is luck "
+        "rather than the stated rule. Found when the content store needed the "
+        "same rule and `contained_relpath` refused the result.",
     ("bag.py", "rel"):
         "seal() joins paths that payload_files() derived by walking the bag's "
         "own data/ directory — they come off the filesystem, not off a caller.",
@@ -95,6 +102,16 @@ _TRUSTED_JOINS = {
         "_parse_manifest passes every manifest entry through contained_relpath "
         "before it reaches this dict, and refuses the line otherwise. This is "
         "the join that reported PASS over /etc/hostname before that existed.",
+    ("content_store.py", "f'.{digest}.{os.getpid()}.part'"):
+        "store_bytes composes a staging name from two values NEITHER of which "
+        "a caller supplies: `digest` is this module's own sha256 hex output, "
+        "re-proven by `validated_digest` inside `object_path` on the line that "
+        "produced `parent`, and `os.getpid()` is an integer from the kernel. "
+        "The literal parts carry no separator, so the result is one filename "
+        "and cannot be a relative segment. It joins onto `parent`, which is "
+        "itself the contained object path's directory — the join that carries "
+        "the caller's value is `object_path`, and it goes through "
+        "`contained_relpath`.",
 }
 
 # Spellings of a path join this package must not use, because the sweep above

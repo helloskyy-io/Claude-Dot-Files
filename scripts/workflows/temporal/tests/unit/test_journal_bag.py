@@ -34,7 +34,8 @@ from modules.journal import bag as bagmod
 from modules.journal.bag import (BAGIT_FILE, BAG_INFO_FILE, DIR_MODE,
                                  FILE_MODE, JOURNAL_SCHEMA_VERSION,
                                  MANIFEST_FILE, PAYLOAD_DIR, BagError,
-                                 open_bag, read_tag_file)
+                                 open_bag, read_tag_file,
+                                 safe_payload_segment)
 
 
 def _info(bag) -> dict[str, list[str]]:
@@ -123,6 +124,39 @@ def test_a_writer_name_is_slugified_rather_than_trusted(root: Path) -> None:
     allocated = bag.writer_dir("../weird name/../")
     assert allocated.parent == bag.payload_dir
     assert allocated.name not in ("", ".", "..")
+
+
+@pytest.mark.parametrize("name", ["..", ".", "...", "-.-", " .. "])
+def test_a_DOTS_ONLY_writer_name_does_not_become_a_RELATIVE_segment(
+        root: Path, name: str) -> None:
+    """⚠ THE ALLOWLIST ADMITS `.`, SO THE SLUG COULD BE A BARE `..`.
+
+    `[A-Za-z0-9._-]` permits a dot, so `safe_payload_segment("..")` returned
+    `".."` and `writer_dir` joined it onto the payload directory. The
+    containment declaration for that join asserted the opposite in prose. What
+    stopped an escape was `os.mkdir` failing on the already-existing parent and
+    the caller taking the next ordinal — an accident of the collision loop, not
+    the rule the declaration named. Found from one module over, when the content
+    store reached for the same slug rule and `contained_relpath` refused what it
+    produced.
+    """
+    bag = open_bag(root, "r")
+    allocated = bag.writer_dir(name)
+    assert allocated.parent == bag.payload_dir
+    assert allocated.resolve().parent == bag.payload_dir.resolve(), (
+        f"{allocated} resolves outside the payload directory")
+    assert safe_payload_segment(name) == "writer"
+
+
+def test_a_name_that_slugs_to_dots_AND_dashes_stays_a_real_segment() -> None:
+    """`../..` becomes `..-..`, which is a filename and not a relative segment.
+
+    The fallback is for names that reduce to nothing usable, not for every name
+    containing a dot — folding this one to `writer` too would collapse distinct
+    writers onto one directory for no safety gain.
+    """
+    assert safe_payload_segment("../..") == "..-.."
+    assert set("..-..") != {"."}
 
 
 # --- sealing -------------------------------------------------------------------
