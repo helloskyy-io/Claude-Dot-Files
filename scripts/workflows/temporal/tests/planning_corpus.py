@@ -13,16 +13,13 @@ A CLONE WITHOUT THE PLANNING REPO IS A LEGITIMATE STATE, not a failure: this rep
 is the tooling and it runs against whatever `--repo` names. Tests that read the
 live corpus SKIP there rather than fail.
 
-**AND THAT SKIP IS A REAL COVERAGE GAP, NOT A NEUTRAL FALLBACK.** `tests.yml`
-rules on this exact question for `vendor-standards.sh --check`, which EXITS 1
-rather than skipping when its upstream clone is absent — so the CI job omits the
-step entirely rather than emit *"a green check that verified nothing, which is
-worse than the gap it hides"* (tracked at #55). The corpus gates take the other
-branch because they are collected by a single suite runner that cannot omit
-individual modules, so the honest accounting is: **on a runner with no planning
-repo these gates report green having asserted nothing.** The fix is the same one
-#55 needs — a checkout of the sibling private repo — and it is one decision, not
-two. Filed as `C-bjn8dpi6`.
+**AND THAT SKIP IS A REAL COVERAGE GAP, NOT A NEUTRAL FALLBACK.** On a runner
+with no planning repo these gates report green having asserted nothing — 56
+skipped against 7 locally, so 49 assertions. **It is not closed with a GitHub
+workaround.** Branch protection is ruled out permanently on this account and the
+plan is our own CI (`cpi-decisions.md` 2026-08-16); that runner has both repos
+side by side, which is the condition this file's `run-all.sh` is green under.
+Tracked on `C-8z8v04wk`, the affirmative half of that ruling.
 """
 
 from __future__ import annotations
