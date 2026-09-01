@@ -6,6 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from preflight import RepoPathParser  # noqa: E402
 from dispatch_identity import add_identity_arguments, resolve_identity  # noqa: E402
+from dispatch_context import RunContext  # noqa: E402
 from modules.assistant import assistant_activities as act_shared  # noqa: E402
 from modules.journal import journal_activities as journal  # noqa: E402
 from modules.assistant.research.research import research_workflow as rw  # noqa: E402
@@ -52,8 +53,7 @@ def main(argv=None) -> int:
         print(f"\n✗ {exc}", file=sys.stderr)
         return 1
     research_dir = resolved["research_dir"]
-    import time
-    wt = f"research-{int(time.time())}"
+    target = str(research_dir.relative_to(repo_root))
 
     try:
         if a.dry_run:
@@ -71,8 +71,13 @@ def main(argv=None) -> int:
             # ruling 2026-08-24, on measured evidence. The stronger remedy reads
             # `origin/<branch>` so the preview is an actual preview, and earns
             # itself when real operator use appears.
+            # THE SAME OBJECT THE LIVE RUN PRINTS, rendered by the same
+            # method. A rehearsal that assembles its own copy previews something
+            # that is not what runs, which is the bug this family has already
+            # shipped once.
+            print(RunContext.for_dry_run(repo_root=repo_root, workflow_key="research",
+                                         pr_number=a.pr_number, target=target).render())
             print(f"  Counted in : this checkout ({repo_root}) — a dry run cuts no worktree")
-            print(f"  Pool      : {research_dir}")
             print(f"  Due papers: {len(due)}"
                   + ("" if due else " — nothing to revalidate this cycle"))
             for d in due:
@@ -84,21 +89,28 @@ def main(argv=None) -> int:
         # that enforces it can and cannot see: `journal_activities.py`'s module
         # docstring and `tests/unit/test_every_parent_opens_a_run_bag.py`. Said
         # once there rather than eleven times here.
-        # PHASE 9 r2 and r4 — the run's NAME arrives from outside this
-        # process, and `writer` says whether this invocation IS the run or
-        # is part of one. Why both, and where a name comes from when no
-        # orchestrator supplies it: `dispatch_identity.py`. Said once there.
-        identity = resolve_identity(argv)
-        journal.open_run_bag(run_id=identity.run_id, writer=identity.writer,
-                             repo_root=repo_root,
-                             workflow_key="research", worktree_name=wt)
+        # EVERYTHING THIS RUN DERIVED, BUILT ONCE AND SAID OUT LOUD BEFORE THE
+        # BAG OPENS, THE WORKTREE IS CUT OR ANY `gh` CALL RUNS. Identity comes
+        # from outside the process (Phase 9 r2/r4, `dispatch_identity.py`); the
+        # worktree name is a FIELD rather than an expression here, because
+        # eleven copies of that expression in three spellings was the defect
+        # (`dispatch_context.py`).
+        ctx = RunContext.build(identity=resolve_identity(argv), repo_root=repo_root,
+                               workflow_key="research", pr_number=a.pr_number,
+                               target=target)
+        ctx.echo()
+        journal.open_run_bag(run_id=ctx.run_id, writer=ctx.writer,
+                             repo_root=ctx.repo_root,
+                             workflow_key=ctx.workflow_key,
+                             worktree_name=ctx.worktree_name,
+                             journal_root=ctx.journal_root)
 
         # NO --refresh BRANCH. Revalidation is not a mode of this parent any
         # more: the write child computes the due set in code and routes each
         # due topic to `research-currency` itself, so one run covers new topics
         # and expired ones together instead of two runs over one pool.
         result = rw.run_research(research_dir=research_dir, repo_root=repo_root,
-                                 worktree_name=wt, context=context,
+                                 worktree_name=ctx.worktree_name, context=context,
                                  pr_number=a.pr_number, verbose=a.verbose)
     except (RuntimeError, FileNotFoundError, ValueError) as exc:
         print(f"\n✗ {exc}", file=sys.stderr)

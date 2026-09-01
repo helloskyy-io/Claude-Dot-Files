@@ -599,7 +599,8 @@ def _review(monkeypatch, tmp_path, record, prose, denials=None,
     from modules.assistant.review_pr.review_pr_helper import ReviewInput
     fake = _FakeWorkflow(record, prose, denials, block, prior_blocks, posts_block)
     wf = fake.install(monkeypatch, tmp_path)
-    return wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+    return wf.run_review(ReviewInput(pr_number="67"), tmp_path,
+                          worktree_name="review-pr-1")
 
 
 def test_both_channels_agreeing_routes_and_records_the_agreement(monkeypatch, tmp_path) -> None:
@@ -633,7 +634,8 @@ def test_the_log_is_NAMED_with_the_nonce_the_parent_issued(monkeypatch, tmp_path
         return tmp_path / "run.jsonl"
 
     monkeypatch.setattr(wf._shared, "claude_log_path", _alloc)
-    wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+    wf.run_review(ReviewInput(pr_number="67"), tmp_path,
+                          worktree_name="review-pr-1")
 
     # A LOCAL SPY DICT, NOT A WIRE RECORD, so its key follows the parameter name
     # rather than the archived field: `claude_log_path` takes `invocation_id`
@@ -900,7 +902,8 @@ def test_a_MALFORMED_gh_REPLY_degrades_like_any_other_blip(
     monkeypatch.setattr(act, "thread_snapshot", real_reader)
     monkeypatch.setattr(act._shared, "gh", lambda *a, **k: "<html>502 Bad Gateway</html>")
 
-    result = wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+    result = wf.run_review(ReviewInput(pr_number="67"), tmp_path,
+                          worktree_name="review-pr-1")
 
     assert result.verdict is routing.Verdict.MERGE, (
         "a malformed reply killed the run — it took the pre-fix path, where the "
@@ -932,7 +935,8 @@ def test_a_transient_thread_read_is_retried_and_the_review_survives(
     monkeypatch.setattr(act, "thread_snapshot",
                         _flaky_reader(1, lambda *a, **k: (1, [fake.block])))
 
-    result = wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+    result = wf.run_review(ReviewInput(pr_number="67"), tmp_path,
+                          worktree_name="review-pr-1")
 
     assert result.verdict is routing.Verdict.MERGE
     assert slept, "the read was not retried — it failed on the first attempt"
@@ -964,7 +968,8 @@ def test_a_PERSISTENT_thread_read_failure_completes_the_run_and_says_so(
 
     monkeypatch.setattr(act, "thread_snapshot", _boom)
 
-    result = wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+    result = wf.run_review(ReviewInput(pr_number="67"), tmp_path,
+                          worktree_name="review-pr-1")
 
     assert result.verdict is routing.Verdict.MERGE, (
         "a failed READ changed the routing — the policy question was supposed "
@@ -995,7 +1000,8 @@ def test_the_route_is_PERSISTED_even_when_the_check_never_runs(
     _no_sleep(monkeypatch)
     monkeypatch.setattr(act, "thread_snapshot", _flaky_reader(99, lambda *a, **k: (0, [])))
 
-    wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+    wf.run_review(ReviewInput(pr_number="67"), tmp_path,
+                          worktree_name="review-pr-1")
 
     events = [json.loads(line) for line in
               (tmp_path / "run.jsonl").read_text().splitlines() if line.strip()]
@@ -1024,7 +1030,8 @@ def test_a_REAL_disagreement_still_raises_after_a_transient_read(
                         _flaky_reader(1, lambda *a, **k: (1, [wrong])))
 
     with pytest.raises(RuntimeError, match="disagree on findings"):
-        wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+        wf.run_review(ReviewInput(pr_number="67"), tmp_path,
+                          worktree_name="review-pr-1")
 
 
 def test_the_invariant_is_not_run_when_there_was_no_record_to_compare(
@@ -2233,7 +2240,8 @@ def test_a_later_foreign_block_does_NOT_become_this_passs_block(monkeypatch, tmp
     fake = _FakeWorkflow(_record(run_id="@ISSUED@"), "VERDICT: MERGE\n",
                          block_carries_nonce=True, after_blocks=(foreign,))
     wf = fake.install(monkeypatch, tmp_path)
-    result = wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+    result = wf.run_review(ReviewInput(pr_number="67"), tmp_path,
+                          worktree_name="review-pr-1")
 
     assert result.verdict is routing.Verdict.MERGE
     assert not any("selected BY POSITION" in n for n in result.notes), (
@@ -2259,7 +2267,8 @@ def test_the_SAME_fixture_fails_when_the_nonce_is_not_echoed(monkeypatch, tmp_pa
                          block_carries_nonce=False, after_blocks=(foreign,))
     wf = fake.install(monkeypatch, tmp_path)
     with pytest.raises(RuntimeError, match="disagree on findings"):
-        wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+        wf.run_review(ReviewInput(pr_number="67"), tmp_path,
+                          worktree_name="review-pr-1")
 
 
 
@@ -2360,7 +2369,8 @@ def test_the_pair_is_RECORDED_when_the_completion_gate_kills_the_run(monkeypatch
     monkeypatch.setattr(act, "run_disposition", _gate_fails)
 
     with pytest.raises(RuntimeError, match="completion pattern not found"):
-        wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+        wf.run_review(ReviewInput(pr_number="67"), tmp_path,
+                          worktree_name="review-pr-1")
 
     assert rows, (
         "the run died and NOTHING was recorded — this is exactly C-45bhs5cm: the pair "
@@ -2397,7 +2407,8 @@ def test_the_completion_gate_still_FAILS_the_run(monkeypatch, tmp_path):
     monkeypatch.setattr(act, "run_disposition", _boom)
 
     with pytest.raises(RuntimeError, match="the original failure, verbatim"):
-        wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+        wf.run_review(ReviewInput(pr_number="67"), tmp_path,
+                          worktree_name="review-pr-1")
 
 
 def test_an_UNREADABLE_log_does_not_stack_a_second_failure(monkeypatch, tmp_path):
@@ -2424,4 +2435,5 @@ def test_an_UNREADABLE_log_does_not_stack_a_second_failure(monkeypatch, tmp_path
     monkeypatch.setattr(act, "run_disposition", _boom)
 
     with pytest.raises(RuntimeError, match="the original failure"):
-        wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+        wf.run_review(ReviewInput(pr_number="67"), tmp_path,
+                          worktree_name="review-pr-1")

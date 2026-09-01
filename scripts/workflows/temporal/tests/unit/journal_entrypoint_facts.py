@@ -114,6 +114,11 @@ NON_STARTING_FILES = {
     "dispatch_identity.py":
         "the client-side identity boundary the entrypoints call. It parses two "
         "flags and mints a name; it starts nothing and opens no bag.",
+    "dispatch_context.py":
+        "the frozen run context the entrypoints construct at their boundary. "
+        "Like `dispatch_identity.py` beside it, it derives values and resolves "
+        "the journal root; it starts nothing, cuts nothing and opens no bag — "
+        "the entrypoint that built it does all three.",
     "validate_bag.py":
         "an operator tool that READS a finished bag and prints a report. It is "
         "the one file here that addresses the journal without being a run, and "

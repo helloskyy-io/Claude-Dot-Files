@@ -5,12 +5,13 @@ the Temporal path exists this is replaced by a client that starts the workflow
 on a task queue; the workflow module itself does not change.
 """
 from __future__ import annotations
-import sys, time
+import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from preflight import RepoPathParser  # noqa: E402
 from dispatch_identity import add_identity_arguments, resolve_identity  # noqa: E402
+from dispatch_context import RunContext  # noqa: E402
 from modules.assistant import assistant_activities as act_shared  # noqa: E402
 from modules.journal import journal_activities as journal  # noqa: E402
 from modules.assistant.plan import plan_activities as act  # noqa: E402
@@ -93,8 +94,12 @@ def main(argv=None) -> int:
             # so the preview is an actual preview — needs the count helpers to
             # take a tree rather than a path, and earns itself when real use
             # appears. Same line as `run_plan_refine.py`, which shipped it first.
+            # THE SAME OBJECT THE LIVE RUN PRINTS, rendered by the same method. A
+            # rehearsal that assembles its own copy previews something that is not
+            # what runs, which is the bug this family has already shipped once.
+            print(RunContext.for_dry_run(repo_root=repo_root, workflow_key="plan-draft",
+                                         pr_number=a.pr_number, target=str(rel)).render())
             print(f"  Counted in : this checkout ({repo_root}) — a dry run cuts no worktree")
-            print(f"  Component  : {rel}")
             print(f"  Phase docs : {len(own.phase_docs(component))} · "
                   f"roadmap.md {'present' if (component / 'roadmap.md').is_file() else 'ABSENT'}")
             print(f"  Max turns  : {wf.MAX_TURNS} (estimate — nothing has measured this workflow)")
@@ -120,16 +125,21 @@ def main(argv=None) -> int:
         # that enforces it can and cannot see: `journal_activities.py`'s module
         # docstring and `tests/unit/test_every_parent_opens_a_run_bag.py`. Said
         # once there rather than eleven times here.
-        worktree_name = f"plan-draft-{int(time.time())}"
-        # PHASE 9 r2 and r4 — the run's NAME arrives from outside this
-        # process, and `writer` says whether this invocation IS the run or
-        # is part of one. Why both, and where a name comes from when no
-        # orchestrator supplies it: `dispatch_identity.py`. Said once there.
-        identity = resolve_identity(argv)
-        journal.open_run_bag(run_id=identity.run_id, writer=identity.writer,
-                             repo_root=repo_root,
-                             workflow_key="plan-draft",
-                             worktree_name=worktree_name)
+        # EVERYTHING THIS RUN DERIVED, BUILT ONCE AND SAID OUT LOUD BEFORE THE
+        # BAG OPENS, THE WORKTREE IS CUT OR ANY `gh` CALL RUNS. Identity comes
+        # from outside the process (Phase 9 r2/r4, `dispatch_identity.py`); the
+        # worktree name is a FIELD rather than an expression here, because
+        # eleven copies of that expression in three spellings was the defect
+        # (`dispatch_context.py`).
+        ctx = RunContext.build(identity=resolve_identity(argv), repo_root=repo_root,
+                               workflow_key="plan-draft", pr_number=a.pr_number,
+                               target=str(component.relative_to(repo_root)))
+        ctx.echo()
+        journal.open_run_bag(run_id=ctx.run_id, writer=ctx.writer,
+                             repo_root=ctx.repo_root,
+                             workflow_key=ctx.workflow_key,
+                             worktree_name=ctx.worktree_name,
+                             journal_root=ctx.journal_root)
 
         # A `--pr` PASS MUST START FROM THE WORK IT IS CORRECTING. Hard-coding
         # "HEAD" put the run on `main`, so a correction pass opened a worktree
@@ -144,7 +154,7 @@ def main(argv=None) -> int:
         # fix applied to ten: the eleventh passed its base inline and the first
         # sweep of this did not see it.
         ref = act.base_ref(a.pr_number, repo_root)
-        worktree = act.worktree_add(repo_root, worktree_name, ref)
+        worktree = act.worktree_add(repo_root, ctx.worktree_name, ref)
         url = wf.run_plan_draft(repo_root=repo_root, worktree=worktree,
                                   component=component, candidates_path=cands,
                                   pr_number=a.pr_number, context=context,

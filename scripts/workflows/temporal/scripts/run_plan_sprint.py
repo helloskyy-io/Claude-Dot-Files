@@ -1,11 +1,12 @@
 """Kickoff entrypoint for plan-sprint."""
 from __future__ import annotations
-import sys, time
+import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from preflight import RepoPathParser  # noqa: E402
 from dispatch_identity import add_identity_arguments, resolve_identity  # noqa: E402
+from dispatch_context import RunContext  # noqa: E402
 from modules.assistant.review_pr import review_pr_activities as review_act  # noqa: E402
 from modules.assistant import assistant_activities as act_shared  # noqa: E402
 from modules.journal import journal_activities as journal  # noqa: E402
@@ -113,8 +114,13 @@ def main(argv=None) -> int:
             # so the preview is an actual preview — needs the count helpers to
             # take a tree rather than a path, and earns itself when real use
             # appears. Same line as `run_plan_refine.py`, which shipped it first.
+            # THE SAME OBJECT THE LIVE RUN PRINTS, rendered by the same method. A
+            # rehearsal that assembles its own copy previews something that is not
+            # what runs, which is the bug this family has already shipped once.
+            print(RunContext.for_dry_run(repo_root=repo_root, workflow_key="plan-sprint",
+                                         pr_number=a.pr_number,
+                                         target=str(component.relative_to(repo_root))).render())
             print(f"  Counted in : this checkout ({repo_root}) — a dry run cuts no worktree")
-            print(f"  Component  : {component.relative_to(repo_root)}")
             print(f"  Sprint     : {sprint.relative_to(repo_root)}")
             print(f"  Phases     : {len(sizing.rows)} · {len(sizing.unsized)} unsized")
             print(f"  TOTAL      : {sizing.total:g} h  (summed in code, not by the model)")
@@ -134,16 +140,27 @@ def main(argv=None) -> int:
         # that enforces it can and cannot see: `journal_activities.py`'s module
         # docstring and `tests/unit/test_every_parent_opens_a_run_bag.py`. Said
         # once there rather than eleven times here.
-        worktree_name = f"plan-sprint-{int(time.time())}"
-        # PHASE 9 r2 and r4 — the run's NAME arrives from outside this
-        # process, and `writer` says whether this invocation IS the run or
-        # is part of one. Why both, and where a name comes from when no
-        # orchestrator supplies it: `dispatch_identity.py`. Said once there.
-        identity = resolve_identity(argv)
-        journal.open_run_bag(run_id=identity.run_id, writer=identity.writer,
-                             repo_root=repo_root,
-                             workflow_key="plan-sprint",
-                             worktree_name=worktree_name)
+        # EVERYTHING THIS RUN DERIVED, BUILT ONCE AND SAID OUT LOUD BEFORE THE
+        # BAG OPENS AND BEFORE THE WORKTREE IS CUT.
+        #
+        # ⚠ NOT BEFORE EVERY `gh` CALL, WHICH IS WHAT THIS SAID AND WHICH IS
+        # FALSE HERE. `unclosed_hold` above reads the PR thread over `gh`, and
+        # it stays there because it is a REFUSAL — opening a bag ahead of it
+        # files a run that never starts. Nothing is SPENT or POSTED before
+        # this line. Identity comes
+        # from outside the process (Phase 9 r2/r4, `dispatch_identity.py`); the
+        # worktree name is a FIELD rather than an expression here, because
+        # eleven copies of that expression in three spellings was the defect
+        # (`dispatch_context.py`).
+        ctx = RunContext.build(identity=resolve_identity(argv), repo_root=repo_root,
+                               workflow_key="plan-sprint", pr_number=a.pr_number,
+                               target=str(component.relative_to(repo_root)))
+        ctx.echo()
+        journal.open_run_bag(run_id=ctx.run_id, writer=ctx.writer,
+                             repo_root=ctx.repo_root,
+                             workflow_key=ctx.workflow_key,
+                             worktree_name=ctx.worktree_name,
+                             journal_root=ctx.journal_root)
 
         # A `--pr` PASS MUST START FROM THE WORK IT IS CORRECTING. Hard-coding
         # "HEAD" put the run on `main`, so a correction pass opened a worktree
@@ -158,7 +175,7 @@ def main(argv=None) -> int:
         # fix applied to ten: the eleventh passed its base inline and the first
         # sweep of this did not see it.
         ref = act.base_ref(a.pr_number, repo_root)
-        worktree = act.worktree_add(repo_root, worktree_name, ref)
+        worktree = act.worktree_add(repo_root, ctx.worktree_name, ref)
         url = wf.run_plan_sprint(repo_root=repo_root, worktree=worktree,
                                  sprint_path=sprint, component=component,
                                  pr_number=a.pr_number, context=context,

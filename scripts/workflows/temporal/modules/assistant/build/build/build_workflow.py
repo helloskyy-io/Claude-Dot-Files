@@ -111,7 +111,7 @@ def run_build(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildRes
     # --- Steps 2 & 3: REFINE then DISPOSITION, bounded by helper.MAX_LOOPS ---
     loops = 0
     verdict = _refine_then_dispose(task, description, pr, repo_root,
-                                   worktree, notes, correction=False)
+                                   worktree, worktree_name, notes, correction=False)
 
     while helper.should_loop_back(verdict, loops):
         loops += 1
@@ -124,7 +124,7 @@ def run_build(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildRes
                      + (" This is the last automated pass."
                         if loops == helper.MAX_LOOPS else ""))
         verdict = _refine_then_dispose(task, description, pr, repo_root, worktree,
-                                       notes, correction=True,
+                                       worktree_name, notes, correction=True,
                                        loops_left=helper.MAX_LOOPS - loops)
 
     if verdict is Verdict.HOLD_NEEDS_ASSISTANCE:
@@ -158,7 +158,7 @@ def run_build(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildRes
 
 
 def _refine_then_dispose(task: BuildInput, description: str, pr: str,
-                         repo_root: Path, worktree: Path,
+                         repo_root: Path, worktree: Path, worktree_name: str,
                          notes: list[str], *, correction: bool,
                          loops_left: int = 0) -> Verdict:
     """One refine pass followed by one disposition pass."""
@@ -208,9 +208,13 @@ def _refine_then_dispose(task: BuildInput, description: str, pr: str,
     if hold is not None:
         return hold
 
+    # THREADED FROM THE RUN'S CONTEXT, NOT REBUILT. `run_review` cuts a
+    # per-pass tree on the PR's branch and takes the run's own worktree name
+    # as its stem, so the tree it makes is traceable to the run the bag
+    # recorded. See `review_pr_workflow.run_review`.
     result = review_pr.run_review(
         ReviewInput(pr_number=pr, repo_target=task.repo_target, verbose=task.verbose),
-        repo_root,
+        repo_root, worktree_name=worktree_name,
     )
     notes.extend(result.notes)
     return Verdict(result.verdict.value)

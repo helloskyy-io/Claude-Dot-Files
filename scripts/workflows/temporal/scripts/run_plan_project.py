@@ -8,13 +8,13 @@ on a task queue; the workflow module itself does not change.
 from __future__ import annotations
 
 import sys
-import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from preflight import RepoPathParser  # noqa: E402
 from dispatch_identity import add_identity_arguments, resolve_identity  # noqa: E402
+from dispatch_context import RunContext  # noqa: E402
 
 from modules.journal import journal_activities as journal  # noqa: E402
 from modules.assistant import routing  # noqa: E402
@@ -71,20 +71,28 @@ def main(argv: list[str] | None = None) -> int:
         # that enforces it can and cannot see: `journal_activities.py`'s module
         # docstring and `tests/unit/test_every_parent_opens_a_run_bag.py`. Said
         # once there rather than eleven times here.
-        worktree_name = f"plan-project-{int(time.time())}"
-        # PHASE 9 r2 and r4 — the run's NAME arrives from outside this
-        # process, and `writer` says whether this invocation IS the run or
-        # is part of one. Why both, and where a name comes from when no
-        # orchestrator supplies it: `dispatch_identity.py`. Said once there.
-        identity = resolve_identity(argv)
-        journal.open_run_bag(run_id=identity.run_id, writer=identity.writer,
-                             repo_root=repo_root,
-                             workflow_key="plan-project",
-                             worktree_name=worktree_name)
+        # EVERYTHING THIS RUN DERIVED, BUILT ONCE AND SAID OUT LOUD BEFORE THE
+        # BAG OPENS, THE WORKTREE IS CUT OR ANY `gh` CALL RUNS. Identity comes
+        # from outside the process (Phase 9 r2/r4, `dispatch_identity.py`); the
+        # worktree name is a FIELD rather than an expression here, because
+        # eleven copies of that expression in three spellings was the defect
+        # (`dispatch_context.py`).
+        # `target=None` — this runner takes NO component. It triages the
+        # candidate store and plans whatever it scaffolds, so there is nothing
+        # the operator pointed it at and the field says so rather than being
+        # handed a stand-in.
+        ctx = RunContext.build(identity=resolve_identity(argv), repo_root=repo_root,
+                               workflow_key="plan-project", pr_number=a.pr_number)
+        ctx.echo()
+        journal.open_run_bag(run_id=ctx.run_id, writer=ctx.writer,
+                             repo_root=ctx.repo_root,
+                             workflow_key=ctx.workflow_key,
+                             worktree_name=ctx.worktree_name,
+                             journal_root=ctx.journal_root)
 
         url, verdict, loops, notes = run_plan_project(
             repo_root=repo_root,
-            worktree_name=worktree_name,
+            worktree_name=ctx.worktree_name,
             # DERIVED FROM AN ALREADY-CONTAINED PATH, so it needs no declaration
             # of its own: `repo_root` is proven by preflight and two literal
             # segments cannot walk back out of it. This is not an operator path.

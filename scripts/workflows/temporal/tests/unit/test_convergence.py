@@ -911,7 +911,8 @@ def test_the_convergence_event_is_written_and_carries_its_evidence(
     fake = _FakeWorkflow(_record(run_id="@ISSUED@"), "VERDICT: MERGE\n", block=block)
     wf = fake.install(monkeypatch, tmp_path)
 
-    result = wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+    result = wf.run_review(ReviewInput(pr_number="67"), tmp_path,
+                          worktree_name="review-pr-1")
 
     events = [e for e in _log_events(tmp_path) if e.get("type") == "convergence"]
     assert len(events) == 1, "the convergence observable was not persisted"
@@ -942,7 +943,8 @@ def test_the_parent_route_event_is_UNCHANGED_by_the_addition(
 
     fake = _FakeWorkflow(_record(run_id="@ISSUED@"), "VERDICT: MERGE\n")
     wf = fake.install(monkeypatch, tmp_path)
-    wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+    wf.run_review(ReviewInput(pr_number="67"), tmp_path,
+                          worktree_name="review-pr-1")
 
     routes = [e for e in _log_events(tmp_path) if e.get("type") == "parent_route"]
     assert len(routes) == 1
@@ -1029,7 +1031,8 @@ def test_an_undetermined_route_still_produces_an_assessment(
 
     fake = _FakeWorkflow(None, "VERDICT: HOLD - needs-assistance\n", block=None)
     wf = fake.install(monkeypatch, tmp_path)
-    wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+    wf.run_review(ReviewInput(pr_number="67"), tmp_path,
+                          worktree_name="review-pr-1")
 
     events = [e for e in _log_events(tmp_path) if e.get("type") == "convergence"]
     assert len(events) == 1
@@ -1056,7 +1059,8 @@ def test_an_exhausted_thread_read_reports_history_unreadable_not_a_bad_pass(
         raise RuntimeError("gh pr view failed: API rate limit exceeded")
 
     monkeypatch.setattr(act, "thread_snapshot", _boom)
-    result = wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+    result = wf.run_review(ReviewInput(pr_number="67"), tmp_path,
+                          worktree_name="review-pr-1")
 
     events = [e for e in _log_events(tmp_path) if e.get("type") == "convergence"]
     assert events[0]["reason"] == "history_unreadable", (
@@ -1096,7 +1100,8 @@ def test_the_incumbent_flag_is_shadowed_and_a_disagreement_is_reported(
     # The window: the prior pass's block plus this pass's, in comment order.
     _window(monkeypatch, [prior, now])
 
-    result = wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+    result = wf.run_review(ReviewInput(pr_number="67"), tmp_path,
+                          worktree_name="review-pr-1")
 
     event = [e for e in _log_events(tmp_path) if e.get("type") == "convergence"][0]
     assert event["asserted_converged"] is True
@@ -1130,7 +1135,8 @@ def test_the_operator_note_says_the_signal_routes_nothing(
     wf = fake.install(monkeypatch, tmp_path)
     _window(monkeypatch, [prior, now])
 
-    result = wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+    result = wf.run_review(ReviewInput(pr_number="67"), tmp_path,
+                          worktree_name="review-pr-1")
 
     notes = [n for n in result.notes if n.startswith("Computed convergence")]
     assert len(notes) == 1, f"the signal was not surfaced: {result.notes}"
@@ -1157,7 +1163,8 @@ def test_an_assessment_with_NOTHING_TO_REPORT_emits_no_note_but_still_an_event(
 
     fake = _FakeWorkflow(_record(run_id="@ISSUED@"), "VERDICT: MERGE\n")
     wf = fake.install(monkeypatch, tmp_path)
-    result = wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+    result = wf.run_review(ReviewInput(pr_number="67"), tmp_path,
+                          worktree_name="review-pr-1")
 
     assert not [n for n in result.notes if n.startswith("Computed convergence")], (
         "a no_prior_pass assessment with nothing open printed an operator note"

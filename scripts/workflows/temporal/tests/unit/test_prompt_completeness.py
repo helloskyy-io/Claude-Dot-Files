@@ -283,4 +283,6 @@ def test_the_review_pr_dry_run_renders_the_real_prompt(monkeypatch, tmp_path) ->
         "headRefName": "build/x", "state": "OPEN", "title": "t"})
     monkeypatch.setattr(kickoff.act, "count_prior_passes", lambda *a, **k: 0)
 
-    assert kickoff._dry_run(ReviewInput(pr_number="31"), tmp_path) == 0
+    ctx = kickoff.RunContext.for_dry_run(repo_root=tmp_path,
+                                        workflow_key="review-pr", pr_number="31")
+    assert kickoff._dry_run(ReviewInput(pr_number="31"), tmp_path, ctx) == 0

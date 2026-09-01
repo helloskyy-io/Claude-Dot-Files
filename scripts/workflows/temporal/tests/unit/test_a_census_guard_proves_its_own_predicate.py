@@ -176,7 +176,15 @@ _HERE = Path(__file__).resolve().parent
 # literals driving `_loop_callees`, one of them a `while` that is not a loop-back
 # and must contribute nothing — and the control earned its place immediately by
 # catching the predicate collecting the loop's own TEST as a callee.
-_PINNED = (33, 22)
+# 33 -> 35 AND 22 -> 24 for Workflow Decomposition Phase 4's two guards —
+# `test_a_worktree_NAME_comes_from_the_RUN_CONTEXT` (no `worktree_add` call
+# assembles the name it cuts with) and `test_dispatch_context` (the entrypoint
+# sweeps behind requirements 3 and 4). BOTH numbers move by TWO, which is the
+# check that each arrived WITH a control: the first ships eight positive
+# spellings and six negative ones driven on literals, the second controls its
+# build/echo, ordering, gating and dry-run predicates the same way. Verified
+# rather than assumed — `_walks_the_tree` returns True for both files.
+_PINNED = (35, 24)
 
 
 # GRANDFATHERED — walks the tree, has no literal control, PREDATES this rule.
