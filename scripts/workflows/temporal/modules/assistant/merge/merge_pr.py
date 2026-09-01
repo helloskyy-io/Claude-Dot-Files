@@ -54,6 +54,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -129,7 +130,7 @@ def refusals(pr: str, repo_root: Path) -> list[str]:
         why.append(f"CI is `{state.value}`, not green{detail} — this check IS the "
                    f"required-status-check this account cannot buy")
 
-    view = _gh_json(["pr", "view", pr, "--json", "state,mergeStateStatus"], repo_root)
+    view = pr_view(pr, repo_root)
     if view is None:
         why.append("`gh pr view` could not be read, so mergeability is unknown")
     elif view.get("state") != "OPEN":
@@ -138,6 +139,39 @@ def refusals(pr: str, repo_root: Path) -> list[str]:
         why.append(f"mergeStateStatus is `{view.get('mergeStateStatus')}`, not CLEAN "
                    f"— GitHub has not cleared this to merge")
     return why
+
+
+#: How many times to re-ask when GitHub says `UNKNOWN`, and how long to wait.
+#: FOUND ON THE FIRST REAL USE of this activity, against PR #166. `UNKNOWN` does
+#: not mean "not mergeable" — it means GitHub has not COMPUTED mergeability yet,
+#: and the query itself is what triggers the computation. Measured: one refusal
+#: on `UNKNOWN`, then three consecutive `CLEAN` answers with no other change.
+#:
+#: SO A BARE REFUSAL ON `UNKNOWN` WOULD FIRE ON MOST FIRST INVOCATIONS, which is
+#: the failure this repo learned to recognise elsewhere today: a stated failure
+#: mode that triggers every time trains the reader to ignore the check. Retrying
+#: is what every auto-merge tool does here, and it keeps the refusal meaningful
+#: for the states that are real.
+UNKNOWN_RETRIES = 3
+UNKNOWN_WAIT_SECONDS = 2.0
+
+
+def pr_view(pr: str, repo_root: Path) -> dict | None:
+    """`state` and `mergeStateStatus`, re-asking while GitHub says `UNKNOWN`.
+
+    RETURNS THE LAST ANSWER, INCLUDING A STILL-`UNKNOWN` ONE. Exhausting the
+    retries is not the same as the field being clean, and the caller must still
+    refuse — this bounds the wait, it does not convert an unknown into a yes.
+    """
+    view = None
+    for attempt in range(UNKNOWN_RETRIES):
+        view = _gh_json(["pr", "view", pr, "--json", "state,mergeStateStatus"],
+                        repo_root)
+        if view is None or view.get("mergeStateStatus") != "UNKNOWN":
+            return view
+        if attempt < UNKNOWN_RETRIES - 1:
+            time.sleep(UNKNOWN_WAIT_SECONDS)
+    return view
 
 
 def merge_one(pr: str, repo_root: Path, *, dry_run: bool = False) -> str | None:
@@ -153,7 +187,18 @@ def merge_one(pr: str, repo_root: Path, *, dry_run: bool = False) -> str | None:
                        check=True, timeout=300)
         return None
     except subprocess.CalledProcessError as exc:
-        return (exc.stderr or exc.stdout or "gh pr merge failed").strip()
+        # THE EXIT CODE COVERS THE CLEANUP TOO, AND THE CLEANUP IS NOT THE MERGE.
+        # `--delete-branch` fails when the branch is checked out in a worktree —
+        # which it always is, because this fleet dispatches from
+        # `.claude/worktrees/`. Measured on the first real invocation: PR #166
+        # MERGED and this reported "merge failed: failed to delete local branch".
+        # A tool that says a completed merge failed is worse than one that says
+        # nothing, so the OUTCOME is asked rather than the exit code trusted.
+        detail = (exc.stderr or exc.stdout or "gh pr merge failed").strip()
+        view = _gh_json(["pr", "view", pr, "--json", "state"], repo_root)
+        if view is not None and view.get("state") == "MERGED":
+            return None                      # merged; only the cleanup failed
+        return detail
     except (subprocess.SubprocessError, OSError) as exc:
         return str(exc)
 

@@ -11,6 +11,7 @@ A refusal costs one re-run; the other direction costs a merge nobody cleared.
 """
 from __future__ import annotations
 
+import subprocess
 import sys
 from pathlib import Path
 
@@ -91,3 +92,75 @@ def test_EVERY_reason_is_reported_not_just_the_first(clear, monkeypatch) -> None
                         lambda args, root: {"state": "CLOSED",
                                             "mergeStateStatus": "DIRTY"})
     assert len(merge_pr.refusals("1", REPO)) == 3
+
+
+# --- `UNKNOWN` is transient, and that is not the same as clean ----------------
+#
+# Found on the first real invocation, against PR #166: refused on `UNKNOWN`, then
+# three consecutive `CLEAN` answers with nothing else changed. The query is what
+# triggers GitHub to compute mergeability. A bare refusal would fire on most
+# first invocations — the "stated failure that happens every time" shape this
+# repo has now paid for three separate ways.
+
+
+def test_an_UNKNOWN_status_is_RE_ASKED_and_the_later_answer_wins(monkeypatch) -> None:
+    """THE FIX. One transient UNKNOWN must not cost the operator a re-run."""
+    answers = [{"state": "OPEN", "mergeStateStatus": "UNKNOWN"},
+               {"state": "OPEN", "mergeStateStatus": "CLEAN"}]
+    monkeypatch.setattr(merge_pr, "_gh_json", lambda a, r: answers.pop(0))
+    monkeypatch.setattr(merge_pr.time, "sleep", lambda s: None)
+    assert merge_pr.pr_view("1", REPO) == {"state": "OPEN", "mergeStateStatus": "CLEAN"}
+
+
+def test_a_PERSISTENT_unknown_still_REFUSES(monkeypatch, clear) -> None:
+    """THE CONTROL, and the half that matters. Bounding the wait must not turn an
+    unknown into a yes — exhausting the retries is not an all-clear."""
+    monkeypatch.setattr(merge_pr, "_gh_json",
+                        lambda a, r: {"state": "OPEN", "mergeStateStatus": "UNKNOWN"})
+    monkeypatch.setattr(merge_pr.time, "sleep", lambda s: None)
+    assert any("not CLEAN" in w for w in merge_pr.refusals("1", REPO))
+
+
+def test_the_retry_is_BOUNDED(monkeypatch) -> None:
+    """A poll with no ceiling is a hang, and this runs inside a merge path."""
+    calls = []
+    monkeypatch.setattr(merge_pr, "_gh_json",
+                        lambda a, r: calls.append(1) or {"state": "OPEN",
+                                                         "mergeStateStatus": "UNKNOWN"})
+    monkeypatch.setattr(merge_pr.time, "sleep", lambda s: None)
+    merge_pr.pr_view("1", REPO)
+    assert len(calls) == merge_pr.UNKNOWN_RETRIES
+
+
+def test_an_UNREADABLE_view_stops_retrying_immediately(monkeypatch) -> None:
+    """None is a read FAILURE, not an unknown status — retrying it waits on
+    nothing, and the refusal it produces is already correct."""
+    calls = []
+    monkeypatch.setattr(merge_pr, "_gh_json", lambda a, r: calls.append(1) or None)
+    monkeypatch.setattr(merge_pr.time, "sleep", lambda s: None)
+    assert merge_pr.pr_view("1", REPO) is None
+    assert len(calls) == 1
+
+
+def test_a_failed_BRANCH_DELETE_does_not_report_a_failed_MERGE(monkeypatch) -> None:
+    """`gh pr merge --delete-branch` exits non-zero when the branch is checked
+    out in a worktree — which it always is here, because the fleet dispatches
+    from `.claude/worktrees/`. Measured on the first real invocation: #166 MERGED
+    while this reported "merge failed". The outcome is asked, not the exit code
+    trusted."""
+    def _boom(*a, **k):
+        raise subprocess.CalledProcessError(1, "gh", stderr="failed to delete local branch")
+
+    monkeypatch.setattr(merge_pr.subprocess, "run", _boom)
+    monkeypatch.setattr(merge_pr, "_gh_json", lambda a, r: {"state": "MERGED"})
+    assert merge_pr.merge_one("1", REPO) is None
+
+
+def test_a_GENUINELY_failed_merge_is_still_reported(monkeypatch) -> None:
+    """THE CONTROL. Asking the outcome must not swallow a real failure."""
+    def _boom(*a, **k):
+        raise subprocess.CalledProcessError(1, "gh", stderr="not mergeable")
+
+    monkeypatch.setattr(merge_pr.subprocess, "run", _boom)
+    monkeypatch.setattr(merge_pr, "_gh_json", lambda a, r: {"state": "OPEN"})
+    assert merge_pr.merge_one("1", REPO) == "not mergeable"
