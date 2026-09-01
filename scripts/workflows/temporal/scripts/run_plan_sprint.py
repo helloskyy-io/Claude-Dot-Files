@@ -141,7 +141,13 @@ def main(argv=None) -> int:
         # docstring and `tests/unit/test_every_parent_opens_a_run_bag.py`. Said
         # once there rather than eleven times here.
         # EVERYTHING THIS RUN DERIVED, BUILT ONCE AND SAID OUT LOUD BEFORE THE
-        # BAG OPENS, THE WORKTREE IS CUT OR ANY `gh` CALL RUNS. Identity comes
+        # BAG OPENS AND BEFORE THE WORKTREE IS CUT.
+        #
+        # ⚠ NOT BEFORE EVERY `gh` CALL, WHICH IS WHAT THIS SAID AND WHICH IS
+        # FALSE HERE. `unclosed_hold` above reads the PR thread over `gh`, and
+        # it stays there because it is a REFUSAL — opening a bag ahead of it
+        # files a run that never starts. Nothing is SPENT or POSTED before
+        # this line. Identity comes
         # from outside the process (Phase 9 r2/r4, `dispatch_identity.py`); the
         # worktree name is a FIELD rather than an expression here, because
         # eleven copies of that expression in three spellings was the defect

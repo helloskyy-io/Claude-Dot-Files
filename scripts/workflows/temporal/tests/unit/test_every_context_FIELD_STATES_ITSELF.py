@@ -48,7 +48,7 @@ import pytest
 FLEET = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(FLEET / "scripts"))
 
-from dispatch_context import RunContext  # noqa: E402
+from dispatch_context import RunContext, context_field_documentation  # noqa: E402
 from dispatch_identity import derivation  # noqa: E402
 
 #: The four things every field must say about itself. `marker` and `override`
@@ -58,6 +58,11 @@ from dispatch_identity import derivation  # noqa: E402
 #: part there cannot leave this checking four.
 REQUIRED = tuple(sorted(derivation(marker="x", algorithm="x",
                                    override="x", scope="x")))
+
+#: How many fields `RunContext` was written with. Named once so the floor below
+#: and its failure message cannot state different numbers — which they did, at
+#: `>= 6` against a message saying nine.
+_WRITTEN_WITH = 9
 
 #: Every frozen boundary object whose fields carry derived values. One entry
 #: today. A second object added without a row here is invisible to this check —
@@ -78,10 +83,21 @@ def test_the_population_is_NOT_EMPTY(cls) -> None:
     and the parametrised checks below would report green over nothing.
     """
     assert dataclasses.is_dataclass(cls), f"{cls.__name__} is not a dataclass"
-    assert len(_fields(cls)) >= 6, (
+    assert len(_fields(cls)) >= _WRITTEN_WITH, (
         f"{cls.__name__} has {len(_fields(cls))} fields — it was written with "
-        f"nine, so either the object has been gutted or this check is no longer "
-        f"reading it")
+        f"{_WRITTEN_WITH}, so either the object has been gutted or this check is "
+        f"no longer reading it. The floor is the FULL count deliberately: a floor "
+        f"below it (this said `>= 6`) lets three fields be dropped while the "
+        f"message still insists nine were expected, which is a message and an "
+        f"assertion disagreeing about the same fact.")
+
+    # AND THE MODULE'S OWN ACCESSOR AGREES WITH `dataclasses.fields()`. The
+    # object exports `context_field_documentation()` as the one place the
+    # population is obtained; a helper nothing calls is a claim nothing checks.
+    assert set(context_field_documentation()) == {f.name for f in _fields(cls)}, (
+        "`context_field_documentation()` and `dataclasses.fields()` disagree "
+        "about the population, so the module's stated accessor is not the one "
+        "this guard reads")
     # The three inherited from `RunIdentity` must be in the population too: a
     # subclass that stopped extending it would silently halve what is checked.
     names = {f.name for f in _fields(cls)}

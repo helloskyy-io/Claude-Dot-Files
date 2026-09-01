@@ -92,6 +92,49 @@ def _name_argument(call: ast.Call) -> ast.expr | None:
     return next((k.value for k in call.keywords if k.arg == "name"), None)
 
 
+#: Anything that stamps a value with "now". A worktree name is derived from one
+#: of these EXACTLY ONCE in this fleet — in `RunContext._worktree_name` — so a
+#: call site reading one is assembling, whatever else its argument references.
+_CLOCKS = {"time", "monotonic", "now", "utcnow", "today", "time_ns", "uuid4", "uuid1"}
+
+
+def _rebound(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
+    """Names this function ASSIGNS, which a parameter of the same name loses to.
+
+    Nested functions are excluded: an inner `def` rebinding a name shadows it
+    only inside itself, and the enclosing call site is still reading the
+    parameter it was handed.
+    """
+    out: set[str] = set()
+    for node in ast.walk(fn):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node is not fn:
+            continue
+        targets: list[ast.expr] = []
+        if isinstance(node, ast.Assign):
+            targets = list(node.targets)
+        elif isinstance(node, (ast.AugAssign, ast.AnnAssign)):
+            targets = [node.target]
+        elif isinstance(node, (ast.For, ast.AsyncFor)):
+            targets = [node.target]
+        elif isinstance(node, ast.NamedExpr):
+            targets = [node.target]
+        for target in targets:
+            out |= {n.id for n in ast.walk(target) if isinstance(n, ast.Name)}
+    return out
+
+
+def _reads_a_clock(nodes: list[ast.AST]) -> bool:
+    """Does this argument expression call something that stamps it with "now"?"""
+    for node in nodes:
+        if not isinstance(node, ast.Call):
+            continue
+        fn = node.func
+        name = fn.attr if isinstance(fn, ast.Attribute) else getattr(fn, "id", "")
+        if name in _CLOCKS:
+            return True
+    return False
+
+
 def _assembled_names(tree: ast.Module) -> list[tuple[int, str]]:
     """Every `worktree_add` call whose name argument was NOT received.
 
@@ -116,12 +159,29 @@ def _assembled_names(tree: ast.Module) -> list[tuple[int, str]]:
     guard. `worktree_name = f"plan-{int(time.time())}"` followed by
     `worktree_add(repo_root, worktree_name, ref)` is exactly what eight runners
     did, and reading only the argument's spelling would call it received.
+
+    ⚠ AND A PARAMETER THAT WAS REBOUND IS NO LONGER RECEIVED. Measured
+    2026-09-01, driving this predicate on literals: a function with a
+    `worktree_name` parameter that reassigns it — `worktree_name =
+    f"review-pr-{int(time.time())}"` on the first line of `run_review` — passed.
+    That is the HALF-MIGRATION shape at the one site this guard's own docstring
+    calls "the one it most needs to see": signature converted, body not. So a
+    name is dropped from `received` the moment anything in the function binds
+    it, and the argument is then judged on what it actually references.
+
+    ⚠ AND A CLOCK IN THE ARGUMENT IS ASSEMBLY WHATEVER ELSE IT REFERENCES.
+    `f"{worktree_name}-{int(time.time())}"` referenced a received parameter and
+    passed, which would have let a twelfth site re-scatter the derivation while
+    reading as a suffix. The per-pass suffix that IS legitimate
+    (`review_pr_workflow`'s `-review-{pr}-{this_pass}`) is built from values the
+    function was handed; a wall clock is not one of them, and the fleet has
+    exactly one place allowed to read it (`RunContext._worktree_name`).
     """
     hits: list[tuple[int, str]] = []
 
     def walk(node: ast.AST, received: frozenset[str]) -> None:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            received = received | _params(node)
+            received = (received | _params(node)) - _rebound(node)
         if isinstance(node, ast.Call):
             fn = node.func
             callee = fn.attr if isinstance(fn, ast.Attribute) else getattr(fn, "id", "")
@@ -135,7 +195,11 @@ def _assembled_names(tree: ast.Module) -> list[tuple[int, str]]:
                                        for n in inner)
                     by_parameter = FIELD in received and any(
                         isinstance(n, ast.Name) and n.id == FIELD for n in inner)
-                    if not (by_attribute or by_parameter):
+                    if _reads_a_clock(inner):
+                        hits.append((node.lineno,
+                                     f"worktree_add(..., {ast.unparse(arg)}, ...) "
+                                     f"— reads a clock at the call site"))
+                    elif not (by_attribute or by_parameter):
                         hits.append((node.lineno,
                                      f"worktree_add(..., {ast.unparse(arg)}, ...)"))
         for child in ast.iter_child_nodes(node):
@@ -190,11 +254,13 @@ def test_THE_WALK_EXAMINED_A_POPULATION() -> None:
     """
     trees = _trees()
     examined = sum(_calls_in(tree) for _, tree in trees)
-    assert examined >= 10, (
+    assert examined >= 11, (
         f"the predicate recognised only {examined} `worktree_add` calls across "
-        f"{len(trees)} fleet modules — it was written against eleven production "
-        f"call sites plus the definition, so it is no longer reading the tree "
-        f"it claims to")
+        f"{len(trees)} fleet modules — it was written against ELEVEN production "
+        f"call sites (the twelfth match is the `def` in `assistant_activities`, "
+        f"which `_calls_in` does not count), so it is no longer reading the tree "
+        f"it claims to. A floor one below the real population lets an entire "
+        f"runner drop out of the walk unnoticed.")
 
     seen = {p.name for p, tree in trees if _calls_in(tree)}
     for expected in ("review_pr_workflow.py", "build_workflow.py",
@@ -262,6 +328,22 @@ def test_THE_DETECTOR_FIRES_on_every_spelling_the_defect_TOOK() -> None:
         "references_a_different_param.py":
             'def m(task, worktree, ref):\n'
             '    _shared.worktree_add(worktree, f"review-pr-{task.pr_number}-{stamp()}", ref)\n',
+        # ⚠ THE HALF-MIGRATION: signature converted, body not. This shape PASSED
+        # until 2026-09-01, at the one site the docstring above calls the one
+        # this guard most needs to see.
+        "parameter_rebound_before_use.py":
+            'def run_review(task, worktree, *, worktree_name):\n'
+            '    worktree_name = f"review-pr-{int(time.time())}"\n'
+            '    _shared.worktree_add(worktree, worktree_name, ref)\n',
+        # ⚠ AND THE RE-SCATTER WEARING A SUFFIX. It references a received
+        # parameter, so the "received" arm alone called it clean.
+        "received_stem_plus_a_fresh_clock.py":
+            'def m(worktree, worktree_name, ref):\n'
+            '    _shared.worktree_add(worktree, f"{worktree_name}-{int(time.time())}", ref)\n',
+        # The same, through the alias-free `datetime` spelling.
+        "received_stem_plus_a_datetime.py":
+            'def m(worktree, worktree_name, ref):\n'
+            '    act.worktree_add(worktree, f"{worktree_name}-{datetime.now()}", ref)\n',
     }
     for name, src in cases.items():
         assert _assembled_names(ast.parse(src)), f"the detector missed {name}: {src!r}"

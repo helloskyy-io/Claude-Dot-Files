@@ -292,6 +292,16 @@ def open_run_bag(*, run_id: str, writer: str | None, repo_root: Path,
     is the run's actual working directory; the remote is the stable project
     identity that every worktree of that project shares.
 
+    ⚠ `worktree_name` MAY BE A STEM RATHER THAN A DIRECTORY THAT EXISTS, and
+    `review-pr` is the one caller for which it is. That run's context names
+    `review-pr-<ts>`; the tree actually cut is `review-pr-<ts>-review-<pr>-<pass>`,
+    because a loop-back cuts one tree per review PASS and the pass number is not
+    knowable here — buying it costs a `gh` round trip, and the bag opens before
+    the first side effect. So this field is the run-scoped STEM every tree the
+    run cuts is prefixed with, which is derivable and greppable, rather than
+    `None` claiming no tree exists at all. A consumer resolving it to a path
+    must prefix-match.
+
     `journal_root` IS THE BOUNDARY'S ANSWER, TAKEN RATHER THAN RE-DERIVED.
     Workflow Decomposition Phase 4 resolves the root once at the dispatch
     boundary, as a field on the run context, so the run can NAME it before it
@@ -304,6 +314,16 @@ def open_run_bag(*, run_id: str, writer: str | None, repo_root: Path,
     a relative path, a symlink, a root inside a repo, a wrong owner and a wrong
     mode, and running those again would mean two places could disagree about
     what a usable root is.
+
+    ⚠ AND IT SUPERSEDES `config_path` AND `env`, WHICH ARE THEN UNREAD. Those
+    two exist to steer the resolution this parameter replaces, so passing a root
+    alongside either is a caller asking for two answers; the root wins and the
+    other two do nothing. No caller does this today — the entrypoints pass
+    `journal_root` and nothing else, the validator and the tests pass
+    `config_path` and nothing else — and it is written down rather than guarded
+    because a guard for a combination nobody writes is speculation, while a
+    silent precedence nobody documented is how a redirected test asserts against
+    the wrong root and passes.
 
     RAISES `RuntimeError` (`JournalRootError` or `BagError`), which every
     entrypoint's existing precondition handler already prints. That is r9: the

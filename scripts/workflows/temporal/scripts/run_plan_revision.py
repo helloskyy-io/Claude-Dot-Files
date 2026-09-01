@@ -162,7 +162,16 @@ def main(argv: list[str] | None = None) -> int:
         # docstring and `tests/unit/test_every_parent_opens_a_run_bag.py`. Said
         # once there rather than eleven times here.
         # EVERYTHING THIS RUN DERIVED, BUILT ONCE AND SAID OUT LOUD BEFORE THE
-        # BAG OPENS, THE WORKTREE IS CUT OR ANY `gh` CALL RUNS. Identity comes
+        # BAG OPENS AND BEFORE THE WORKTREE IS CUT.
+        #
+        # ⚠ NOT BEFORE EVERY `gh` CALL, WHICH IS WHAT THIS SAID AND WHICH IS
+        # FALSE HERE. `base_ref` above reads the PR's branch over `gh` when
+        # `--pr` was given. It stays there deliberately: it is a REFUSAL — a
+        # bad `--pr` stops the run — and opening a bag ahead of it would file a
+        # run that never starts. Three of eleven entrypoints have such a read
+        # (here, `plan-refine` and `plan-sprint`); the other eight echo before
+        # any `gh` call at all. Nothing is SPENT or POSTED before this line in
+        # any of the eleven, which is the property requirement 3 asks for. Identity comes
         # from outside the process (Phase 9 r2/r4, `dispatch_identity.py`); the
         # worktree name is a FIELD rather than an expression here, because
         # eleven copies of that expression in three spellings was the defect

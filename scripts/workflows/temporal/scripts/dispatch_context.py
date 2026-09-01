@@ -59,14 +59,24 @@ from __future__ import annotations
 
 import sys
 import time
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 
+# `derivation` — the four-part contract every field below states — lives beside
+# `RunIdentity` rather than here, because `RunIdentity`'s own three fields use
+# it and the import runs context -> identity. Read it there; it is the
+# documentation contract for THIS object.
 from dispatch_identity import RunIdentity, derivation, resolve_identity
 from modules.journal.journal_activities import load_journal_config
 from modules.journal.root import resolve_journal_root
 
-__all__ = ["RunContext", "DRY_RUN_RUN_ID"]
+__all__ = ["RunContext", "DRY_RUN_RUN_ID", "context_field_documentation"]
+
+#: What `clock` is: the wall clock, injected so a test can pin the instant the
+#: worktree name is stamped with. Named rather than left implicit because this
+#: module's whole subject is stating what a value is.
+Clock = Callable[[], float]
 
 # The run id a rehearsal carries. A dry run states "nothing invoked, nothing
 # posted", and minting a name would make that false — `resolve_identity`'s own
@@ -176,8 +186,11 @@ class RunContext(RunIdentity):
         marker="the positional path the operator pointed the run at, already "
                "resolved against `repo_root` and refused if it escapes.",
         algorithm="the entrypoint's resolved operator path, stated "
-                  "repo-relative. `None` for the runs that take no target — "
-                  "`build`, `build-minor`, `plan-project` and `review-pr`.",
+                  "repo-relative. `None` for the FIVE runs that take no "
+                  "target — `build`, `build-minor`, `plan-project`, "
+                  "`review-pr` and `plan-revision`, which revises whatever a "
+                  "free-text description names and has no operator-supplied "
+                  "PATH at all.",
         override="the positional argument is itself the only input.",
         scope="THE ONE A WRONG ANSWER IS SILENT ABOUT, and the reason this "
               "object echoes at all. A wrong target plans, researches or "
@@ -187,11 +200,28 @@ class RunContext(RunIdentity):
               "why the echo happens before the first side effect rather than "
               "somewhere in the transcript."))
 
+    @staticmethod
+    def _worktree_name(workflow_key: str, clock: Clock) -> str:
+        """The run's tree name, derived in ONE place for both constructors.
+
+        ⚠ THIS FUNCTION EXISTS BECAUSE THE EXPRESSION WAS WRITTEN TWICE, INSIDE
+        THE OBJECT BUILT TO END THAT. `build` and `for_dry_run` each carried
+        `f"{workflow_key}-{int(clock())}"`, and every worktree-name assertion in
+        the suite drove the rehearsal, so perturbing the LIVE copy alone left
+        3051 tests green while a rehearsal previewed a name the run would not
+        use. That is requirement 4's own defect — a rule with two statements
+        that agree until one is edited — reproduced one level inside its fix,
+        and it is the same shape as `run_build_minor` naming its trees `build-…`
+        under `workflow_key="build-minor"`. Measured 2026-09-01 by mutation.
+        """
+        return f"{workflow_key}-{int(clock())}"
+
     @classmethod
     def build(cls, *, identity: RunIdentity, repo_root: Path, workflow_key: str,
               pr_number: str | None = None, target: str | None = None,
               config_path: Path | None = None,
-              env=None, clock=time.time) -> "RunContext":
+              env: Mapping[str, str] | None = None,
+              clock: Clock = time.time) -> "RunContext":
         """The dispatch boundary. Everything derived, once, before anything runs.
 
         RESOLVES THE JOURNAL ROOT HERE RATHER THAN LEAVING IT TO `open_run_bag`,
@@ -214,14 +244,14 @@ class RunContext(RunIdentity):
             run_id=identity.run_id, writer=identity.writer, minted=identity.minted,
             repo_root=repo_root, journal_root=journal_root,
             workflow_key=workflow_key,
-            worktree_name=f"{workflow_key}-{int(clock())}",
+            worktree_name=cls._worktree_name(workflow_key, clock),
             pr_number=pr_number, target=target,
         )
 
     @classmethod
     def for_dry_run(cls, *, repo_root: Path, workflow_key: str,
                     pr_number: str | None = None, target: str | None = None,
-                    clock=time.time) -> "RunContext":
+                    clock: Clock = time.time) -> "RunContext":
         """The same object for a rehearsal — nothing minted, nothing created.
 
         ⚠ THE BOUNDARY IS NARROWER THAN "THE ENTRYPOINT", which is why this
@@ -240,7 +270,7 @@ class RunContext(RunIdentity):
         return cls(
             run_id=DRY_RUN_RUN_ID, writer=None, minted=False,
             repo_root=repo_root, journal_root=None, workflow_key=workflow_key,
-            worktree_name=f"{workflow_key}-{int(clock())}",
+            worktree_name=cls._worktree_name(workflow_key, clock),
             pr_number=pr_number, target=target,
         )
 
@@ -264,7 +294,14 @@ class RunContext(RunIdentity):
                    else "(a new one will be opened)"),
         ]
         width = max(len(label) for label, _ in rows)
-        head = "run context — derived here, before anything is created:"
+        # ⚠ NOT "before anything is created", WHICH IS WHAT THIS SAID AND WHICH
+        # IS FALSE ON THE LIVE PATH. `build` resolves the journal root, and
+        # `resolve_journal_root` CREATES it at 0700 when absent — it has to, or
+        # the line below could not name it. Nothing this run will spend money on
+        # has happened; a directory has. The header says the true thing, because
+        # a reader who later discovers the mkdir discounts the whole block.
+        head = ("run context — derived here, before this run cuts, "
+                "posts or spends:")
         return "\n".join([head] + [f"  {label:<{width}} : {value}"
                                    for label, value in rows])
 
@@ -290,6 +327,18 @@ class RunContext(RunIdentity):
         answers "did I make the NAME"; the echo asks "did I make the CONTEXT",
         and `writer` is the field that answers it.
 
+        ⚠ AND `writer` IS A PROXY FOR "RECEIVED", NOT THE FACT ITSELF — stated
+        because it stops being true at a known trigger rather than gradually.
+        Today every context is constructed by the process that uses it, so the
+        gate is exact. A child invoked as a SEPARATE PROCESS constructs its own
+        context and cannot be handed one, so if such a child is also passed
+        `--writer` it will derive a worktree name and a target and say nothing —
+        the invisibility this object exists to close, on the runs that spend the
+        model time. `Dual-mode children` is the phase that adds six such
+        entrypoints, and it carries the checkbox for teaching this gate the
+        difference. Nothing in `scripts/` passes `--writer` today, so no live
+        run is affected.
+
         stderr rather than stdout because several entrypoints' stdout is a
         rendered report an operator or a tool reads.
         """
@@ -300,6 +349,12 @@ class RunContext(RunIdentity):
 
 def context_field_documentation() -> dict[str, dict[str, str]]:
     """Every field's four-part statement, read off the object itself.
+
+    ITS ONE CALLER IS `test_every_context_FIELD_STATES_ITSELF.py`, DELIBERATELY.
+    A helper nothing calls is a claim nothing checks; routing the guard through
+    this function is what makes the paragraph below load-bearing rather than
+    decorative, and it puts the "how the population is obtained" decision in the
+    module that owns the object rather than in the test that reads it.
 
     THE POPULATION IS `dataclasses.fields()`, WHICH IS THE ENTIRE ARGUMENT FOR
     DOING IT THIS WAY. It is a language primitive: no marker convention, no tree

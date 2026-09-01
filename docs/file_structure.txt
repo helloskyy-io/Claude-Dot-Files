@@ -263,7 +263,7 @@ claude-dot-files/
 │           └── tests/                               # TIER 3 — this code unit owns its tests (Testing Standard § per-unit ownership)
 │               ├── conftest.py                      # Component-scoped import path (replaces the per-file sys.path preambles), AND the
 │               │                                    #   session-wide autouse fixture that points every bag the suite opens at a temp
-│               │                                    #   root — the FIX for the defect test_the_suite_never_writes_… guards, since five
+│               │                                    #   root — the FIX for the defect test_the_suite_never_writes_… guards, since six
 │               │                                    #   unit modules drive an entrypoint main() and were writing real bags into the
 │               │                                    #   operator's ~/.local/state/. Redirects CONFIG_PATH, not XDG_STATE_HOME, so a
 │               │                                    #   configured root cannot silently lose the protection
@@ -328,8 +328,11 @@ claude-dot-files/
 │                   │                                                   #   alias cannot hide it (review_pr_workflow reaches it as _shared., and
 │                   │                                                   #   the act.-keyed predicates in test_isolation_invariants are blind to
 │                   │                                                   #   that today). Received = a .worktree_name attribute, or a PARAMETER
-│                   │                                                   #   of that name — a local assignment is not received, which is what all
-│                   │                                                   #   eleven sites were. A fourth spelling fails without being anticipated
+│                   │                                                   #   of that name, NOT rebound inside it. Ten sites were local assignments
+│                   │                                                   #   and the 11th was an inline argument with none — an assignment-keyed
+│                   │                                                   #   guard would have walked past it, which is how base_ref's first guard
+│                   │                                                   #   shipped green. A fourth spelling fails without being anticipated, and a
+│                   │                                                   #   CLOCK read at the call site is assembly whatever else it references
 │                   ├── test_a_new_branch_STARTS_FROM_THE_DEFAULT_BRANCH.py # A run with no --pr is cut from the DEFAULT BRANCH, never the
 │                   │                                                   #   operator's HEAD. Keyed on worktree_add's ref argument, so an inline
 │                   │                                                   #   literal is as visible as an assignment — the 11th call site was inline.
@@ -592,7 +595,7 @@ claude-dot-files/
 │                   │                                #   as one checked at all eight. Missing / mismatched / unlisted are distinguished — the
 │                   │                                #   third is a write landing AFTER the seal, invisible to any check that walks the manifest
 │                   ├── test_the_suite_never_writes_to_the_operators_journal.py # Making bag-open structural made the SUITE a
-│                   │                                #   dispatch: five modules drive an entrypoint main(), so every pytest run left a real bag
+│                   │                                #   dispatch: six modules drive an entrypoint main(), so every pytest run left a real bag
 │                   │                                #   under ~/.local/state — 24 in one day, and the integration tier was grading them as
 │                   │                                #   dispatch output. Keyed on the observable (did the real root change), not the mechanism
 │                   ├── test_journal_containment.py  # The CLASS behind four escapes found one-per-review-pass: an externally-supplied string
@@ -629,8 +632,10 @@ claude-dot-files/
 │                   │                                #   because the drift was in a single runner), the object is frozen, the echo is gated on
 │                   │                                #   `is_the_run` rather than on `minted` — a retry supplies its name and is exactly the
 │                   │                                #   caller who needs the echo — and the rehearsal renders the same object as the live
-│                   │                                #   run. Also two AST sweeps over the entrypoints: every one builds and echoes, and
-│                   │                                #   every --dry-run branch renders a context instead of assembling its own preview
+│                   │                                #   run. Also AST sweeps over the entrypoints: every one builds and echoes, the echo
+│                   │                                #   PRECEDES the bag and is unconditional (presence alone was blind — moving it below
+│                   │                                #   bag-open left the tier green), and every --dry-run branch renders a context inside
+│                   │                                #   that branch instead of assembling its own preview
 │                   ├── test_every_context_FIELD_STATES_ITSELF.py # Phase 4 r6. Every field of RunContext names its marker, its
 │                   │                                #   algorithm, its override-or-none and its scope of effect. The population is
 │                   │                                #   dataclasses.fields() — a language primitive, which is why this is NOT the tree-wide
@@ -678,7 +683,10 @@ claude-dot-files/
 │                                                    #   call must sit inside a `try` whose except catches RuntimeError, which its failure
 │                                                    #   message had demanded in prose since it was written while nothing checked it —
 │                                                    #   run_plan.py had drifted above the handler, turning a bad --run-id and a full journal
-│                                                    #   into tracebacks in one file of eleven and one-line diagnostics in the other ten
+│                                                    #   into tracebacks in one file of eleven and one-line diagnostics in the other ten.
+│                                                    #   Placement covers RunContext.build as well as open_run_bag — both raise a
+│                                                    #   RuntimeError carrying an operator remedy, and a guard watching only the older of
+│                                                    #   the two was measured blind to the newer one
 │
 ├── testing/                                         # TIER 1 + TIER 2 of the Testing Standard's three-tier hierarchy
 │   ├── README.md                                    # How to run the suite and how to add a test

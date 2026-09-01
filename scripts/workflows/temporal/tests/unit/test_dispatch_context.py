@@ -44,6 +44,33 @@ from dispatch_identity import RunIdentity  # noqa: E402
 FROZEN_CLOCK = lambda: 1788240530.9  # noqa: E731 — a pinned instant, not a helper
 
 
+def _live(tmp_root: Path, **over) -> RunContext:
+    """`RunContext.build` — the LIVE constructor — against a scratch journal root.
+
+    ⚠ THIS EXISTS BECAUSE NOTHING DROVE `build` AT ALL, and that is how the value
+    this whole object exists to consolidate came to be written TWICE. `build`
+    and `for_dry_run` each carried their own `f"{key}-{int(clock())}"`; every
+    assertion below went through `for_dry_run`, so perturbing the live copy
+    alone left the entire suite green (measured 2026-09-01: 3051 passed) while
+    the rehearsal previewed a name no run would use. Requirement 4's own defect,
+    inside requirement 4's fix.
+
+    `config_path` points at a generated config so the boundary's journal-root
+    resolution lands in `tmp_path` — the session fixture in `tests/conftest.py`
+    already redirects `CONFIG_PATH`, and this is the same protection stated at
+    the call rather than relied on.
+    """
+    config = tmp_root / "config.yaml"
+    config.write_text(f'journal:\n  root: "{tmp_root / "journal"}"\n  deployment: user\n',
+                      encoding="utf-8")
+    base = dict(identity=RunIdentity(run_id="20260901-abc", writer=None, minted=True),
+                repo_root=Path("/repo"), workflow_key="plan-draft",
+                pr_number=None, target="development/x/y",
+                config_path=config, clock=FROZEN_CLOCK)
+    base.update(over)
+    return RunContext.build(**base)
+
+
 def _ctx(**over) -> RunContext:
     base = dict(repo_root=Path("/repo"), workflow_key="plan-draft",
                 pr_number=None, target="development/x/y", clock=FROZEN_CLOCK)
@@ -65,8 +92,19 @@ def test_the_worktree_name_FOLLOWS_THE_WORKFLOW_KEY(key: str) -> None:
     single runner whose name and key disagreed. A test that checked two keys
     would have passed over it.
     """
-    ctx = _ctx(workflow_key=key)
-    assert ctx.worktree_name == f"{key}-1788240530"
+    assert _ctx(workflow_key=key).worktree_name == f"{key}-1788240530"
+
+
+@pytest.mark.parametrize("key", ["plan-draft", "build", "build-minor", "review-pr"])
+def test_the_LIVE_constructor_derives_the_SAME_NAME_as_the_rehearsal(
+        key: str, tmp_path: Path) -> None:
+    """The half nothing drove, which is why the expression could be duplicated.
+
+    A sample of keys rather than all eleven: the parametrised test above holds
+    the key-following property, and what this adds is that `build` — the
+    constructor a real run uses — reaches it by the same route.
+    """
+    assert _live(tmp_path, workflow_key=key).worktree_name == f"{key}-1788240530"
 
 
 def test_build_minor_NO_LONGER_NAMES_ITS_TREE_LIKE_THE_BUILD_PARENT() -> None:
@@ -181,7 +219,7 @@ def test_a_REHEARSAL_mints_nothing_and_resolves_no_journal_root() -> None:
     assert "rehearsal" in ctx.render()
 
 
-def test_the_REHEARSAL_and_the_LIVE_run_render_THE_SAME_OBJECT() -> None:
+def test_the_REHEARSAL_and_the_LIVE_run_render_THE_SAME_OBJECT(tmp_path: Path) -> None:
     """One assembly, one renderer — which is requirement 4 stated as a test.
 
     Constructed both ways with the same inputs, the two renderings differ only in
@@ -189,20 +227,23 @@ def test_the_REHEARSAL_and_the_LIVE_run_render_THE_SAME_OBJECT() -> None:
     operator is previewing — the worktree, the target, the repo root — is
     identical, because there is one `render` and one set of fields behind it.
     """
-    live = RunContext.build.__wrapped__ if hasattr(RunContext.build, "__wrapped__") else None
-    assert live is None  # not decorated; construct directly to avoid touching disk
     rehearsal = _ctx(pr_number="42")
-    same = RunContext(run_id="20260901-abc", writer=None, minted=True,
-                      repo_root=rehearsal.repo_root, journal_root=Path("/j"),
-                      workflow_key=rehearsal.workflow_key,
-                      worktree_name=rehearsal.worktree_name,
-                      pr_number=rehearsal.pr_number, target=rehearsal.target)
+    live = _live(tmp_path, pr_number="42")
 
     def derived_lines(text: str) -> list[str]:
         return [ln for ln in text.splitlines()
                 if not ln.strip().startswith(("run ", "journal "))]
 
-    assert derived_lines(rehearsal.render()) == derived_lines(same.render())
+    assert derived_lines(rehearsal.render()) == derived_lines(live.render())
+    # And the FIELDS agree, not merely their rendering — a renderer that dropped
+    # a row would make two different objects print identically.
+    differing = {f.name for f in dataclasses.fields(RunContext)
+                 if getattr(rehearsal, f.name) != getattr(live, f.name)}
+    assert differing == {"run_id", "minted", "journal_root"}, (
+        f"the rehearsal and the live run differ on {differing}; only the run id, "
+        f"`minted` and the journal root may differ — a rehearsal mints no name "
+        f"and resolves no root, and every DERIVED value must be identical or the "
+        f"preview is showing something other than what runs")
 
 
 # --- the per-pass tree a review cuts BENEATH the run's own -------------------
@@ -220,10 +261,19 @@ def _review_tree_name(worktree_name: str, pr_number: str, this_pass: int) -> str
     so the f-string is lifted out of the file and evaluated, and a change to it
     that breaks a property below fails rather than passing against a copy.
     """
-    src = (FLEET / "modules" / "assistant" / "review_pr"
-           / "review_pr_workflow.py").read_text(encoding="utf-8")
+    module = (FLEET / "modules" / "assistant" / "review_pr"
+              / "review_pr_workflow.py")
+    src = module.read_text(encoding="utf-8")
     marker = "worktree, f\""
-    start = src.index(marker, src.index("pr_tree = _shared.worktree_add")) + len(marker)
+    call = src.find("pr_tree = _shared.worktree_add")
+    start = src.find(marker, call) if call != -1 else -1
+    assert call != -1 and start != -1, (
+        f"the per-pass tree name could not be read out of {module.name}: this lifts "
+        f"the f-string argument of `pr_tree = _shared.worktree_add`. If that call "
+        f"was reformatted or renamed, update this reader — do NOT retype the "
+        f"template here, because a literal copy is a second statement of the rule "
+        f"and that is exactly what this phase exists to stop.")
+    start += len(marker)
     template = src[start:src.index('"', start)]
     return eval(f'f"{template}"', {},  # noqa: S307 — the template is our own source
                 {"worktree_name": worktree_name, "task": type("T", (), {"pr_number": pr_number}),
@@ -286,6 +336,31 @@ def _declares_a_dry_run(tree: ast.AST) -> bool:
                for n in ast.walk(tree))
 
 
+def _call_lines(tree: ast.AST, name: str) -> list[int]:
+    return sorted(n.lineno for n in ast.walk(tree)
+                  if isinstance(n, ast.Call)
+                  and (getattr(n.func, "attr", None) == name
+                       or getattr(n.func, "id", None) == name))
+
+
+def _conditional_calls(tree: ast.AST, name: str) -> list[int]:
+    """Lines where `name` is called from inside an `if` — i.e. not unconditionally.
+
+    The `--dry-run` early return is not one of these: it RETURNS, so a call after
+    it is still unconditional on the live path. What this catches is
+    `if a.verbose: ctx.echo()`, which is the requirement's own named failure —
+    the echo is not chatter and is not the operator's to switch off.
+    """
+    conditional: list[int] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.If):
+            continue
+        for branch in (node.body, node.orelse):
+            for stmt in branch:
+                conditional.extend(_call_lines(stmt, name))
+    return conditional
+
+
 def test_every_entrypoint_BUILDS_a_context_and_SAYS_IT() -> None:
     """Discovered rather than listed, so the next entrypoint is covered on day one."""
     missing = []
@@ -300,6 +375,45 @@ def test_every_entrypoint_BUILDS_a_context_and_SAYS_IT() -> None:
         + "\n\nWrite `ctx = RunContext.build(identity=resolve_identity(argv), …)` "
           "followed by `ctx.echo()`, before `open_run_bag` and before anything "
           "is created."
+    )
+
+
+def test_every_entrypoint_SAYS_IT_BEFORE_THE_BAG_OPENS_and_UNCONDITIONALLY() -> None:
+    """PLACEMENT, which the presence sweep above cannot see — and it was needed.
+
+    ⚠ MEASURED 2026-09-01 BY MUTATION. Moving `ctx.echo()` BELOW
+    `journal.open_run_bag(...)` in `run_plan.py` left the whole unit tier green
+    (3051 passed): the presence sweep collects call NAMES anywhere in the file,
+    so requirement 3's ordering was held on exactly ONE entrypoint of eleven —
+    `run_plan_draft`, by the live demonstration in
+    `test_a_WRONG_TARGET_is_NAMED_before_the_run_costs_anything.py`. That is the
+    same defect this PR found in `test_every_parent_opens_a_run_bag` (a guard
+    that checks presence cannot see placement), reproduced in the guard written
+    beside it.
+
+    TWO PROPERTIES, BOTH FROM REQUIREMENT 3. The echo precedes the bag — the
+    run's first side effect — and it is UNCONDITIONAL, because the requirement
+    rules that `verbose` does not gate it: the context line is not a workflow's
+    chatter, it is the run saying what it is about to spend money on.
+    """
+    offenders = []
+    for path in _entrypoints():
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        echoes, bags = _call_lines(tree, "echo"), _call_lines(tree, "open_run_bag")
+        if not echoes or not bags:
+            continue                       # the presence sweep above owns that
+        if min(echoes) > min(bags):
+            offenders.append(f"{path.name}: `.echo()` at {min(echoes)} comes AFTER "
+                             f"`open_run_bag` at {min(bags)}")
+        for line in _conditional_calls(tree, "echo"):
+            offenders.append(f"{path.name}:{line}: `.echo()` is inside an `if`")
+    assert not offenders, (
+        "these entrypoints announce their context too late, or only sometimes:\n"
+        + "\n".join(f"  {o}" for o in offenders)
+        + "\n\nThe echo exists for the operator about to spend an hour of model "
+          "time on the wrong component, so it goes BEFORE the bag opens and it "
+          "is not switchable. `RunContext.echo` gates itself on whether this "
+          "invocation IS the run; nothing at the call site may gate it further."
     )
 
 
@@ -318,6 +432,12 @@ def test_every_dry_run_PREVIEWS_THE_SAME_OBJECT() -> None:
         calls = _calls(tree)
         if "for_dry_run" not in calls or "render" not in calls:
             missing.append(f"{path.name}: declares --dry-run but never renders a context")
+        elif not _conditional_calls(tree, "for_dry_run"):
+            # PLACEMENT, not presence: a `for_dry_run(...)` sitting outside the
+            # rehearsal branch means the branch is still previewing something
+            # else, with the context built somewhere it is never printed.
+            missing.append(f"{path.name}: builds a rehearsal context outside the "
+                           f"`--dry-run` branch, so the branch is not what it previews")
     assert not missing, (
         "these rehearsals preview something other than the object the live run "
         "prints:\n" + "\n".join(f"  {m}" for m in missing)
@@ -360,3 +480,30 @@ def test_THE_ENTRYPOINT_SWEEPS_DISCRIMINATE() -> None:
                    '    if a.dry_run:\n'
                    '        print(f"  Component : {component}")\n')
     assert "for_dry_run" not in _calls(ast.parse(hand_rolled))
+    assert _conditional_calls(ast.parse(previewing), "for_dry_run") == [3]
+
+    # CONTROLS ON THE ORDERING AND GATING PREDICATES, driven on literals so each
+    # verdict is attributable to one shape.
+    late = ('def main(a):\n'
+            '    journal.open_run_bag(run_id=ctx.run_id)\n'
+            '    ctx.echo()\n')
+    assert min(_call_lines(ast.parse(late), "echo")) > \
+        min(_call_lines(ast.parse(late), "open_run_bag"))
+
+    early = ('def main(a):\n'
+             '    ctx.echo()\n'
+             '    journal.open_run_bag(run_id=ctx.run_id)\n')
+    assert min(_call_lines(ast.parse(early), "echo")) < \
+        min(_call_lines(ast.parse(early), "open_run_bag"))
+
+    gated = ('def main(a):\n'
+             '    if a.verbose:\n'
+             '        ctx.echo()\n'
+             '    journal.open_run_bag(run_id=ctx.run_id)\n')
+    assert _conditional_calls(ast.parse(gated), "echo") == [3]
+    # A `--dry-run` EARLY RETURN above the echo is not a gate on it.
+    after_early_return = ('def main(a):\n'
+                          '    if a.dry_run:\n'
+                          '        return 0\n'
+                          '    ctx.echo()\n')
+    assert _conditional_calls(ast.parse(after_early_return), "echo") == []

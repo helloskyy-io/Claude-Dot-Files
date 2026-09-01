@@ -140,8 +140,30 @@ def _missing_bag_open(directory: Path) -> list[str]:
     return missing
 
 
+#: The calls that must sit inside the handler, not merely the bag-open. Both
+#: RAISE `RuntimeError` subclasses carrying an operator-facing remedy:
+#: `RunContext.build` resolves the journal root (`JournalRootError`) and calls
+#: `resolve_identity`, which refuses a malformed `--run-id` (`BagError`);
+#: `open_run_bag` refuses a full or unwritable journal.
+#:
+#: ⚠ `build` IS IN THIS SET BECAUSE THE GUARD WITHOUT IT WAS BLIND TO THE RAISE
+#: THAT MOTIVATED IT. Measured 2026-09-01 by mutation: hoisting `ctx =
+#: RunContext.build(...)` above the `try` in `run_plan.py` while leaving
+#: `open_run_bag` inside it left the whole unit tier green (3051 passed) — and a
+#: `JournalRootError` from the boundary then reaches the operator as a
+#: traceback, which is exactly the drift this guard was written after. The
+#: original guard checked the OLD raise's placement and not the NEW one's.
+_MUST_BE_GUARDED = (BAG_OPEN, "build")
+
+
 def _bag_open_outside_the_handler(directory: Path) -> list[str]:
-    """Entrypoints whose `open_run_bag` is not inside a `RuntimeError` handler.
+    """Entrypoints whose boundary calls are not inside a `RuntimeError` handler.
+
+    COVERS `RunContext.build` AS WELL AS `open_run_bag`, and that is not
+    generalisation for its own sake — see `_MUST_BE_GUARDED`. Both raise
+    `RuntimeError` subclasses whose whole design argument is that they must be
+    diagnosable WITHOUT a working journal, and a guard that watched only the
+    older of the two was measured blind to the newer one.
 
     ⚠ THE MESSAGE BELOW ALREADY DEMANDED THIS AND NOTHING CHECKED IT. The sweep
     above asks that the call EXISTS; its own failure text says *"inside the try
@@ -171,18 +193,20 @@ def _bag_open_outside_the_handler(directory: Path) -> list[str]:
                 continue
             for stmt in node.body:
                 for inner in ast.walk(stmt):
-                    if _is_bag_open(inner):
+                    if _is_boundary_call(inner):
                         guarded.add(inner.lineno)
-        every = {n.lineno for n in ast.walk(tree) if _is_bag_open(n)}
-        for line in sorted(every - guarded):
-            offenders.append(f"{path.name}:{line}")
+        every = {n.lineno: _callee(n) for n in ast.walk(tree) if _is_boundary_call(n)}
+        for line in sorted(set(every) - guarded):
+            offenders.append(f"{path.name}:{line} ({every[line]})")
     return offenders
 
 
-def _is_bag_open(node: ast.AST) -> bool:
-    return (isinstance(node, ast.Call)
-            and (getattr(node.func, "id", None) == BAG_OPEN
-                 or getattr(node.func, "attr", None) == BAG_OPEN))
+def _callee(node: ast.Call) -> str:
+    return getattr(node.func, "attr", None) or getattr(node.func, "id", "") or ""
+
+
+def _is_boundary_call(node: ast.AST) -> bool:
+    return isinstance(node, ast.Call) and _callee(node) in _MUST_BE_GUARDED
 
 
 def _names_runtime_error(handler: ast.ExceptHandler) -> bool:
@@ -233,8 +257,8 @@ def test_bag_open_is_INSIDE_the_handler_that_prints_the_refusal() -> None:
     """
     offenders = _bag_open_outside_the_handler(ENTRYPOINTS_DIR)
     assert not offenders, (
-        f"these bag-opens are not inside a `try` that catches `RuntimeError`: "
-        f"{offenders}.\n"
+        f"these boundary calls are not inside a `try` that catches "
+        f"`RuntimeError`: {offenders}.\n"
         f"  failing property: `JournalRootError` and `BagError` both subclass "
         f"`RuntimeError` so that ONE handler prints the remedy the layer that "
         f"knew what failed wrote. Outside it, the operator gets a traceback for "
@@ -279,15 +303,35 @@ def test_THE_PLACEMENT_PREDICATE_DISCRIMINATES(tmp_path: Path) -> None:
             "            journal.open_run_bag(run_id=ctx.run_id)\n"
             "    except RuntimeError:\n"
             "        return 1\n",
+        # ⚠ THE SHAPE THE PREDICATE WAS BLIND TO UNTIL 2026-09-01: the context is
+        # built above the handler while the bag-open sits correctly inside it, so
+        # the journal-root refusal the boundary raises escapes as a traceback.
+        "run_context_hoisted.py":
+            "def main(a):\n"
+            "    ctx = RunContext.build(identity=i, repo_root=r, workflow_key='k')\n"
+            "    try:\n"
+            "        journal.open_run_bag(run_id=ctx.run_id)\n"
+            "    except RuntimeError:\n"
+            "        return 1\n",
+        "run_both_guarded.py":
+            "def main(a):\n"
+            "    try:\n"
+            "        ctx = RunContext.build(identity=i, repo_root=r, workflow_key='k')\n"
+            "        journal.open_run_bag(run_id=ctx.run_id)\n"
+            "    except RuntimeError:\n"
+            "        return 1\n",
     }
     for name, src in cases.items():
         (tmp_path / name).write_text(src, encoding="utf-8")
 
     found = {o.split(":")[0] for o in _bag_open_outside_the_handler(tmp_path)}
-    assert found == {"run_outside.py", "run_wrong_exception.py"}, (
-        f"the predicate reported {found}; it must flag the call above the handler "
-        f"and the one under a handler that cannot catch the refusal, and must not "
-        f"flag a correctly-guarded call or one nested inside the guarded block")
+    assert found == {"run_outside.py", "run_wrong_exception.py",
+                     "run_context_hoisted.py"}, (
+        f"the predicate reported {found}; it must flag the call above the handler, "
+        f"the one under a handler that cannot catch the refusal, and a CONTEXT "
+        f"BUILT above the handler even when the bag-open below it is correct — "
+        f"and must not flag a correctly-guarded call, one nested inside the "
+        f"guarded block, or a file where both boundary calls are guarded")
 
 
 def test_the_sweep_is_not_vacuous() -> None:
