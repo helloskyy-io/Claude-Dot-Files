@@ -62,7 +62,7 @@ __all__ = ["VERIFIED", "MISSING", "TAMPERED", "SPAN_MISSING", "OUTCOMES",
            "EXIT_OK", "EXIT_MISSING", "EXIT_TAMPERED", "EXIT_SPAN_MISSING",
            "EXIT_USAGE", "SEVERITY", "GIT_TIMEOUT_SECONDS", "CitationResult",
            "VerifyReport", "span_occurs_in", "git_blob", "verify_citation",
-           "verify_bag", "render_report", "exit_code_for", "main"]
+           "verify_bag", "render_report", "exit_code_for", "split_args", "main"]
 
 VERIFIED = "verified"
 MISSING = "missing"
@@ -268,6 +268,35 @@ def exit_code_for(reports: list[VerifyReport]) -> int:
     return _EXIT_FOR[worst]
 
 
+def split_args(args: list[str]) -> tuple[Path | None, list[str]]:
+    """`(repo_root, targets)` out of an argument list. One parse, two callers.
+
+    EXTRACTED BECAUSE THE SECOND COPY WAS ALREADY WRONG. `verify_citations.py`
+    needs to know whether any TARGET was given, so it can fall back to the
+    configured journal root — and it asked that question with a filter over the
+    raw arguments, which counted `--repo`'s own VALUE as a target. The result
+    was that `verify_citations.py --repo <path>`, with no bag named, printed a
+    usage message instead of verifying the configured root. Two hand-written
+    parses of one grammar is the shape this package keeps finding in itself.
+
+    Raises `ValueError` when `--repo` is given without a path, so the caller
+    owns the exit code and the message reaches whichever stream it writes to.
+    """
+    repo_root: Path | None = None
+    targets: list[str] = []
+    index = 0
+    while index < len(args):
+        if args[index] == "--repo":
+            if index + 1 >= len(args):
+                raise ValueError("--repo needs a path")
+            repo_root = Path(args[index + 1]).expanduser()
+            index += 2
+            continue
+        targets.append(args[index])
+        index += 1
+    return repo_root, targets
+
+
 def render_report(report: VerifyReport) -> str:
     """Human-readable, and every outcome class is printed even at zero.
 
@@ -304,19 +333,11 @@ def main(argv: list[str] | None = None) -> int:
     could not make the check, rather than the check having failed.
     """
     args = list(sys.argv[1:] if argv is None else argv)
-    repo_root: Path | None = None
-    targets: list[str] = []
-    index = 0
-    while index < len(args):
-        if args[index] == "--repo":
-            if index + 1 >= len(args):
-                print("--repo needs a path", file=sys.stderr)
-                return EXIT_USAGE
-            repo_root = Path(args[index + 1]).expanduser()
-            index += 2
-            continue
-        targets.append(args[index])
-        index += 1
+    try:
+        repo_root, targets = split_args(args)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return EXIT_USAGE
 
     if not targets:
         print("usage: verify_citations.py [--repo <path>] <bag-dir-or-journal-root> [...]",

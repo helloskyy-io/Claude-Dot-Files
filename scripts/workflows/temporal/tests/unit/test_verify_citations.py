@@ -34,7 +34,7 @@ from modules.journal.verify import (EXIT_MISSING, EXIT_OK, EXIT_SPAN_MISSING,
                                     EXIT_TAMPERED, EXIT_USAGE, MISSING,
                                     SPAN_MISSING, TAMPERED, VERIFIED,
                                     exit_code_for, render_report, span_occurs_in,
-                                    verify_bag, verify_citation)
+                                    split_args, verify_bag, verify_citation)
 
 PAGE = b"<p>The store proves the bytes, not the claim.</p>\n"
 QUOTE = "The store proves the bytes, not the claim."
@@ -322,3 +322,55 @@ def test_the_import_walk_can_SEE_a_fetcher_edge() -> None:
     breaking something the assertion would have caught by accident.
     """
     assert "source_fetch" in _intra_package_closure("content_activities")
+
+
+# --- the argument grammar, which had two parses and one of them was wrong ------
+
+def test_the_repo_flags_VALUE_is_not_mistaken_for_a_TARGET() -> None:
+    """⚠ THE DEFECT THIS PINS SHIPPED IN THE ENTRYPOINT AND WAS FOUND BY RUNNING IT.
+
+    `verify_citations.py` decides whether to fall back to the configured journal
+    root by asking whether any target was named. It asked that with a filter over
+    the raw argument list, which counted `--repo`'s own path as a target — so
+    `verify_citations.py --repo <path>` printed a usage message instead of
+    verifying the configured root. One grammar, written twice, and the second
+    copy was wrong on arrival. `split_args` is now the only parse.
+    """
+    assert split_args(["--repo", "/r"]) == (Path("/r"), [])
+    assert split_args(["--repo", "/r", "/bag"]) == (Path("/r"), ["/bag"])
+    assert split_args(["/bag", "--repo", "/r"]) == (Path("/r"), ["/bag"])
+    assert split_args(["/bag"]) == (None, ["/bag"])
+    assert split_args([]) == (None, [])
+
+
+def test_a_repo_flag_with_no_path_is_a_usage_error_not_a_crash() -> None:
+    with pytest.raises(ValueError):
+        split_args(["--repo"])
+
+
+def test_the_entrypoint_and_the_module_share_ONE_parse() -> None:
+    """The extraction is the fix; a second correct copy would decay the same way.
+
+    ASSERTED OVER THE AST, NOT OVER THE TEXT. A substring check went red on the
+    COMMENT explaining why the second parse was removed — which is a guard that
+    forbids describing the defect it exists for. Docstrings are excluded for the
+    same reason: the usage line legitimately names the flag.
+    """
+    path = Path(verifymod.__file__).parents[2] / "scripts" / "verify_citations.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+
+    docstrings = {id(node.body[0].value) for node in ast.walk(tree)
+                  if isinstance(node, (ast.Module, ast.FunctionDef, ast.ClassDef))
+                  and node.body and isinstance(node.body[0], ast.Expr)
+                  and isinstance(node.body[0].value, ast.Constant)}
+    literals = [n for n in ast.walk(tree)
+                if isinstance(n, ast.Constant) and n.value == "--repo"
+                and id(n) not in docstrings]
+    assert not literals, (
+        f"the entrypoint names `--repo` in code at line(s) "
+        f"{[n.lineno for n in literals]} — that is a second parse of a grammar "
+        f"`verify.split_args` owns, and the second copy is what shipped wrong")
+
+    calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call)
+             and isinstance(n.func, ast.Attribute) and n.func.attr == "split_args"]
+    assert calls, "the entrypoint no longer calls the shared parse at all"

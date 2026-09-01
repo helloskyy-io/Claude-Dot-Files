@@ -184,7 +184,13 @@ _HERE = Path(__file__).resolve().parent
 # spellings and six negative ones driven on literals, the second controls its
 # build/echo, ordering, gating and dry-run predicates the same way. Verified
 # rather than assumed — `_walks_the_tree` returns True for both files.
-_PINNED = (35, 24)
+# 35 -> 36 when PMP Phase 2 added `test_verify_citations.py`, and the second
+# number moved with it because that guard ships its control rather than being
+# grandfathered: its import-closure walk asserts `source_fetch` is ABSENT from
+# `verify`'s graph, and the discriminator beside it starts the same walk at
+# `content_activities`, which legitimately does import the fetcher. An absence
+# with no demonstrated presence is the vacuity this file exists to refuse.
+_PINNED = (36, 25)
 
 
 # GRANDFATHERED — walks the tree, has no literal control, PREDATES this rule.

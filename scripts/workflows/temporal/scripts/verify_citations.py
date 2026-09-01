@@ -38,10 +38,22 @@ from modules.journal.root import resolve_journal_root  # noqa: E402
 
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
+
+    # WHETHER A TARGET WAS NAMED IS ASKED OF THE PARSER, NOT OF THE RAW ARGV.
+    # This filtered the argument list itself and counted `--repo`'s own VALUE as
+    # a target, so `verify_citations.py --repo <path>` printed a usage message
+    # instead of verifying the configured root. `verify.split_args` is the one
+    # parse both this file and `verify.main` now use.
+    try:
+        _, targets = verify.split_args(args)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return verify.EXIT_USAGE
+
     # `create=False` for the reason `validate_bag.py` gives: a diagnostic must
     # not bring the thing it is diagnosing into existence. An operator whose
     # root is missing needs to be told so, not handed a fresh empty directory.
-    if not [a for a in args if a != "--repo" and not a.startswith("-")]:
+    if not targets:
         try:
             root = resolve_journal_root(config=load_journal_config(), create=False)
         except RuntimeError as exc:

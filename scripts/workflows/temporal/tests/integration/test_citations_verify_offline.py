@@ -53,35 +53,63 @@ PAGE = (b"<html><body><p>Every mature system draws this line, and each drew it "
 QUOTE = "Every mature system draws this line, and each drew it after being hurt."
 
 
-def _operator_root() -> Path | None:
+def _operator_bags() -> list[Path]:
+    """Bags under the root THIS machine's config resolves to, or an empty list.
+
+    ⚠ RESOLVED AT MODULE SCOPE, AND THAT IS LOAD-BEARING RATHER THAN STYLE.
+    `tests/conftest.py` installs a session-wide autouse fixture that repoints
+    `journal_activities.CONFIG_PATH` at a sandbox, so that the suite can never
+    write into the operator's journal. Asking for the root INSIDE a test body
+    therefore returns the sandbox, and this tier would skip with "no journal on
+    this machine" on a machine holding forty-eight bags — a vacuous pass wearing
+    a skip's clothes. Module scope runs at collection, before the fixture, which
+    is exactly how `test_a_real_bag_validates.py` beside this file does it.
+    (Measured: this file shipped the inside-the-body version first and skipped
+    silently while `verify_citations.py` found 48 bags from the command line.)
+    """
     try:
-        return resolve_journal_root(config=load_journal_config(), create=False)
+        root = resolve_journal_root(config=load_journal_config(), create=False)
     except (JournalRootError, RuntimeError):
-        return None
+        return []
+    if not root.is_dir():
+        return []
+    return sorted(p for p in root.iterdir()
+                  if p.is_dir() and (p / BAGIT_FILE).is_file())
 
 
+BAGS = _operator_bags()
+
+
+@pytest.mark.skipif(not BAGS, reason="no journal on this machine — no dispatch has run here")
 def test_every_bag_on_this_machine_verifies_its_citations() -> None:
     """The real corpus, whatever it holds. Today most bags cite nothing.
 
     A bag with no citations is reported as zero and not as a failure, so a green
     run here is compatible with the fleet not yet capturing anything — which is
     honest, and is exactly why the offline demonstration below builds its own
-    corpus rather than asserting over this one.
+    corpus rather than asserting over this one. What this tier does prove today
+    is that the reader survives every real bag on disk: a malformed or
+    unreadable citation file anywhere under the root is a structural finding.
     """
-    root = _operator_root()
-    if root is None or not root.is_dir():
-        pytest.skip("no journal root on this machine — a clone has none")
-    bags = [p for p in sorted(root.iterdir())
-            if p.is_dir() and (p / BAGIT_FILE).is_file()]
-    if not bags:
-        pytest.skip(f"journal root {root} holds no bags yet")
-
     bad = []
-    for path in bags:
+    for path in BAGS:
         report = verify_bag(path)
         if not report.ok:
             bad.append((path.name, report.counts(), report.structural))
     assert not bad, f"citations failed to verify in the operator's journal: {bad}"
+
+
+@pytest.mark.skipif(not BAGS, reason="no journal on this machine — no dispatch has run here")
+def test_this_tier_actually_READ_the_operators_journal() -> None:
+    """VACUITY CONTROL. A sweep over an empty list passes exactly like a clean one.
+
+    The test above asserts an ABSENCE across a collection, which is the shape
+    that reports success when its scoping is wrong — and that is not
+    hypothetical here, it is what this file shipped. Naming a non-zero count is
+    what makes the absence mean something.
+    """
+    assert len(BAGS) > 0
+    assert all((path / BAGIT_FILE).is_file() for path in BAGS)
 
 
 def _demo_bag(root: Path):
