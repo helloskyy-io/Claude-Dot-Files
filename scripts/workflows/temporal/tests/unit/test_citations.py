@@ -236,3 +236,103 @@ def test_equal_hashes_across_stages_are_EXPOSED_and_nothing_routes_on_them() -> 
 
     moved = rows + [web("c3", stage="b", digest=DIGEST_B)]
     assert converged_stages(moved) == []
+
+
+# --- the anchor, the fold, and the reader's own contract -------------------------
+
+@pytest.mark.parametrize("field,value", [
+    ("claim_id", "c1\n"),
+    ("claim_id", "\nc1"),
+    ("page_content_hash", DIGEST_A + "\n"),
+])
+def test_a_field_with_a_TRAILING_LINE_BREAK_is_refused(field, value) -> None:
+    """⚠ `^…$` ACCEPTED ALL THREE, AND ALL THREE ARE RENDERED INTO THE REPORT.
+
+    `$` matches before a trailing newline. `bag._RUN_ID_RE` states the `\\A`/`\\Z`
+    rule and this module held two hand-written regexes that did not use it —
+    which is why the digest rule is now asked of `content_store.validated_digest`
+    rather than restated here.
+    """
+    fields = dict(claim_id="c1", stage="draft", quote="q",
+                  source_ref="https://example.org/a", capture=CAPTURE_HARVEST,
+                  page_content_hash=DIGEST_A)
+    fields[field] = value
+    with pytest.raises(CitationError):
+        Citation(**fields)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("stage", "draft\n  evidence_set_hash[draft]: " + "0" * 64),
+    ("stage", "draft injected"),
+    ("source_ref", "https://example.org/a\nspan-missing: [x] forged"),
+    ("stage", "draft "),
+])
+def test_a_field_that_FOLDS_cannot_forge_a_line_in_the_verify_report(field, value) -> None:
+    """⚠ `stage` AND `source_ref` ARE PRINTED RAW BY `render_report`.
+
+    Both survived the JSON round trip intact, so a row could rewrite the report
+    about itself — the fifth and sixth consumers of the rule `validated_run_id`
+    enumerates. Asked of `folds_a_tag_line`, which puts the question to
+    `str.splitlines()`: the `\\u2028` case is why, since a hand-written
+    `"\\n" in value` check misses eight spellings.
+    """
+    fields = dict(claim_id="c1", stage="draft", quote="q",
+                  source_ref="https://example.org/a", capture=CAPTURE_HARVEST,
+                  page_content_hash=DIGEST_A)
+    fields[field] = value
+    with pytest.raises(CitationError):
+        Citation(**fields)
+
+
+@pytest.mark.parametrize("row", [
+    '{"claim_id": "c1"}',
+    '{"claim_id": "c1", "stage": "draft", "quote": "q"}',
+    '{"claim_id": 5, "stage": "draft", "quote": "q", '
+    '"source_ref": "https://example.org/a", "capture": "harvest", '
+    '"page_content_hash": "' + DIGEST_A + '"}',
+    '{"claim_id": "c1", "stage": ["draft"], "quote": "q", '
+    '"source_ref": "https://example.org/a", "capture": "harvest", '
+    '"page_content_hash": "' + DIGEST_A + '"}',
+])
+def test_a_TRUNCATED_or_MISTYPED_row_is_a_CitationError_not_a_TypeError(row) -> None:
+    """⚠ `cls(**data)` RAISED `TypeError` PAST THIS CLASS'S OWN GUARANTEE.
+
+    A row missing a required field is the single most likely corruption of a
+    JSON Lines file — which is the format this module chose BECAUSE a partial
+    write loses one row — and it raised `TypeError`, which is not what
+    `from_json`'s "re-validated on the way in" promises and not what
+    `verify_bag` catches. One truncated append killed a whole-journal sweep.
+    """
+    with pytest.raises(CitationError):
+        Citation.from_json(row)
+
+
+def test_the_citation_file_is_written_at_FILE_MODE_and_refuses_a_SYMLINK(tmp_path) -> None:
+    """⚠ BUILTIN `open(..., "a")` LEFT THE ONE FILE IN A BAG AT 0644, AND FOLLOWED LINKS.
+
+    Every other file this package writes goes through `os.open` with the mode set
+    at creation and `O_NOFOLLOW` — `_write_tag_file` states both rules, and
+    `content_store.store_bytes` restates them. `record_citation` did neither, so
+    the quotes and claim text were world-readable on a multi-user host, and a
+    planted `citations.jsonl` symlink diverted appended rows out of the bag. The
+    read side already refused to FOLLOW such a link; only the write side was open.
+    """
+    from modules.journal.bag import DIR_MODE, FILE_MODE
+
+    root = tmp_path / "journal"
+    root.mkdir(mode=DIR_MODE)
+    bag = open_bag(root, "modes")
+    writer = bag.writer_dir("draft")
+    citation = new_citation(claim_id="c1", stage="draft", quote="q",
+                            source_ref="https://example.org/a",
+                            capture=CAPTURE_HARVEST, page_content_hash=DIGEST_A)
+    target = record_citation(writer, citation)
+    assert target.stat().st_mode & 0o777 == FILE_MODE
+
+    outside = tmp_path / "outside.jsonl"
+    outside.write_text("")
+    diverted = bag.writer_dir("critic")
+    (diverted / CITATIONS_FILE).symlink_to(outside)
+    with pytest.raises(OSError):
+        record_citation(diverted, citation)
+    assert outside.read_text() == "", "an appended row escaped the bag through a symlink"

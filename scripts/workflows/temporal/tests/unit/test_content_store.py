@@ -181,3 +181,125 @@ def test_stored_digests_ignores_a_file_that_is_not_an_object(bag) -> None:
 
 def test_an_empty_store_enumerates_to_nothing_rather_than_failing(bag) -> None:
     assert stored_digests(bag.path) == []
+
+
+# --- the anchor, and the staging name -------------------------------------------
+
+@pytest.mark.parametrize("digest", [
+    SAMPLE_DIGEST + "\n",
+    SAMPLE_DIGEST + "\r",
+    "\n" + SAMPLE_DIGEST,
+])
+def test_a_digest_with_a_LINE_BREAK_is_refused(digest) -> None:
+    """⚠ `^…$` ACCEPTED `"a"*64 + "\\n"` AND COMPOSED IT ONTO A PATH.
+
+    `$` matches before a trailing newline, so the function whose docstring says
+    "a value that is not 64 lowercase hex characters is refused here rather than
+    composed onto a path" was composing one. `bag._RUN_ID_RE` states the
+    `\\A`/`\\Z` rule twelve lines above the function this module reuses; this
+    module did not reach for it.
+
+    The leading case is here because `\\A` and `^` differ there too, and the
+    hostile parametrization above enumerates seven neighbours and misses all
+    three of these.
+    """
+    with pytest.raises(ContentStoreError):
+        validated_digest(digest)
+    with pytest.raises(ContentStoreError):
+        object_relpath(digest)
+
+
+def test_two_captures_of_ONE_source_on_two_threads_both_land(tmp_path, monkeypatch) -> None:
+    """⚠ THE STAGING NAME CARRIED ONLY THE PID, WHICH IS NOT UNIQUE ACROSS THREADS.
+
+    A Temporal worker runs sync activities on a thread pool — the shape this
+    package says the port carries — so two threads capturing the same bytes in
+    one process collided on one staging name. The loser's `O_EXCL` raised, and
+    its handler then unlinked the file the WINNER was still writing, so
+    `os.replace` failed for both and NEITHER capture landed. Both callers got a
+    `ContentStoreError` for a store that was working correctly.
+
+    The window is widened deterministically rather than raced for: `os.write` is
+    made slow, so the second thread is guaranteed to be inside `store_bytes`
+    while the first still holds its staging file.
+    """
+    import threading
+    import time
+    from modules.journal import content_store as store_mod
+
+    bag_path = tmp_path / "bag"
+    (bag_path / "data").mkdir(parents=True)
+    payload = b"one source, two concurrent captures"
+
+    real_write = store_mod.os.write
+
+    def slow_write(fd, data):
+        time.sleep(0.15)
+        return real_write(fd, data)
+
+    monkeypatch.setattr(store_mod.os, "write", slow_write)
+
+    start = threading.Barrier(4)
+    results: list[object] = []
+    lock = threading.Lock()
+
+    def capture() -> None:
+        start.wait(timeout=10)
+        try:
+            outcome = store_bytes(bag_path, payload)
+        except Exception as exc:               # noqa: BLE001 — the finding IS the exception
+            outcome = exc
+        with lock:
+            results.append(outcome)
+
+    threads = [threading.Thread(target=capture) for _ in range(4)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+
+    failures = [r for r in results if isinstance(r, Exception)]
+    assert not failures, f"concurrent captures of one source failed: {failures}"
+    assert set(results) == {digest_of_bytes(payload)}
+    assert load_object(bag_path, digest_of_bytes(payload)) == payload
+    # No staging file survives — the cleanup removed only each call's own.
+    leftovers = [p.name for p in bag_path.rglob(".*.part")]
+    assert not leftovers, f"staging files left behind: {leftovers}"
+
+
+def test_the_three_read_failures_are_three_TYPES_not_three_sentences(tmp_path) -> None:
+    """⚠ `verify` CLASSIFIED THESE BY SUBSTRING AND A LEGAL RUN ID BROKE IT.
+
+    The outcome class is a fact about WHAT FAILED, so it has to survive the
+    message being reworded — and the message embeds the store path, which embeds
+    the run id, which `RUN_ID_PERMITTED` lets contain the word `TAMPERED`.
+    """
+    from modules.journal.content_store import (ObjectCorrupt, ObjectMissing,
+                                               ObjectUnreadable)
+    bag_path = tmp_path / "bag"
+    (bag_path / "data").mkdir(parents=True)
+
+    digest = store_bytes(bag_path, b"the bytes as received")
+    absent = digest_of_bytes(b"never stored")
+
+    with pytest.raises(ObjectMissing):
+        load_object(bag_path, absent)
+
+    target = object_path(bag_path, digest)
+    target.write_bytes(b"different bytes under the same name")
+    with pytest.raises(ObjectCorrupt):
+        load_object(bag_path, digest)
+
+    # Present and unreadable: a directory where the object should be. NOT
+    # `ObjectMissing` — "re-capture the source" is destructive advice for bytes
+    # that are merely behind a failing disk or a permission.
+    target.unlink()
+    target.mkdir()
+    with pytest.raises(ObjectUnreadable):
+        load_object(bag_path, digest)
+
+    # And every one of them is still a `ContentStoreError`, so a caller that
+    # does not care which stays correct.
+    assert issubclass(ObjectMissing, ContentStoreError)
+    assert issubclass(ObjectCorrupt, ContentStoreError)
+    assert issubclass(ObjectUnreadable, ContentStoreError)

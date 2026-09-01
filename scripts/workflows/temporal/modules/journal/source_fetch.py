@@ -81,7 +81,6 @@ MAX_REDIRECTS = 5
 # behalf of a record that claims to be checkable.
 USER_AGENT = "skyynet-journal-content-store/1 (+persistent-memory-protocol)"
 
-
 class FetchRefused(BagError):
     """A source was not fetched, and the message says which rule refused it.
 
@@ -189,7 +188,18 @@ def check_url(url: str, policy: FetchPolicy, resolve=socket.getaddrinfo) -> str:
     reason it is a function rather than a block at the top of `fetch_source`. A
     check that ran once would be exactly the bypass this policy exists to close.
     """
-    parts = urlsplit(url)
+    # ⚠ `urlsplit` AND `.port` BOTH RAISE `ValueError`, AND THIS FUNCTION
+    # PROMISES `FetchRefused`. `https://[::1` is an "Invalid IPv6 URL" and
+    # `https://host:99999/` is a port out of range; both escaped past every
+    # caller catching the documented refusal type, so a malformed URL crashed
+    # the capture activity instead of being recorded as a policy refusal. A
+    # boundary that validates input must return its own refusal for every bad
+    # input, including the ones the parser rejects before the rules run.
+    try:
+        parts = urlsplit(url)
+        port = parts.port or 443
+    except ValueError as exc:
+        raise FetchRefused(f"refusing {url!r}: it is not a parseable URL ({exc})") from exc
     if parts.scheme not in policy.allowed_schemes:
         raise FetchRefused(
             f"refusing {url!r}: scheme {parts.scheme!r} is not permitted "
@@ -199,7 +209,6 @@ def check_url(url: str, policy: FetchPolicy, resolve=socket.getaddrinfo) -> str:
     if not parts.hostname:
         raise FetchRefused(f"refusing {url!r}: it names no host")
 
-    port = parts.port or 443
     for address in resolved_addresses(parts.hostname, port, resolve=resolve):
         reason = refused_address_reason(address)
         if reason:

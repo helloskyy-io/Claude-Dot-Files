@@ -89,11 +89,15 @@ def test_a_HOSTILE_STAGE_NAME_cannot_escape_the_payload(bag, stage: str) -> None
         "and rewriting the record would lose what the run actually called it")
 
 
-def test_a_harvested_row_carries_the_WEAKER_guarantee(bag) -> None:
-    """The provenance is data, so nothing downstream has to assume which arm ran."""
-    class Fake:
-        pass
+def test_a_harvested_row_carries_the_WEAKER_guarantee(bag, monkeypatch) -> None:
+    """The provenance is data, so nothing downstream has to assume which arm ran.
 
+    `monkeypatch` rather than a hand-written try/finally, which is what the
+    other thirty-one files in this tree use — and it is not a style point: a
+    hand-rolled restore leaves the module patched for the rest of the session
+    whenever an assertion raises before the `finally` is reached by a later
+    edit.
+    """
     import modules.journal.content_activities as mod
     captured = {}
 
@@ -102,14 +106,10 @@ def test_a_harvested_row_carries_the_WEAKER_guarantee(bag) -> None:
         return type("F", (), {"final_url": url, "data": PAGE,
                               "media_type": "text/html"})()
 
-    original = mod.fetch_source
-    mod.fetch_source = fake_fetch
-    try:
-        citation = capture_source(bag=bag, stage="harvest", claim_id="c1",
-                                  quote="a source the run read",
-                                  url="https://example.org/a")
-    finally:
-        mod.fetch_source = original
+    monkeypatch.setattr(mod, "fetch_source", fake_fetch)
+    citation = capture_source(bag=bag, stage="harvest", claim_id="c1",
+                              quote="a source the run read",
+                              url="https://example.org/a")
 
     assert captured["url"] == "https://example.org/a"
     assert citation.capture == CAPTURE_HARVEST

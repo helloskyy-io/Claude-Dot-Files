@@ -29,6 +29,7 @@ from modules.journal.bag import open_bag
 from modules.journal.citations import (CAPTURE_HARVEST, CAPTURE_READ_TIME,
                                        CITATIONS_FILE, Citation, new_citation,
                                        record_citation)
+from modules.journal.content_activities import capture_fetched_source
 from modules.journal.content_store import object_path, store_bytes
 from modules.journal.verify import (EXIT_MISSING, EXIT_OK, EXIT_SPAN_MISSING,
                                     EXIT_TAMPERED, EXIT_USAGE, MISSING,
@@ -169,8 +170,10 @@ def test_a_code_citation_with_no_repository_is_MISSING_and_says_why(bag) -> None
 # --- exit codes -----------------------------------------------------------------
 
 def test_each_outcome_class_has_its_own_exit_code(bag) -> None:
+    """SIX, not five. `structural` shared 2 with usage and that made a real
+    finding indistinguishable from a wrong invocation."""
     assert len({EXIT_OK, EXIT_MISSING, EXIT_TAMPERED, EXIT_SPAN_MISSING,
-                EXIT_USAGE}) == 5
+                EXIT_USAGE, verifymod.EXIT_STRUCTURAL}) == 6
 
 
 def test_a_mixed_run_exits_on_the_MOST_SEVERE_outcome(bag) -> None:
@@ -196,12 +199,30 @@ def test_a_mixed_run_exits_on_the_MOST_SEVERE_outcome(bag) -> None:
 
 def test_an_unparseable_citation_file_is_STRUCTURAL_not_one_bad_claim(bag) -> None:
     """The record of what was claimed is unreadable — reporting it per-row would
-    understate it, and `ok` must be False even with zero results."""
+    understate it, and `ok` must be False even with zero results.
+
+    ⚠ THIS ASSERTED `EXIT_USAGE` AND THAT WAS THE DEFECT, NOT THE PIN. A record
+    that cannot be read is a REAL FINDING and it exited with the number the
+    entrypoint documents as "you invoked me wrong", so automation treating 2 as
+    a usage error discarded it. `EXIT_STRUCTURAL` is its own code and outranks
+    `tampered`, because an unreadable record means the citations were never
+    enumerated at all.
+    """
     writer = bag.writer_dir("draft")
     (writer / CITATIONS_FILE).write_text("{ not json\n")
     report = verify_bag(bag.path)
     assert report.structural and not report.ok
-    assert exit_code_for([report]) == EXIT_USAGE
+    assert report.worst == verifymod.STRUCTURAL
+    assert exit_code_for([report]) == verifymod.EXIT_STRUCTURAL
+    # AND IT OUTRANKS EVERY CITATION OUTCOME IN THE SAME RUN. A sweep holding
+    # one unreadable record and one tampered object used to exit 2 and report
+    # neither; the ranking is what makes the severest class decide.
+    tampered_elsewhere = verifymod.VerifyReport(
+        path=bag.path,
+        results=(verifymod.CitationResult(
+            claim_id="c9", stage="draft", outcome=TAMPERED, capture="harvest",
+            source_ref="https://example.org/z"),))
+    assert exit_code_for([report, tampered_elsewhere]) == verifymod.EXIT_STRUCTURAL
 
 
 def test_a_bag_with_no_citations_is_not_a_failure(bag) -> None:
@@ -374,3 +395,114 @@ def test_the_entrypoint_and_the_module_share_ONE_parse() -> None:
     calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call)
              and isinstance(n.func, ast.Attribute) and n.func.attr == "split_args"]
     assert calls, "the entrypoint no longer calls the shared parse at all"
+
+
+# --- the outcome comes from the TYPE, and the sweep survives the bag ------------
+
+def test_a_run_id_containing_the_word_TAMPERED_still_reports_MISSING(tmp_path) -> None:
+    """⚠ THE CLASSIFIER READ THE MESSAGE, AND THE MESSAGE CARRIES THE RUN ID.
+
+    `verify_citation` chose its outcome with `"TAMPERED" in str(exc)`. The
+    `missing` message embeds `store_dir(bag_path)`, which embeds the run id, and
+    `RUN_ID_PERMITTED` allows those letters — so a run named `TAMPERED-2026`
+    reported every genuinely ABSENT object as a corrupted one: exit 4, and a
+    verdict the module documents as "nothing else in the journal should be
+    trusted". A legal run id silently inverted the store's own diagnosis.
+
+    The remedy is that the outcome is a fact about WHAT FAILED and is carried by
+    the exception type, so it cannot be undone by rewording a sentence.
+    """
+    from modules.journal.bag import DIR_MODE
+    root = tmp_path / "journal"
+    root.mkdir(mode=DIR_MODE)
+    bag = open_bag(root, "TAMPERED-2026")
+    citation = capture_fetched_source(
+        bag=bag, stage="draft", claim_id="c1", quote="a quoted span",
+        source_ref="https://example.org/a", data=b"a quoted span lives here")
+    object_path(bag.path, citation.page_content_hash).unlink()
+
+    report = verify_bag(bag.path)
+    assert report.counts()[MISSING] == 1, (
+        "an absent object was classified by reading a sentence that contains "
+        f"the run id: {[ (r.outcome, r.detail) for r in report.results ]}")
+    assert report.counts()[TAMPERED] == 0
+
+
+def test_an_object_that_is_PRESENT_and_UNREADABLE_is_not_reported_as_MISSING(tmp_path) -> None:
+    """`missing` MEANS "re-capture the source", WHICH IS DESTRUCTIVE ADVICE HERE.
+
+    The third branch of `load_object` — a generic `OSError` from a permission
+    failure, a failing disk, or a path that has become a directory — contained
+    neither of the two words the old substring test looked for, so it fell
+    through to `missing`. The bytes may be perfectly intact behind that error,
+    and re-capturing would overwrite a record rather than repair it. It belongs
+    in the class that means "the store is not currently to be trusted".
+    """
+    from modules.journal.bag import DIR_MODE
+    root = tmp_path / "journal"
+    root.mkdir(mode=DIR_MODE)
+    bag = open_bag(root, "unreadable")
+    citation = capture_fetched_source(
+        bag=bag, stage="draft", claim_id="c1", quote="a quoted span",
+        source_ref="https://example.org/a", data=b"a quoted span lives here")
+    target = object_path(bag.path, citation.page_content_hash)
+    target.unlink()
+    target.mkdir()
+
+    report = verify_bag(bag.path)
+    assert report.counts()[TAMPERED] == 1
+    assert report.counts()[MISSING] == 0
+
+
+@pytest.mark.parametrize("wreck", ["non-utf8", "unreadable-file"])
+def test_a_bag_that_cannot_be_READ_is_a_FINDING_not_a_raised_exception(tmp_path, wreck) -> None:
+    """⚠ `verify_bag` CAUGHT ONLY `CitationError`, SO ONE BAD BAG KILLED THE SWEEP.
+
+    `read_citations` reaches `read_text(encoding="utf-8")`, which raises
+    `UnicodeDecodeError` (a `ValueError`) on non-UTF-8 bytes and `OSError` on a
+    permission failure or a file that vanished between `rglob` and the read.
+    Neither is a `CitationError`, so both propagated out of a whole-journal run
+    and it reported nothing about any of the other bags.
+
+    This is verbatim the regression `validate.py` records against ITSELF — "one
+    such bag killed the whole sweep" — and the fix there was not carried across.
+    """
+    from modules.journal.bag import DIR_MODE
+    root = tmp_path / "journal"
+    root.mkdir(mode=DIR_MODE)
+    broken = open_bag(root, "broken")
+    writer = broken.writer_dir("draft")
+    target = writer / CITATIONS_FILE
+    if wreck == "non-utf8":
+        target.write_bytes(b"\xff\xfe not utf-8 at all\n")
+    else:
+        target.write_text("{}\n")
+        target.chmod(0o000)
+
+    healthy = open_bag(root, "healthy")
+    capture_fetched_source(bag=healthy, stage="draft", claim_id="ok",
+                          quote="a quoted span",
+                          source_ref="https://example.org/a",
+                          data=b"a quoted span lives here")
+
+    reports = [verify_bag(broken.path), verify_bag(healthy.path)]
+    try:
+        assert reports[0].structural and not reports[0].ok
+        # THE OTHER BAG IS STILL REPORTED. That is the whole point: the sweep
+        # continued, which is what an exception took away.
+        assert reports[1].ok and len(reports[1].results) == 1
+        assert exit_code_for(reports) == verifymod.EXIT_STRUCTURAL
+    finally:
+        if wreck == "unreadable-file":
+            target.chmod(0o600)
+
+
+def test_a_target_that_is_NOT_THERE_is_USAGE_and_not_a_structural_finding(tmp_path) -> None:
+    """The two must stay separable, which is why `EXIT_STRUCTURAL` exists.
+
+    A path the operator named that does not exist is a wrong invocation; a bag
+    that exists and whose record cannot be read is a finding. Collapsing them is
+    what put a real finding behind the usage code in the first place, and
+    splitting the code without splitting these would just move the collapse.
+    """
+    assert verifymod.main([str(tmp_path / "no-such-directory")]) == EXIT_USAGE

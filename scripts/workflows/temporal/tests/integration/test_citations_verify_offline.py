@@ -138,11 +138,8 @@ def _demo_bag(root: Path):
     return bag, (good, absent, altered, wrong)
 
 
-def test_a_bag_holding_one_of_each_outcome_reports_all_four(tmp_path: Path) -> None:
-    from modules.journal.bag import DIR_MODE
-    root = tmp_path / "journal"
-    root.mkdir(mode=DIR_MODE)
-    bag, _ = _demo_bag(root)
+def test_a_bag_holding_one_of_each_outcome_reports_all_four(journal_root: Path) -> None:
+    bag, _ = _demo_bag(journal_root)
     counts = verify_bag(bag.path).counts()
     assert counts == {VERIFIED: 1, MISSING: 1, TAMPERED: 1, SPAN_MISSING: 1}
 
@@ -204,7 +201,8 @@ def _network_denier(tmp_path: Path) -> Path | None:
     return library
 
 
-def test_verify_runs_with_THE_NETWORK_ACTUALLY_DENIED(tmp_path: Path) -> None:
+def test_verify_runs_with_THE_NETWORK_ACTUALLY_DENIED(tmp_path: Path,
+                                                      journal_root: Path) -> None:
     """REQUIREMENT 2, DEMONSTRATED RATHER THAN ASSERTED.
 
     The checker runs as a subprocess whose `socket`, `connect` and `getaddrinfo`
@@ -216,10 +214,7 @@ def test_verify_runs_with_THE_NETWORK_ACTUALLY_DENIED(tmp_path: Path) -> None:
     if library is None:
         pytest.skip("no C compiler here — the denial shim cannot be built")
 
-    from modules.journal.bag import DIR_MODE
-    root = tmp_path / "journal"
-    root.mkdir(mode=DIR_MODE)
-    bag, _ = _demo_bag(root)
+    bag, _ = _demo_bag(journal_root)
 
     env = dict(os.environ, LD_PRELOAD=str(library))
 
@@ -249,7 +244,7 @@ def test_verify_runs_with_THE_NETWORK_ACTUALLY_DENIED(tmp_path: Path) -> None:
 
 def test_the_exit_code_tracks_the_worst_outcome_present(tmp_path: Path) -> None:
     """Each class on its own, so the mixed-run test above cannot pass by accident."""
-    from modules.journal.bag import DIR_MODE
+    from modules.journal.bag import DIR_MODE  # one root PER outcome, not the fixture's one
 
     def bag_with(mutate) -> int:
         root = tmp_path / f"journal-{mutate.__name__}"

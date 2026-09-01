@@ -115,6 +115,19 @@ _DECLARED_TAG_VALUES = {
         "the same stdout line: an int from `VerifyReport.counts`, which counts "
         "results. A tag line cannot be forged with an integer, and this is not "
         "a tag line.",
+    ("verify.py", "type(exc).__name__"):
+        "verify_bag labels a STRUCTURAL FINDING with the class name of the "
+        "exception that produced it, for a `VerifyReport.structural` entry that "
+        "render_report writes to STDOUT. It reaches no tag file — `verify.py` "
+        "imports neither composer — and the value is a Python type name, which "
+        "the language cannot spell with a line break.",
+    ("verify.py", "exc"):
+        "the other half of that same structural label: the exception's own "
+        "message, from `read_citations` failing on a citation file. It is "
+        "printed, never written into `bag-info.txt`. A line break in it "
+        "produces an ugly finding, not a forged label — and the finding is the "
+        "point, since the alternative this replaced was the exception "
+        "propagating and killing the whole sweep.",
 }
 
 # Spellings of a tag line this package must not use, because the sweep cannot

@@ -60,9 +60,16 @@ nothing here has to change to allow it.
   journal size as a requirement so the trigger fires on evidence rather than as
   a mid-build surprise.
 
-The full reasoning for every decision this package implements is in
-`/opt/skyy-net/skyynet-master-planning/development/edge-assistant/persistent-memory-protocol/phase1_the_run_bag.md`, which is the
-authority; the docstrings here carry the half a reader of the code needs.
+The full reasoning is in the phase docs under
+`/opt/skyy-net/skyynet-master-planning/development/edge-assistant/persistent-memory-protocol/`,
+which are the authority; the docstrings here carry the half a reader of the code
+needs. TWO of them apply, and naming only the first left half this package's
+decisions with no reachable authority:
+
+  `phase1_the_run_bag.md`      — the bag, its root, its states, its validator
+  `phase2_content_store.md`    — the store's shape (r7a), its path derivation
+                                 (r7b), its fetch policy (r7c), its single read
+                                 path (r7d), and the capture-provenance ruling
 """
 
 from __future__ import annotations

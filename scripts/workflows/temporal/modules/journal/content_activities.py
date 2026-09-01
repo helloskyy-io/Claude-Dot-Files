@@ -114,9 +114,25 @@ def capture_source(*, bag: Bag, stage: str, claim_id: str, quote: str, url: str,
     """Fetch one source under the policy, store its bytes, record the citation.
 
     THE ONLY PLACE THIS PACKAGE REACHES THE NETWORK, and it is deliberately not
-    on `verify`'s import path: the checker resolves from the store alone, which
-    is requirement 2, and keeping the fetcher out of that graph is what makes
-    the property structural rather than a promise.
+    on `verify`'s INTRA-PACKAGE import closure: the checker resolves from the
+    store alone, which is requirement 2, and keeping the fetcher out of that
+    graph is what makes the property structural rather than a promise.
+
+    ⚠ THE QUALIFIER IS LOAD-BEARING AND WAS MISSING. `modules/journal/__init__`
+    imports this module eagerly, so a process entering through the PACKAGE — and
+    `scripts/verify_citations.py` does — has `urllib` loaded whether or not
+    `verify` reaches it. The closure is what the guard asserts and what a
+    reviewer can check; process-level absence is NOT claimed, and is not what
+    requirement 2 asks for. The demonstration that settles it is the run with the
+    network denied at the C library, where the fetcher IS imported and the
+    verifier returns every verdict regardless.
+
+    ⚠ THE REDIRECT CHAIN IS NOT DURABLE, DELIBERATELY. `FetchedSource.hops`
+    records every URL visited and only `final_url` reaches the citation row, so
+    a source that arrived via a redirect reads on disk as though it had been
+    fetched directly. Carrying `hops` would be a v1 schema field with no reader,
+    and this record refuses fields nothing consumes; the operator-facing place
+    for the chain is the refusal message when a hop is rejected, which names it.
 
     ⚠ THE SPAN IS NOT CHECKED HERE, AND THAT IS NOT AN OVERSIGHT. Refusing to
     record a citation whose quote is absent from the fetched bytes would move a

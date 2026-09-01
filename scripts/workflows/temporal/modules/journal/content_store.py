@@ -58,13 +58,15 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+import uuid
 from pathlib import Path
 
 from .bag import (DIR_MODE, FILE_MODE, PAYLOAD_DIR, BagError,
                   contained_relpath)
 
 __all__ = ["CONTENT_STORE_DIR", "DIGEST_ALGORITHM", "DIGEST_HEX_LENGTH",
-           "FANOUT", "ContentStoreError", "digest_of_bytes", "validated_digest",
+           "FANOUT", "ContentStoreError", "ObjectMissing", "ObjectCorrupt",
+           "ObjectUnreadable", "digest_of_bytes", "validated_digest",
            "object_relpath", "store_dir", "object_path", "store_bytes",
            "load_object", "has_object", "stored_digests"]
 
@@ -82,7 +84,13 @@ DIGEST_HEX_LENGTH = 64
 # the journal's size budget permits.
 FANOUT = 2
 
-_HEX_DIGEST_RE = re.compile(r"^[0-9a-f]{%d}$" % DIGEST_HEX_LENGTH)
+# `\A` and `\Z`, NEVER `^` and `$`, for the reason `bag._RUN_ID_RE` states
+# twelve lines above the function this module reuses: `$` also matches BEFORE a
+# trailing newline, so `"a"*64 + "\n"` satisfied `^[0-9a-f]{64}$` and was
+# composed onto a path by the very function whose docstring says a value that is
+# not 64 lowercase hex characters is refused rather than composed. The rule was
+# already written down in this package and this module did not reach for it.
+_HEX_DIGEST_RE = re.compile(r"\A[0-9a-f]{%d}\Z" % DIGEST_HEX_LENGTH)
 
 
 class ContentStoreError(BagError):
@@ -92,6 +100,42 @@ class ContentStoreError(BagError):
     error in this package is one: entrypoints already print these and the
     message is the diagnostic. A distinct type so a caller can tell a store
     problem from a bag problem without parsing prose.
+    """
+
+
+class ObjectMissing(ContentStoreError):
+    """Nothing is stored under that digest. The check could not be MADE.
+
+    ⚠ A SUBCLASS BECAUSE `verify` HAS TO TELL THESE APART, AND IT WAS TELLING
+    THEM APART BY READING THE MESSAGE. `verify_citation` classified an outcome
+    with `"TAMPERED" in str(exc)` — over prose that embeds the store's own path,
+    which embeds the run id, which `RUN_ID_PERMITTED` allows to contain the
+    letters `TAMPERED`. A run named `TAMPERED-2026` therefore reported every
+    genuinely absent object as a corrupted one: exit 4, and a verdict this
+    module documents as "nothing else in the journal should be trusted".
+
+    The outcome class is a fact about WHAT FAILED, so it is carried by the type
+    of the failure rather than recovered from the sentence describing it.
+    """
+
+
+class ObjectCorrupt(ContentStoreError):
+    """Bytes are stored under that digest and they hash to something else.
+
+    The STORE failed. The citation naming it may be perfectly good.
+    """
+
+
+class ObjectUnreadable(ContentStoreError):
+    """The object file is there and this process could not read it.
+
+    ⚠ NOT `ObjectMissing`, AND THE REMEDY IS WHY. "Nothing was stored under that
+    digest, re-capture the source" is false and actively misleading for an
+    `EACCES`, an `EIO` or a path that has become a directory — the bytes may be
+    perfectly intact behind a permission or a failing disk, and re-capturing
+    would overwrite a record rather than repair it. `verify` reports this in the
+    `tampered` class, which is the class that means "the store is not currently
+    to be trusted" — the true statement here — with the errno in the detail.
     """
 
 
@@ -195,6 +239,13 @@ def store_bytes(bag_path: Path, data: bytes) -> str:
     probe = parent
     while not probe.exists():
         missing.append(probe)
+        # The filesystem-root terminator `root._create_with_mode` carries. This
+        # loop was retyped from it and dropped the line; unreachable on a real
+        # tree because `/` exists, and restored rather than argued about,
+        # because "the copy that diverged is the one nobody re-checked" is this
+        # package's own repeated finding.
+        if probe.parent == probe:
+            break
         probe = probe.parent
     for directory in reversed(missing):
         try:
@@ -212,9 +263,17 @@ def store_bytes(bag_path: Path, data: bytes) -> str:
 
     # Written to a temporary name in the same directory and renamed, so a reader
     # never sees a partial object under a digest that promises complete bytes.
-    # `os.replace` is atomic within a filesystem, and the temp name carries the
-    # pid so two writers in one run cannot collide on it.
-    staging = parent / f".{digest}.{os.getpid()}.part"
+    # `os.replace` is atomic within a filesystem.
+    #
+    # ⚠ THE UNIQUIFIER IS PER-CALL, NOT PER-PROCESS. It carried only the pid,
+    # which is unique across processes and NOT across threads — and a Temporal
+    # worker runs sync activities on a thread pool, which is the shape this
+    # package says the port carries. Two threads capturing the same bytes
+    # collided on one staging name: the loser's `O_EXCL` raised, and its
+    # handler then unlinked the file the WINNER was still writing, so
+    # `os.replace` failed for both and neither capture landed. A per-call name
+    # makes the cleanup unambiguously this call's own file.
+    staging = parent / f".{digest}.{os.getpid()}.{uuid.uuid4().hex}.part"
     try:
         handle = os.open(str(staging), os.O_WRONLY | os.O_CREAT | os.O_EXCL, FILE_MODE)
         try:
@@ -254,18 +313,18 @@ def load_object(bag_path: Path, digest: str) -> bytes:
     try:
         data = target.read_bytes()
     except FileNotFoundError:
-        raise ContentStoreError(
+        raise ObjectMissing(
             f"content-store object {digest} is MISSING from {store_dir(bag_path)}. "
             f"Nothing was stored under that digest in this bag, so the citation "
             f"naming it cannot be checked at all.") from None
     except OSError as exc:
-        raise ContentStoreError(
+        raise ObjectUnreadable(
             f"content-store object {digest} could not be read from {target} "
             f"({exc.strerror}).") from exc
 
     actual = digest_of_bytes(data)
     if actual != digest:
-        raise ContentStoreError(
+        raise ObjectCorrupt(
             f"content-store object {digest} is TAMPERED: its bytes hash to "
             f"{actual}. An object is named by its own checksum, so a mismatch "
             f"means the stored bytes were changed after they were filed — the "

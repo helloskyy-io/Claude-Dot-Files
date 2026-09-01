@@ -174,9 +174,21 @@ def test_the_population_this_sweeps_MATCHES_THE_TREE() -> None:
     journal root, then update this number.
     """
     modules = _entrypoint_driving_modules()
-    assert len(modules) == 6, (
+    # 6 → 7 on 2026-09-01: `test_verify_citations.py` joined the population when
+    # a correction pass added a case calling `verify.main()` in-process to prove
+    # that a target which is not there exits USAGE and not the new structural
+    # code. It previously drove the entrypoint only through `subprocess`, which
+    # this predicate does not see — so the module was outside the redirect sweep
+    # while already touching an entrypoint. Confirmed it cannot litter the
+    # operator's root: the case passes a `tmp_path` child and `main` returns
+    # before `verify_bag` on a target that is not a directory.
+    #
+    # The sibling copy this message names in `tests/conftest.py` no longer
+    # states a count — it was changed to name the population instead, which is
+    # why there is nothing to update there this time.
+    assert len(modules) == 7, (
         f"{len(modules)} test module(s) under {UNIT_DIR} drive an entrypoint "
-        f"`main()`; it was 5 when this was pinned. Found: "
+        f"`main()`; it was 6 when this was pinned. Found: "
         f"{[m.name for m in modules]}.\n"
         f"If a module was ADDED, it now runs inside the subprocess sweep below "
         f"and this number goes up. If the count DROPPED, the discovery "

@@ -60,11 +60,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from .bag import PAYLOAD_DIR, BagError, contained_relpath, utc_now
+from .bag import (FILE_MODE, PAYLOAD_DIR, BagError, contained_relpath,
+                  folds_a_tag_line, utc_now)
+from .content_store import ContentStoreError, validated_digest
 
 __all__ = ["CITATIONS_FILE", "CITATION_SCHEMA_VERSION", "CAPTURE_READ_TIME",
            "CAPTURE_HARVEST", "CAPTURE_KINDS", "GIT_REF_RE", "CitationError",
@@ -86,10 +89,15 @@ CAPTURE_KINDS = (CAPTURE_READ_TIME, CAPTURE_HARVEST)
 # `git:<40-hex-sha>` with an optional `:<path>`. Abbreviated SHAs are refused:
 # an abbreviation is a prefix search whose answer can change as a repository
 # grows objects, and a citation is meant to name one object forever.
-GIT_REF_RE = re.compile(r"^git:([0-9a-f]{40})(?::(.+))?$")
+#
+# ⚠ `\A` AND `\Z`, NEVER `^` AND `$` — the rule `bag._RUN_ID_RE` states and
+# this module did not reach for. `$` also matches BEFORE a trailing newline, so
+# `claim_id = "c1\n"` and `page_content_hash = "a"*64 + "\n"` were both
+# ACCEPTED, and both are rendered raw into the operator's verify report. A
+# trailing newline is not a near-miss here; it is a forged report line.
+GIT_REF_RE = re.compile(r"\Agit:([0-9a-f]{40})(?::(.+))?\Z")
 
-_CLAIM_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
-_HEX_DIGEST_RE = re.compile(r"^[0-9a-f]{64}$")
+_CLAIM_ID_RE = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
 
 
 class CitationError(BagError):
@@ -144,6 +152,19 @@ class Citation:
         rewrites it. Validating at construction means the refusal lands on the
         run that made the mistake rather than on whoever reads the journal next.
         """
+        for field_name in ("claim_id", "stage", "quote", "source_ref",
+                           "capture", "page_content_hash", "media_type",
+                           "recorded_at"):
+            value = getattr(self, field_name)
+            if value is not None and not isinstance(value, str):
+                raise CitationError(
+                    f"citation field {field_name} is a "
+                    f"{type(value).__name__}, not a string. A row read back off "
+                    f"disk was not necessarily written by this module, and a "
+                    f"non-string reaching the regex below raises `TypeError` — "
+                    f"which is not the `CitationError` every caller of "
+                    f"`from_json` is told to catch.")
+
         if not _CLAIM_ID_RE.match(self.claim_id or ""):
             raise CitationError(
                 f"claim_id {self.claim_id!r} is not a usable identifier. "
@@ -154,6 +175,23 @@ class Citation:
             raise CitationError(
                 "stage is empty. Requirement 5 computes an evidence-set hash "
                 "per stage, so a row with no stage cannot be counted into one.")
+
+        # ⚠ `stage` AND `source_ref` ARE RENDERED RAW INTO THE OPERATOR'S VERIFY
+        # REPORT, so they are the fifth and sixth consumers of the rule
+        # `validated_run_id` enumerates by name: a string that folds across
+        # lines lets a record rewrite the report about itself. A row with
+        # `stage = "draft\n  evidence_set_hash[draft]: 0000…"` prints a line the
+        # checker never composed. Asked of `str.splitlines()` rather than of an
+        # author's list of terminators, for the reason `folds_a_tag_line` was
+        # extracted: eight spellings survived the hand-written version.
+        for field_name in ("stage", "source_ref"):
+            value = getattr(self, field_name) or ""
+            if folds_a_tag_line(value):
+                raise CitationError(
+                    f"claim {self.claim_id}: {field_name} {value!r} folds "
+                    f"across lines or carries surrounding whitespace. It is "
+                    f"rendered into the operator's verify report, so a value "
+                    f"that folds would forge a line the checker never wrote.")
         if not (self.quote or "").strip():
             raise CitationError(
                 f"claim {self.claim_id}: quote is empty. A citation with no "
@@ -183,12 +221,19 @@ class Citation:
                 f"neither an https URL nor a `git:<sha>` ref. Those are the two "
                 f"kinds of evidence this record describes, and a third would "
                 f"have no defined way to be re-checked offline.")
-        if not _HEX_DIGEST_RE.match(self.page_content_hash or ""):
+        # THE DIGEST SHAPE IS THE STORE'S RULE AND IS ASKED OF THE STORE. This
+        # module held a second hand-written copy of the same regex, and the two
+        # copies carried the same `^…$` defect — which is the shape this package
+        # extracted `contained_relpath` and `safe_payload_segment` for. One
+        # statement of one fact, so tightening it reaches both readers.
+        try:
+            validated_digest(self.page_content_hash or "")
+        except ContentStoreError as exc:
             raise CitationError(
                 f"claim {self.claim_id}: page_content_hash "
-                f"{self.page_content_hash!r} is not a sha256 digest. A web "
-                f"citation with no digest names no bytes, so it would verify "
-                f"clean by having nothing to check.")
+                f"{self.page_content_hash!r} is not a sha256 digest ({exc}). A "
+                f"web citation with no digest names no bytes, so it would "
+                f"verify clean by having nothing to check.") from None
 
     @property
     def evidence_id(self) -> str:
@@ -236,7 +281,18 @@ class Citation:
                 f"reader does not know is either a newer schema than it can "
                 f"read or a hand edit, and guessing between those is how a "
                 f"record silently loses meaning.")
-        return cls(**data)
+        try:
+            return cls(**data)
+        except TypeError as exc:
+            # ⚠ A ROW MISSING A REQUIRED FIELD RAISED `TypeError` STRAIGHT PAST
+            # THIS CLASS'S OWN "re-validated on the way in" GUARANTEE — and a
+            # truncated append is the single most likely corruption of a JSON
+            # Lines file, which is the format this module chose BECAUSE a
+            # partial write loses one row. `verify_bag` catches `CitationError`
+            # to turn a bad record into a structural finding; a `TypeError`
+            # went past it and killed the sweep.
+            raise CitationError(
+                f"citation row is missing a required field: {exc}") from exc
 
 
 def record_citation(directory: Path, citation: Citation) -> Path:
@@ -254,7 +310,19 @@ def record_citation(directory: Path, citation: Citation) -> Path:
             f"Citations are written into a writer directory allocated by "
             f"`Bag.writer_dir`, which is what makes concurrent writers safe.")
     target = directory / CITATIONS_FILE
-    with open(target, "a", encoding="utf-8") as handle:
+
+    # ⚠ MODE AT CREATION AND `O_NOFOLLOW`, THE SAME TWO RULES `_write_tag_file`
+    # KEEPS AND THIS FUNCTION DID NOT. Builtin `open(..., "a")` creates at
+    # `0o666 & ~umask` — 0644 on this host — so the quotes and claim text were
+    # the only file in a bag not at `FILE_MODE`, on a root the package's own
+    # docstrings call as sensitive as the transcripts beside it. And it follows
+    # a symlink, so a planted `citations.jsonl` link diverted appended rows out
+    # of the bag entirely: `read_citations` already refuses to FOLLOW such a
+    # link, which made the read side closed and the write side open.
+    fd = os.open(str(target),
+                 os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW,
+                 FILE_MODE)
+    with os.fdopen(fd, "a", encoding="utf-8") as handle:
         handle.write(citation.to_json() + "\n")
     return target
 

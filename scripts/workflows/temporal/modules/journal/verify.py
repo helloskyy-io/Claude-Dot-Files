@@ -41,9 +41,14 @@ what gets over-read.
 
 OFFLINE IS A PROPERTY OF THE CODE, NOT A PROMISE IN A DOCSTRING. Nothing in this
 module's import graph opens a socket: it reads files and, for a `git:` citation,
-runs `git cat-file` against a local object database. `test_verify_is_offline.py`
-asserts the import graph, and the phase's demonstration runs the whole thing with
-the process's network denied at the C library boundary.
+runs `git cat-file` against a local object database.
+`tests/unit/test_verify_citations.py::test_the_verifier_reaches_no_fetcher`
+asserts that intra-package import closure — with a discriminator beside it that
+starts the same walk at `content_activities`, which legitimately does reach the
+fetcher — and the phase's demonstration runs the whole thing with the process's
+network denied at the C library boundary. (The named test is the real guard; the
+file `test_verify_is_offline.py` this line used to cite has never existed, which
+is a claim about a property nobody could go and check.)
 """
 
 from __future__ import annotations
@@ -53,16 +58,17 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .bag import BAGIT_FILE
+from .bag import BAGIT_FILE, BagError
 from .citations import (Citation, CitationError, is_git_ref, parse_git_ref,
                         read_citations, stage_evidence_hashes)
-from .content_store import ContentStoreError, load_object
+from .content_store import ContentStoreError, ObjectMissing, load_object
 
 __all__ = ["VERIFIED", "MISSING", "TAMPERED", "SPAN_MISSING", "OUTCOMES",
            "EXIT_OK", "EXIT_MISSING", "EXIT_TAMPERED", "EXIT_SPAN_MISSING",
-           "EXIT_USAGE", "SEVERITY", "GIT_TIMEOUT_SECONDS", "CitationResult",
-           "VerifyReport", "span_occurs_in", "git_blob", "verify_citation",
-           "verify_bag", "render_report", "exit_code_for", "split_args", "main"]
+           "EXIT_STRUCTURAL", "EXIT_USAGE", "SEVERITY", "GIT_TIMEOUT_SECONDS",
+           "GitResolveError", "CitationResult", "VerifyReport",
+           "span_occurs_in", "git_blob", "verify_citation", "verify_bag",
+           "render_report", "exit_code_for", "split_args", "main"]
 
 VERIFIED = "verified"
 MISSING = "missing"
@@ -71,24 +77,56 @@ SPAN_MISSING = "span-missing"
 OUTCOMES = (VERIFIED, MISSING, TAMPERED, SPAN_MISSING)
 
 EXIT_OK = 0
-# 2 is left to usage, matching `validate_bag.py`, so a wrong invocation and a
-# real finding are never the same number.
+# 2 is left to usage ALONE, matching `validate_bag.py`, so a wrong invocation and
+# a real finding are never the same number. That sentence was false when it was
+# written — `exit_code_for` returned this for a structural finding — and
+# `EXIT_STRUCTURAL` below is what makes it true.
 EXIT_USAGE = 2
 EXIT_MISSING = 3
 EXIT_TAMPERED = 4
 EXIT_SPAN_MISSING = 5
+# ⚠ ITS OWN CODE, BECAUSE IT USED TO BE 2 AND THAT MADE THE COMMENT ABOVE FALSE.
+# A bag whose `citations.jsonl` cannot be parsed is a REAL FINDING — the record
+# of what was claimed is unreadable — and it exited with the number reserved for
+# "you invoked me wrong". Automation reading 2 as a usage error discards it, and
+# the report says FAIL while the code says try-again-with-better-arguments.
+# Ranked ABOVE `tampered`: a tampered object invalidates one verdict, an
+# unreadable record means the verdicts were never enumerable at all.
+EXIT_STRUCTURAL = 6
+
+# The name of the structural class inside `SEVERITY`. Not an outcome a citation
+# can carry — no citation was reached — so it is not in `OUTCOMES` and never
+# appears in `counts()`.
+STRUCTURAL = "structural"
 
 # WHICH CODE A MIXED RUN EXITS WITH, ordered by how much of the report the
 # outcome invalidates rather than by how bad it sounds. A tampered object means
 # the store itself is untrustworthy, so every other verdict in the same run is
 # provisional; a missing object means one check could not be made; a
-# span-missing is a complete, trustworthy check with a negative answer. Stated
-# as data because a caller reading the exit code needs the same ordering the
-# report used.
-SEVERITY = {TAMPERED: 3, MISSING: 2, SPAN_MISSING: 1, VERIFIED: 0}
+# span-missing is a complete, trustworthy check with a negative answer; and a
+# structural finding outranks all of them because it means the citations were
+# never enumerated at all. Stated as data because a caller reading the exit code
+# needs the same ordering the report used.
+SEVERITY = {STRUCTURAL: 4, TAMPERED: 3, MISSING: 2, SPAN_MISSING: 1,
+            VERIFIED: 0}
 
 _EXIT_FOR = {VERIFIED: EXIT_OK, MISSING: EXIT_MISSING,
-             TAMPERED: EXIT_TAMPERED, SPAN_MISSING: EXIT_SPAN_MISSING}
+             TAMPERED: EXIT_TAMPERED, SPAN_MISSING: EXIT_SPAN_MISSING,
+             STRUCTURAL: EXIT_STRUCTURAL}
+
+
+class GitResolveError(BagError):
+    """A `git:` citation could not be produced from a git object database.
+
+    ⚠ NOT A `ContentStoreError`, WHICH IS WHAT IT WAS. `verify_citation` now
+    branches on exception TYPE to choose an outcome, and `ContentStoreError`
+    means "the content store failed" — so git-not-installed and a git timeout
+    were arriving in the branch that classifies store failures. The two
+    resolvers fail for unrelated reasons and a caller must be able to tell them
+    apart without reading prose, which is the defect this whole file just paid
+    for once.
+    """
+
 
 # `git cat-file` against a local object database answers in milliseconds. The
 # bound exists because an unbounded subprocess in a checker is how a verify run
@@ -136,7 +174,17 @@ class VerifyReport:
 
     @property
     def worst(self) -> str:
-        """The outcome this report exits on. `verified` when there is nothing worse."""
+        """The class this report exits on. `verified` when there is nothing worse.
+
+        ⚠ STRUCTURAL IS RANKED HERE AND NOT ONLY IN `exit_code_for`. This
+        property returned `verified` for a report whose `ok` was False, because
+        it ranked `results` and ignored `structural` — so the obviously-named
+        property said "nothing wrong" for the one report class that means the
+        citations were never enumerated. Two derivations of one severity is the
+        shape that produced the exit-code defect one field up.
+        """
+        if self.structural:
+            return STRUCTURAL
         return max((r.outcome for r in self.results),
                    key=lambda o: SEVERITY[o], default=VERIFIED)
 
@@ -176,19 +224,27 @@ def git_blob(repo_root: Path, sha: str, path: str | None) -> bytes:
     """
     target = f"{sha}:{path}" if path else sha
     try:
+        # `timeout=` directly rather than `assistant_activities.run_bounded`:
+        # `modules/journal/` does not import upward into the workflow modules,
+        # which is the dependency rule this package's `__init__` states. The
+        # bound is the property the fleet-wide guard checks, and it is here.
         probe = subprocess.run(["git", "cat-file", "-p", target],
                                cwd=str(repo_root), capture_output=True,
                                timeout=GIT_TIMEOUT_SECONDS)
     except FileNotFoundError as exc:
-        raise ContentStoreError(
+        raise GitResolveError(
             f"cannot resolve {target}: git is not installed or not on PATH in "
             f"this environment.") from exc
     except subprocess.TimeoutExpired as exc:
-        raise ContentStoreError(
+        raise GitResolveError(
             f"cannot resolve {target}: `git cat-file` did not answer within "
             f"{GIT_TIMEOUT_SECONDS:.0f}s in {repo_root}.") from exc
+    except OSError as exc:
+        raise GitResolveError(
+            f"cannot resolve {target}: `git cat-file` could not be launched in "
+            f"{repo_root} ({exc.strerror}).") from exc
     if probe.returncode != 0:
-        raise ContentStoreError(
+        raise GitResolveError(
             f"{target} is MISSING from the git object database at {repo_root}: "
             f"{probe.stderr.decode('utf-8', errors='replace').strip()[:200]}")
     return probe.stdout
@@ -216,14 +272,28 @@ def verify_citation(bag_path: Path, citation: Citation, *,
         sha, path = parse_git_ref(citation.source_ref)
         try:
             data = git_blob(repo_root, sha, path)
-        except ContentStoreError as exc:
+        except GitResolveError as exc:
             return result(MISSING, str(exc))
     else:
+        # ⚠ THE OUTCOME COMES FROM THE EXCEPTION TYPE, NOT FROM ITS MESSAGE.
+        # This asked `"TAMPERED" in str(exc)` — of prose that embeds the store
+        # directory, which embeds the run id, which `RUN_ID_PERMITTED` allows to
+        # contain those letters. A run named `TAMPERED-2026` reported every
+        # ABSENT object as a corrupted one. The outcome class is a fact about
+        # what failed and is carried by the failure.
+        #
+        # Everything that is not `ObjectMissing` lands in `tampered`, which is
+        # the class that means "the store is not currently to be trusted" — the
+        # true statement for a corrupt object AND for one that is present and
+        # unreadable. `missing` is reserved for "nothing was stored", because
+        # its remedy is "re-capture the source" and that is destructive advice
+        # for bytes that are merely behind a failing disk.
         try:
             data = load_object(bag_path, citation.page_content_hash)
+        except ObjectMissing as exc:
+            return result(MISSING, str(exc))
         except ContentStoreError as exc:
-            message = str(exc)
-            return result(TAMPERED if "TAMPERED" in message else MISSING, message)
+            return result(TAMPERED, str(exc))
 
     if not span_occurs_in(citation.quote, data):
         return result(
@@ -247,11 +317,20 @@ def verify_bag(bag_path: Path, *, repo_root: Path | None = None) -> VerifyReport
                             structural=(f"{bag_path} is not a directory",))
     try:
         citations = read_citations(bag_path)
-    except CitationError as exc:
+    except (CitationError, OSError, ValueError) as exc:
         # A citation FILE that cannot be parsed is structural: it is not one
         # claim failing, it is the record of what was claimed being unreadable,
         # and reporting it as a per-citation outcome would understate it.
-        return VerifyReport(path=bag_path, structural=(str(exc),))
+        #
+        # ⚠ AND THAT INCLUDES A FILESYSTEM OR DECODE ERROR — the half
+        # `validate_bag` already paid for and documented, and this function did
+        # not carry across. Only `CitationError` was caught, so a
+        # `citations.jsonl` holding non-UTF-8 bytes raised `UnicodeDecodeError`
+        # (a `ValueError`) straight out of the sweep, and a permission failure
+        # or a file that vanished mid-`rglob` raised `OSError`. One such bag
+        # killed a whole-journal run and reported nothing about the other 47 —
+        # verbatim the regression `validate.py` records against itself.
+        return VerifyReport(path=bag_path, structural=(f"{type(exc).__name__}: {exc}",))
 
     results = tuple(verify_citation(bag_path, c, repo_root=repo_root)
                     for c in citations)
@@ -260,9 +339,14 @@ def verify_bag(bag_path: Path, *, repo_root: Path | None = None) -> VerifyReport
 
 
 def exit_code_for(reports: list[VerifyReport]) -> int:
-    """The code the run exits with: the most severe outcome anywhere in it."""
-    if any(r.structural for r in reports):
-        return EXIT_USAGE
+    """The code the run exits with: the most severe class anywhere in it.
+
+    ONE RANKING, APPLIED ONCE. This short-circuited on `structural` and returned
+    `EXIT_USAGE` before the ranking ran, so a sweep containing one unparseable
+    record and one tampered object exited 2 — the number the entrypoint
+    documents as "usage" — and the integrity finding was reported to a caller
+    that had been told it had merely typed the command wrong.
+    """
     worst = max((r.worst for r in reports), key=lambda o: SEVERITY[o],
                 default=VERIFIED)
     return _EXIT_FOR[worst]
@@ -331,6 +415,9 @@ def main(argv: list[str] | None = None) -> int:
     `--repo` supplies the repository `git:` citations resolve against. Without
     it those citations report `missing` and say why, which is honest: this run
     could not make the check, rather than the check having failed.
+
+    EXIT CODES: 0 verified · 2 usage · 3 missing · 4 tampered · 5 span-missing ·
+    6 structural (a bag exists and its citation record cannot be read).
     """
     args = list(sys.argv[1:] if argv is None else argv)
     try:
@@ -347,7 +434,14 @@ def main(argv: list[str] | None = None) -> int:
     reports: list[VerifyReport] = []
     for raw in targets:
         target = Path(raw).expanduser()
-        if (target / BAGIT_FILE).is_file() or not target.is_dir():
+        # A PATH THE OPERATOR NAMED THAT IS NOT THERE IS USAGE, and it is
+        # separated here so that `EXIT_STRUCTURAL` means one thing only: a bag
+        # that exists and whose record cannot be read. Collapsing the two is
+        # what put a real finding behind the usage code.
+        if not target.is_dir():
+            print(f"not a directory: {target}", file=sys.stderr)
+            return EXIT_USAGE
+        if (target / BAGIT_FILE).is_file():
             reports.append(verify_bag(target, repo_root=repo_root))
             continue
         children = sorted(p for p in target.iterdir() if p.is_dir())

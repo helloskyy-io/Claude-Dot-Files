@@ -286,6 +286,10 @@ claude-dot-files/
 │               │                                    #   a corpus that is no longer in this repo, and a copy per
 │               │                                    #   module is 17 chances to point at a stale path
 │               ├── integration/                    # Runs against what the FLEET actually wrote, not against a constructed fixture
+│               │   ├── conftest.py                  # The `journal_root` fixture, at the package's own DIR_MODE rather than a bare 0o700
+│               │   │                                #   literal. tests/unit/conftest.py is not reachable from here — pytest resolves
+│               │   │                                #   conftest by directory — so this is the sibling copy, and it exists because the
+│               │   │                                #   same four lines had already been retyped three times in one file
 │               │   ├── test_a_real_bag_validates.py # Every journal bag on THIS machine still validates. Skips — distinctly from passing —
 │               │   │                                #   where no dispatch has run, because a clone has no journal and there is nothing
 │               │   │                                #   honest to assert about that. Does NOT substitute for the entrypoint sweep: a fleet

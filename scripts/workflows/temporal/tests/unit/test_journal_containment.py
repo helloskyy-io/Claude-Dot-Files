@@ -102,11 +102,15 @@ _TRUSTED_JOINS = {
         "_parse_manifest passes every manifest entry through contained_relpath "
         "before it reaches this dict, and refuses the line otherwise. This is "
         "the join that reported PASS over /etc/hostname before that existed.",
-    ("content_store.py", "f'.{digest}.{os.getpid()}.part'"):
-        "store_bytes composes a staging name from two values NEITHER of which "
+    ("content_store.py", "f'.{digest}.{os.getpid()}.{uuid.uuid4().hex}.part'"):
+        "store_bytes composes a staging name from three values NONE of which "
         "a caller supplies: `digest` is this module's own sha256 hex output, "
         "re-proven by `validated_digest` inside `object_path` on the line that "
-        "produced `parent`, and `os.getpid()` is an integer from the kernel. "
+        "produced `parent`, `os.getpid()` is an integer from the kernel, and "
+        "`uuid.uuid4().hex` is 32 hex characters from the uuid module — added "
+        "because the pid alone is NOT unique across the threads a Temporal "
+        "worker runs sync activities on, and two threads collided on one "
+        "staging name. "
         "The literal parts carry no separator, so the result is one filename "
         "and cannot be a relative segment. It joins onto `parent`, which is "
         "itself the contained object path's directory — the join that carries "
