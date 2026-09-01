@@ -101,13 +101,53 @@ from __future__ import annotations
 
 import argparse
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from modules.journal.bag import (BagError, RUN_ID_PERMITTED_DESCRIPTION,
                                  validated_run_id)
 from modules.journal.journal_activities import mint_run_id
 
-__all__ = ["RunIdentity", "add_identity_arguments", "resolve_identity"]
+__all__ = ["RunIdentity", "add_identity_arguments", "derivation",
+           "resolve_identity"]
+
+
+def derivation(*, marker: str, algorithm: str, override: str,
+               scope: str) -> dict[str, str]:
+    """The four things a field of the run context must say about itself.
+
+    WHY FOUR, AND WHY THESE FOUR. The research pool behind Workflow
+    Decomposition Phase 4 names five properties a safe derivation has. Two of
+    them this fleet already satisfies structurally — `resolve_repo_root` anchors
+    on a MARKER (`git rev-parse` reads `.git`, it does not guess) and `--repo` is
+    an explicit OVERRIDE. Two were absent: the published ALGORITHM and the
+    stated SCOPE OF EFFECT. The fifth is the echo, which is behaviour rather
+    than documentation. `marker` and `override` are carried here anyway so a
+    reader of one field sees all four in one place, and so a field that has no
+    override has to SAY it has none rather than leave the reader inferring it.
+
+    SCOPE OF EFFECT IS NOT DECORATION — it answers *what else is wrong if this
+    value is wrong*, and it is what makes the echo readable. An echo that prints
+    a path tells a reader WHAT was derived; the scope tells them whether to care.
+
+    STRUCTURED METADATA RATHER THAN PROSE, AND THIS IS A DEPARTURE FROM THE
+    PLAN'S WORDING. The plan asks for a field "docstring" naming the four parts.
+    Python has no field docstrings — the nearest convention is a `#:` comment
+    the interpreter throws away — and a check asserting four NAMED parts are
+    present would then have to parse them back out of one prose blob, which
+    makes the check's population the parser's guesses rather than the four
+    parts. `dataclasses.field(metadata=...)` keeps the statement AT the field,
+    where a reader meets it, and makes each of the four separately addressable
+    by `dataclasses.fields()`. The population is unchanged; only the parsing
+    problem is gone.
+
+    ⚠ WHAT THE CHECK OVER THIS CAN AND CANNOT DO: it asserts each part is
+    PRESENT and NON-EMPTY, never that any of them is TRUE. A field naming the
+    wrong marker passes. That limit is accepted rather than worked around — the
+    truth of an algorithm sentence is a judgement, and the failure this exists to
+    catch is ABSENCE.
+    """
+    return {"marker": marker, "algorithm": algorithm,
+            "override": override, "scope": scope}
 
 
 @dataclass(frozen=True)
@@ -119,11 +159,49 @@ class RunIdentity:
     minted one is a name that exists nowhere until this process says it out loud.
     """
 
-    run_id: str
-    writer: str | None
+    run_id: str = field(metadata=derivation(
+        marker="the `--run-id` argument — or its absence, which is itself the "
+               "marker for *nothing has named this run yet*.",
+        algorithm="taken verbatim from `--run-id` when supplied and validated "
+                  "against the permitted character set; otherwise minted here "
+                  "by `mint_run_id`, the fleet's one naming authority, and "
+                  "announced on stderr.",
+        override="`--run-id <id>`, which is also how a retry aims at an "
+                 "existing bag.",
+        scope="wrong ⇒ this run's records land in another run's bag or in one "
+              "nobody can find, no retry can be aimed at the same folder, and "
+              "the run's cost is accounted against the wrong work. "
+              "Re-enumerating this repo's archived logs once returned files "
+              "named for scripts that no longer exist, because two naming "
+              "authorities were live at the same time."))
+
+    writer: str | None = field(metadata=derivation(
+        marker="the presence of `--writer`. NEVER the environment, never the "
+               "working directory, never the absence of one — a child started "
+               "by a parent, by a person, and by a person reproducing what a "
+               "parent did are indistinguishable from inside the process.",
+        algorithm="taken verbatim from `--writer`; `None` means this invocation "
+                  "IS the run rather than a member of one. `--writer` with no "
+                  "`--run-id` is refused rather than defaulted.",
+        override="none — it is declared, and `--writer` is the only input.",
+        scope="wrong ⇒ a child silently becomes its own run and its records "
+              "leave the parent's bag, or a parent adopts a bag it should have "
+              "created. It also gates the run-context echo: a member does not "
+              "reprint what its parent already said."))
 
     #: True when nothing supplied the name and this boundary made one.
-    minted: bool
+    minted: bool = field(metadata=derivation(
+        marker="whether `--run-id` reached this process.",
+        algorithm="True when nothing supplied the name and this boundary made "
+                  "one; carried rather than re-derived because the two cases "
+                  "are operator-facing and differ — a supplied name is one the "
+                  "caller can reproduce, a minted one exists nowhere until this "
+                  "process says it out loud.",
+        override="none — it is an observation about this invocation.",
+        scope="wrong ⇒ the boundary either announces a name the caller already "
+              "knew, or stays silent about one nobody was told, which is a bag "
+              "nobody can retry into. It is NOT the echo's gate: see "
+              "`RunContext.echo`, which explains why `writer` is."))
 
     @property
     def is_the_run(self) -> bool:

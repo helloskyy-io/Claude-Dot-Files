@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from preflight import preflight  # noqa: E402
 from dispatch_identity import add_identity_arguments, resolve_identity  # noqa: E402
+from dispatch_context import RunContext  # noqa: E402
 
 from modules.journal import journal_activities as journal  # noqa: E402
 from modules.assistant.build.build_inputs import BuildInput  # noqa: E402
@@ -73,20 +74,28 @@ def main(argv: list[str] | None = None) -> int:
         # that enforces it can and cannot see: `journal_activities.py`'s module
         # docstring and `tests/unit/test_every_parent_opens_a_run_bag.py`. Said
         # once there rather than eleven times here.
-        # The name is computed here rather than below so the bag can record it.
-        # It is a pure string — nothing is created until `run_build_minor` — so
-        # this does not move a side effect ahead of the bag.
-        worktree_name = f"build-{int(__import__('time').time())}"
-        # PHASE 9 r2 and r4 — the run's NAME arrives from outside this
-        # process, and `writer` says whether this invocation IS the run or
-        # is part of one. Why both, and where a name comes from when no
-        # orchestrator supplies it: `dispatch_identity.py`. Said once there.
-        identity = resolve_identity(argv)
-        journal.open_run_bag(run_id=identity.run_id, writer=identity.writer,
-                             repo_root=repo_root,
-                             workflow_key="build-minor", worktree_name=worktree_name)
+        # EVERYTHING THIS RUN DERIVED, BUILT ONCE AND SAID OUT LOUD BEFORE THE
+        # BAG OPENS, THE WORKTREE IS CUT OR ANY `gh` CALL RUNS.
+        #
+        # ⚠ THIS RENAMES THIS RUNNER'S WORKTREE, AND THE RENAME IS THE POINT
+        # RATHER THAN A SIDE EFFECT. The line deleted above built
+        # `build-<ts>` while this runner's `workflow_key` is `build-minor`, so
+        # its trees have been landing under `.claude/worktrees/build-…` —
+        # indistinguishable from the `build` parent's, which is precisely what
+        # `/cleanup-merged-worktrees` and the journal's `Journal-Worktree` field
+        # use to tell one run from another. Deriving the name from the key the
+        # bag already records fixes the drift; trees are now `build-minor-<ts>`.
+        # `target=None`: a build is pointed at a task, not at a component.
+        ctx = RunContext.build(identity=resolve_identity(argv), repo_root=repo_root,
+                               workflow_key="build-minor", pr_number=task.pr_number)
+        ctx.echo()
+        journal.open_run_bag(run_id=ctx.run_id, writer=ctx.writer,
+                             repo_root=ctx.repo_root,
+                             workflow_key=ctx.workflow_key,
+                             worktree_name=ctx.worktree_name,
+                             journal_root=ctx.journal_root)
 
-        result = run_build_minor(task, repo_root, worktree_name)
+        result = run_build_minor(task, repo_root, ctx.worktree_name)
     except (RuntimeError, FileNotFoundError) as exc:
         # These carry operator-facing recovery instructions from the layer that
         # knew what failed. Do not wrap or reformat them.

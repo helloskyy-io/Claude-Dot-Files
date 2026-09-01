@@ -230,6 +230,7 @@ def _git(repo_root: Path, *args: str) -> str:
 
 def open_run_bag(*, run_id: str, writer: str | None, repo_root: Path,
                  workflow_key: str, worktree_name: str | None,
+                 journal_root: Path | None = None,
                  config_path: Path | None = None,
                  env: Mapping[str, str] | None = None) -> Bag:
     """Resolve the journal root and open this run's bag. Raises to stop the run.
@@ -271,8 +272,14 @@ def open_run_bag(*, run_id: str, writer: str | None, repo_root: Path,
     optional control is a skipped control; a keyword with no default applies it
     to the package's own parameter, and the next entrypoint added fails at the
     call rather than writing a placeholder nobody notices. Pass `None`
-    explicitly to state that a workflow cuts no worktree — `run_review_pr` is the
-    one that genuinely does not.
+    explicitly to state that a workflow cuts no worktree.
+
+    ⚠ NO ENTRYPOINT PASSES `None` TODAY, AND THE ONE THAT USED TO WAS WRONG.
+    `run_review_pr` passed it with the comment *"the ONE workflow that cuts no
+    worktree — it reviews a PR in place"*, while `review_pr_workflow` cut one
+    through `worktree_add` on the very next call. The `None` arm stays because
+    the distinction it draws is real and a future workflow may need it; what is
+    gone is the claim that anything currently uses it.
 
     THE ORIGINATING REPO IS A FIRST-CLASS FIELD, recorded here rather than left
     to Phase 3. The run log it supersedes is keyed per repo CHECKOUT while the
@@ -284,6 +291,19 @@ def open_run_bag(*, run_id: str, writer: str | None, repo_root: Path,
     different questions. `repo_root` under this fleet is usually a worktree, which
     is the run's actual working directory; the remote is the stable project
     identity that every worktree of that project shares.
+
+    `journal_root` IS THE BOUNDARY'S ANSWER, TAKEN RATHER THAN RE-DERIVED.
+    Workflow Decomposition Phase 4 resolves the root once at the dispatch
+    boundary, as a field on the run context, so the run can NAME it before it
+    spends anything and so an unusable root stops the run one step earlier. When
+    a caller supplies it, this activity uses it; when nobody does, it resolves
+    the root itself exactly as before. Both halves are load-bearing: the second
+    is what keeps `validate_bag`, the tests and any future caller with no context
+    working unchanged, and the first is what stops the fleet holding two answers
+    to one question. It is NOT re-validated here — the boundary already refused
+    a relative path, a symlink, a root inside a repo, a wrong owner and a wrong
+    mode, and running those again would mean two places could disagree about
+    what a usable root is.
 
     RAISES `RuntimeError` (`JournalRootError` or `BagError`), which every
     entrypoint's existing precondition handler already prints. That is r9: the
@@ -300,7 +320,8 @@ def open_run_bag(*, run_id: str, writer: str | None, repo_root: Path,
     traceback for precisely the steady-state failure — a full journal — that r9's
     whole argument is built on being diagnosable without a working journal.
     """
-    root = resolve_journal_root(config=load_journal_config(config_path), env=env)
+    root = journal_root if journal_root is not None else resolve_journal_root(
+        config=load_journal_config(config_path), env=env)
 
     remote = _git(repo_root, "remote", "get-url", "origin")
     commit = _git(repo_root, "rev-parse", "HEAD")

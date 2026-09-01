@@ -223,9 +223,20 @@ claude-dot-files/
 │           │                                        #   a run's CONTENT here — that is Phase 3. Imports no workflow module, so a
 │           │                                        #   measurement helper can load it without dragging in temporalio
 │           ├── scripts/                             # Kickoff entrypoints, until an SDK path replaces them — plus preflight.py,
-│           │                                        #   validate_bag.py and dispatch_identity.py, which are NOT kickoffs: they are what a
-│           │                                        #   run checks before, what an operator checks after, and who NAMES the run. All three
-│           │                                        #   live here because they are launch concerns rather than workflow concerns
+│           │                                        #   validate_bag.py, dispatch_identity.py and dispatch_context.py, which are NOT
+│           │                                        #   kickoffs: they are what a run checks before, what an operator checks after, who
+│           │                                        #   NAMES the run, and what the run DERIVED. All four live here because they are
+│           │                                        #   launch concerns rather than workflow concerns. None is named run_*.py, and that
+│           │                                        #   is load-bearing — the entrypoint sweeps glob that prefix, so a helper wearing it
+│           │                                        #   is swept as a runner and fails five guards at once (measured 2026-09-01)
+│           │                                        #   dispatch_context.py is Workflow Decomposition Phase 4's answer to "what did this
+│           │                                        #   run work out for itself": a frozen RunContext extending RunIdentity, built ONCE at
+│           │                                        #   the dispatch boundary, carrying the repo root, journal root, workflow key, worktree
+│           │                                        #   name, PR number and target — each field stating its marker, algorithm, override and
+│           │                                        #   scope of effect. It echoes itself on stderr before the first side effect, and the
+│           │                                        #   same render() is what every --dry-run previews, so a rehearsal cannot show
+│           │                                        #   something other than what runs. The worktree name lived at ELEVEN sites in THREE
+│           │                                        #   spellings before it moved here, one of them already drifted from its workflow key
 │           │                                        #   dispatch_identity.py is Phase 9's answer to "who names a run": it declares --run-id
 │           │                                        #   and --writer once for every entrypoint, validates a supplied name, and mints one
 │           │                                        #   ONLY when nothing supplied it — then prints it, because a name nobody was told is a
@@ -307,6 +318,18 @@ claude-dot-files/
 │                   │                                #   success — $8.60, nine findings left open (MDC #204)
 │                   ├── test_a_gh_reply_is_checked_for_SHAPE_not_only_parsed.py # Every `gh`-reply `json.loads` asks what SHAPE came
 │                   │                                #   back — a decode guard alone lets `{"message": …}` through to a `TypeError`
+│                   ├── test_a_WRONG_TARGET_is_NAMED_before_the_run_costs_anything.py # Phase 4 r5, DEMONSTRATED rather
+│                   │                                                   #   than asserted: a real entrypoint's live main(), pointed at the wrong
+│                   │                                                   #   component, with bag-open replaced by a raise. A wrong target is the
+│                   │                                                   #   one derived value that fails SILENTLY — the run plans the wrong
+│                   │                                                   #   thing competently and opens a real PR. Carries the verbatim transcript
+│                   ├── test_a_worktree_NAME_comes_from_the_RUN_CONTEXT.py # No worktree_add call assembles the name it cuts with.
+│                   │                                                   #   Keyed on the CALL SITE, matched on the function NAME so a module
+│                   │                                                   #   alias cannot hide it (review_pr_workflow reaches it as _shared., and
+│                   │                                                   #   the act.-keyed predicates in test_isolation_invariants are blind to
+│                   │                                                   #   that today). Received = a .worktree_name attribute, or a PARAMETER
+│                   │                                                   #   of that name — a local assignment is not received, which is what all
+│                   │                                                   #   eleven sites were. A fourth spelling fails without being anticipated
 │                   ├── test_a_new_branch_STARTS_FROM_THE_DEFAULT_BRANCH.py # A run with no --pr is cut from the DEFAULT BRANCH, never the
 │                   │                                                   #   operator's HEAD. Keyed on worktree_add's ref argument, so an inline
 │                   │                                                   #   literal is as visible as an assignment — the 11th call site was inline.
@@ -602,6 +625,17 @@ claude-dot-files/
 │                   │                                #   more. Sweeps every f"{label}: {value}" for an undeclared value; the battery beside it
 │                   │                                #   is DERIVED from splitlines() rather than from a remembered list, and the round trip
 │                   │                                #   is the property: for any accepted value, reading the file returns what was written
+│                   ├── test_dispatch_context.py     # The run context's behaviour: the worktree name follows the workflow key (every key,
+│                   │                                #   because the drift was in one of eleven), the object is frozen, the echo is gated on
+│                   │                                #   `is_the_run` rather than on `minted` — a retry supplies its name and is exactly the
+│                   │                                #   caller who needs the echo — and the rehearsal renders the same object as the live
+│                   │                                #   run. Also two AST sweeps over the entrypoints: every one builds and echoes, and
+│                   │                                #   every --dry-run branch renders a context instead of assembling its own preview
+│                   ├── test_every_context_FIELD_STATES_ITSELF.py # Phase 4 r6. Every field of RunContext names its marker, its
+│                   │                                #   algorithm, its override-or-none and its scope of effect. The population is
+│                   │                                #   dataclasses.fields() — a language primitive, which is why this is NOT the tree-wide
+│                   │                                #   enumeration the phase deleted: that one had no population to read (four marker
+│                   │                                #   conventions, zero hits across 225 files). Asserts PRESENCE, never truth
 │                   ├── test_dispatch_identity.py    # The BEHAVIOURAL half of Phase 9 r3 and r4, against a real journal root — the sweeps
 │                   │                                #   are source greps and both requirements fail in ways a grep cannot see. r3's failure
 │                   │                                #   is SILENT (two bags for one run reads as two runs forever); r4's is a child quietly

@@ -79,7 +79,7 @@ def run_plan(*, component: Path, repo_root: Path, worktree_name: str,
 
     verdict = _refine_size_and_dispose(
         component=component, repo_root=repo_root, worktree=worktree,
-        sprint_path=sprint_path, candidates_path=candidates_path, pr=pr,
+        worktree_name=worktree_name, sprint_path=sprint_path, candidates_path=candidates_path, pr=pr,
         repo_target=repo_target, notes=notes, correction_pass=False,
         verbose=verbose,
     )
@@ -118,7 +118,7 @@ def run_plan(*, component: Path, repo_root: Path, worktree_name: str,
         notes.append(f"HOLD (redispatch): loop-back {loops} of {routing.MAX_LOOPS}.")
         verdict = _refine_size_and_dispose(
             component=component, repo_root=repo_root, worktree=worktree,
-            sprint_path=sprint_path, candidates_path=candidates_path, pr=pr,
+            worktree_name=worktree_name, sprint_path=sprint_path, candidates_path=candidates_path, pr=pr,
             repo_target=repo_target, notes=notes, correction_pass=True,
             verbose=verbose,
         )
@@ -142,6 +142,7 @@ def run_plan(*, component: Path, repo_root: Path, worktree_name: str,
 
 
 def _refine_size_and_dispose(*, component: Path, repo_root: Path, worktree: Path,
+                             worktree_name: str,
                              sprint_path: Path, candidates_path: Path, pr: str,
                              repo_target: str | None, notes: list[str],
                              correction_pass: bool, verbose: bool) -> routing.Verdict:
@@ -179,10 +180,14 @@ def _refine_size_and_dispose(*, component: Path, repo_root: Path, worktree: Path
     if hold is not None:
         return hold
 
+    # THREADED FROM THE RUN'S CONTEXT, NOT REBUILT. `run_review` cuts a
+    # per-pass tree on the PR's branch and takes the run's own worktree name
+    # as its stem, so the tree it makes is traceable to the run the bag
+    # recorded. See `review_pr_workflow.run_review`.
     result = review_pr.run_review(
         ReviewInput(pr_number=pr, repo_target=repo_target,
                     review_type=ReviewType.PLANNING, verbose=verbose),
-        repo_root,
+        repo_root, worktree_name=worktree_name,
     )
     notes.extend(result.notes)
     return result.verdict

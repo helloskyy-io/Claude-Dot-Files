@@ -123,7 +123,8 @@ def wired(monkeypatch: pytest.MonkeyPatch) -> _Calls:
 
 def _verdicts(monkeypatch: pytest.MonkeyPatch, calls: _Calls, *sequence: routing.Verdict) -> None:
     """Make review-pr return each verdict in turn, then repeat the last."""
-    def fake_review(review_input: object, repo_root: Path) -> ReviewResult:
+    def fake_review(review_input: object, repo_root: Path, *,
+                    worktree_name: str) -> ReviewResult:
         v = sequence[min(calls.review, len(sequence) - 1)]
         calls.review += 1
         return ReviewResult(pr_number="43", verdict=v, this_pass=calls.review, notes=[])
@@ -427,7 +428,8 @@ def test_the_parent_judges_against_PLANNING_criteria(wired: _Calls, monkeypatch:
     """
     seen: list[object] = []
 
-    def capture(review_input: object, repo_root: Path) -> ReviewResult:
+    def capture(review_input: object, repo_root: Path, *,
+                worktree_name: str) -> ReviewResult:
         seen.append(review_input.review_type)
         return ReviewResult(pr_number="43", verdict=routing.Verdict.MERGE, this_pass=1, notes=[])
 
@@ -457,9 +459,10 @@ def test_isolation_is_established_once_by_the_parent(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(pm, "wait_for_ci", lambda pr, **kw: True)
     monkeypatch.setattr(pm, "ci_verdict", lambda pr, **kw: (routing.CiVerdict.GREEN, []))
     monkeypatch.setattr(pm.review_pr, "run_review",
-                        lambda ri, rr: ReviewResult(pr_number="43",
-                                                    verdict=routing.Verdict.HOLD_REDISPATCH,
-                                                    this_pass=1, notes=[]))
+                        lambda ri, rr, *, worktree_name: ReviewResult(
+                            pr_number="43",
+                            verdict=routing.Verdict.HOLD_REDISPATCH,
+                            this_pass=1, notes=[]))
     _run()
     assert added == ["wt"], f"expected exactly one worktree, got {added}"
 

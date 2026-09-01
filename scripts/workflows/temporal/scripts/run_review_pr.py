@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from preflight import preflight  # noqa: E402
 from dispatch_identity import add_identity_arguments, resolve_identity  # noqa: E402
+from dispatch_context import RunContext  # noqa: E402
 
 from modules.journal import journal_activities as journal  # noqa: E402
 from modules.assistant.review_pr import review_pr_activities as act  # noqa: E402
@@ -56,7 +57,7 @@ def parse_args(argv: list[str] | None = None) -> tuple[ReviewInput, bool]:
     return task, args.dry_run
 
 
-def _dry_run(task: ReviewInput, repo_root: Path) -> int:
+def _dry_run(task: ReviewInput, repo_root: Path, ctx: RunContext) -> int:
     """Prove the plumbing without invoking the model.
 
     Everything the real path does up to the model call: fetch the PR, count
@@ -85,7 +86,10 @@ def _dry_run(task: ReviewInput, repo_root: Path) -> int:
         invocation_id=uuid.uuid4().hex,
     )
     print(f"{BANNER}\n  DRY RUN — nothing was invoked, nothing was posted\n{BANNER}")
-    print(f"  PR       : #{task.pr_number} ({pr['headRefName']}) — {pr['state']}")
+    # THE SAME OBJECT THE LIVE RUN PRINTS, rendered by the same method — the
+    # rehearsal receives the context rather than assembling a second copy of it.
+    print(ctx.render())
+    print(f"  Branch   : {pr['headRefName']} — {pr['state']}")
     print(f"  Title    : {pr['title']}")
     print(f"  Pass     : {this_pass} (prior: {prior_pass})")
     print(f"  Type     : {task.review_type.value}")
@@ -107,30 +111,37 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     try:
         if dry:
-            return _dry_run(task, repo_root)
+            return _dry_run(task, repo_root,
+                            RunContext.for_dry_run(repo_root=repo_root,
+                                                   workflow_key="review-pr",
+                                                   pr_number=task.pr_number))
 
-        # REQUIREMENT 11 — the run's bag is opened BEFORE the first side
-        # effect, and a root that will not resolve stops the run here (r9). Why
-        # this is not a helper each file remembers to call, and what the sweep
-        # that enforces it can and cannot see: `journal_activities.py`'s module
-        # docstring and `tests/unit/test_every_parent_opens_a_run_bag.py`. Said
-        # once there rather than eleven times here.
-        # PHASE 9 r2 and r4 — the run's NAME arrives from outside this
-        # process, and `writer` says whether this invocation IS the run or
-        # is part of one. Why both, and where a name comes from when no
-        # orchestrator supplies it: `dispatch_identity.py`. Said once there.
-        identity = resolve_identity(argv)
-        journal.open_run_bag(run_id=identity.run_id, writer=identity.writer,
-                             repo_root=repo_root,
-                             workflow_key="review-pr",
-                             # The ONE workflow that cuts no worktree — it
-                             # reviews a PR in place. Stated rather than
-                             # defaulted, so `-` in a bag means "this run had
-                             # none" and never "somebody forgot the argument".
-                             worktree_name=None)
+        # EVERYTHING THIS RUN DERIVED, BUILT ONCE AND SAID OUT LOUD BEFORE THE
+        # BAG OPENS, THE WORKTREE IS CUT OR ANY `gh` CALL RUNS. Identity comes
+        # from outside the process (Phase 9 r2/r4, `dispatch_identity.py`).
+        #
+        # ⚠ THIS RUN DOES CUT A WORKTREE, AND THIS ARGUMENT USED TO SAY IT DID
+        # NOT. `worktree_name=None` sat here with the comment *"the ONE workflow
+        # that cuts no worktree — it reviews a PR in place"*, while
+        # `review_pr_workflow` cut `review-pr-<n>-<ts>` through the same
+        # `worktree_add` whose docstring opens "ISOLATION IS AN INVARIANT, NOT A
+        # PARAMETER". Nothing was lying: the two halves were written in two
+        # places and only one of them was updated. The bag now records the stem
+        # the tree is actually named from — a review PASS appends its pass
+        # number, because a loop-back cuts one tree per pass.
+        #
+        # `target=None`: a review is pointed at a PR, which `pr_number` carries.
+        ctx = RunContext.build(identity=resolve_identity(argv), repo_root=repo_root,
+                               workflow_key="review-pr", pr_number=task.pr_number)
+        ctx.echo()
+        journal.open_run_bag(run_id=ctx.run_id, writer=ctx.writer,
+                             repo_root=ctx.repo_root,
+                             workflow_key=ctx.workflow_key,
+                             worktree_name=ctx.worktree_name,
+                             journal_root=ctx.journal_root)
 
         worktree = repo_root
-        result = wf.run_review(task, worktree)
+        result = wf.run_review(task, worktree, worktree_name=ctx.worktree_name)
     # OSError covers the log-path freshness guard's FileExistsError, which is a
     # runtime state with an operator-facing message, not a programming error.
     # TypeError is deliberately NOT caught: a signature mismatch should traceback

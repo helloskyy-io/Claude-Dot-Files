@@ -14,7 +14,6 @@ THE PARENT CALLS NO MODEL, so it has no `config.yaml` entry — the same as
 from __future__ import annotations
 
 import sys
-import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -22,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from preflight import RepoPathParser  # noqa: E402
 from dispatch_identity import add_identity_arguments, resolve_identity  # noqa: E402
+from dispatch_context import RunContext  # noqa: E402
 from modules.assistant import assistant_activities as act  # noqa: E402
 from modules.journal import journal_activities as journal  # noqa: E402
 from modules.assistant.plan.plan.plan_workflow import run_plan  # noqa: E402
@@ -72,31 +72,38 @@ def main(argv: list[str] | None = None) -> int:
     component, cands, sprint = (resolved["component"], resolved["candidates"],
                                 resolved["sprint"])
 
+    target = str(component.relative_to(repo_root))
+
     if a.dry_run:
         print(f"{BANNER}\n  DRY RUN — no child runs, nothing posted\n{BANNER}")
-        print(f"  Component  : {component.relative_to(repo_root)}")
+        # THE SAME OBJECT THE LIVE RUN PRINTS, rendered by the same method. A
+        # rehearsal that assembled its own copy would preview something that is
+        # not what runs, which is the bug this family has already shipped once.
+        print(RunContext.for_dry_run(repo_root=repo_root, workflow_key="plan",
+                                     pr_number=a.pr_number, target=target).render())
         print(f"  Sprint     : {sprint.relative_to(repo_root)}")
         print(f"  Candidates : {cands.relative_to(repo_root)}")
-        print(f"  PR         : {a.pr_number or '(a new one will be opened)'}")
         print(f"  Context    : {len(context.encode())} bytes from --task-file"
               if context else "  Context    : none")
         print("  Chain      : plan-draft → plan-refine → plan-sprint → CI gate → review-pr")
         print(f"  Loop-back  : the whole chain below the author, up to 3 times\n")
         return 0
 
-    # THE BAG OPENS BEFORE THE FIRST SIDE EFFECT, and the worktree NAME is
-    # computed here so the bag can record it. It is a pure string — nothing is
-    # created until `run_plan` — so this does not move a side effect ahead of
-    # the bag. See `journal_activities.py` for why this is not a helper.
-    worktree_name = f"plan-{int(time.time())}"
-    identity = resolve_identity(argv)
-    journal.open_run_bag(run_id=identity.run_id, writer=identity.writer,
-                         repo_root=repo_root, workflow_key="plan",
-                         worktree_name=worktree_name)
+    # EVERYTHING THIS RUN DERIVED, BUILT ONCE, AND SAID OUT LOUD BEFORE THE BAG
+    # OPENS. The worktree name is a field on it rather than an expression here;
+    # see `dispatch_context.py` for why eleven copies of that expression were the
+    # defect. The echo precedes bag-open, the worktree and every `gh` call.
+    ctx = RunContext.build(identity=resolve_identity(argv), repo_root=repo_root,
+                           workflow_key="plan", pr_number=a.pr_number, target=target)
+    ctx.echo()
+    journal.open_run_bag(run_id=ctx.run_id, writer=ctx.writer,
+                         repo_root=ctx.repo_root, workflow_key=ctx.workflow_key,
+                         worktree_name=ctx.worktree_name,
+                         journal_root=ctx.journal_root)
 
     try:
         pr_url, verdict, notes = run_plan(
-            component=component, repo_root=repo_root, worktree_name=worktree_name,
+            component=component, repo_root=repo_root, worktree_name=ctx.worktree_name,
             sprint_path=sprint, candidates_path=cands,
             context=context, pr_number=a.pr_number, repo_target=a.repo_target,
             verbose=a.verbose,

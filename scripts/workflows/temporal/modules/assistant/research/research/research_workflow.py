@@ -58,7 +58,7 @@ def run_research(*, research_dir: Path, repo_root: Path, worktree_name: str,
 
     loops = 0
     verdict = _verify_then_dispose(research_dir, pr, repo_root, worktree,
-                                   notes, verbose, correction=False)
+                                   worktree_name, notes, verbose, correction=False)
 
     # ONE loop-back. Self-correction plateaus at 3-5 passes; past it the model
     # justifies rather than corrects. Counting across the pipeline:
@@ -67,7 +67,7 @@ def run_research(*, research_dir: Path, repo_root: Path, worktree_name: str,
         loops += 1
         notes.append("HOLD (redispatch): looping back ONCE — the last automated pass.")
         verdict = _verify_then_dispose(research_dir, pr, repo_root, worktree,
-                                       notes, verbose, correction=True)
+                                       worktree_name, notes, verbose, correction=True)
 
     if verdict is Verdict.HOLD_NEEDS_ASSISTANCE:
         # THE LOOP DECISION AND NOTHING ELSE. Wiring the CI gate above gave this
@@ -88,7 +88,8 @@ def run_research(*, research_dir: Path, repo_root: Path, worktree_name: str,
 
 
 def _verify_then_dispose(research_dir: Path, pr: str, repo_root: Path,
-                         worktree: Path, notes: list[str], verbose: bool,
+                         worktree: Path, worktree_name: str,
+                         notes: list[str], verbose: bool,
                          *, correction: bool) -> Verdict:
     verify.run_verify(
         research_dir=research_dir, pr_number=pr, repo_root=repo_root,
@@ -119,9 +120,13 @@ def _verify_then_dispose(research_dir: Path, pr: str, repo_root: Path,
 
     # --type research: candidates are CARGO, not findings. A clean research PR
     # returns MERGE with zero findings, and that is the expected outcome.
+    # THREADED FROM THE RUN'S CONTEXT, NOT REBUILT. `run_review` cuts a
+    # per-pass tree on the PR's branch and takes the run's own worktree name
+    # as its stem, so the tree it makes is traceable to the run the bag
+    # recorded. See `review_pr_workflow.run_review`.
     result = review_pr.run_review(
         ReviewInput(pr_number=pr, verbose=verbose, review_type=ReviewType.RESEARCH),
-        repo_root,
+        repo_root, worktree_name=worktree_name,
     )
     notes.extend(result.notes)
     return result.verdict

@@ -171,7 +171,7 @@ def run_plan_project(*, repo_root: Path, worktree_name: str,
 
     # --- Step 3: DISPOSITION, with one bounded loop-back -------------------
     loops = 0
-    verdict = _dispose(pr, repo_root, repo_target, notes, verbose)
+    verdict = _dispose(pr, repo_root, repo_target, worktree_name, notes, verbose)
 
     while routing.should_loop_back(verdict, loops):
         loops += 1
@@ -212,7 +212,7 @@ def run_plan_project(*, repo_root: Path, worktree_name: str,
             candidates_path=candidates_path, research_dir=research_dir,
             pr_number=pr, verbose=verbose,
         )
-        verdict = _dispose(pr, repo_root, repo_target, notes, verbose)
+        verdict = _dispose(pr, repo_root, repo_target, worktree_name, notes, verbose)
 
     if verdict is routing.Verdict.HOLD_NEEDS_ASSISTANCE:
         # THE LOOP DECISION AND NOTHING ELSE. Wiring the CI gate into `_dispose`
@@ -242,6 +242,7 @@ def run_plan_project(*, repo_root: Path, worktree_name: str,
 
 
 def _dispose(pr: str, repo_root: Path, repo_target: str | None,
+             worktree_name: str,
              notes: list[str], verbose: bool) -> routing.Verdict:
     """One disposition pass, judged against the PLANNING criteria, behind the gate.
 
@@ -272,10 +273,14 @@ def _dispose(pr: str, repo_root: Path, repo_target: str | None,
     if hold is not None:
         return hold
 
+    # THREADED FROM THE RUN'S CONTEXT, NOT REBUILT. `run_review` cuts a
+    # per-pass tree on the PR's branch and takes the run's own worktree name
+    # as its stem, so the tree it makes is traceable to the run the bag
+    # recorded. See `review_pr_workflow.run_review`.
     result = review_pr.run_review(
         ReviewInput(pr_number=pr, repo_target=repo_target,
                     review_type=ReviewType.PLANNING, verbose=verbose),
-        repo_root,
+        repo_root, worktree_name=worktree_name,
     )
     notes.extend(result.notes)
     return result.verdict

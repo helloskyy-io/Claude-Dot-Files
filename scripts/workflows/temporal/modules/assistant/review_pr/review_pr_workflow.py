@@ -133,8 +133,29 @@ def _append_shadow_pair(log_file, *, invocation_id: str, pr: str, expected_ref) 
         pass
 
 
-def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
-    """Disposition one PR and return its typed verdict."""
+def run_review(task: ReviewInput, worktree: Path, *,
+               worktree_name: str) -> ReviewResult:
+    """Disposition one PR and return its typed verdict.
+
+    `worktree_name` IS RECEIVED, NEVER ASSEMBLED HERE, and this parameter is the
+    whole of Workflow Decomposition Phase 4's reconciliation of `review-pr`.
+    This function used to build `f"review-pr-{pr}-{int(time.time())}"` inline —
+    the eleventh and oddest of the eleven sites that derived a worktree name for
+    themselves, and the one with no assignment to key a guard on. Worse, it made
+    the fleet contradict itself: `run_review_pr.py` recorded
+    `worktree_name=None` in the run bag with the comment *"the ONE workflow that
+    cuts no worktree"*, while this line cut one. Nothing was lying — the two
+    halves were written in two places and only one was updated.
+
+    THE TREE THIS CUTS IS PER-PASS, NOT PER-RUN, WHICH IS WHY THE NAME ARRIVES
+    RATHER THAN COMING OFF A CONTEXT FIELD DIRECTLY. A parent calls this once
+    per loop-back on one run, each pass needing its own tree on the PR's branch,
+    so the value cannot be a frozen boundary field — `dispatch_context.py`'s own rule
+    is that a value computed inside the work is not a context field. What IS
+    run-scoped is the STEM: the entrypoint passes `ctx.worktree_name`, a parent
+    passes the name of the tree it is working in, and the pass number — which
+    this function reads off the PR's own history — makes it unique.
+    """
     notes: list[str] = []
 
     pr = act.fetch_pr(task.pr_number, worktree)
@@ -180,9 +201,11 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
         invocation_id=invocation_id,
     )
 
-    # The reviewer must read the PR's branch, not the repo's checkout.
+    # The reviewer must read the PR's branch, not the repo's checkout. The name
+    # DERIVES FROM THE ONE THIS RUN WAS GIVEN — no clock, and nothing assembled
+    # from values this function was not handed.
     pr_tree = _shared.worktree_add(
-        worktree, f"review-pr-{task.pr_number}-{int(time.time())}",
+        worktree, f"{worktree_name}-review-{this_pass}",
         f"origin/{pr['headRefName']}",
     )
     # THE NONCE BINDS THE LOG'S NAME, not just the record inside it — this

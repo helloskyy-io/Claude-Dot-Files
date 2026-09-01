@@ -72,7 +72,7 @@ def run_build_minor(task: BuildInput, repo_root: Path, worktree_name: str) -> Bu
 
     loops = 0
     verdict = _refine_then_dispose(task, description, pr, repo_root,
-                                   worktree, notes, correction=False)
+                                   worktree, worktree_name, notes, correction=False)
 
     # Same bound as the major tier and for the same reason: self-correction
     # plateaus at roughly 3-5 passes, and past it the model justifies rather than
@@ -84,7 +84,7 @@ def run_build_minor(task: BuildInput, repo_root: Path, worktree_name: str) -> Bu
                      + (" The last automated pass."
                         if loops == helper.MAX_LOOPS else ""))
         verdict = _refine_then_dispose(task, description, pr, repo_root, worktree,
-                                       notes, correction=True,
+                                       worktree_name, notes, correction=True,
                                        loops_left=helper.MAX_LOOPS - loops)
 
     if verdict is Verdict.HOLD_NEEDS_ASSISTANCE:
@@ -106,7 +106,7 @@ def run_build_minor(task: BuildInput, repo_root: Path, worktree_name: str) -> Bu
 
 
 def _refine_then_dispose(task: BuildInput, description: str, pr: str,
-                         repo_root: Path, worktree: Path,
+                         repo_root: Path, worktree: Path, worktree_name: str,
                          notes: list[str], *, correction: bool,
                          loops_left: int = 0) -> Verdict:
     ci_settled = wait_for_ci(pr, repo_root=repo_root)
@@ -132,10 +132,14 @@ def _refine_then_dispose(task: BuildInput, description: str, pr: str,
     if hold is not None:
         return hold
 
+    # THREADED FROM THE RUN'S CONTEXT, NOT REBUILT. `run_review` cuts a
+    # per-pass tree on the PR's branch and takes the run's own worktree name
+    # as its stem, so the tree it makes is traceable to the run the bag
+    # recorded. See `review_pr_workflow.run_review`.
     result = review_pr.run_review(
         ReviewInput(pr_number=pr, repo_target=task.repo_target,
                     verbose=task.verbose, review_type=ReviewType.BUILD),
-        repo_root,
+        repo_root, worktree_name=worktree_name,
     )
     notes.extend(result.notes)
     return Verdict(result.verdict.value)
