@@ -256,6 +256,10 @@ claude-dot-files/
 │               │                                    #   unit modules drive an entrypoint main() and were writing real bags into the
 │               │                                    #   operator's ~/.local/state/. Redirects CONFIG_PATH, not XDG_STATE_HOME, so a
 │               │                                    #   configured root cannot silently lose the protection
+│               ├── planning_corpus.py               # Finds skyynet-master-planning from anywhere in the tree
+│               │                                    #   and exposes PLANNING_ROOT. ONE resolver: 17 modules read
+│               │                                    #   a corpus that is no longer in this repo, and a copy per
+│               │                                    #   module is 17 chances to point at a stale path
 │               ├── integration/                    # Runs against what the FLEET actually wrote, not against a constructed fixture
 │               │   └── test_a_real_bag_validates.py # Every journal bag on THIS machine still validates. Skips — distinctly from passing —
 │               │                                    #   where no dispatch has run, because a clone has no journal and there is nothing
