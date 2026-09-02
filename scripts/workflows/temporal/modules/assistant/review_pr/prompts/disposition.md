@@ -483,8 +483,8 @@ pr_review:
         <your best resolution (following from reframe + bp), so the operator can rule quickly>
   laundered_deferrals:               # RATE is the Layer-1 CPI signal, not the count — 2-of-2 and 2-of-40 are different worlds
     caught: <int>                    # deferrals pointing at a dead/invalid home (producing-run failure)
-    of_total: <int>                  # CUMULATIVE across ALL passes on this PR — every deferral ever raised,
-                                     # not just this pass's. A run that omits its Deferred Work section
+    of_total: <int>                  # CUMULATIVE across ALL passes — every deferral raised by ANY
+                                     # actor, INCLUDING your own. A run that omits its Deferred Work section
                                      # entirely must NOT score better (0/0) than one that honestly
                                      # laundered; a vanished deferral keeps counting in the denominator.
   homeless_items: <int>              # legitimate items with NO valid corpus surface (a STANDARDS gap — never counted against the producing run)
