@@ -210,7 +210,7 @@ _HERE = Path(__file__).resolve().parent
 # because it ships its own literal control: the shipped arrangement, the
 # corrected one, a function that never cuts, and a call that legitimately
 # needs the worktree.
-_PINNED = (40, 30)
+_PINNED = (41, 31)
 
 
 # GRANDFATHERED — walks the tree, has no literal control, PREDATES this rule.

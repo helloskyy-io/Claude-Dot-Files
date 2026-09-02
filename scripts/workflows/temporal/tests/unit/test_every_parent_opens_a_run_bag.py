@@ -53,7 +53,7 @@ enumerating test is only as good as its discovery predicate:
     _first_side_effect` below closes the most likely version of that by ORDER;
     proving execution needs the integration tier.
   * `--dry-run` IS A DELIBERATE EXEMPTION, and it is the concrete instance of the
-    point above rather than a hypothetical one: Thirteen of the seventeen entrypoints
+    point above rather than a hypothetical one: Seventeen of the seventeen entrypoints
     return from their dry-run branch before reaching bag-open, so on that path
     the call is present and does not run. That is intended — a dry run states
     "nothing invoked, nothing posted", and creating a directory would falsify it

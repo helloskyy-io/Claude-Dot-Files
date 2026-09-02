@@ -187,6 +187,15 @@ def _counts_a_tree(source: str) -> bool:
     A dry run's byte figures — `len(rendered.encode())`, `len(context.encode())`
     — measure a string this process just built, not a tree, and owe no
     attribution. Everything else does.
+
+    `.splitlines()` joins `.encode()` under that same sentence rather than as a
+    second special case: both measure an operator-supplied string this process
+    holds in memory, and neither can misattribute a tree because neither reads
+    one. The instance is `run_plan_revision.py`'s live banner, which truncates a
+    `--task-file` body to its first line and says so — a count that is not in the
+    dry run at all. Giving that runner a `Counted in :` line to satisfy the
+    detector would have it name a tree it never counts, which is the misstatement
+    this guard exists to prevent, produced by the guard.
     """
     i = source.find("len(")
     while i != -1:
@@ -199,7 +208,8 @@ def _counts_a_tree(source: str) -> bool:
                 if depth == 0:
                     break
             j += 1
-        if ".encode()" not in source[i:j]:
+        arg = source[i:j]
+        if ".encode()" not in arg and ".splitlines()" not in arg:
             return True
         i = source.find("len(", j)
     return False

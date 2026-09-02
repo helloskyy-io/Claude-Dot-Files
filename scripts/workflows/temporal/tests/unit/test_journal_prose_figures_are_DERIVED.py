@@ -286,7 +286,7 @@ _BOUND_FIGURES = {
         "cut their own worktree",
     ("test_every_parent_opens_a_run_bag.py", "FIFTEEN of the seventeen"):
         "reach a worktree before workflow-module code",
-    ("test_every_parent_opens_a_run_bag.py", "Thirteen of the seventeen entrypoints"):
+    ("test_every_parent_opens_a_run_bag.py", "Seventeen of the seventeen entrypoints"):
         "return from a dry-run branch before bag-open",
     ("test_every_parent_opens_a_run_bag.py", "fifteen of seventeen"):
         "inside the ordering check's reach",
