@@ -50,6 +50,8 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from .bag import Bag, open_bag
+from .config_digest import (LABEL_CONFIG_DIGEST, ConfigDigestError,
+                            config_digest, unavailable_tag_value)
 from .root import JournalRootError, resolve_journal_root
 
 __all__ = ["mint_run_id", "open_run_bag", "load_journal_config", "JournalRootError"]
@@ -363,6 +365,39 @@ def open_run_bag(*, run_id: str, writer: str | None, repo_root: Path,
         ) from exc
 
 
+#: Where the installer whose `SYMLINK_TARGETS` define the digest's population
+#: lives. Resolved from this file the same way `CONFIG_PATH` is, and for the same
+#: reason: the invocation directory is not an input to where the fleet's own
+#: files are. It is deliberately NOT the target repo's installer — the population
+#: is the set THIS repo syncs into `~/.claude/`, whatever repo a run is working on.
+INSTALL_SH_PATH = _FLEET_ROOT / "install.sh"
+
+
+def _config_digest_value() -> str:
+    """The sixth tag's value — the configuration this run absorbed.
+
+    WORKFLOW DECOMPOSITION PHASE 5 r1. Computed here, in the same call that
+    writes the other five, so it lands before the first side effect and shares
+    their guarantee: written once, never edited, describing the moment the run
+    began. If configuration changes mid-run that is a separate finding and not a
+    reason to rewrite this value — the bag is append-only by design.
+
+    ⚠ A DIGEST THAT CANNOT BE COMPUTED DOES NOT STOP THE RUN, and the asymmetry
+    with `JournalRootError` two frames up is deliberate rather than an oversight.
+    An unusable journal root means the run has nowhere to record anything, which
+    is r9's fail-stop. An unestablishable configuration population means one fact
+    about the run is unknown — the bag still opens, still records the other five,
+    and records THIS one as `unavailable reason=<slug>` so a reader is told
+    rather than left to infer from a missing tag (r4). Swallowing the error into
+    a default population would be the other failure: a digest over a guessed set
+    answers confidently about a set nobody syncs.
+    """
+    try:
+        return config_digest(install_sh=INSTALL_SH_PATH).tag_value()
+    except ConfigDigestError:
+        return unavailable_tag_value("installer-set-unreadable")
+
+
 def _open(root: Path, run_id: str, writer: str | None, repo_root: Path,
           workflow_key: str, worktree_name: str | None, remote: str,
           commit: str) -> Bag:
@@ -386,6 +421,7 @@ def _open(root: Path, run_id: str, writer: str | None, repo_root: Path,
         "Journal-Origin-Remote": remote or "-",
         "Journal-Origin-Commit": commit or "-",
         "Journal-Worktree": worktree_name or "-",
+        LABEL_CONFIG_DIGEST: _config_digest_value(),
     })
 
     # THE SUBFOLDER IS ALLOCATED HERE AND NOTHING IS WRITTEN INTO IT, which is
