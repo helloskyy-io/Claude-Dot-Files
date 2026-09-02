@@ -19,7 +19,7 @@ so this test passes on the day it lands and constrains only what happens next.
 RAISING A BUDGET IS A NORMAL DECISION. Change the number, say why in the commit.
 What this prevents is raising it SILENTLY, as a side effect of adding text.
 
-See `docs/standards/workflow-scripts.md` § Prompt economy for what earns a place
+See `docs/standards/workflows/workflow-scripts.md` § Prompt economy for what earns a place
 in a prompt at all.
 """
 from __future__ import annotations
@@ -226,7 +226,10 @@ BUDGETS: dict[str, int] = {
     # failure mode that fires every time trains the reader to ignore it, which
     # is worse than the bytes. The replacement is SHORTER than the first three
     # drafts of it; this is what is left after tightening.
-    "review_pr/prompts/disposition.md": 87_290,
+    # +10 on 2026-09-02: NOT new instruction. The nine loose standards moved
+    # into topic folders, so every citation of one grew by the folder name.
+    # Same words, longer paths.
+    "review_pr/prompts/disposition.md": 87_300,
     "plan/plan_revision/prompts/stages_1_to_5.md": 22_506,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-f0lfdhmm's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the

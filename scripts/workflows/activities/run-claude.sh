@@ -19,7 +19,7 @@
 #                        returns nonzero (exit 0 must mean done). PR-producing
 #                        workflows set this to a PR-URL pattern. Unset = no check.
 #   EXIT_RECORD_SCHEMA — a JSON Schema, inline, declaring the typed exit
-#                        record the child emits at exit (/opt/skyy-net/skyynet-master-planning/standards/exit-protocol.md).
+#                        record the child emits at exit (/opt/skyy-net/skyynet-master-planning/standards/workflows/exit-protocol.md).
 #                        Set → the CLI is invoked with --json-schema and the
 #                        result event carries `structured_output`. Unset → this
 #                        activity behaves exactly as it did before, byte for
@@ -365,7 +365,7 @@ run_claude() {
     #
     # ROUTES NOTHING, DELIBERATELY. This prints and returns nothing; the only
     # actor that BRANCHES on a denial is rule R1 in the V2 router
-    # (/opt/skyy-net/skyynet-master-planning/standards/exit-protocol.md §4), and it routes to the human arm and
+    # (/opt/skyy-net/skyynet-master-planning/standards/workflows/exit-protocol.md §4), and it routes to the human arm and
     # never to automatic redispatch. Adding a second decider here would put an
     # unbounded retry loop against the fleet's only in-run control in the one
     # file both fleets share.

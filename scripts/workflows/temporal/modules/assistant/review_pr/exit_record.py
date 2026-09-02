@@ -1,6 +1,6 @@
 """The typed exit record — schema, vocabulary and fail-safe contract.
 
-THE ONE DECLARATION. `/opt/skyy-net/skyynet-master-planning/standards/exit-protocol.md` §6 requires the record's
+THE ONE DECLARATION. `/opt/skyy-net/skyynet-master-planning/standards/workflows/exit-protocol.md` §6 requires the record's
 schema *and its address* to be declared once and loaded, never re-typed per
 consumer; this module is that declaration for the V2 tree. The string handed to
 the CLI's `--json-schema` is SERIALISED FROM the same object the router

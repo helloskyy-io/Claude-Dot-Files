@@ -3,7 +3,7 @@
 Closes issues #52 (the suite) and #61 (the four defects it found).
 
 WHY THIS SUITE EXISTS. `block-dangerous.sh` is a `PreToolUse` hook, and
-`docs/standards/hook-scripts.md § The headless safety invariant` makes the
+`docs/standards/claude-code/hook-scripts.md § The headless safety invariant` makes the
 consequence binding: autonomous dispatches run under
 `--dangerously-skip-permissions`, which bypasses the allow/deny lists in
 `settings.json` entirely. Hooks still fire. Worktree isolation only bounds blast
@@ -89,7 +89,7 @@ what Claude Code actually invokes. `config/settings.json` registers the hook as
 `"command": "$HOME/.claude/hooks/block-dangerous.sh"` — a direct exec, not
 `bash <script>`. So every call below execs the file itself, which exercises the
 executable bit and the shebang as part of the contract rather than assuming them.
-Input goes in on stdin as JSON, per `docs/standards/hook-scripts.md § Input
+Input goes in on stdin as JSON, per `docs/standards/claude-code/hook-scripts.md § Input
 Handling`. Sourcing the script and calling internals would test a different
 thing.
 """
@@ -678,7 +678,7 @@ def test_multiline_command_is_still_inspected() -> None:
 # ---------------------------------------------------------------------------
 # Failing CLOSED (issue #61).
 #
-# `docs/standards/hook-scripts.md § The headless safety invariant` point 2 is
+# `docs/standards/claude-code/hook-scripts.md § The headless safety invariant` point 2 is
 # binding: "A hook must fail CLOSED. If it cannot parse its input or evaluate a
 # rule, it denies. A hook that errors into 'allow' is worse than no hook,
 # because the safety story still claims it is there."
@@ -934,7 +934,7 @@ DISPATCH_COMMANDS: list[str] = [
     "rm -rf /tmp/pr75-merge",
     "cd /tmp && rm -rf m6 && mkdir m6 && cd m6",
     "rm -rf /tmp/claude-work",
-    "sed -n '1,80p' docs/standards/hook-scripts.md",
+    "sed -n '1,80p' docs/standards/claude-code/hook-scripts.md",
     "jq '.hooks' config/settings.json",
     "chmod +x scripts/helpers/vendor-standards.sh",
     "wc -l docs/development/sprint.md",

@@ -65,13 +65,13 @@ def test_an_EXACT_key_match_outranks_every_text_match(root: Path) -> None:
     against one anchor are two proposals to change one place."""
     store = root / "standards"
     _item(store, "S-aaaaaaaa", "Something else entirely about nothing",
-          target="docs/standards/workflow-scripts.md", anchor="§ Composition")
+          target="docs/standards/workflows/workflow-scripts.md", anchor="§ Composition")
     _item(store, "S-bbbbbbbb", "Heartbeat interval bound composition workflow",
           target="docs/standards/other.md", anchor="§ Elsewhere")
 
     hits = own.similar(root, ti.STORES["standards"],
                        "Heartbeat interval bound composition workflow",
-                       key={"target": "docs/standards/workflow-scripts.md",
+                       key={"target": "docs/standards/workflows/workflow-scripts.md",
                             "anchor": "§ Composition"})
     assert hits[0].id == "S-aaaaaaaa" and hits[0].basis == "key", (
         "the exact-anchor item must lead even though the other one's WORDING "
@@ -87,9 +87,9 @@ def test_a_PARTIAL_key_is_not_a_key(root: Path) -> None:
     """
     store = root / "standards"
     _item(store, "S-aaaaaaaa", "One thing",
-          target="docs/standards/workflow-scripts.md", anchor="§ Composition")
+          target="docs/standards/workflows/workflow-scripts.md", anchor="§ Composition")
     hits = own.similar(root, ti.STORES["standards"], "One thing",
-                       key={"target": "docs/standards/workflow-scripts.md",
+                       key={"target": "docs/standards/workflows/workflow-scripts.md",
                             "anchor": "§ Routing contracts"})
     assert all(h.basis == "text" for h in hits), (
         "a shared target with a different anchor is not the same item")

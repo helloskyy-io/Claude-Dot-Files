@@ -1,6 +1,6 @@
 """The typed exit record: its schema, its fail-safe contract, and the shadow.
 
-`docs/standards/exit-protocol.md` §4 requires each of the four absence
+`docs/standards/workflows/exit-protocol.md` §4 requires each of the four absence
 conditions — absence, unparseability, staleness, unknown `schema_version` — to
 route explicitly and to have ITS OWN TEST. This module is that requirement,
 plus the two rules that sit outside it (the safety rule R1 and the residual
@@ -1451,8 +1451,7 @@ def test_protocol_SS4s_reason_column_is_exactly_the_shipped_vocabulary() -> None
     into one §4 does not document.
     """
     require_planning_corpus()
-    protocol = PLANNING_ROOT / "standards" / \
-        "exit-protocol.md"
+    protocol = PLANNING_ROOT / "standards" / "workflows" / "exit-protocol.md"
     assert protocol.exists(), f"the protocol moved: {protocol}"
 
     # §4's rows are the only ones whose first cell is `**R<n>**`. The reason is

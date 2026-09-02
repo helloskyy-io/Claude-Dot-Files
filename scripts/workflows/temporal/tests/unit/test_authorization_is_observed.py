@@ -246,7 +246,7 @@ def test_triage_forbids_the_files_it_may_not_write_and_permits_the_two_it_must()
     forbidden = ("development/sprint.md",
                  "development/temporal-integration/phase-1.md",
                  "standards/architecture/problem-statement.md",
-                 "standards/workflow-scripts.md",
+                 "standards/workflows/workflow-scripts.md",
                  # `direction.md` DELETED 2026-08-26 — the second queue for the
                  # `requires review` disposition. It is forbidden now like any
                  # other standards path, with no carve-out, because there is
@@ -292,7 +292,7 @@ def test_plan_sprint_permits_ONLY_its_override() -> None:
         "plan-sprint can still reach the candidates pool — the grant outlived its job")
     for path in ("standards/architecture/research/direction.md",
                  "development/temporal-integration/phase-1.md",
-                 "standards/finding-routing.md"):
+                 "standards/findings/finding-routing.md"):
         assert act.boundary_crossings({}, {path: "h"}, sprint.FORBIDDEN_PATHS,
                                       allowed) == [path], (
             f"plan-sprint may edit {path} undetected")

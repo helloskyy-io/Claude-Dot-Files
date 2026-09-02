@@ -54,9 +54,9 @@ FILES=(
   "SN:documentation/documentation_standard.md:documentation/documentation_standard.md"
   "SN:documentation/tracked_items_standard.md:documentation/tracked_items_standard.md"
   "SN:research/research_standard.md:research/research_standard.md"
-  "MDC:development/temporal/temporal_standard.md:temporal/temporal_standard.md"
-  "MDC:development/temporal/worker_deployment_standard.md:temporal/worker_deployment_standard.md"
-  "MDC:development/temporal/stateful_patterns.md:temporal/stateful_patterns.md"
+  "MDC:temporal/temporal_standard.md:temporal/temporal_standard.md"
+  "MDC:temporal/worker_deployment_standard.md:temporal/worker_deployment_standard.md"
+  "MDC:temporal/stateful_patterns.md:temporal/stateful_patterns.md"
   "SN:testing/testing_standard.md:testing/testing_standard.md"
 )
 # TWO SOURCES AND A TARGET. Each entry names its owner; each owner has a root.
@@ -85,7 +85,7 @@ SN_SRC="${_SIBLINGS}/skyynet-master-planning"
 
 MDC_SRC=""
 for candidate in "${MDC_OVERRIDE:-}" "$HOME/Repos/mdc-master-planning" /opt/skyy-net/mdc-master-planning; do
-    [[ -n "$candidate" && -d "$candidate/standards/development/temporal" ]] && { MDC_SRC="$candidate"; break; }
+    [[ -n "$candidate" && -d "$candidate/standards" ]] && { MDC_SRC="$candidate"; break; }
 done
 if [[ -z "$MDC_SRC" ]]; then
     echo "Error: mdc-master-planning not found in ~/Repos or /opt/skyy-net." >&2

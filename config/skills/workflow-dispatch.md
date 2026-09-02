@@ -185,6 +185,6 @@ Keep the comment concise — this is inline, not a full task file. If the task n
 
 ## Related
 
-- `docs/standards/workflow-scripts.md` — workflow script implementation standards
+- `docs/standards/workflows/workflow-scripts.md` — workflow script implementation standards
 - `docs/guide/workflows.md` — user-facing workflow documentation
 - Global `CLAUDE.md` Personal Tooling section — invocation templates

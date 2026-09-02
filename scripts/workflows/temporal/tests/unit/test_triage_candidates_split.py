@@ -856,7 +856,7 @@ def test_the_dry_run_renders_the_SAME_correction_note_a_live_run_does() -> None:
 @pytest.mark.parametrize("path", [
     "development/temporal-integration/phase-1.md",   # "any phase doc"
     "standards/architecture/problem-statement.md",   # named explicitly
-    "standards/workflow-scripts.md",                 # "anything else under"
+    "standards/workflows/workflow-scripts.md",                 # "anything else under"
 ])
 def test_triage_FAILS_when_it_reached_outside_its_authorization(
         tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch,
