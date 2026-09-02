@@ -250,7 +250,7 @@ def test_no_TEST_IN_THIS_SUITE_ASSERTS_NOTHING() -> None:
     reported only the first.
 
     IT IS THE CLASS AND NOT THE INSTANCE THAT IS HELD HERE, because the instance
-    was found by a reviewer reading a diff, which does not scale to 1688 test
+    was found by a reviewer reading a diff, which does not scale to 1696 test
     functions and did not catch it in the pass that wrote it. The file it landed
     in is the same file that builds vacuity FLOORS for its own sweeps; a floor
     protects a guard that runs, and nothing protected the guard that did not.
@@ -288,9 +288,9 @@ def test_THE_VACUITY_SWEEP_READ_THE_TREE_AND_CATCHES_THE_SHAPE() -> None:
     The floor is asserted because every assertion above is over a list that is
     empty when the walk stops walking — a moved `REPO_ROOT`, a changed glob, a
     `SKIP_PARTS` entry that swallows the tree — and a green sweep over nothing
-    is indistinguishable from a green sweep over 1688 functions.
+    is indistinguishable from a green sweep over 1696 functions.
     """
-    # 1688 test functions across the tree when this floor was set; the floor sits
+    # 1696 test functions across the tree when this floor was set; the floor sits
     # well below it because the count moves with every ordinary test added or
     # removed, and a floor pinned to its own measurement fails on the next edit.
     counted = sum(
@@ -300,7 +300,7 @@ def test_THE_VACUITY_SWEEP_READ_THE_TREE_AND_CATCHES_THE_SHAPE() -> None:
         and node.name.startswith("test_"))
     assert counted >= 800, (
         f"the sweep found only {counted} test functions under {REPO_ROOT}; "
-        f"there were 1688 when this floor was set. A walk that has stopped "
+        f"there were 1696 when this floor was set. A walk that has stopped "
         f"walking passes vacuously.")
 
     # THE PREDICATE, against literal sources — the shape that shipped, the two
