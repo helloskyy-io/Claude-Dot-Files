@@ -22,7 +22,7 @@ def main(argv=None) -> int:
     # `--candidates` passed, was rendered into the prompt, and was ruled on by a
     # run holding `--dangerously-skip-permissions`. Demonstrated by execution.
     p.add_repo_path("--candidates", default="tracked/candidates")
-    p.add_repo_path("--research", kind="dir", default="standards/architecture/research")
+    p.add_repo_path("--research", kind="dir", default="research")
     p.add_argument("--pr", dest="pr_number", help="update an existing triage-candidates PR")
     p.add_argument("--verbose", "-v", action="store_true")
     p.add_argument("--dry-run", action="store_true", help="count and render; no model, no spend")

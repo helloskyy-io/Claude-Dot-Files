@@ -246,7 +246,7 @@ def test_triage_forbids_the_files_it_may_not_write_and_permits_the_two_it_must()
     forbidden = ("development/sprint.md",
                  "development/temporal-integration/phase-1.md",
                  "standards/architecture/problem-statement.md",
-                 "standards/workflow-scripts.md",
+                 "standards/workflows/workflow-scripts.md",
                  # `direction.md` DELETED 2026-08-26 — the second queue for the
                  # `requires review` disposition. It is forbidden now like any
                  # other standards path, with no carve-out, because there is
@@ -257,11 +257,11 @@ def test_triage_forbids_the_files_it_may_not_write_and_permits_the_two_it_must()
     permitted = ("tracked/candidates/C-d1uhacwn.md",)
     for path in forbidden:
         assert act.boundary_crossings({}, {path: "h"}, triage.FORBIDDEN_PATHS,
-                                      triage.permitted_paths(Path("tracked/candidates"), Path("standards/architecture/research"))) == [path], (
+                                      triage.permitted_paths(Path("tracked/candidates"))) == [path], (
             f"triage-candidates may edit {path} undetected")
     for path in permitted:
         assert act.boundary_crossings({}, {path: "h"}, triage.FORBIDDEN_PATHS,
-                                      triage.permitted_paths(Path("tracked/candidates"), Path("standards/architecture/research"))) == [], (
+                                      triage.permitted_paths(Path("tracked/candidates"))) == [], (
             f"triage-candidates cannot do its job: {path} is blocked")
 
 
@@ -292,7 +292,7 @@ def test_plan_sprint_permits_ONLY_its_override() -> None:
         "plan-sprint can still reach the candidates pool — the grant outlived its job")
     for path in ("standards/architecture/research/direction.md",
                  "development/temporal-integration/phase-1.md",
-                 "standards/finding-routing.md"):
+                 "standards/findings/finding-routing.md"):
         assert act.boundary_crossings({}, {path: "h"}, sprint.FORBIDDEN_PATHS,
                                       allowed) == [path], (
             f"plan-sprint may edit {path} undetected")

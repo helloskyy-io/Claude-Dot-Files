@@ -355,7 +355,7 @@ def _render_write_minor(monkeypatch, tmp_path: Path) -> str:
     """
     research_dir = tmp_path / "docs" / "development" / "widget" / "research"
     research_dir.mkdir(parents=True)
-    upstream = tmp_path / "standards" / "architecture" / "research"
+    upstream = tmp_path / "research"
     (upstream / "raw").mkdir(parents=True)
     (upstream / "raw" / "a-paper.md").write_text("# upstream\n")
     (upstream / "synthesis.md").write_text("# synthesis\n")
@@ -428,7 +428,7 @@ def test_the_pool_pointer_runs_BOTH_directions_and_neither_arm_is_silent() -> No
     # correctly from either tree. Found by `review-pr` on PR #166.
     require_planning_corpus()
     repo = PLANNING_ROOT
-    product = repo / "standards/architecture/research"
+    product = repo / "research"
     component = repo / "development/edge-assistant/persistent-memory-protocol/research"
 
     up_c = act.upstream_block(component, repo)

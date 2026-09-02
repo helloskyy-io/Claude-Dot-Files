@@ -1348,7 +1348,7 @@ def test_an_INDETERMINATE_assessment_agrees_with_NOTHING() -> None:
 # twice with every test green: *"BOTH WERE THE DOCUMENT AND THE CODE
 # DISAGREEING, NOT EITHER BEING WRONG ALONE, and no check compared them."*
 PARTITION_RESTATEMENTS = (
-    ("standards/exit-protocol.md", "§2.1's field table — what a Phase 4 "
+    ("standards/workflows/exit-protocol.md", "§2.1's field table — what a Phase 4 "
      "implementer reads for the field's contract"),
     ("guide/memory-model.md", "§4.1's consumer map — what a run-log "
      "consumer reads to join the two channels"),

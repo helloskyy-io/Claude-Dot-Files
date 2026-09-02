@@ -81,6 +81,17 @@ FORBIDDEN_PATHS = (
     # `tracked/operations/`, which Tracked Items §1.2 reserves to humans, and
     # nothing here would have seen it. Forbidding the tree and granting one pool
     # back is exactly the shape this boundary had before the move.
+    # THE STACK RESEARCH POOL, FENCED EXPLICITLY SINCE 2026-09-02. It used to be
+    # covered by `^standards/` because it lived at
+    # `standards/architecture/research/`. Moving it to the repository root — the
+    # right move, since evidence is not a standard — SILENTLY UNFENCED it for
+    # every workflow in this family: measured before and after, the same path went
+    # from forbidden=True to forbidden=False with no test failing.
+    #
+    # This family READS the pool and must never write it. `plan_draft`'s own grant
+    # says why: "a planning run that edits the evidence it is planning from has
+    # made the evidence agree with the plan." The research family owns writing it.
+    r"^research/",
     r"^tracked/",
 )
 

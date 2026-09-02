@@ -1,7 +1,7 @@
 """THE RULING PROCEDURE for a drifted pair, and the `_minor` tier contract.
 
 READ THIS WHEN A DUPLICATION OR DRIFT GUARD FAILS. It is placed here, beside
-the guards, rather than in `docs/standards/workflow-scripts.md`, because a
+the guards, rather than in `docs/standards/workflows/workflow-scripts.md`, because a
 ruling is made at the moment a guard goes red and a standard is not what anyone
 opens then. The standard states the RULE (a block with two consumers is
 promoted); this states the PROCEDURE for the half a test may not decide.

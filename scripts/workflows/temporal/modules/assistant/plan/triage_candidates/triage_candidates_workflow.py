@@ -84,11 +84,40 @@ FORBIDDEN_PATHS = (
     # `tracked/operations/`, which Tracked Items §1.2 reserves to humans, and
     # nothing here would have seen it. Forbidding the tree and granting one pool
     # back is exactly the shape this boundary had before the move.
+    # THE STACK RESEARCH POOL, FENCED EXPLICITLY SINCE 2026-09-02. It used to be
+    # covered by `^standards/` because it lived at
+    # `standards/architecture/research/`. Moving it to the repository root — the
+    # right move, since evidence is not a standard — SILENTLY UNFENCED it for
+    # every workflow in this family: measured before and after, the same path went
+    # from forbidden=True to forbidden=False with no test failing.
+    #
+    # This family READS the pool and must never write it. `plan_draft`'s own grant
+    # says why: "a planning run that edits the evidence it is planning from has
+    # made the evidence agree with the plan." The research family owns writing it.
+    r"^research/",
     r"^tracked/",
 )
 
-def permitted_paths(candidates_rel: Path, research_rel: Path) -> tuple[str, ...]:
-    """The two files this workflow EXISTS to write, BOTH from this run's arguments.
+def permitted_paths(candidates_rel: Path) -> tuple[str, ...]:
+    """The ONE surface this workflow EXISTS to write, from this run's arguments.
+
+    IT SAID "the two files … BOTH from this run's arguments" AND TOOK A SECOND
+    PARAMETER IT NEVER USED. The two were `candidates.md` and `direction.md`;
+    `direction.md` was deleted on 2026-08-26 and the grant died with it, while
+    the parameter and the sentence survived. So an authorization function
+    ACCEPTED the research pool, was passed it by its caller, and granted nothing
+    — while its docstring told every reader it granted two things.
+
+    THAT IS THE SHAPE THAT READS AS COVERAGE. Nothing was over-permitted, which
+    is why it survived: the boundary was TIGHTER than advertised, and the next
+    editor adding the research grant back would have found a docstring already
+    claiming it existed. Found while ruling MDC-PM3's research-relocation
+    proposal, whose §5 assumed this grant named the pool. It does not, and that
+    is why moving the pool cannot silently break it.
+
+    `--research` REMAINS A FLAG AND THE POOL REMAINS READABLE — `RESEARCH_DIR`
+    and `existing_work` both take it. Read access is not a write grant, and
+    conflating them is how the parameter got here.
 
     Both live under `docs/standards/`, so without the exception the forbidden
     pattern above fails every correct run.
@@ -245,7 +274,7 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
     rel_candidates = candidates_path.relative_to(repo_root)
     rel_research = research_dir.relative_to(repo_root)
     wt_candidates = worktree / rel_candidates
-    permitted = permitted_paths(rel_candidates, rel_research)
+    permitted = permitted_paths(rel_candidates)
 
     # Counted in code so the report cannot assert a total it invented.
     counts = act.candidate_counts(wt_candidates)

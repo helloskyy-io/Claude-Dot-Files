@@ -41,12 +41,12 @@ Before auditing, discover what standards apply to the changes under review.
 
 ### Step 2: Identify Relevant Standards
 Based on what was changed, pull the specific `docs/standards/*.md` files that apply:
-- Changed a workflow script? → Read `docs/standards/workflow-scripts.md`
-- Changed an agent? → Read `docs/standards/agents.md`
-- Changed a skill? → Read `docs/standards/skills.md`
-- Changed a hook? → Read `docs/standards/hook-scripts.md`
-- Changed a service? → Read `docs/standards/services.md`
-- Changed a slash command? → Read `docs/standards/slash-commands.md`
+- Changed a workflow script? → Read `docs/standards/workflows/workflow-scripts.md`
+- Changed an agent? → Read `docs/standards/claude-code/agents.md`
+- Changed a skill? → Read `docs/standards/claude-code/skills.md`
+- Changed a hook? → Read `docs/standards/claude-code/hook-scripts.md`
+- Changed a service? → Read `docs/standards/services/services.md`
+- Changed a slash command? → Read `docs/standards/claude-code/slash-commands.md`
 - Changed documentation? → Read the documentation-structure skill
 
 Don't read standards docs that aren't relevant to the changes.

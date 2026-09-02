@@ -1,6 +1,6 @@
 """plan-draft's own I/O — one consumer each, so §10.1 rule 3 puts them here.
 
-[`workflow-scripts.md` § Location](/opt/skyy-net/skyynet-master-planning/standards/workflow-scripts.md)
+[`workflow-scripts.md` § Location](/opt/skyy-net/skyynet-master-planning/standards/workflows/workflow-scripts.md)
 restates §10.1 rule 3 as BINDING and mechanical — *"consumer count decides, never
 taste"* — and rule 6 gives a workflow folder its place to grow the helpers it has
 earned. Everything DEFINED below has exactly one consumer: `plan_draft_workflow`.

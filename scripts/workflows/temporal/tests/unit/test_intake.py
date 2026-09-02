@@ -41,11 +41,11 @@ def test_what_a_filer_writes_is_what_the_harvest_reads() -> None:
         ti.STORES["standards"],
         title="ignored here — the ISSUE title is the item title",
         body="The argument.", filed_by="review-pr",
-        extras={"target": "docs/standards/workflow-scripts.md", "anchor": "§ Composition"})
+        extras={"target": "docs/standards/workflows/workflow-scripts.md", "anchor": "§ Composition"})
     store, fields, body = own.parse_intake(text)
     assert store.name == "standards"
     assert fields == {"status": "open", "filed_by": "review-pr",
-                      "target": "docs/standards/workflow-scripts.md",
+                      "target": "docs/standards/workflows/workflow-scripts.md",
                       "anchor": "§ Composition"}
     assert body == "The argument."
 

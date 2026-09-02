@@ -88,7 +88,7 @@ Hard rules. None of these belong anywhere in a standards doc:
 - **Edge cases and exceptions** — describe when the rule doesn't apply, with the conditions for the exception.
 - **Concrete examples** — patterns that illustrate correct application. Examples should be timeless (no specific PR/date references).
 - **Anti-patterns** — what NOT to do, with reasoning. Useful for catching common mistakes.
-- **Cross-references to related standards** — so readers can find adjacent rules. Use relative paths (e.g., `see docs/standards/agents.md`).
+- **Cross-references to related standards** — so readers can find adjacent rules. Use relative paths (e.g., `see docs/standards/claude-code/agents.md`).
 
 ## Where displaced content goes
 

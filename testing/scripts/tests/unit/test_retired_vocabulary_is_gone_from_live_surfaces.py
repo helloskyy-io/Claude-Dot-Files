@@ -177,7 +177,7 @@ RECORD_SURFACES: dict[str, str] = {
         "home rather than the rows losing it by being moved. Rewriting a "
         "migrated proposal's own words to satisfy a later taxonomy would "
         "falsify the record this exemption exists to preserve",
-    "standards/architecture/research/":
+    "research/":
         "candidates.md's proposal rows, and the pool's synthesis and topic "
         "queues, are records of what was proposed at the time. This is the one "
         "standards-tree path autonomous runs may WRITE to every cycle, so the "

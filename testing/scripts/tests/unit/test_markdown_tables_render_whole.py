@@ -347,7 +347,7 @@ def test_NO_TABLE_ROW_ANYWHERE_IN_THE_TREE_IS_SEVERED_FROM_ITS_BLOCK() -> None:
     text, so the whole row is lost rather than truncated.
 
     MEASURED ON THIS TREE, not argued. Inserting `- a stray list line` into the
-    class table in `docs/standards/finding-routing.md` left BOTH markdown gate
+    class table in `docs/standards/findings/finding-routing.md` left BOTH markdown gate
     modules fully green — 39 tests, no failures — while `POST /markdown`
     returned the `PROPOSAL`, `RULING` and `OPERATING STATE` rows swallowed into
     an `<li>` as literal text. One list marker, three rows of a binding

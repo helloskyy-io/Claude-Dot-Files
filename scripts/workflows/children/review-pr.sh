@@ -53,7 +53,7 @@
 #         key orphans every one of those.
 #
 # Logging: JSONL log to <repo>/.claude/logs/review-pr-<ts>.jsonl
-# See /opt/skyy-net/skyynet-master-planning/standards/workflow-scripts.md for the standard this script follows.
+# See /opt/skyy-net/skyynet-master-planning/standards/workflows/workflow-scripts.md for the standard this script follows.
 
 set -euo pipefail
 

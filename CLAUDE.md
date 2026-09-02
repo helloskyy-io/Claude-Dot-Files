@@ -72,15 +72,15 @@ For detailed documentation on Claude Code concepts:
 ## Standards
 
 For contributing to this repo, follow the standards:
-- For agent standards, refer to `/opt/skyy-net/skyynet-master-planning/standards/agents.md`
-- For hook script standards, refer to `/opt/skyy-net/skyynet-master-planning/standards/hook-scripts.md`
-- For rule standards, refer to `/opt/skyy-net/skyynet-master-planning/standards/rules.md`
-- For skill standards, refer to `/opt/skyy-net/skyynet-master-planning/standards/skills.md`
-- For service standards, refer to `/opt/skyy-net/skyynet-master-planning/standards/services.md`
-- For slash command standards, refer to `/opt/skyy-net/skyynet-master-planning/standards/slash-commands.md`
-- For workflow script standards, refer to `/opt/skyy-net/skyynet-master-planning/standards/workflow-scripts.md`
+- For agent standards, refer to `/opt/skyy-net/skyynet-master-planning/standards/claude-code/agents.md`
+- For hook script standards, refer to `/opt/skyy-net/skyynet-master-planning/standards/claude-code/hook-scripts.md`
+- For rule standards, refer to `/opt/skyy-net/skyynet-master-planning/standards/claude-code/rules.md`
+- For skill standards, refer to `/opt/skyy-net/skyynet-master-planning/standards/claude-code/skills.md`
+- For service standards, refer to `/opt/skyy-net/skyynet-master-planning/standards/services/services.md`
+- For slash command standards, refer to `/opt/skyy-net/skyynet-master-planning/standards/claude-code/slash-commands.md`
+- For workflow script standards, refer to `/opt/skyy-net/skyynet-master-planning/standards/workflows/workflow-scripts.md`
 - For research standards, refer to `/opt/skyy-net/skyynet-master-planning/standards/research` — **vendored (MIRROR)**. Research is EVIDENCE, never binding; pools live at TWO altitudes — `/opt/skyy-net/skyynet-master-planning/standards/architecture/research` for findings that could change WHAT we build, and `development/<component>/research/` for the ~98% that decide HOW to build something already committed to.
-- **For where a FINDING goes — a bug, a proposal, a ruling, operating state — refer to `/opt/skyy-net/skyynet-master-planning/standards/finding-routing.md`.** It owns that question end to end and is the single place to look; the documents below are cited by it where they bind. Its `INTERFACE` sections are a promotion candidate for MDC-Master-Planning; its `BINDING` section is ours.
+- **For where a FINDING goes — a bug, a proposal, a ruling, operating state — refer to `/opt/skyy-net/skyynet-master-planning/standards/findings/finding-routing.md`.** It owns that question end to end and is the single place to look; the documents below are cited by it where they bind. Its `INTERFACE` sections are a promotion candidate for MDC-Master-Planning; its `BINDING` section is ours.
 - For documentation standards, refer to `/opt/skyy-net/skyynet-master-planning/standards/documentation` — **vendored (MIRROR)** from MDC-Master-Planning. Start with its `README.md`. Binding here: standards state the rule never completion-state; cite a codified block rather than re-listing it; cross-reference instead of repeating; and **a CLAUDE.md references standards, it never contains standards content**.
 - For testing standards, refer to `/opt/skyy-net/skyynet-master-planning/standards/testing` — **vendored (MIRROR)**. Three tiers: master runner (`testing/run-all.sh`), framework suite runners (`testing/suites/`), and per-unit `tests/` directories categorized `unit/` / `integration/` / `e2e/`. **pytest**, not script-style tests. Start with its `README.md`, which states which half of the vendored standard binds here and, in § The gate, what the merge-path gate covers. That gate is `.github/workflows/tests.yml` (issue #30, closed). Tests for `config/hooks/` are the one documented placement divergence — see `testing/config-hooks/README.md`.
 - For Temporal standards, refer to `/opt/skyy-net/skyynet-master-planning/standards/temporal` — **vendored (MIRROR)** from MDC-Master-Planning. Start with its `README.md`, which states what binds today (§3 three-layer architecture, §3.4 composition, §7 idempotency) versus what applies only once workers exist. Local additions go in `claude-dot-files-addendum.md`.
@@ -90,6 +90,6 @@ For contributing to this repo, follow the standards:
 ## Rules
 
 - Do not create files outside the repo structure defined above without asking first.
-- When creating hook scripts, follow `/opt/skyy-net/skyynet-master-planning/standards/hook-scripts.md` (stdin JSON + jq, never env vars).
+- When creating hook scripts, follow `/opt/skyy-net/skyynet-master-planning/standards/claude-code/hook-scripts.md` (stdin JSON + jq, never env vars).
 - MCP secrets must use `${env:VAR_NAME}` references, never hardcoded values.
 - Keep `config/` as the single source of truth — never edit `~/.claude/` directly for synced items.
