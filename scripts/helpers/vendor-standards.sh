@@ -40,10 +40,16 @@ set -euo pipefail
 # the research contract — the last of which already declared itself binding for
 # both platforms before anyone asked.
 #
-# The Temporal three and Testing stay MDC's. Temporal governs a runtime that does
-# not exist here yet; Testing SPLITS and its split is pending — see
-# `skyynet-master-planning/standards/testing/README.md` for the boundary and why
-# doing it badly is worse than doing it later.
+# TESTING JOINED THEM ON 2026-09-02, after MDC-PM3 argued the deferral was the
+# wrong shape and was right. I had proposed SPLITTING it and my table covered 9
+# of its 19 sections, leaving the hardest call unassigned. Thirteen-plus are
+# tooling contract; the four that are not are `how MDC tests its deployments` —
+# a different subject wearing the same filename. So it MOVES WHOLE and MDC
+# carries `testing_standard-mdc-addendum.md`, which is the mechanism our own
+# vendoring banner already names. There is no boundary to get wrong when one
+# owner holds the core and everything else is additive.
+#
+# The Temporal three stay MDC's — they govern a runtime that does not exist here.
 FILES=(
   "SN:documentation/documentation_standard.md:documentation/documentation_standard.md"
   "SN:documentation/tracked_items_standard.md:documentation/tracked_items_standard.md"
@@ -51,7 +57,7 @@ FILES=(
   "MDC:development/temporal/temporal_standard.md:temporal/temporal_standard.md"
   "MDC:development/temporal/worker_deployment_standard.md:temporal/worker_deployment_standard.md"
   "MDC:development/temporal/stateful_patterns.md:temporal/stateful_patterns.md"
-  "MDC:development/testing/testing_standard.md:testing/testing_standard.md"
+  "SN:testing/testing_standard.md:testing/testing_standard.md"
 )
 # TWO SOURCES AND A TARGET. Each entry names its owner; each owner has a root.
 # `--target <repo>` writes the mirrors into any consumer — that is what lets a
