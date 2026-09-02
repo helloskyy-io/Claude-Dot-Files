@@ -120,12 +120,19 @@ def _runner_for(shim: Path) -> Path:
 def test_there_are_shims_to_check() -> None:
     """Vacuity guard: a moved directory would make the check below pass on nothing.
 
-    The floor is the population before `Dual-mode children` added six, so a
-    regression that deleted this phase's shims still fails here rather than
-    quietly shrinking the swept set back to what it was.
+    The floor is the population AFTER `Dual-mode children` added six, so a
+    regression that deleted this phase's shims fails here rather than quietly
+    shrinking the swept set back to what it was.
+
+    ⚠ IT WAS SET AT ELEVEN — the PRE-phase population — while the docstring
+    claimed exactly the property above. Deleting this phase's six shims left
+    eleven and passed, so the guard advertised protection for the population the
+    phase added and provided none. The floor has to be the measured count for the
+    sentence to be true, which is how the sibling floor in `test_preflight.py`
+    (`>= 17`, "there were 17 when this floor was set") is written.
     """
     found = _shims()
-    assert len(found) >= 11, (
+    assert len(found) >= 17, (
         f"only {len(found)} shims found under {SCRIPTS} — the glob is not "
         f"reading the fleet: {[p.name for p in found]}")
 
@@ -167,7 +174,7 @@ def test_every_usage_FLAG_is_one_the_runner_ACCEPTS(shim: Path) -> None:
         f"`--refresh` outlived its own deletion in `research.sh`.")
 
 
-def test_the_FLAG_SWEEP_read_something(shim: Path = None) -> None:
+def test_the_FLAG_SWEEP_read_something() -> None:
     """VACUITY FLOOR FOR THE FLAG CHECK, and it is a different floor from the
     shim count above.
 
@@ -181,6 +188,14 @@ def test_the_FLAG_SWEEP_read_something(shim: Path = None) -> None:
              if _INVOCATION.match(line)
              for flag in _USAGE_FLAG.findall(line)})
         for shim in _shims())
+    # THE BASIS, stated because every sibling floor in this file states one: 34
+    # distinct flags were documented across the seventeen shims when this was
+    # written. The floor sits below the measurement rather than on it — unlike
+    # the shim COUNT above, which is a population and moves only when the fleet
+    # does, a flag total moves whenever any one shim's usage block is reworded,
+    # and a floor pinned to 34 would fail on an ordinary edit. Twenty is the
+    # point below which the reader must have stopped matching rather than the
+    # prose merely having changed.
     assert documented >= 20, (
         f"the usage blocks across {len(_shims())} shims name only {documented} "
         f"distinct flags between them; there were 34 when this floor was set. "

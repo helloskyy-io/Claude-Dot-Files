@@ -50,6 +50,12 @@ INVARIANT ACROSS ALL SIX. A deviation in any of these is a defect, not a variant
   7. STREAMS ARE SPLIT BY AUDIENCE. stdout carries the RESULT somebody may pipe
      — for these six, the PR URL and nothing else. stderr carries narration: the
      banner, the context echo, the minted-run-id line, every refusal.
+     ON `--dry-run` THE REHEARSAL *IS* THE RESULT and goes to stdout, banner
+     included, as all seventeen runners do. Stated because the sentence above
+     reads as absolute and this path contradicts it on every run: a reviewer
+     applying invariant 7 literally would either fail all six or "fix" them away
+     from the fleet's convention, and an invariant that is false on a path
+     everything takes is how the other nine stop being trusted.
   8. NOTHING BLOCKS ON A HUMAN. No `input()`, no prompt, no confirmation. Under a
      parent a waiting child looks like a stall rather than a question.
   9. `--dry-run` ON EVERY ONE, and it rehearses by printing
@@ -73,6 +79,24 @@ LEGITIMATELY PER-CHILD, each carrying its own `differs from <sibling> because
     the build four use plain `add_argument`. A research pool is an in-repo path
     and must be contained; a build task source is deliberately read from wherever
     the operator wrote it, routinely /tmp.
+  * The research pair exposes NO task source — no `description`, no
+    `--task-file`, no `--phase` — where the build four do. `run_research_draft`
+    takes a `context` and `run_verify` takes neither, so there is no parameter to
+    pass one to. Named here as well as in those two files because an ABSENCE is
+    the variant a reader cannot see by diffing two runners side by side.
+
+THAT THE SIX ARE NEAR-IDENTICAL IS THE RULING, NOT AN OVERSIGHT. `run_build_refine`
+and `run_build_refine_minor` differ only in the module they import, `WORKFLOW_KEY`
+and `prog`; the draft pair differs additionally by `prefer_repo`. Extracting a
+shared `build_child_main(...)` was considered and REJECTED: this component's own
+research says near-identical members are what a family IS
+(`phase3_dual_mode_children.md` § *The runner corpus has no duplication guard*
+rejects a similarity ratchet over `run_*.py` for exactly that reason), and a
+runner that is one call into a helper stops being the thing an author reads to
+learn the shape. What is extracted is the MECHANISM — `preflight.refuse`,
+`preflight.RepoPathParser`, `dispatch_identity`, `RunContext` — which is where
+requirement 7's promotion rule points. The cost is stated plainly: a change to a
+refine child's CLI must be made twice, and NO GUARD IN THIS REPO WILL SAY SO.
 
 WHAT THE RULING DELIBERATELY DOES NOT DO — THE FIVE DIVERGENCE SURFACES, ruled
 once here rather than inherited six times from whichever sibling was cloned:
@@ -188,6 +212,16 @@ def main(argv: list[str] | None = None) -> int:
 
         # Invariant 5 — isolation, which the parent would otherwise have
         # established for this child. The NAME is the context's field.
+        # READ BEFORE THE WORKTREE EXISTS, as the parent does. `task_text`
+        # resolves `--task-file`/`--phase` and RAISES on a path that names no
+        # file; evaluating it in the `run_draft(...)` argument list put that
+        # raise AFTER `worktree_add`, so a mistyped path left a registered
+        # worktree behind — the stranded-worktree class `preflight`'s own
+        # docstring says the boundary exists to prevent. `build_workflow.run_build`
+        # reads it six lines before it cuts, and this now matches.
+        description = task_text(task, repo_root)
+        plan_path = path_for_the_model(repo_root, task.plan_path)
+
         ref = act.base_ref(task.pr_number, repo_root)
         worktree = act.worktree_add(repo_root, ctx.worktree_name, ref)
 
@@ -197,11 +231,11 @@ def main(argv: list[str] | None = None) -> int:
         slug = act.repo_slug(repo_root)
 
         pr_url = run_draft(
-            description=task_text(task, repo_root), repo_root=repo_root,
+            description=description, repo_root=repo_root,
             worktree=worktree, prefer_repo=slug, pr_number=task.pr_number,
             # ANCHORED FOR THE MODEL, never the raw operator string — the model
             # reads it standing inside the worktree.
-            plan_path=path_for_the_model(repo_root, task.plan_path),
+            plan_path=plan_path,
             verbose=task.verbose,
         )
     except (RuntimeError, FileNotFoundError, ValueError) as exc:

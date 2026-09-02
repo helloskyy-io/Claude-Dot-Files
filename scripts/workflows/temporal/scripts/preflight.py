@@ -32,7 +32,7 @@ _REQUIRED = ("yaml",)
 _REPO_ROOT_TIMEOUT_SECONDS = 30.0
 
 
-def refuse(exc: BaseException, stream=None) -> int:
+def refuse(exc: BaseException, stream=None, exit_code: int = 1) -> int:
     """Print the diagnostic the raising layer wrote, and return the exit code.
 
     PROMOTED BECAUSE SEVENTEEN ENTRYPOINTS CARRY IT TWICE EACH, byte-identically
@@ -60,11 +60,20 @@ def refuse(exc: BaseException, stream=None) -> int:
     operator typed and says whether it was a DEFAULT. Wrapping or reformatting
     them here would make a behaviour-preserving promotion a behaviour change.
 
+    `exit_code` EXISTS FOR THE TWO NON-RUNNER ENTRYPOINTS, and is not a knob for
+    the seventeen. `validate_bag.py` returns 2 and `verify_citations.py` returns
+    `verify.EXIT_USAGE`; both carried this block byte-identically and neither
+    could adopt a helper hardcoding 1. Leaving them out would have left the
+    extraction two copies short of the class it names, with nothing in the sweep
+    to say the omission was ruled rather than missed. Every `run_*.py` takes the
+    default, and `test_no_entrypoint_INLINES_the_operator_facing_REFUSAL` sweeps
+    all nineteen.
+
     stderr rather than stdout because several entrypoints' stdout is a rendered
     report an operator or a tool reads.
     """
     print(f"\n✗ {exc}", file=stream or sys.stderr)
-    return 1
+    return exit_code
 
 
 def resolve_repo_root(repo_target: str | None) -> Path:

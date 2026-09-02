@@ -344,7 +344,7 @@ def test_the_sweep_is_not_vacuous() -> None:
     discovered = _entrypoints(ENTRYPOINTS_DIR)
     assert len(discovered) >= 10, (
         f"only {len(discovered)} entrypoints discovered under {ENTRYPOINTS_DIR}; "
-        f"this fleet has eleven. The predicate has drifted from the tree.")
+        f"this fleet has seventeen. The predicate has drifted from the tree.")
 
 
 # --- r5: the population covers every shape that can START a run -------------------

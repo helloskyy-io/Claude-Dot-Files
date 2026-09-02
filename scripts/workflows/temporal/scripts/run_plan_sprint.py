@@ -31,8 +31,17 @@ def main(argv=None) -> int:
     # a resolver and not an extra `if`: it is lexical, so `repo_root/"../../x"`
     # still reads as being under `repo_root`. The `..` has to be collapsed first,
     # which is `.resolve()`'s job and `resolve_operator_paths`' whole subject.
+    # REPO-RELATIVE IN THE EXAMPLE, because `add_repo_path` resolves it against
+    # the repo root and `resolve_operator_paths` REFUSES a path that escapes it.
+    # The example was an absolute path into the planning checkout, which is
+    # refused unless `--repo` names that same checkout — an operator copying it
+    # got a refusal from text that reads official, which is the defect
+    # `test_every_usage_FLAG_is_one_the_runner_ACCEPTS` was written for one
+    # layer up and which no guard can see in a help string.
     p.add_repo_path("component", kind="dir",
-                    help="the planned component, e.g. /opt/skyy-net/skyynet-master-planning/development/edge-assistant/workflow-decomposition")
+                    help="the planned component, relative to the repo root — e.g. "
+                         "development/edge-assistant/workflow-decomposition "
+                         "(with --repo /opt/skyy-net/skyynet-master-planning)")
     p.add_repo_path("--sprint", default="development/sprints.md")
     p.add_argument("--pr", dest="pr_number", help="update an existing plan-sprint PR")
     p.add_argument("--task-file", dest="task_file",

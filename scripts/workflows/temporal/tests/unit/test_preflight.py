@@ -18,6 +18,7 @@ module exists to guarantee.
 from __future__ import annotations
 
 import ast
+import io
 import subprocess
 from pathlib import Path
 
@@ -115,7 +116,6 @@ def test_refuse_returns_the_exit_code_and_writes_the_message_UNCHANGED() -> None
     whether it was a DEFAULT. This function's whole job is to print that verbatim
     and hand back an exit code, so a behaviour-preserving promotion stays one.
     """
-    import io
     detailed = RuntimeError(
         "component ../../x resolves outside the repo: /x\n  remedy: pass --repo")
     buffer = io.StringIO()
@@ -147,8 +147,8 @@ def test_no_entrypoint_INLINES_the_operator_facing_REFUSAL() -> None:
     ratchet's population is `prompts/*.md` and `FAMILY_RULINGS` is keyed on
     prompt-fragment stems, so a `run_*.py` cannot add a row to either. That is
     the fact `Dual-mode children` requirement 7 rests on, and extracting the
-    block without this sweep would have removed twenty-two copies while leaving
-    the twenty-third free to be written by whoever adds the eighteenth runner.
+    block without this sweep would have removed twenty-four copies while leaving
+    the twenty-fifth free to be written by whoever adds the eighteenth runner.
 
     Detection over this corpus is available for THIS block precisely because the
     block has a syntax — a `print` of a specific f-string. What is NOT available,
@@ -164,15 +164,33 @@ def test_no_entrypoint_INLINES_the_operator_facing_REFUSAL() -> None:
         The check keys on the block that existed, not on the idea of a refusal —
         which is the honest scope, and the reason `refuse`'s own docstring is
         where the contract lives.
+      * It reads `scripts/` and NOTHING ELSE. A copy of the block under
+        `modules/` is invisible to it. The population is the directory where
+        every entrypoint lives, which is where all 24 copies stood; a module
+        growing one is a different class and would need its own sweep.
       * It says nothing about whether the handler CATCHES the right exceptions.
         `test_every_parent_opens_a_run_bag` owns the placement of the boundary
         calls inside it.
     """
-    scripts = sorted((REPO_ROOT / "scripts" / "workflows" / "temporal"
-                      / "scripts").glob("run_*.py"))
-    assert len(scripts) >= 17, (
-        f"the sweep found {len(scripts)} entrypoints; there were 17 when this "
-        f"floor was set. A guard that walks a shrinking tree passes vacuously.")
+    # EVERY ENTRYPOINT IN THE DIRECTORY, not only the `run_*.py` seventeen.
+    # `validate_bag.py` and `verify_citations.py` carried this block
+    # byte-identically too, with exit codes of 2 rather than 1 — which is why
+    # `refuse` grew an `exit_code` keyword rather than leaving them out. A
+    # population of `run_*.py` would have called the class closed two copies
+    # short, in the same directory, with the guard green.
+    #
+    # `preflight.py` is excluded because it DEFINES the block. Excluding the
+    # definition of the thing you are forbidding is not an exemption; a guard
+    # that flagged it would be unsatisfiable.
+    entrypoints = sorted(
+        p for p in (REPO_ROOT / "scripts" / "workflows" / "temporal"
+                    / "scripts").glob("*.py")
+        if p.name != "preflight.py")
+    assert len(entrypoints) >= 19, (
+        f"the sweep found {len(entrypoints)} entrypoints; there were 19 when "
+        f"this floor was set (17 runners + validate_bag + verify_citations). "
+        f"A guard that walks a shrinking tree passes vacuously.")
+    scripts = entrypoints
 
     offenders = [s.name for s in scripts
                  if _inlines_a_refusal(ast.parse(s.read_text()))]

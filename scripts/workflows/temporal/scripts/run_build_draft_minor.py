@@ -90,13 +90,20 @@ def main(argv: list[str] | None = None) -> int:
                              worktree_name=ctx.worktree_name,
                              journal_root=ctx.journal_root)
 
+        # READ BEFORE THE WORKTREE EXISTS, as the parent does — see
+        # `run_build_draft.py` for the class. `task_text` raises on a
+        # `--task-file`/`--phase` naming no file, and evaluating it in the
+        # argument list put that raise after `worktree_add`.
+        description = task_text(task, repo_root)
+        plan_path = path_for_the_model(repo_root, task.plan_path)
+
         ref = act.base_ref(task.pr_number, repo_root)
         worktree = act.worktree_add(repo_root, ctx.worktree_name, ref)
 
         pr_url = run_draft_minor(
-            description=task_text(task, repo_root), repo_root=repo_root,
+            description=description, repo_root=repo_root,
             worktree=worktree, pr_number=task.pr_number,
-            plan_path=path_for_the_model(repo_root, task.plan_path),
+            plan_path=plan_path,
             verbose=task.verbose,
         )
     except (RuntimeError, FileNotFoundError, ValueError) as exc:

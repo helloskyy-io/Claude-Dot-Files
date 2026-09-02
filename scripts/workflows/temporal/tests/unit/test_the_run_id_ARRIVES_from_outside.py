@@ -391,8 +391,8 @@ def test_this_sweep_EXAMINED_something() -> None:
     """
     discovered = _entrypoints(ENTRYPOINTS_DIR)
     assert len(discovered) >= 10, (
-        f"only {len(discovered)} entrypoints discovered; this fleet has eleven "
-        f"and is about to have twenty. The predicate has drifted from the tree.")
+        f"only {len(discovered)} entrypoints discovered; this fleet has "
+        f"seventeen. The predicate has drifted from the tree.")
 
     names = _names_used(ast.parse(discovered[0].read_text()))
     assert BAG_OPEN in names, (

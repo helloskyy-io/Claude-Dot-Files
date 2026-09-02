@@ -14,6 +14,14 @@ reason `run_research_draft.py` gives — and in the module it calls. The
 `--correction-pass` flag is the same flag for the same reason: re-running verify
 over a reviewer's findings is the most common reason to invoke this child alone.
 
+Differs a third time in exposing NO task source at all — no `description`, no
+`--task-file`, no `--phase`, where `run_build_refine.py` carries all three.
+`run_verify` accepts neither a description nor a context: the PR's own thread is
+the input, and there is no parameter to pass one to. Named because the paragraph
+above says "only", and an incomplete variant list asserted with "only" tells the
+next author that a refine child is SUPPOSED to take a task when the truth is that
+its core function cannot receive one.
+
 ⚠ THIS IS THE CHILD THE PHASE WAS WRITTEN FOR. `research_verify` — the name this
 module carried until `7040c84` renamed it `research_refine` — needed three fix
 rounds the week the ruling was made, each one re-run through a full parent chain,

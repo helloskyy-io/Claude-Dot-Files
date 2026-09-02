@@ -11,6 +11,13 @@ operator string onto `repo_root` unchecked is what let `research
 The build four have no equivalent argument: their task source is deliberately
 read from wherever the operator wrote it, routinely /tmp.
 
+Differs a second time in exposing NO task source — no `description` positional,
+no `--task-file` for a task, no `--phase`. `run_research_draft` takes a `context`
+(supplied by `--task-file` and read as CONTEXT, not as the task) and the pool
+itself is what says which topic to research. Named because an absence is the
+variant a reader cannot see by diffing this file against `run_build_draft.py`,
+and the ruling's only enforcement is that every variant declares itself.
+
 `must_exist=False` MIRRORS `run_research.py` EXACTLY, and the exemption is from
 the existence pass only — the escape pass, which is the one that matters, still
 runs. Nothing in the research family `mkdir`s its pool. Diverging from the parent

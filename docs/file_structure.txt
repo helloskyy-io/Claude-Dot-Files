@@ -344,7 +344,12 @@ claude-dot-files/
 │                   │                                #   ReviewTypes and its dispatch_tool enum named build and planning tools only, so a
 │                   │                                #   research reviewer reached a mandatory REDISPATCH exit with no legal value to emit
 │                   ├── test_preflight.py             # Preconditions fail BEFORE anything is created, so a dead run leaves no
-│                   │                                #   orphaned worktree behind it (#49)
+│                   │                                #   orphaned worktree behind it (#49). Also holds `refuse()` — the family's ONE
+│                   │                                #   operator-facing refusal, extracted 2026-09-02 from 24 byte-identical copies
+│                   │                                #   across the 17 runners AND validate_bag.py / verify_citations.py (which pass
+│                   │                                #   `exit_code=`, the reason the helper takes one) — plus the AST sweep that stops
+│                   │                                #   it being re-inlined. That sweep is the only duplication guard this repo has
+│                   │                                #   over Python: the prompt ratchet's population is `prompts/*.md`
 │                   ├── test_render_opaque_operator_text.py # An operator's literal `${...}` reaches the model UNSUBSTITUTED — two
 │                   │                                #   dispatches died on briefs that were merely DESCRIBING the placeholder mechanism
 │                   ├── test_resource_telemetry.py    # The numbers are real, THERE IS NO CEILING, and an unmeasured run stays countable.

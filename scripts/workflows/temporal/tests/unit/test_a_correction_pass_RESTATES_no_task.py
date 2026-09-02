@@ -249,6 +249,19 @@ def _refusal_text(module, argv: list[str]) -> str:
     return captured.getvalue()
 
 
+def _EXITED_ON_A_MISSING_PR(message: str) -> bool:
+    """Did argparse refuse for a missing REQUIRED `--pr`, and not for the task rule?
+
+    ANCHORED ON ARGPARSE'S OWN SENTENCE — `error: the following arguments are
+    required: --pr` — because that string is emitted by exactly one code path
+    (`ArgumentParser.error` for an absent required argument) and cannot be
+    produced by a refusal this file is meant to read. A predicate assembled from
+    the loose tokens `--pr` and `required` matches the draft tiers' task-source
+    message too, which is how this exemption came to swallow its own population.
+    """
+    return "the following arguments are required: --pr" in message
+
+
 @pytest.mark.parametrize("runner", _runners_building_a_build_input(),
                          ids=lambda p: p.name)
 def test_a_build_entrypoint_STILL_REFUSES_a_dispatch_with_no_task_at_all(
@@ -263,16 +276,54 @@ def test_a_build_entrypoint_STILL_REFUSES_a_dispatch_with_no_task_at_all(
     the task rule is consulted — the exit is the same object and means something
     entirely different. Reading the message is what keeps this a control on FOUR
     of the six rather than a green light on all six.
+
+    ⚠ THE EXEMPTION IS ARGPARSE'S OWN SENTENCE, AND KEYING IT LOOSELY MADE THIS
+    CONTROL VACUOUS ON ALL SIX. It first read `if "--pr" in message and "required"
+    in message`, which the DRAFT tiers also satisfy: their usage line carries
+    `[--pr PR_NUMBER]` and their refusal text names `--pr <n>` as one of the task
+    sources, beside the word "required". Every one of the six took the early
+    return and the assertion below ran on nothing — the docstring above claimed a
+    control on four and delivered one on zero. `test_THE_NO_TASK_CONTROL_...`
+    below is the negative control that keeps this honest.
     """
     module = __import__(runner.stem)
     message = _refusal_text(module, ["--repo", "/opt/x"])
-    if "--pr" in message and "required" in message:
+    if _EXITED_ON_A_MISSING_PR(message):
         # `--pr` IS a task source, so a run that must carry one can never reach
         # the no-task state. Unreachable, not unchecked.
         return
     assert "task source is required" in message, (
         f"{runner.name} refused a no-task dispatch for a reason that is neither "
         f"the task-source rule nor a required --pr:\n{message}")
+
+
+def test_THE_NO_TASK_CONTROL_ACTUALLY_REACHES_ITS_ASSERTION() -> None:
+    """NEGATIVE CONTROL FOR THE EXEMPTION ABOVE — the floor that was missing.
+
+    The check above is only a control on the tiers that do NOT take its early
+    return, and nothing asserted that any tier failed to take it. When the
+    predicate was `"--pr" in message and "required" in message`, all six
+    exempted themselves and the module reported green over an unheld property —
+    the same shape as `test_the_FLAG_SWEEP_read_something` one file over, and the
+    reason a count of things EXAMINED is asserted rather than assumed.
+
+    The split is a fact about the CLI, not a list: a tier reaches the assertion
+    exactly when it does not make `--pr` required, so the two draft tiers must
+    reach it and the two refine tiers must not.
+    """
+    reached, exempted = [], []
+    for runner in _runners_building_a_build_input():
+        module = __import__(runner.stem)
+        message = _refusal_text(module, ["--repo", "/opt/x"])
+        (exempted if _EXITED_ON_A_MISSING_PR(message) else reached).append(runner.name)
+
+    assert set(reached) == {"run_build.py", "run_build_minor.py",
+                            "run_build_draft.py", "run_build_draft_minor.py"}, (
+        f"the task-source rule is asserted on {sorted(reached)} and exempted on "
+        f"{sorted(exempted)}. A tier that does not require `--pr` MUST reach the "
+        f"assertion — if a draft tier appears in the exempted list, the exemption "
+        f"predicate has widened past argparse's missing-argument sentence and is "
+        f"swallowing the population it was written to narrow.")
 
 
 # --- 2. the plan reaches the draft child --------------------------------------

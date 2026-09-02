@@ -10,10 +10,17 @@
 # can exercise the same child without paying for the whole chain. Standalone is
 # an interface, not a recovery hatch — `workflow-scripts.md` § File Conventions.
 #
+# THE POOL IS RESOLVED AGAINST THE REPO ROOT, so it is written repo-relative
+# here. This repo has no `development/` tree — the pools live in the planning
+# repo, so every line below needs `--repo` unless you are standing in one. An
+# absolute path into another checkout needs `--repo <that repo>` too, or
+# `resolve_operator_paths` refuses it as escaping the tree it was pointed at.
+#
 # Usage:
 #   ./research_draft.sh development/<component>/research
 #   ./research_draft.sh development/<component>/research --task-file /tmp/claude-<name>.md -v
 #   ./research_draft.sh development/<component>/research --dry-run   # no model, no spend
+#   ./research_draft.sh development/<component>/research --repo /opt/skyy-net/skyynet-master-planning
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 exec python3 "${SCRIPT_DIR}/run_research_draft.py" "$@"

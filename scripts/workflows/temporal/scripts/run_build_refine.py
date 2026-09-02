@@ -105,6 +105,12 @@ def main(argv: list[str] | None = None) -> int:
                              worktree_name=ctx.worktree_name,
                              journal_root=ctx.journal_root)
 
+        # READ BEFORE THE WORKTREE EXISTS, as the parent does — see
+        # `run_build_draft.py` for the class. `task_text` raises on a
+        # `--task-file`/`--phase` naming no file, and evaluating it in the
+        # argument list put that raise after `worktree_add`.
+        description = task_text(task, repo_root)
+
         # `base_ref` reads `origin/<the PR's branch>` because `--pr` is set, which
         # is the tree this pass must correct. It is never the operator's checkout
         # position — three of eight open PRs once carried another PR's commits
@@ -113,7 +119,7 @@ def main(argv: list[str] | None = None) -> int:
         worktree = act.worktree_add(repo_root, ctx.worktree_name, ref)
 
         pr_url = run_refine(
-            description=task_text(task, repo_root), pr_number=task.pr_number,
+            description=description, pr_number=task.pr_number,
             repo_root=repo_root, worktree=worktree,
             correction_pass=correction_pass, verbose=task.verbose,
         )
