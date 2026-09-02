@@ -218,14 +218,19 @@ def main(argv: list[str] | None = None) -> int:
         # raise AFTER `worktree_add`, so a mistyped path left a registered
         # worktree behind — the stranded-worktree class `preflight`'s own
         # docstring says the boundary exists to prevent. `build_workflow.run_build`
-        # reads it six lines before it cuts, and this now matches.
+        # reads it before it cuts, and this now matches.
+        # NO LINE DISTANCE IS QUOTED, DELIBERATELY. This sentence used to say
+        # "six lines before it cuts"; a later pass hoisted `repo_slug` into the
+        # gap and the claim became false with nothing reporting it, because a
+        # comment is not a figure any guard derives. The ORDER is the property —
+        # `test_a_read_that_GATES_a_run_happens_BEFORE_the_cut` holds it.
         description = task_text(task, repo_root)
         plan_path = path_for_the_model(repo_root, task.plan_path)
 
         # Read BEFORE THE CUT, as the parents do: `repo_slug` is a `gh` round
         # trip that depends on nothing the worktree provides, so below the cut
-        # it stranded a worktree on an expired token — the same class this
-        # function's `task_text` hoist closes three lines above.
+        # it stranded a worktree on an expired token — the same class the
+        # `task_text` read above closes, and it survived that fix for one pass.
         slug = act.repo_slug(repo_root)
 
         ref = act.base_ref(task.pr_number, repo_root)

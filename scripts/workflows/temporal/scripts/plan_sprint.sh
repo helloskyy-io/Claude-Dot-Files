@@ -7,7 +7,7 @@
 #
 # Usage:
 #   ./plan_sprint.sh development/<component> --verbose
-#   ./plan_sprint.sh development/<component> --sprint development/sprints.md
+#   ./plan_sprint.sh development/<component> --repo /opt/skyy-net/skyynet-master-planning --sprint development/sprints.md
 #   ./plan_sprint.sh development/<component> --pr 42 --verbose
 #   ./plan_sprint.sh development/<component> --repo /opt/skyy-net/skyynet-master-planning --dry-run
 set -euo pipefail

@@ -44,6 +44,11 @@ WHAT THIS DOES NOT LOOK AT:
   * **Calls after the CHILD.** A `gh` failure there costs a worktree too, but the
     run has already spent the model time, so the trade is different and the
     remedy is disposal rather than ordering. Out of scope, deliberately.
+  * **A nested function's body.** `_calls_in_own_scope` stops at a nested `def`
+    or `lambda`, because a closure's calls do not execute where they are written
+    and reporting them at that position would be a false positive. A gating read
+    inside a closure that the enclosing function calls after cutting is
+    therefore invisible. Nothing in the population does this today.
 """
 
 from __future__ import annotations
@@ -71,6 +76,32 @@ def _called_name(node: ast.Call) -> str | None:
     return getattr(node.func, "attr", None) or getattr(node.func, "id", None)
 
 
+_NESTED = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
+
+
+def _calls_in_own_scope(function: ast.AST) -> list[ast.Call]:
+    """Every call in one function's OWN body, not in a function nested inside it.
+
+    ORDERING IS A PROPERTY OF ONE SEQUENCE OF STATEMENTS. A nested function's
+    body does not run where it is written — it runs when it is called, which may
+    be before the cut, after it, or never. `ast.walk` recurses into nested
+    definitions, so a gating read inside a closure would be attributed to the
+    enclosing function's ordering and reported at a position it never executes
+    at. Nothing in the current population nests one; scoped rather than disclosed
+    because a false report from a guard is what gets the guard deleted.
+    """
+    calls: list[ast.Call] = []
+    stack = list(ast.iter_child_nodes(function))
+    while stack:
+        node = stack.pop()
+        if isinstance(node, _NESTED):
+            continue
+        if isinstance(node, ast.Call):
+            calls.append(node)
+        stack += list(ast.iter_child_nodes(node))
+    return calls
+
+
 def _gating_reads_after_the_cut(tree: ast.AST) -> list[tuple[str, int, str]]:
     """THE PREDICATE. `(function, lineno, name)` for every gating read below a cut.
 
@@ -83,7 +114,7 @@ def _gating_reads_after_the_cut(tree: ast.AST) -> list[tuple[str, int, str]]:
     for function in ast.walk(tree):
         if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
-        calls = [node for node in ast.walk(function) if isinstance(node, ast.Call)]
+        calls = _calls_in_own_scope(function)
         cuts = [node.lineno for node in calls if _called_name(node) == "worktree_add"]
         if not cuts:
             continue
@@ -102,8 +133,8 @@ def _functions_that_cut() -> list[str]:
         for function in ast.walk(tree):
             if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
-            if any(isinstance(n, ast.Call) and _called_name(n) == "worktree_add"
-                   for n in ast.walk(function)):
+            if any(_called_name(node) == "worktree_add"
+                   for node in _calls_in_own_scope(function)):
                 cutting.append(f"{path.name}::{function.name}")
     return sorted(cutting)
 
@@ -184,6 +215,21 @@ def test_THE_PREDICATE_CATCHES_THE_SHAPE_THAT_SHIPPED() -> None:
     # A function that never cuts is not in the population, however it reads.
     never_cuts = "def f(repo_root):\n    return act.repo_slug(repo_root)\n"
     assert _gating_reads_after_the_cut(ast.parse(never_cuts)) == []
+
+    # A NESTED FUNCTION IS ITS OWN SCOPE. `ast.walk` would attribute the inner
+    # `repo_slug` to the outer function's ordering and report a position it
+    # never executes at — a false positive, which is how a guard gets deleted.
+    nested = (
+        "def outer(repo_root, name, ref):\n"
+        "    worktree = act.worktree_add(repo_root, name, ref)\n"
+        "    def later():\n"
+        "        return act.repo_slug(repo_root)\n"
+        "    return later\n")
+    assert _gating_reads_after_the_cut(ast.parse(nested)) == [], (
+        "a call inside a nested definition must not be attributed to the "
+        "enclosing function's ordering")
+    # …and the inner function is judged on its OWN body, which does not cut.
+    assert [fn for fn, _ln, _n in _gating_reads_after_the_cut(ast.parse(nested))] == []
 
     # A call that legitimately NEEDS the worktree must not be flagged. This is
     # why the list is names and not "anything that can raise".

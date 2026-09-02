@@ -92,6 +92,28 @@ def _declared_flags(module: Path) -> set[str]:
     return _declared_flags_in(ast.parse(module.read_text(encoding="utf-8")))
 
 
+def _declaring_calls(tree: ast.Module) -> list[ast.Call]:
+    """Every `add_argument` / `add_repo_path` call in a parsed module, IN SOURCE
+    ORDER.
+
+    ONE EXTRACTION, TWO PREDICATES. `_declared_flags_in` wants a set of flag
+    names and `_declared_arguments_in` wants dests, positionals and repo paths;
+    both were re-deriving *which calls declare an argument* from scratch, so a
+    third declaring spelling would have to be added in two places and the flag
+    sweep and the value sweep would disagree about the corpus in between.
+
+    SORTED BY SOURCE POSITION, WHICH IS NOT WHAT `ast.walk` GIVES YOU. Positional
+    order is the whole meaning of a positional: `run_plan.py` declares
+    `component` first, and a breadth-first walk can hand it back after `--sprint`
+    depending on nesting. That would bind the wrong token to the repo path and
+    the value sweep would be checking a value nobody typed there.
+    """
+    calls = [node for node in ast.walk(tree)
+             if isinstance(node, ast.Call)
+             and getattr(node.func, "attr", None) in ("add_argument", "add_repo_path")]
+    return sorted(calls, key=lambda node: (node.lineno, node.col_offset))
+
+
 def _declared_flags_in(tree: ast.Module) -> set[str]:
     """THE PREDICATE. Every long option in an already-parsed module.
 
@@ -102,11 +124,7 @@ def _declared_flags_in(tree: ast.Module) -> set[str]:
     this guard permanently unable to see the very instance it was written for.
     """
     flags: set[str] = set()
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
-        if getattr(node.func, "attr", None) not in ("add_argument", "add_repo_path"):
-            continue
+    for node in _declaring_calls(tree):
         for arg in node.args:
             if isinstance(arg, ast.Constant) and isinstance(arg.value, str) \
                     and arg.value.startswith("--"):
@@ -359,17 +377,11 @@ def _declared_arguments(module: Path, spec: ArgSpec | None = None) -> ArgSpec:
 def _declared_arguments_in(tree: ast.Module, spec: ArgSpec | None = None) -> ArgSpec:
     """THE PREDICATE. Declared arguments from an already-parsed module.
 
-    SORTED BY SOURCE POSITION, WHICH IS NOT WHAT `ast.walk` GIVES YOU. Positional
-    order is the whole meaning of a positional: `run_plan.py` declares
-    `component` first, and a breadth-first walk can hand it back after `--sprint`
-    depending on nesting. That would bind the wrong token to the repo path and
-    the sweep would be checking a value nobody typed there.
+    Shares `_declaring_calls` with the flag sweep, which is also where the
+    source-order sort lives — see there for why order is load-bearing here.
     """
     spec = spec if spec is not None else ArgSpec()
-    calls = [n for n in ast.walk(tree)
-             if isinstance(n, ast.Call)
-             and getattr(n.func, "attr", None) in ("add_argument", "add_repo_path")]
-    for node in sorted(calls, key=lambda n: (n.lineno, n.col_offset)):
+    for node in _declaring_calls(tree):
         names = [a.value for a in node.args
                  if isinstance(a, ast.Constant) and isinstance(a.value, str)]
         if not names:
@@ -421,10 +433,21 @@ def _bind(tokens: list[str], spec: ArgSpec) -> tuple[list[tuple[str, str]], int]
     while index < len(tokens):
         token = tokens[index]
         if token.startswith("-") and token != "-":
-            if token in spec.value_flags and index + 1 < len(tokens):
-                bindings.append((spec.value_flags[token], tokens[index + 1]))
-                index += 2
-                continue
+            # `--repo=/path` IS `--repo /path`. argparse accepts both and a
+            # reader writing the first would otherwise bind nothing at all — not
+            # a value, not a positional — so all three arms would pass over that
+            # line while still counting it. No shim spells it this way today;
+            # handled rather than disclosed, because the failure is silent.
+            flag, _, attached = token.partition("=")
+            if flag in spec.value_flags:
+                if attached:
+                    bindings.append((spec.value_flags[flag], attached))
+                    index += 1
+                    continue
+                if index + 1 < len(tokens):
+                    bindings.append((spec.value_flags[flag], tokens[index + 1]))
+                    index += 2
+                    continue
             index += 1
             continue
         if supplied < len(spec.positionals):
@@ -461,6 +484,29 @@ def _repo_path_values(shim: Path) -> list[tuple[list[str], str, str]]:
     return found
 
 
+def _checkable_paths(tokens: list[str], spec: ArgSpec,
+                     default_root: Path) -> list[tuple[str, str, Path]]:
+    """THE PREDICATE FOR THE EXISTENCE ARM: `(dest, value, root)` per checkable path.
+
+    A path is checkable when its OWN value has nothing left to substitute. THE
+    SKIP IS PER-VALUE AND IT WAS PER-LINE FOR ONE REVISION, which is why this is
+    a function rather than three lines inside the test: keyed on the line, a
+    `--task-file /tmp/claude-<name>.md` elsewhere in the invocation exempted a
+    concrete `component` beside it. A CONTROL CANNOT SEE WHICH ARGUMENT A TEST
+    PASSES TO A REGEX — measured, on the first attempt at this fix: reverting the
+    skip to the whole line left the control green while the arm went blind again.
+    Extracted so the control drives THIS code and the mutation is visible.
+
+    The root a value resolves against is the invocation's own `--repo` when it
+    names one, and otherwise the repo the operator is standing in.
+    """
+    bindings = dict(_bind(tokens, spec)[0])
+    repo_dest = spec.value_flags.get("--repo")
+    root = Path(bindings[repo_dest]) if repo_dest in bindings else default_root
+    return [(dest, value, root) for dest, value in _bind(tokens, spec)[0]
+            if dest in spec.repo_dests and not _PLACEHOLDER.search(value)]
+
+
 @pytest.mark.parametrize("shim", _shims(), ids=lambda p: p.name)
 def test_every_usage_REPO_PATH_is_REPO_RELATIVE(shim: Path) -> None:
     """THE REQUIREMENT, first arm. A repo path documented as an absolute path is
@@ -492,22 +538,26 @@ def test_every_LITERAL_usage_line_names_a_path_that_EXISTS(shim: Path) -> None:
     `tracked/candidates` with no `--repo`, which resolves into THIS repo where
     there is no `tracked/`. All three parse, carry a declared flag, and fail.
 
-    SKIPPED FOR TEMPLATE LINES ON PURPOSE. `development/<component>/research` has
-    no truth value until the operator substitutes, and demanding a concrete
+    SKIPPED FOR A TEMPLATE VALUE ON PURPOSE. `development/<component>/research`
+    has no truth value until the operator substitutes, and demanding a concrete
     example everywhere would trade a real check for a worse-documented corpus.
+
+    ⚠ THE SKIP IS PER-VALUE, AND IT WAS PER-LINE FOR ONE REVISION. Keyed on the
+    whole line, `./plan.sh development/edge-assistant/mcp-servers --repo <planning>
+    --task-file /tmp/claude-<name>.md` was skipped entirely — its `component` is
+    concrete and checkable, and the `<name>` belonged to an unrelated flag. A
+    typo'd component on any line that happens to carry a template argument
+    elsewhere would have passed, which is precisely the shape this arm exists to
+    catch.
+
     SKIPPED ALSO WHEN THE NAMED CHECKOUT IS ABSENT, so the sweep degrades to the
     first arm on a machine holding only this repo rather than failing there.
     """
-    missing = []
-    for tokens, dest, value in _repo_path_values(shim):
-        if _PLACEHOLDER.search(" ".join(tokens)):
-            continue
-        bindings = dict(_bind(tokens, _arg_spec_for(_runner_for(shim)))[0])
-        root = Path(bindings["repo_target"]) if "repo_target" in bindings else _REPO_ROOT
-        if not root.is_dir():
-            continue
-        if not (root / value).exists():
-            missing.append((dest, value, str(root)))
+    spec = _arg_spec_for(_runner_for(shim))
+    missing = [(dest, value, str(root))
+               for tokens in _invocations(shim)
+               for dest, value, root in _checkable_paths(tokens, spec, _REPO_ROOT)
+               if root.is_dir() and not (root / value).exists()]
     assert not missing, (
         f"{shim.name} documents a copy-pasteable invocation naming a path that "
         f"is not there: {missing}. An operator following it gets "
@@ -626,3 +676,32 @@ def test_THE_VALUE_SWEEP_CATCHES_THE_LINES_THAT_SHIPPED() -> None:
     # carries: a runner not routing through the helper must not be credited with
     # `--writer`, or the binder eats the token after it.
     assert "--writer" not in spec.value_flags
+
+    # `--flag=value` IS THE SAME ARGUMENT. Bound to the same dest, and the token
+    # after it is still the positional it was — the failure this arm rules out is
+    # the quiet one, where an `=`-spelled line binds NOTHING and all three
+    # assertions pass over it while the vacuity floor still counts the line.
+    attached = _bind(shlex.split("--repo=/opt/planning development/x"), spec)[0]
+    assert dict(attached)["repo_target"] == "/opt/planning"
+    assert dict(attached)["component"] == "development/x"
+    assert _bind(shlex.split("--repo=/opt/planning development/x"), spec)[1] == 1
+
+    # A PLACEHOLDER BELONGS TO ITS OWN VALUE, and this arm drives
+    # `_checkable_paths` rather than `_PLACEHOLDER` so that reverting the skip to
+    # the whole line is VISIBLE here. It was not, on the first attempt.
+    here = Path("/nowhere")
+    line = shlex.split("development/x --repo /opt/planning --task-file /tmp/claude-<name>.md")
+    assert _checkable_paths(line, spec, here) == [
+        ("component", "development/x", Path("/opt/planning"))], (
+        "a concrete component beside a template `--task-file` must stay "
+        "checkable, and must resolve against the `--repo` the line names")
+
+    # …while a value that IS a template is exempt, and takes nothing with it.
+    template = shlex.split("development/<component> --sprint development/sprints.md")
+    assert [dest for dest, _v, _r in _checkable_paths(template, spec, here)] == ["sprint"], (
+        "the template component is exempt and the concrete `--sprint` beside it "
+        "is not — per-VALUE in both directions")
+
+    # And with no `--repo`, a path resolves against the repo the operator is in.
+    assert _checkable_paths(shlex.split("development/x"), spec, here) == [
+        ("component", "development/x", here)]

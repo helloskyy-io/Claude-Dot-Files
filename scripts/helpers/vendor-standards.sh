@@ -73,6 +73,10 @@ _CDF="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # of": in the main checkout it is that repo's `.git`, and in a linked worktree it
 # is still the MAIN repo's `.git`, so one expression covers both. Falls back to
 # the plain parent when git cannot answer, which is the pre-existing behaviour.
+# NOT CORRECT FOR A BARE REPOSITORY, where `--git-common-dir` is the repo
+# directory itself and going up twice overshoots by one. Named rather than
+# handled: a bare repo has no working tree, so nothing can run this script
+# from inside one.
 _COMMON_GIT_DIR="$(git -C "$_CDF" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
 if [[ -n "$_COMMON_GIT_DIR" && -d "$_COMMON_GIT_DIR" ]]; then
     _SIBLINGS="$(cd "$_COMMON_GIT_DIR/../.." && pwd)"

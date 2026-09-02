@@ -417,6 +417,9 @@ claude-dot-files/
 │                   │                                #   instruction set was unreachable from the major tier — invisible to every guard that
 │                   │                                #   drives the CHILD directly with a fixture-supplied plan
 │                   ├── test_a_prose_COUNT_of_a_collection_is_DERIVED.py # Prose here that counts a collection the same module defines
+│                   ├── test_a_read_that_GATES_a_run_happens_BEFORE_the_cut.py # A read that can refuse the run — repo_slug,
+│                                #   task_text, base_ref — must precede worktree_add, or its failure strands a registered worktree.
+│                                #   The task_text hoist left repo_slug three lines below the cut; a review named 3 sites, the sweep found 5
 │                   │                                #   must match it — the fourth corpus to gate the figure-nobody-derives class
 │                   ├── test_a_named_observer_is_actually_WIRED.py # A MAY_NOT_OBSERVERS entry naming a `*_this_run_had_no_right_to`
 │                   ├── test_a_loop_back_chain_REPORTS_WHAT_IT_HAS_SPENT.py # A loop-back chain reports what it has SPENT, at every
