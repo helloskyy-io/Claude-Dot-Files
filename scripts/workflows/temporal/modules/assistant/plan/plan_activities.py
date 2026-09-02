@@ -1134,7 +1134,7 @@ def existing_work(tree: Path, research_dir: Path) -> str:
 
 
 PROBLEM_STATEMENT = Path("standards/architecture/problem-statement.md")
-PRODUCT_POOL = Path("standards/architecture/research")
+PRODUCT_POOL = Path("research")
 # No `docs/` level: the planning corpus lives in `skyynet-master-planning`, whose
 # layout mirrors MDC's — `standards/` and `development/` sit at the repo root.
 # `PROBLEM_STATEMENT` and `PRODUCT_POOL` above were migrated with the corpus and

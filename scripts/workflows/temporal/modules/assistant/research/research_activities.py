@@ -179,7 +179,12 @@ def _tracked_candidates(research_dir: Path) -> Path:
 
 # Research Standard §1 names TWO altitudes and one location each. The product
 # pool is a single known path; everything else is a component pool.
-PRODUCT_POOL = Path("standards/architecture/research")
+PRODUCT_POOL = Path("research")
+
+#: The WHY the product pool validates. NAMED, never derived from the pool's
+#: path — the two move independently, because the thesis binds and the pool is
+#: evidence.
+PROBLEM_STATEMENT = Path("standards/architecture/problem-statement.md")
 
 
 def altitude(research_dir: Path, repo_root: Path) -> str:
@@ -337,7 +342,7 @@ def upstream_block(research_dir: Path, repo_root: Path, *,
         " the title suggested overlap, and the fleet then spent a day bounding by hand the",
         " exact cost that paper had already solved mechanically.",
         "",
-        f"  {PRODUCT_POOL.parent}/problem-statement.md   <- READ THIS TOO",
+        f"  {PROBLEM_STATEMENT}   <- READ THIS TOO",
         "",
         "**It is the thesis every other document derives from, and it names the nearest",
         " comparable systems by name.** You are building a component of a project that",

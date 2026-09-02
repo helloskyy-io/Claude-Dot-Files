@@ -276,7 +276,7 @@ def test_the_plan_is_pointed_at_the_thesis_and_every_pool(tmp_path) -> None:
 
     (tmp_path / "standards/architecture").mkdir(parents=True)
     (tmp_path / "standards/architecture/problem-statement.md").write_text("# thesis")
-    (tmp_path / "standards/architecture/research/raw").mkdir(parents=True)
+    (tmp_path / "research/raw").mkdir(parents=True)
     (tmp_path / "standards" / "architecture" / "research").mkdir(parents=True, exist_ok=True)
     # BOTH DEPTHS, deliberately: `widget` sits under an edge bucket the way the
     # real corpus does, and `empty` sits directly under `development/` the way an

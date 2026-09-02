@@ -311,7 +311,7 @@ DOCS_RESIDUE: dict[str, Residue] = {
         "NOT FIX-CLASS. A dated review quoting the `sed` invocation that was run. "
         "A record of what happened.",
     ),
-    "standards/architecture/research/raw/code_routed_control_flow.md": Residue(
+    "research/raw/code_routed_control_flow.md": Residue(
         frozenset({"/tmp/argo_arg_N.txt"}),
         "NOT FIX-CLASS. Quotes Argo's own documentation (`@/tmp/argo_arg_N.txt`) "
         "while describing a third-party tool's parameter passing. Not ours to "

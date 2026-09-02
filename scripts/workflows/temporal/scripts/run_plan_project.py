@@ -25,7 +25,7 @@ BANNER = "=" * 64
 # Defaults, not derivations. These are the repo's own surfaces; a different repo
 # passes its own. Stated here rather than inside the workflow so the workflow
 # stays repo-agnostic and the launch concern owns the convention.
-DEFAULT_RESEARCH = "standards/architecture/research"
+DEFAULT_RESEARCH = "research"
 
 
 def main(argv: list[str] | None = None) -> int:

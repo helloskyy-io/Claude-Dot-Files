@@ -257,11 +257,11 @@ def test_triage_forbids_the_files_it_may_not_write_and_permits_the_two_it_must()
     permitted = ("tracked/candidates/C-d1uhacwn.md",)
     for path in forbidden:
         assert act.boundary_crossings({}, {path: "h"}, triage.FORBIDDEN_PATHS,
-                                      triage.permitted_paths(Path("tracked/candidates"), Path("standards/architecture/research"))) == [path], (
+                                      triage.permitted_paths(Path("tracked/candidates"))) == [path], (
             f"triage-candidates may edit {path} undetected")
     for path in permitted:
         assert act.boundary_crossings({}, {path: "h"}, triage.FORBIDDEN_PATHS,
-                                      triage.permitted_paths(Path("tracked/candidates"), Path("standards/architecture/research"))) == [], (
+                                      triage.permitted_paths(Path("tracked/candidates"))) == [], (
             f"triage-candidates cannot do its job: {path} is blocked")
 
 

@@ -113,7 +113,7 @@ def tree(tmp_path: Path) -> Path:
     (tmp_path / "development" / "sprints.md").write_text("# Sprints\n")
     # and the product research pool at the successor's depth, which is what
     # `--research` now defaults to.
-    (tmp_path / "standards" / "architecture" / "research").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "research").mkdir(parents=True, exist_ok=True)
     (tmp_path / "r" / "raw").mkdir(parents=True)
     return tmp_path
 
@@ -1090,7 +1090,7 @@ def test_renaming_the_sprint_file_AWAY_is_seen_as_editing_it(repo: Path) -> None
                    capture_output=True)
     crossed = act.boundary_crossings(before, act.worktree_state(repo),
                                      triage.FORBIDDEN_PATHS,
-                                     triage.permitted_paths(Path("standards/architecture/research/candidates.md"), Path("standards/architecture/research")))
+                                     triage.permitted_paths(Path("standards/architecture/research/candidates.md")))
     assert "development/sprint.md" in crossed, (
         f"a renamed-away sprint plan read as untouched; observed {crossed}")
 
@@ -1107,14 +1107,14 @@ def test_an_uncommitted_edit_counts_and_so_does_a_committed_one(repo: Path) -> N
     (repo / "development" / "sprint.md").write_text("## Sprint: X\n\nedited\n")
     assert act.boundary_crossings(before, act.worktree_state(repo),
                                   triage.FORBIDDEN_PATHS,
-                                     triage.permitted_paths(Path("standards/architecture/research/candidates.md"), Path("standards/architecture/research")))
+                                     triage.permitted_paths(Path("standards/architecture/research/candidates.md")))
 
     subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t",
                     "commit", "-aqm", "edit"], cwd=str(repo), check=True,
                    capture_output=True)
     assert act.boundary_crossings(before, act.worktree_state(repo),
                                   triage.FORBIDDEN_PATHS,
-                                     triage.permitted_paths(Path("standards/architecture/research/candidates.md"), Path("standards/architecture/research"))), (
+                                     triage.permitted_paths(Path("standards/architecture/research/candidates.md"))), (
         "committing the edit made it invisible — the diff half of the observer "
         "is not reading the base ref")
 
@@ -1129,7 +1129,7 @@ def test_a_file_a_PREVIOUS_child_changed_is_not_charged_to_this_run(repo: Path) 
     """
     import subprocess
 
-    d = repo / "standards" / "architecture" / "research"
+    d = repo / "research"
     d.mkdir(parents=True)
     (d / "direction.md").write_text("| `D-001` | r | w | `C-d1uhacwn` | `open` |\n")
     subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t",
@@ -1339,7 +1339,7 @@ def _fixture_repo(tmp_path: Path) -> Path:
     also resolves every declared operator path.
     """
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
-    research = tmp_path / "standards" / "architecture" / "research"
+    research = tmp_path / "research"
     research.mkdir(parents=True)
     # `plan-sprint` takes a COMPONENT since 2026-08-19 and reads its roadmap for
     # the phase estimates, so the fixture repo needs one for its dry run to
@@ -1359,7 +1359,7 @@ def _fixture_repo(tmp_path: Path) -> Path:
     (tmp_path / "development" / "sprints.md").write_text("# Sprints\n")
     (tmp_path / "development" / "sprint.md").write_text("# Sprint\n")
     # `--research` defaults to the successor's depth since the consolidation.
-    (tmp_path / "standards" / "architecture" / "research").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "research").mkdir(parents=True, exist_ok=True)
     return tmp_path
 
 
