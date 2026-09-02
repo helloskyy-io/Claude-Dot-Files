@@ -54,6 +54,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--pr", dest="pr_number", help="update an existing planning PR instead of opening one")
     p.add_argument("--repo", dest="repo_target", help="target repo — a FILESYSTEM PATH, never a gh slug")
     p.add_argument("--verbose", "-v", action="store_true")
+    p.add_argument("--dry-run", action="store_true",
+                   help="state what this run derived; no model, no worktree, no spend")
 
     add_identity_arguments(p)
     try:
@@ -62,6 +64,26 @@ def main(argv: list[str] | None = None) -> int:
         # Nothing has been created yet — that is the point of preflight.
         return refuse(exc)
     research_dir = resolved["research"]
+
+    if a.dry_run:
+        # BEFORE `resolve_identity`, deliberately: a rehearsal states "nothing
+        # invoked, nothing posted", and minting a run name would make that false.
+        #
+        # AFTER `parse_with_preflight`, equally deliberately: the resolved repo
+        # paths are most of what an operator is rehearsing to check, and this is
+        # the runner whose `--research` path escaped and took the pipeline with
+        # it. The comment above records that the escape had to be demonstrated
+        # "with the dispatch stubbed, since this entrypoint has no --dry-run" —
+        # so the missing flag had already cost something before it was reported.
+        print(f"{BANNER}\n  DRY RUN — nothing invoked, nothing posted\n{BANNER}")
+        # `target=None` — this runner takes no component; see the live path below.
+        print(RunContext.for_dry_run(repo_root=repo_root, workflow_key="plan-project",
+                                     pr_number=a.pr_number, target=None).render())
+        print(f"  Research   : {research_dir.relative_to(repo_root)}")
+        for name, path in sorted(resolved.items()):
+            if name != "research":
+                print(f"  {name.ljust(10)} : {path.relative_to(repo_root)}")
+        return 0
 
     try:
         # REQUIREMENT 11 — the run's bag is opened BEFORE the first side

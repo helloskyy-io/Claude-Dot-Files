@@ -59,6 +59,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                    help="target repo — a FILESYSTEM PATH, never a gh slug")
     p.add_argument("--verbose", "-v", action="store_true",
                    help="stream formatted Claude output live")
+    p.add_argument("--dry-run", action="store_true",
+                   help="state what this run derived; no model, no worktree, no spend")
     add_identity_arguments(p)
     a = p.parse_args(argv)
 
@@ -124,6 +126,14 @@ def main(argv: list[str] | None = None) -> int:
         repo_root = preflight(a.repo_target)
     except RuntimeError as exc:
         return refuse(exc)
+
+    if a.dry_run:
+        # BEFORE `resolve_identity`, deliberately: a rehearsal states "nothing
+        # invoked, nothing posted", and minting a run name would make that false.
+        print(f"{BANNER}\n  DRY RUN — nothing invoked, nothing posted\n{BANNER}")
+        print(RunContext.for_dry_run(repo_root=repo_root, workflow_key="plan-revision",
+                                     pr_number=a.pr_number, target=None).render())
+        return 0
 
     try:
 

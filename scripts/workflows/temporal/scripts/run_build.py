@@ -24,7 +24,7 @@ from modules.assistant.build.build.build_workflow import run_build  # noqa: E402
 BANNER = "=" * 64
 
 
-def parse_args(argv: list[str] | None = None) -> BuildInput:
+def parse_args(argv: list[str] | None = None) -> tuple[BuildInput, bool]:
     parser = argparse.ArgumentParser(
         prog="build",
         description="Draft, refine and disposition a change as a reviewed PR.",
@@ -36,6 +36,8 @@ def parse_args(argv: list[str] | None = None) -> BuildInput:
     parser.add_argument("--pr", dest="pr_number", help="update an existing PR instead of opening one")
     parser.add_argument("--repo", dest="repo_target", help="target repo (never derived from cwd)")
     parser.add_argument("--verbose", "-v", action="store_true")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="state what this run derived; no model, no worktree, no spend")
     add_identity_arguments(parser)
     args = parser.parse_args(argv)
 
@@ -46,7 +48,7 @@ def parse_args(argv: list[str] | None = None) -> BuildInput:
     # It was "exactly one" until 2026-08-19; see `BuildInput.__post_init__`, which
     # is the single statement of the rule this comment must not restate.
     try:
-        return BuildInput(
+        task = BuildInput(
             description=args.description,
             task_file=args.task_file,
             plan_path=args.plan_path,
@@ -56,10 +58,11 @@ def parse_args(argv: list[str] | None = None) -> BuildInput:
         )
     except ValueError as exc:
         parser.error(str(exc))
+    return task, args.dry_run
 
 
 def main(argv: list[str] | None = None) -> int:
-    task = parse_args(argv)
+    task, dry_run = parse_args(argv)
 
     try:
         try:
@@ -67,6 +70,19 @@ def main(argv: list[str] | None = None) -> int:
         except RuntimeError as exc:
             # Nothing has been created yet — that is the point of preflight.
             return refuse(exc)
+
+        if dry_run:
+            # BEFORE `resolve_identity`, deliberately: a rehearsal states "nothing
+            # invoked, nothing posted", and minting a run name and announcing it
+            # would make that false. Same exemption that keeps a dry run from
+            # opening a bag. The parents lacked this flag while all four build
+            # children had it, so the onboarding sentence "dry-run first, every
+            # time" was unfollowable at exactly the entry point it named.
+            print(f"{BANNER}\n  DRY RUN — nothing invoked, nothing posted\n{BANNER}")
+            # `target=None`: a build is pointed at a task, not at a component.
+            print(RunContext.for_dry_run(repo_root=repo_root, workflow_key="build",
+                                         pr_number=task.pr_number, target=None).render())
+            return 0
         # REQUIREMENT 11 — the run's bag is opened BEFORE the first side
         # effect, and a root that will not resolve stops the run here (r9). Why
         # this is not a helper each file remembers to call, and what the sweep
