@@ -6,9 +6,9 @@
 # one place that defines the CLI contract.
 #
 # Usage:
-#   ./plan_draft.sh docs/development/fleet-reliability
-#   ./plan_draft.sh docs/development/managed-configuration --dry-run
-#   ./plan_draft.sh /opt/skyy-net/skyynet-master-planning/development/edge-assistant/mcp-servers --pr 42 --verbose
+#   ./plan_draft.sh development/edge-assistant/local-ai-offloading --repo /opt/skyy-net/skyynet-master-planning
+#   ./plan_draft.sh development/edge-assistant/cross-device-sync --repo /opt/skyy-net/skyynet-master-planning --dry-run
+#   ./plan_draft.sh development/edge-assistant/mcp-servers --repo /opt/skyy-net/skyynet-master-planning --pr 42 --verbose
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 exec python3 "${SCRIPT_DIR}/run_plan_draft.py" "$@"

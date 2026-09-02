@@ -6,9 +6,9 @@
 # place that defines the CLI contract.
 #
 # Usage:
-#   ./plan.sh /opt/skyy-net/skyynet-master-planning/development/edge-assistant/workflow-decomposition
-#   ./plan.sh /opt/skyy-net/skyynet-master-planning/development/edge-assistant/workflow-decomposition --pr 145 --verbose
-#   ./plan.sh /opt/skyy-net/skyynet-master-planning/development/edge-assistant/mcp-servers --task-file /tmp/claude-<name>.md
+#   ./plan.sh development/edge-assistant/workflow-decomposition --repo /opt/skyy-net/skyynet-master-planning
+#   ./plan.sh development/edge-assistant/workflow-decomposition --repo /opt/skyy-net/skyynet-master-planning --pr 145 --verbose
+#   ./plan.sh development/edge-assistant/mcp-servers --repo /opt/skyy-net/skyynet-master-planning --task-file /tmp/claude-<name>.md
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 exec python3 "${SCRIPT_DIR}/run_plan.py" "$@"

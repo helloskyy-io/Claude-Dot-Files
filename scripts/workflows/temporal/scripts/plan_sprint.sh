@@ -9,7 +9,7 @@
 #   ./plan_sprint.sh development/<component> --verbose
 #   ./plan_sprint.sh development/<component> --sprint development/sprints.md
 #   ./plan_sprint.sh development/<component> --pr 42 --verbose
-#   ./plan_sprint.sh development/<component> --dry-run
+#   ./plan_sprint.sh development/<component> --repo /opt/skyy-net/skyynet-master-planning --dry-run
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 exec python3 "${SCRIPT_DIR}/run_plan_sprint.py" "$@"
