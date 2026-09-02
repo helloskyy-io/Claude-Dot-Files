@@ -308,42 +308,47 @@ class RunContext(RunIdentity):
     def echo(self, stream=None) -> None:
         """State the context on stderr, once, before the first side effect.
 
-        UNCONDITIONAL, AND NOT GATED ON `verbose`. `verbose` governs a
-        workflow's own chatter; this is the run saying what it is about to spend
-        money on. The precedent is one function away — `resolve_identity`
-        announces a minted run id on stderr unconditionally, for the same class
-        of value, because a name nobody was told is a bag nobody can retry into.
+        UNGATED, AND THE GATE THAT WAS HERE WAS THE TRIGGER `Dual-mode children`
+        WAS WAITING FOR. It read `if not self.is_the_run: return` — `writer is
+        None` — as a PROXY for *did this process construct the context*, and the
+        ⚠ this paragraph replaces predicted in terms where the proxy stops
+        holding: a child invoked as a SEPARATE PROCESS constructs its own context
+        and cannot be handed one, so a standalone child also passed `--writer`
+        derived a worktree name and a target and said NOTHING. That is the
+        invisibility this object exists to close, arriving on the runs that spend
+        the model time, with a green suite. This phase adds six such entrypoints,
+        which is why the fix lands with them rather than in a tracked store.
 
-        GATED ON *IS THIS INVOCATION THE RUN*, WHICH IS THE "CONSTRUCTED HERE OR
-        RECEIVED" DISCRIMINATOR. A parent that builds a context and hands it to
-        nine children should say it once; a child that was handed one should not
-        reprint what its parent already said, and `--writer` is the only thing
-        that distinguishes the two from inside the process.
+        THE FIX IS THE FACT, NOT A BETTER PROXY, and the fact turns out to be a
+        constant. A `RunContext` is reachable only by CONSTRUCTING one —
+        `.build` or `.for_dry_run`, both on this class — and nothing in this
+        fleet passes the object between processes or hands it down to a callee
+        that echoes. Every caller of `echo` has, by construction, just built the
+        thing it is about to state. So *constructed here* is True at every call
+        site, a field carrying it would be a field that is always True, and the
+        honest expression of the fact is no gate at all.
 
-        ⚠ IT IS DELIBERATELY *NOT* GATED ON `minted`, and that is a correction
-        rather than a simplification. `minted` is False for an operator retrying
-        with `--run-id X` — a parent, constructing its own context, and exactly
-        the caller who most needs to see what the retry derived. `minted`
-        answers "did I make the NAME"; the echo asks "did I make the CONTEXT",
-        and `writer` is the field that answers it.
+        THE "A MEMBER DOES NOT REPRINT" PROPERTY IS NOT LOST; IT WAS NEVER THIS
+        GATE'S. An in-process child receives a WORKTREE PATH and a name, never a
+        context, and never calls this method — the eleven entrypoints were and
+        remain the only callers. What a reader needs instead is to tell a
+        member's echo from the run's, and `render` already does that: its `run`
+        row reads `<run id> (writer <name>)` whenever `writer` is set.
 
-        ⚠ AND `writer` IS A PROXY FOR "RECEIVED", NOT THE FACT ITSELF — stated
-        because it stops being true at a known trigger rather than gradually.
-        Today every context is constructed by the process that uses it, so the
-        gate is exact. A child invoked as a SEPARATE PROCESS constructs its own
-        context and cannot be handed one, so if such a child is also passed
-        `--writer` it will derive a worktree name and a target and say nothing —
-        the invisibility this object exists to close, on the runs that spend the
-        model time. `Dual-mode children` is the phase that adds six such
-        entrypoints, and it carries the checkbox for teaching this gate the
-        difference. Nothing in `scripts/` passes `--writer` today, so no live
-        run is affected.
+        ⚠ IT IS ALSO DELIBERATELY NOT GATED ON `minted`, which was the phase
+        brief's own suggestion and is a worse proxy still. `minted` is False for
+        an operator retrying with `--run-id X` — exactly the caller who most
+        needs to see what the retry derived.
+
+        AND NOT ON `verbose`. `verbose` governs a workflow's own chatter; this is
+        the run saying what it is about to spend money on. The precedent is one
+        function away — `resolve_identity` announces a minted run id on stderr
+        unconditionally, for the same class of value, because a name nobody was
+        told is a bag nobody can retry into.
 
         stderr rather than stdout because several entrypoints' stdout is a
         rendered report an operator or a tool reads.
         """
-        if not self.is_the_run:
-            return
         print(self.render(), file=stream or sys.stderr, flush=True)
 
 

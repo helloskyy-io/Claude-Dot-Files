@@ -6,9 +6,10 @@
 # place that defines the CLI contract.
 #
 # Usage:
-#   ./plan_sprint.sh --verbose
-#   ./plan_sprint.sh --candidates tracked/candidates
-#   ./plan_sprint.sh --pr 42 --verbose
+#   ./plan_sprint.sh development/<component> --verbose
+#   ./plan_sprint.sh development/<component> --sprint development/sprints.md
+#   ./plan_sprint.sh development/<component> --pr 42 --verbose
+#   ./plan_sprint.sh development/<component> --dry-run
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 exec python3 "${SCRIPT_DIR}/run_plan_sprint.py" "$@"

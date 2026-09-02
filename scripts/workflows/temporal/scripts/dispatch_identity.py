@@ -186,8 +186,11 @@ class RunIdentity:
         override="none — it is declared, and `--writer` is the only input.",
         scope="wrong ⇒ a child silently becomes its own run and its records "
               "leave the parent's bag, or a parent adopts a bag it should have "
-              "created. It also gates the run-context echo: a member does not "
-              "reprint what its parent already said."))
+              "created. It NO LONGER gates the run-context echo — it did, as a "
+              "proxy for *constructed here*, and a standalone child that "
+              "legitimately carries both flags was silenced by it. See "
+              "`RunContext.echo`. What it still does for a reader is LABEL the "
+              "echo: `render`'s run row names the writer whenever one is set."))
 
     #: True when nothing supplied the name and this boundary made one.
     minted: bool = field(metadata=derivation(

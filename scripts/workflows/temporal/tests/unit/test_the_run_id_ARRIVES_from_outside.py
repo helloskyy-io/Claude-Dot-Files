@@ -204,8 +204,25 @@ def _resolving_before_the_dry_run_return(directory: pathlib.Path) -> list[str]:
     compares the first `--dry-run`-guarded early return against the first
     `resolve_identity` call. A file that reached the boundary through a helper
     called before the return would pass. That shape does not exist here — the
-    boundary is called inline in all eleven — and the check for THAT is
+    boundary is called inline in all seventeen — and the check for THAT is
     `_bypassing_the_identity_boundary` above.
+
+    ⚠ THE CALL SIDE IS READ BY AST, AND WAS READ BY GREP UNTIL 2026-09-02, WHEN A
+    DOCSTRING BROKE IT. The old predicate was `f"{IDENTITY_BOUNDARY}(" in line`
+    with `#`/`*` skipped, so a MODULE DOCSTRING naming `resolve_identity(argv)`
+    was read as a call — at line 28 of a file whose real call is at line 168 —
+    and `run_build_draft.py` was reported as resolving an identity before its
+    dry-run return while doing nothing of the sort. That is precisely the defect
+    `_missing_bag_open` states one file over: *a guard reading a region that
+    includes its own documentation reports on the documentation.* The family
+    ruling this phase introduces makes documenting the boundary the NORM, so the
+    misfire would have hit every adapter written after it.
+
+    The RETURN side is still line-order text. It stays that way because the
+    thing it looks for — an early `return` guarded on `dry_run` — has no single
+    AST shape across seventeen files, and because a `return` statement inside a
+    docstring is not a thing anyone writes. The half that was wrong is fixed;
+    the half that is merely weak keeps saying so.
     """
     offenders = []
     for path in _entrypoints(directory):
@@ -215,8 +232,11 @@ def _resolving_before_the_dry_run_return(directory: pathlib.Path) -> list[str]:
         lines = source.splitlines()
         returns = [i for i, line in enumerate(lines)
                    if "dry" in line and line.lstrip().startswith(("if ", "return "))]
-        calls = [i for i, line in enumerate(lines) if f"{IDENTITY_BOUNDARY}(" in line
-                 and not line.lstrip().startswith(("#", "*"))]
+        calls = [node.lineno - 1
+                 for node in ast.walk(ast.parse(source, filename=str(path)))
+                 if isinstance(node, ast.Call)
+                 and (getattr(node.func, "id", None) == IDENTITY_BOUNDARY
+                      or getattr(node.func, "attr", None) == IDENTITY_BOUNDARY)]
         if not returns or not calls:
             offenders.append(f"{path.name} (dry-run branch or boundary call not "
                              f"located: returns={len(returns)} calls={len(calls)})")

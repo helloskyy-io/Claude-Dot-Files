@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pytest
 
-from preflight import (RepoPathParser, preflight, require_dependencies,
+from preflight import (RepoPathParser, preflight, refuse, require_dependencies,
                        resolve_operator_paths, resolve_repo_root)
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
@@ -102,6 +102,184 @@ def test_no_entrypoint_roots_on_the_invocation_directory() -> None:
     offenders = [s.name for s in scripts
                  if "repo_root = Path(" in s.read_text() and "Path.cwd()" in s.read_text()]
     assert not offenders, f"these root on the invocation dir rather than the repo: {offenders}"
+
+
+# --- refuse: the family's ONE operator-facing refusal --------------------------
+
+def test_refuse_returns_the_exit_code_and_writes_the_message_UNCHANGED() -> None:
+    """The two things every caller depends on, asserted together.
+
+    THE MESSAGE IS THE DIAGNOSTIC AND MUST NOT BE REWORDED. The layer that raised
+    knew what failed — `resolve_repo_root` names the timeout it exceeded,
+    `resolve_operator_paths` echoes the argument the operator typed and says
+    whether it was a DEFAULT. This function's whole job is to print that verbatim
+    and hand back an exit code, so a behaviour-preserving promotion stays one.
+    """
+    import io
+    detailed = RuntimeError(
+        "component ../../x resolves outside the repo: /x\n  remedy: pass --repo")
+    buffer = io.StringIO()
+
+    assert refuse(detailed, stream=buffer) == 1, (
+        "a refusal that returns 0 is a bad invocation the shell reads as success")
+    assert buffer.getvalue() == f"\n\u2717 {detailed}\n", (
+        f"the message was reformatted: {buffer.getvalue()!r}")
+
+
+def test_refuse_writes_to_STDERR_by_default(capsys) -> None:
+    """stdout is the RESULT somebody may pipe — for the build and research
+    children it is the PR URL and nothing else."""
+    refuse(RuntimeError("boom"))
+    captured = capsys.readouterr()
+    assert "boom" in captured.err
+    assert captured.out == "", (
+        f"a refusal reached stdout, where a caller doing `$(./build_draft.sh …)` "
+        f"would capture it as a PR URL: {captured.out!r}")
+
+
+def test_no_entrypoint_INLINES_the_operator_facing_REFUSAL() -> None:
+    """THE CLASS: the family's failure message has ONE implementation.
+
+    WHY A SWEEP AND NOT A REVIEW NOTE. `C-8tv8ewto` records this block reaching
+    SEVEN entrypoints byte-identically and then ELEVEN, found by a review agent
+    on a pull request rather than by anything automatic — because **no guard in
+    this repo can see duplication in a Python runner.** The prompt-duplication
+    ratchet's population is `prompts/*.md` and `FAMILY_RULINGS` is keyed on
+    prompt-fragment stems, so a `run_*.py` cannot add a row to either. That is
+    the fact `Dual-mode children` requirement 7 rests on, and extracting the
+    block without this sweep would have removed twenty-two copies while leaving
+    the twenty-third free to be written by whoever adds the eighteenth runner.
+
+    Detection over this corpus is available for THIS block precisely because the
+    block has a syntax — a `print` of a specific f-string. What is NOT available,
+    and what requirement 7 answers with prevention instead, is detection of
+    duplication in general: the phase doc rejects a similarity ratchet over
+    `run_*.py` because near-identical runners are what a family IS, so a
+    magnitude-based baseline either freezes something enormous or fires forever.
+
+    WHAT THIS DOES NOT LOOK AT:
+
+      * It reads the ONE spelling that was extracted. A runner printing
+        `f"FAILED: {exc}"` and returning 1 has the same defect and passes here.
+        The check keys on the block that existed, not on the idea of a refusal —
+        which is the honest scope, and the reason `refuse`'s own docstring is
+        where the contract lives.
+      * It says nothing about whether the handler CATCHES the right exceptions.
+        `test_every_parent_opens_a_run_bag` owns the placement of the boundary
+        calls inside it.
+    """
+    scripts = sorted((REPO_ROOT / "scripts" / "workflows" / "temporal"
+                      / "scripts").glob("run_*.py"))
+    assert len(scripts) >= 17, (
+        f"the sweep found {len(scripts)} entrypoints; there were 17 when this "
+        f"floor was set. A guard that walks a shrinking tree passes vacuously.")
+
+    offenders = [s.name for s in scripts
+                 if _inlines_a_refusal(ast.parse(s.read_text()))]
+    assert not offenders, (
+        f"these entrypoints print the family refusal themselves rather than "
+        f"calling `refuse`: {offenders}. One implementation, or the next change "
+        f"to how a bad invocation is reported lands in whichever file the author "
+        f"had open and the other sixteen keep the old shape."
+    )
+
+
+def _inlines_a_refusal(tree: ast.Module) -> bool:
+    """Whether this module writes the BARE extracted refusal by hand.
+
+    READ BY AST, because this file's own prose quotes the block it forbids and a
+    textual scan would read the documentation as the defect — the failure
+    `_missing_bag_open` records one module over.
+
+    ⚠ EXACTLY `f"\\n\u2717 {exc}"` AND NOTHING MORE, and the narrowing was forced
+    by the guard's own first run. A predicate matching any f-string containing
+    the glyph flagged `run_plan_refine.py` and `run_plan_sprint.py` — which carry
+    refusals that are NOT this block: they interpolate their own diagnosis
+    alongside the exception ("this run cannot tell whether PR #42 carries a
+    plan, and 'I cannot see it' must not be delivered as 'it is not there'").
+    `refuse(exc)` takes an exception and prints it verbatim; it cannot express
+    those, and demanding it would either delete an operator-facing sentence or
+    grow the helper a message parameter that its whole contract — *do not reword
+    what the raising layer wrote* — exists to refuse.
+
+    So the check is on the DUPLICATE, not on the glyph. A bespoke refusal is a
+    different message written once; twenty-two copies of the same message is the
+    defect `C-8tv8ewto` filed.
+    """
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        if getattr(node.func, "id", None) != "print":
+            continue
+        for arg in node.args:
+            if not isinstance(arg, ast.JoinedStr) or len(arg.values) != 2:
+                continue
+            head, tail = arg.values
+            if (isinstance(head, ast.Constant) and head.value == "\n\u2717 "
+                    and isinstance(tail, ast.FormattedValue)):
+                return True
+    return False
+
+
+def test_THE_REFUSAL_SWEEP_DISCRIMINATES(tmp_path: Path) -> None:
+    """NEGATIVE CONTROL, on a self-contained fixture rather than a real runner.
+
+    A control that shares a fixture with the code under mutation over-fires: the
+    verdict stops being attributable to the mutation. Both arms are written here,
+    so the only difference between them is the line under test.
+
+    The offending arm is the block EXACTLY as it stood in all eleven runners
+    before this phase extracted it.
+    """
+    inlined = (
+        'import sys\n'
+        'def main(argv=None):\n'
+        '    try:\n'
+        '        pass\n'
+        '    except RuntimeError as exc:\n'
+        '        print(f"\\n\u2717 {exc}", file=sys.stderr)\n'
+        '        return 1\n')
+    assert _inlines_a_refusal(ast.parse(inlined)), (
+        "the sweep must see the block that shipped in eleven runners")
+
+    migrated = (
+        'from preflight import refuse\n'
+        'def main(argv=None):\n'
+        '    try:\n'
+        '        pass\n'
+        '    except RuntimeError as exc:\n'
+        '        return refuse(exc)\n')
+    assert not _inlines_a_refusal(ast.parse(migrated)), (
+        "a migrated runner must not be flagged — a guard that fires on the fix "
+        "is a guard that gets deleted")
+
+    # A `print` of ordinary text is not a refusal, and neither is a MENTION of
+    # the glyph in a comment or a docstring. Both arms exist because the first
+    # version of this predicate was a substring check and both would have fired.
+    innocent = (
+        'def main(argv=None):\n'
+        '    """Prints a summary. Historically this printed `\u2717 {exc}`."""\n'
+        '    print(f"  {url}")\n'
+        '    # on failure the old shape was: print(f"\u2717 {exc}")\n')
+    assert not _inlines_a_refusal(ast.parse(innocent))
+
+    # ⚠ THE ARM THAT MADE THIS PREDICATE NARROWER, and it is a REAL shape from
+    # `run_plan_refine.py` rather than an invented one. A refusal carrying its
+    # own diagnosis beside the exception is a message written ONCE; `refuse`
+    # cannot express it, and flagging it would trade an operator-facing sentence
+    # for a uniformity nobody asked for. Without this arm the guard was red on
+    # two conforming runners the first time it ran.
+    bespoke = (
+        'import sys\n'
+        'def main(argv=None):\n'
+        '    try:\n'
+        '        pass\n'
+        '    except RuntimeError as exc:\n'
+        '        print(f"\\n\u2717 {exc} — this run cannot tell whether PR "\n'
+        '              f"#{n} carries a plan.", file=sys.stderr)\n'
+        '        return 1\n')
+    assert not _inlines_a_refusal(ast.parse(bespoke)), (
+        "a refusal that adds its own diagnosis is not the duplicated block")
 
 
 def test_no_entrypoint_INLINES_the_operator_path_escape_check() -> None:

@@ -261,8 +261,22 @@ claude-dot-files/
 │           │                                        #   bag nobody can retry into. It is the client side of a dispatch and becomes the
 │           │                                        #   Temporal client at port time, which is why minting here is generation on the INPUT
 │           │                                        #   side rather than inside retried work
-│           │                                        #   research.sh / research_minor.sh are SIBLING entries, not one script with a flag —
-│           │                                        #   different parents, different model keys, separately-budgeted turn caps
+│           │                                        #   SEVENTEEN runner/shim pairs since 2026-09-02, and every workflow module in the
+│           │                                        #   four families now has one. Workflow Decomposition Phase 3 (Dual-mode children)
+│           │                                        #   added the last six — build_draft, build_draft_minor, build_refine,
+│           │                                        #   build_refine_minor, research_draft, research_refine — which were reachable ONLY
+│           │                                        #   through their parent before that, so every iteration on a child cost the whole
+│           │                                        #   chain. A parent still imports the core function and calls it directly; the pair
+│           │                                        #   is the OTHER interface, not a recovery hatch. The one ruling all six were built
+│           │                                        #   against is `run_build_draft.py`'s module docstring — invariants, deliberate
+│           │                                        #   per-child variants, and the five places standalone and parent-driven diverge.
+│           │                                        #   A standalone child cuts its OWN worktree, because the parent that would have
+│           │                                        #   established isolation for it is not running; every one uses ctx.worktree_name
+│           │                                        #   research.sh is a SIBLING entry to the family's children, not one script with a
+│           │                                        #   flag — different parents, different model keys, separately-budgeted turn caps.
+│           │                                        #   (This read `research.sh / research_minor.sh` until 2026-09-02; research_minor
+│           │                                        #   was deleted when the research tiers merged on 2026-08-28 and the map kept
+│           │                                        #   pointing at it)
 │           │                                        #   triage_candidates.sh / plan_draft.sh / plan_refine.sh / plan_sprint.sh are
 │           │                                        #   siblings for the same reason: four jobs, four model keys, four turn caps. Each
 │           │                                        #   runs standalone AND is called in order by plan_project.sh. plan_draft.sh and

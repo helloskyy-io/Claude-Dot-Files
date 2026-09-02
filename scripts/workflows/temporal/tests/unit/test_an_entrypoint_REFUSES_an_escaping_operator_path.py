@@ -77,6 +77,12 @@ _ARGV_SHAPE: dict[str, list[str]] = {
     "run_triage_candidates.py": ["--dry-run"],
     "run_research.py": ["--dry-run"],
     "run_research_minor.py": ["--dry-run"],
+    "run_research_draft.py": ["--dry-run"],
+    # `--pr` is `required=True` on this one: a verify pass has nothing to open,
+    # so an invocation without it exits at the parser and never reaches the
+    # resolver this file is about. The number is arbitrary and unreachable —
+    # `--dry-run` returns before any `gh` call.
+    "run_research_refine.py": ["--dry-run", "--pr", "1"],
     # No `--dry-run` exists on this one; it is stopped by the resolver before it
     # can dispatch, and the fixture below replaces the dispatch so that a
     # REGRESSION fails loudly here instead of cutting a worktree and spending.

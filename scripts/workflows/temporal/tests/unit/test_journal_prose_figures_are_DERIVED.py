@@ -156,21 +156,44 @@ def _reach_a_worktree() -> int:
     return total
 
 
+def _dry_run_and_bag_lines(src: str) -> tuple[int | None, int | None]:
+    """The first `dry_run` reference and the first `open_run_bag` CALL, by AST.
+
+    ⚠ READ FROM THE SYNTAX TREE, AND READ FROM RAW TEXT UNTIL 2026-09-02, WHEN A
+    DOCSTRING INVERTED IT. The old form took the first LINE mentioning each
+    string. `run_build_draft.py` carries this phase's family ruling in its module
+    docstring, which names `journal.open_run_bag(...)` at line 33 while the file's
+    real call is at line 172 — so the runner was counted as NOT returning from
+    its dry-run branch before bag-open, which is the opposite of what it does.
+    The count would have shipped one low with a green suite, in a guard whose
+    entire purpose is that a stated count is true.
+
+    A `dry_run` REFERENCE, not a mention: a `Name` or an `Attribute` the code
+    actually reads. A docstring is an `ast.Constant` and contributes nothing.
+    """
+    tree = ast.parse(src)
+    dry = [n.lineno for n in ast.walk(tree)
+           if (isinstance(n, ast.Name) and n.id == "dry_run")
+           or (isinstance(n, ast.Attribute) and n.attr == "dry_run")]
+    bag = [n.lineno for n in ast.walk(tree)
+           if isinstance(n, ast.Call)
+           and getattr(n.func, "attr", getattr(n.func, "id", None)) == "open_run_bag"]
+    return (min(dry) if dry else None), (min(bag) if bag else None)
+
+
 def _return_from_a_dry_run_before_bag_open() -> int:
     """Entrypoints whose `--dry-run` path returns before the bag is opened.
 
     LINE ORDER IS THE RIGHT INSTRUMENT AND THE WEAK ONE, so it is stated. The
     property the prose claims is "returns before reaching bag-open"; what is
-    cheaply computable is "mentions `dry_run` above the `open_run_bag` line".
-    The two agree on every entrypoint today, and the four that have no
-    `--dry-run` at all — which is what made the claimed EIGHT unreachable — are
-    counted correctly by either.
+    cheaply computable is "reads `dry_run` above the `open_run_bag` call". The
+    two agree on every entrypoint today, and the five that have no `--dry-run`
+    at all — which is what made the claimed EIGHT unreachable — are counted
+    correctly by either.
     """
     total = 0
     for src in _entrypoint_sources().values():
-        lines = src.splitlines()
-        dry = next((i for i, l in enumerate(lines) if "dry_run" in l), None)
-        bag = next((i for i, l in enumerate(lines) if "open_run_bag" in l), None)
+        dry, bag = _dry_run_and_bag_lines(src)
         if dry is not None and bag is not None and dry < bag:
             total += 1
     return total
@@ -240,43 +263,40 @@ _DERIVERS = {
 # KEYED BY THE FIGURE'S OWN TEXT so an entry survives a line move and LAPSES
 # when the sentence is reworded — a reworded claim is a new claim.
 _BOUND_FIGURES = {
-    ("journal_activities.py", "FIVE of this fleet's eleven entrypoints"):
-        "cut their own worktree",
-    ("journal_activities.py", "nine of eleven"):
-        "reach a worktree before workflow-module code",
-    ("journal_activities.py", "eleven entrypoints"): "the entrypoint population",
-    ("journal_activities.py", "eleven entrypoint"): "the entrypoint population",
-    ("journal_activities.py", "Ten of the eleven entrypoints"): "do not catch OSError",
-    ("conftest.py", "eleven entrypoints"): "the entrypoint population",
-    ("test_journal_bag.py", "eleven entrypoints"): "the entrypoint population",
-    ("test_journal_root.py", "Ten of the eleven entrypoints"): "do not catch OSError",
-    ("test_journal_root.py", "ten of eleven entrypoints"): "do not catch OSError",
-    ("test_every_parent_opens_a_run_bag.py", "ELEVEN entrypoints"):
-        "the entrypoint population",
-    ("test_every_parent_opens_a_run_bag.py", "FIVE of those eleven"):
-        "cut their own worktree",
-    ("test_every_parent_opens_a_run_bag.py", "NINE of the eleven"):
-        "reach a worktree before workflow-module code",
-    ("test_every_parent_opens_a_run_bag.py", "Seven of the eleven entrypoints"):
-        "return from a dry-run branch before bag-open",
-    ("test_every_parent_opens_a_run_bag.py", "nine of eleven"):
-        "inside the ordering check's reach",
-    ("test_every_parent_opens_a_run_bag.py", "9 OF 11"):
-        "inside the ordering check's reach",
-    ("test_every_parent_opens_a_run_bag.py", "five entrypoints"): "cut their own worktree",
-    ("test_every_parent_opens_a_run_bag.py", "two of the eleven entrypoints"):
-        "outside the ordering check's reach",
-    ("test_every_parent_opens_a_run_bag.py", "NINE of eleven entrypoints"):
-        "reach a worktree before workflow-module code",
-    ("test_the_suite_never_writes_to_the_operators_journal.py", "eleven entrypoints"):
-        "the entrypoint population",
     # MOVED HERE BY THIS PR'S OWN EXTRACTION, from the two modules above.
-    ("journal_entrypoint_facts.py", "9 OF 11"):
-        "inside the ordering check's reach",
-    ("journal_entrypoint_facts.py", "five entrypoints"): "cut their own worktree",
-    ("phase1_the_run_bag.md", "Seven of the 11 entrypoints"):
+
+    # ── SEVENTEEN-ENTRYPOINT ERA. `Dual-mode children` gave six children runners
+    #    of their own on 2026-09-02; every row above it was keyed on a sentence
+    #    naming ELEVEN and is gone rather than kept beside its successor, because
+    #    this registry's own rule is that a reworded claim is a new claim.
+    ("journal_activities.py", "ELEVEN of this fleet's seventeen entrypoints"):
+        "cut their own worktree",
+    ("journal_activities.py", "fifteen of seventeen"):
+        "reach a worktree before workflow-module code",
+    ("journal_activities.py", "seventeen entrypoints"): "the entrypoint population",
+    ("journal_activities.py", "seventeen entrypoint"): "the entrypoint population",
+    ("journal_activities.py", "Sixteen of the seventeen entrypoints"): "do not catch OSError",
+    ("conftest.py", "seventeen entrypoints"): "the entrypoint population",
+    ("test_journal_bag.py", "seventeen entrypoints"): "the entrypoint population",
+    ("test_journal_root.py", "Sixteen of the seventeen entrypoints"): "do not catch OSError",
+    ("test_journal_root.py", "sixteen of seventeen entrypoints"): "do not catch OSError",
+    ("test_every_parent_opens_a_run_bag.py", "SEVENTEEN entrypoints"):
+        "the entrypoint population",
+    ("test_every_parent_opens_a_run_bag.py", "ELEVEN of those seventeen"):
+        "cut their own worktree",
+    ("test_every_parent_opens_a_run_bag.py", "FIFTEEN of the seventeen"):
+        "reach a worktree before workflow-module code",
+    ("test_every_parent_opens_a_run_bag.py", "Thirteen of the seventeen entrypoints"):
         "return from a dry-run branch before bag-open",
-    ("phase1_the_run_bag.md", "9 of the 11 entrypoints"):
+    ("test_every_parent_opens_a_run_bag.py", "fifteen of seventeen"):
+        "inside the ordering check's reach",
+    ("test_every_parent_opens_a_run_bag.py", "two of the seventeen entrypoints"):
+        "outside the ordering check's reach",
+    ("test_every_parent_opens_a_run_bag.py", "FIFTEEN of seventeen entrypoints"):
+        "reach a worktree before workflow-module code",
+    ("test_the_suite_never_writes_to_the_operators_journal.py", "seventeen entrypoints"):
+        "the entrypoint population",
+    ("journal_entrypoint_facts.py", "15 OF 17"):
         "inside the ordering check's reach",
 }
 
@@ -291,13 +311,24 @@ _DECLARED_NON_DERIVATIONS = {
         "many of the eleven do anything. No deriver could produce it because it "
         "is not a claim about the fleet, and binding it to one would make a "
         "derived number answer a question nobody asked.",
-    ("journal_activities.py", "nine of eleven entrypoints"):
-        "the PRE-FIX state inside this PR: how many omitted the then-optional "
-        "`worktree_name`. The argument for making it required rests on it, and "
-        "the tree no longer holds it — all eleven pass one now.",
+    ("journal_activities.py", "eleven-entrypoint fleet"):
+        "the PRE-FIX state of an ELEVEN-ENTRYPOINT FLEET: how many omitted the "
+        "then-optional `worktree_name`. The argument for making it required "
+        "rests on it, and the tree no longer holds it — every entrypoint passes "
+        "one now, and there are seventeen of them.\n"
+        "⚠ THE SENTENCE WAS REWORDED ON 2026-09-02 TO NAME ITS ERA, and the "
+        "rewording was forced by a LIMIT IN THIS SWEEP rather than by taste. "
+        "`_figures_in`'s second pattern anchors on the CURRENT total, so a "
+        "historical `<N> of <old total>` stops matching the moment the "
+        "population moves — its declared row goes dead in silence, and the "
+        "inner `<old total> entrypoints` fragment surfaces as a NEW figure "
+        "claiming the old number. The row that used to sit here was keyed "
+        "`nine of eleven entrypoints` and is exactly what went dead. Naming the "
+        "era makes the sentence readable AND gives the row a key that no future "
+        "total can dissolve.",
     ("journal_activities.py", "nine of eleven"):
-        "the same pre-fix figure carried into its consequence — nine of eleven "
-        "RUNS would have recorded no worktree. Same absent ground truth.",
+        "the same pre-fix figure carried into its consequence — nine runs in "
+        "eleven would have recorded no worktree. Same absent ground truth.",
     ("phase2_content_store.md", "two entry points"):
         "NOT A POPULATION FIGURE, AND THE COLLISION IS IN THE PREDICATE RATHER "
         "THAN IN THE PROSE. Phase 2 requirement 8 reads 'the store's two entry "
@@ -317,6 +348,15 @@ _DECLARED_NON_DERIVATIONS = {
         "measurement was superseded. Not derivable for the same reason.",
     ("phase1_the_run_bag.md", "nine of eleven"):
         "its consequence clause, as above.",
+    ("journal_entrypoint_facts.py", "five entrypoints"):
+        "HISTORY, AND IT WAS BOUND TO A DERIVER UNTIL 2026-09-02. The sentence "
+        "records what the ORDERING CHECK'S FIRST VERSION could see: five of the "
+        "eleven-era entrypoints cut their own worktree and the other six had no "
+        "detectable side effect. `cut their own worktree` derives 11 today, so "
+        "the binding turned a true statement about a past tree into a reported "
+        "contradiction — and 'correcting' it to 11 would have left the very next "
+        "clause reading 11 + 6 = 11. A figure whose sentence also states its "
+        "complement cannot be renumbered one term at a time.",
     ("test_every_parent_opens_a_run_bag.py", "seven entrypoints"):
         "`test_preflight`'s ORIGINAL defect — six of SEVEN, in the "
         "seven-entrypoint era. It is the exemplar this file was built on, and "
@@ -329,9 +369,26 @@ _DECLARED_NON_DERIVATIONS = {
         "not a population count — `_side_effect_lines` returns the side-effect "
         "lines *in one entrypoint*, i.e. per file. The number binds to a unit "
         "of work, not to how many entrypoints do something.",
-    ("test_a_real_bag_validates.py", "ten of eleven entrypoints"):
-        "a HYPOTHETICAL — the fleet this tier would still pass on if bag-open "
-        "silently stopped. It describes a fleet that has never existed.",
+    # ⚠ THE ROW THAT WAS HERE IS GONE BECAUSE THE SENTENCE NO LONGER CARRIES A
+    #   FIGURE AT ALL. It read "a fleet where ten of eleven entrypoints had
+    #   quietly stopped opening bags"; when the population moved to seventeen the
+    #   compound stopped matching and the bare fragment `eleven entrypoints`
+    #   surfaced as a NEW claim about today's tree. A hypothetical does not need
+    #   a number to make its point, so it was reworded to "all but one" — which
+    #   is the same claim, immune to the next change, and needs no registry row.
+    ("phase1_the_run_bag.md", "11 entrypoints"):
+        "PHASE 1'S OWN RECORD, in another repository and about the eleven-"
+        "entrypoint fleet it shipped against. The compound forms this file used "
+        "to bind — `Seven of the 11 entrypoints`, `9 of the 11 entrypoints` — "
+        "stopped matching when `Dual-mode children` took the population to "
+        "seventeen, leaving these fragments. It is a dated record of what was "
+        "true, not a claim about today, and a phase doc in another repository is "
+        "not this repo's to reword — the same reasoning `phase2_content_store.md` "
+        "carries below. SURFACED for that component's own doc pass rather than "
+        "silently corrected here.",
+    ("phase1_the_run_bag.md", "eleven entrypoints"):
+        "the same record, in the superseded-measurement note at the foot of that "
+        "document. Declared for the same reason.",
     ("file_structure.txt", "ten of eleven"):
         "the same hypothetical, restated in the map's annotation for that tier.",
     ("file_structure.txt", "six of eleven"):

@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 __all__ = ["resolve_repo_root", "require_dependencies", "preflight",
-           "resolve_operator_paths", "RepoPathParser", "RepoPathSpec"]
+           "resolve_operator_paths", "RepoPathParser", "RepoPathSpec", "refuse"]
 
 # Every workflow imports these. A missing one is not a crash mid-run — it is a
 # crash AFTER the worktree exists, which is how a stranded worktree happens.
@@ -30,6 +30,41 @@ _REQUIRED = ("yaml",)
 # message raised below quotes it: a literal in both places means widening the
 # bound ships an error that lies to the operator about what was exceeded.
 _REPO_ROOT_TIMEOUT_SECONDS = 30.0
+
+
+def refuse(exc: BaseException, stream=None) -> int:
+    """Print the diagnostic the raising layer wrote, and return the exit code.
+
+    PROMOTED BECAUSE SEVENTEEN ENTRYPOINTS CARRY IT TWICE EACH, byte-identically
+    — `C-8tv8ewto`, filed at seven and re-measured at eleven. §10.1 rule 3 is a
+    consumer count, never taste, and `resolve_operator_paths` two functions down
+    was promoted at TWO. The drift this closes is the one that helper's own
+    docstring names, one altitude lower: the next change to how a bad invocation
+    is reported — a hint line, an exit code distinguishing a refusal from a
+    crash, routing to `logging` — lands in whichever runner the author had open,
+    and the other sixteen keep the old shape with nothing in any diff to show it.
+
+    ⚠ IT RETURNS 1; IT DOES NOT RAISE `SystemExit`, and that is the reason this
+    is not the `parse_or_exit(parser, argv)` the candidate proposes. Every
+    entrypoint's `main` returns an int and the suite drives it that way —
+    `test_an_entrypoint_REFUSES_an_escaping_operator_path` asserts
+    `main(argv) == 1` for each runner declaring a repo path. A helper that
+    exited the process would make that assertion unreachable and would turn a
+    testable refusal into one that can only be observed by catching `SystemExit`.
+    The caller keeps its `except RuntimeError` clause, which is what
+    `test_every_parent_opens_a_run_bag` reads; only the two-line body moves here.
+
+    THE MESSAGE IS NOT REWORDED, EVER. These carry operator-facing recovery
+    instructions from the layer that knew what failed — `resolve_repo_root` names
+    the timeout it exceeded, `resolve_operator_paths` echoes the argument the
+    operator typed and says whether it was a DEFAULT. Wrapping or reformatting
+    them here would make a behaviour-preserving promotion a behaviour change.
+
+    stderr rather than stdout because several entrypoints' stdout is a rendered
+    report an operator or a tool reads.
+    """
+    print(f"\n✗ {exc}", file=stream or sys.stderr)
+    return 1
 
 
 def resolve_repo_root(repo_target: str | None) -> Path:

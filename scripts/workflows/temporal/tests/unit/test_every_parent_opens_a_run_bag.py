@@ -25,11 +25,11 @@ other covered.
 WHY THE SWEPT UNIT IS THE ENTRYPOINT AND NOT THE WORKFLOW MODULE. This tree has
 two defensible readings of "parent" and they do not agree: `test_isolation_
 invariants.py` classifies six workflow modules as parents by `act.worktree_add(`,
-while ELEVEN entrypoints are 1:1 with a run. FIVE of those eleven call
+while SEVENTEEN entrypoints are 1:1 with a run. ELEVEN of those seventeen call
 `worktree_add` themselves and hand the workflow module an already-cut worktree,
-and three more hand off by name to a module that cuts one, so a bag opened inside
-the workflow module would fire AFTER a worktree existed on disk in NINE of the
-eleven — and r9 says the run *does not start*. The
+and four more hand off by name to a module that cuts one, so a bag opened inside
+the workflow module would fire AFTER a worktree existed on disk in FIFTEEN of the
+seventeen — and r9 says the run *does not start*. The
 entrypoint is where `preflight` already lives, for exactly this reason. At port
 time the entrypoint becomes a client that starts the workflow on a task queue,
 and the call moves to the workflow's first activity invocation; this predicate
@@ -53,7 +53,7 @@ enumerating test is only as good as its discovery predicate:
     _first_side_effect` below closes the most likely version of that by ORDER;
     proving execution needs the integration tier.
   * `--dry-run` IS A DELIBERATE EXEMPTION, and it is the concrete instance of the
-    point above rather than a hypothetical one: Seven of the eleven entrypoints
+    point above rather than a hypothetical one: Thirteen of the seventeen entrypoints
     return from their dry-run branch before reaching bag-open, so on that path
     the call is present and does not run. That is intended — a dry run states
     "nothing invoked, nothing posted", and creating a directory would falsify it
@@ -63,7 +63,7 @@ enumerating test is only as good as its discovery predicate:
     mistakes for an oversight. (The other four have no `--dry-run` at all, which
     is why this said EIGHT for four passes and no reading of the tree supported
     it; `test_journal_prose_figures_are_DERIVED.py` now derives the number.)
-  * The ORDERING check covers nine of eleven; the two it cannot reach are
+  * The ORDERING check covers fifteen of seventeen; the two it cannot reach are
     named in `_ORDERING_UNCOVERED` below, with why.
 """
 
@@ -615,7 +615,7 @@ def test_the_ordering_check_FAILS_on_a_reversed_entrypoint(tmp_path: Path) -> No
     assert offenders_in(handoff_reversed), (
         "a workflow handoff called BY NAME before bag-open must be flagged — this "
         "is the case the narrow `worktree_add`-only predicate could not see, and "
-        "it is two of the eleven entrypoints")
+        "it is two of the seventeen entrypoints")
 
 
 def test_the_worktree_cutting_count_this_argument_RESTS_ON() -> None:
@@ -627,9 +627,17 @@ def test_the_worktree_cutting_count_this_argument_RESTS_ON() -> None:
     prose does not hold. A reader who catches one false count discounts the rest
     of the prose, and this package is roughly half prose.
 
-    So the numbers stop being claims. Five cut their own worktree; three more
-    hand off by name to a `*_workflow` module that cuts one; nine of eleven
-    either way, which is what the argument actually needs and is true.
+    So the numbers stop being claims. ELEVEN cut their own worktree; four more
+    hand off by name to a `*_workflow` module that cuts one; fifteen of
+    seventeen either way, which is what the argument actually needs and is true.
+
+    ⚠ 5 -> 11 AND 9 -> 15 ON 2026-09-02, and the shift is the argument getting
+    STRONGER rather than the figure drifting. `Dual-mode children` gave six
+    children runners of their own, and a child invoked alone has no parent to
+    establish isolation for it — so every one of the six cuts its own worktree,
+    where its parent used to cut one for the whole chain. The placement argument
+    is that an entrypoint reaches a worktree before any workflow-module code
+    runs, which is now true of a larger majority than when it was first made.
     """
     entrypoints = _entrypoints(ENTRYPOINTS_DIR)
     cut_their_own = [p.name for p in entrypoints
@@ -638,8 +646,8 @@ def test_the_worktree_cutting_count_this_argument_RESTS_ON() -> None:
                         if p.name not in cut_their_own
                         and _side_effect_lines(ast.parse(p.read_text()))]
 
-    assert len(cut_their_own) == 5, (
-        f"the prose in this file and in journal_activities.py says FIVE "
+    assert len(cut_their_own) == 11, (
+        f"the prose in this file and in journal_activities.py says ELEVEN "
         f"entrypoints cut their own worktree; the tree says "
         f"{len(cut_their_own)}: {sorted(cut_their_own)}. Correct the prose — a "
         f"count restated beside the code that derives it is how it drifted last time.")
@@ -648,8 +656,9 @@ def test_the_worktree_cutting_count_this_argument_RESTS_ON() -> None:
     # two changes did not cancel here as they did for the total. The ARGUMENT
     # is unchanged: `run_plan.py` cuts no worktree itself and hands off by
     # name, which is the second of the two shapes this count covers.
-    assert len(cut_their_own) + len(hand_off_by_name) == 9, (
-        f"the placement argument rests on NINE of eleven entrypoints reaching a "
+    # 9 -> 15 on 2026-09-02: six standalone children, all of which cut their own.
+    assert len(cut_their_own) + len(hand_off_by_name) == 15, (
+        f"the placement argument rests on FIFTEEN of seventeen entrypoints reaching a "
         f"worktree before any workflow-module code runs; the tree says "
         f"{len(cut_their_own) + len(hand_off_by_name)}. If that number has moved, "
         f"the argument for opening the bag at the entrypoint rather than in the "
