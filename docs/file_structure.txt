@@ -116,6 +116,12 @@ claude-dot-files/
 │   │   └── tests/                                   # TIER 3 — this unit owns its tests (Testing Standard § per-unit ownership)
 │   │       ├── conftest.py                          # Component-scoped import path (puts scripts/helpers/ on sys.path)
 │   │       └── unit/
+│   │           ├── test_vendor_target_resolves_per_destination.py # A mirror lands ON the
+│   │           │                                    #   existing file wherever the TARGET keeps it —
+│   │           │                                    #   MDC nests one tier deeper and the old code
+│   │           │                                    #   silently made duplicates while printing ✓;
+│   │           │                                    #   and --check must REPORT on a bannerless
+│   │           │                                    #   destination rather than die under set -e
 │   │           ├── test_check_settings.py           # NC-A..K negative controls for check_settings.py's hook-path validator (Testing Standard § Mutation evidence)
 │   │           ├── test_lint_prompts_claims_only_what_ran.py  # lint-prompts.sh may claim only the passes that RAN (#57): with yq stripped from PATH the
 │   │           │                                    #   summary makes no MODEL_KEY claim, with yq it claims a NON-ZERO count, STRICT makes a skip fatal

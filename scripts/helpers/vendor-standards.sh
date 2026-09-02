@@ -132,7 +132,30 @@ for entry in "${FILES[@]}"; do
     else
         src_repo="$MDC_SRC"; src="${MDC_SRC}/standards/${rel}"; label="helloskyy-io/MDC-Master-Planning"
     fi
-    dst="${DEST}/${dst_rel}"
+    # THE DESTINATION PATH IS RESOLVED IN THE TARGET, NOT COPIED FROM OURS.
+    #
+    # `dst_rel` encodes THIS ecosystem's shape (`testing/testing_standard.md`).
+    # MDC nests development standards one tier deeper
+    # (`development/testing/testing_standard.md`), so writing `dst_rel` there
+    # created a SECOND copy at a path nobody reads while the original stayed
+    # authoritative-looking and stale — and reported `✓ mirrored` while doing it.
+    # Two of four matched only because `documentation/` happens to sit at the
+    # same depth in both repos.
+    #
+    # SO: if the target already holds this standard, mirror OVER IT, wherever it
+    # is. Probing beats a per-repo manifest here because the answer is already on
+    # disk and a manifest is one more thing to be wrong on a new machine.
+    # AMBIGUITY IS REFUSED rather than guessed — two files of the same name in
+    # one target means a human has to say which is the standard.
+    base="$(basename "$dst_rel")"
+    mapfile -t existing < <(find "$DEST" -type f -name "$base" 2>/dev/null | sort)
+    case "${#existing[@]}" in
+        0) dst="${DEST}/${dst_rel}" ;;
+        1) dst="${existing[0]}" ;;
+        *) echo "✗ ${base}: ${#existing[@]} copies in ${DEST} — ${existing[*]}." >&2
+           echo "  Refusing to guess which is the standard. Remove the stale one." >&2
+           fail=1; continue ;;
+    esac
 
     # NEVER MIRROR A FILE ONTO ITSELF — it would overwrite the source with a
     # banner-wrapped copy of itself and the original would be gone.
@@ -146,7 +169,13 @@ for entry in "${FILES[@]}"; do
     date=$(git -C "$src_repo" log -1 --format=%ad --date=short)
 
     if $CHECK_ONLY; then
-        n=$(grep -n '^---$' "$dst" 2>/dev/null | head -1 | cut -d: -f1)
+        # `|| n=""` BECAUSE A PRE-MIRROR DESTINATION IS AN ORIGINAL: no banner,
+        # so no `^---$`, so `grep` exits 1, `pipefail` propagates it and `set -e`
+        # killed the script — exit 2, no output, with the `[[ -z "$n" ]]` guard
+        # on the very next line UNREACHABLE. A check that dies silently on a
+        # first-time destination is worse than one that fails loudly: it reads as
+        # "nothing to report" when it means "did not run".
+        n=$(grep -n '^---$' "$dst" 2>/dev/null | head -1 | cut -d: -f1) || n=""
         if [[ ! -f "$dst" ]]; then
             echo "✗ ${dst_rel} is MISSING from ${DEST_REPO}"; fail=1
         elif [[ -z "$n" ]] || ! diff -q <(tail -n +$((n + 2)) "$dst") "$src" >/dev/null; then
