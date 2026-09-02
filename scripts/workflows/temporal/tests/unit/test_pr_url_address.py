@@ -158,6 +158,21 @@ def test_every_consumer_of_the_pr_url_address_holds_the_OWNING_object() -> None:
 # listed one goes away — a list that only grows is a gate that widens itself.
 DECLARED_SPLITS = {
     ("resource_telemetry.py", "_read_anon"),         # a /proc line, not a URL
+    # `parse_symlink_targets` splits the bash array body on "#" to drop trailing
+    # comments before the entries are extracted. Not a URL and not a path: both
+    # halves are shell source, and a wrong split can only ever ADMIT or DROP a
+    # target name — which `_SEGMENT_RE` then refuses if it is not one segment, and
+    # which the bash cross-check in
+    # `test_the_config_digest_POPULATION_is_read_from_the_installer.py` catches by
+    # comparing against bash's own reading of the same array.
+    ("config_digest.py", "parse_symlink_targets"),
+    # `parse_tag_value` partitions a `bag-info.txt` tag VALUE this same module
+    # composed — `sha256:<hex> targets=… absent=… unreadable=…`. The separators
+    # are `" "` and `"="`, chosen because every field is a hex digest or a path
+    # segment that cannot contain either. A malformed value yields `digest=None`,
+    # which the reader reports as UNKNOWN rather than as a comparison — so the
+    # failure mode is an honest refusal, never a plausible-but-different address.
+    ("config_digest.py", "parse_tag_value"),
     # A LITERAL WRITTEN IN THIS FILE, split at import to make a stop-word set —
     # the safest member of this census by a distance, since its input cannot
     # come from anywhere. Declared anyway rather than exempted: the gate is an

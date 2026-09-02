@@ -88,16 +88,26 @@ UNAVAILABLE = "unavailable"
 #: `absent=` would be ambiguous with a truncated line.
 NONE = "none"
 
-# `SYMLINK_TARGETS=(` … `)` in install.sh. Anchored at line start so a mention of
-# the name inside a comment or a `"${SYMLINK_TARGETS[@]}"` expansion cannot be
-# mistaken for the declaration.
+# `SYMLINK_TARGETS=(` … `)` in install.sh. The `^` anchors here are LINE anchors
+# under `re.MULTILINE` and are declared as such in `test_journal_regex_anchors.py`:
+# they exist so a mention of the name inside a comment or a
+# `"${SYMLINK_TARGETS[@]}"` expansion cannot be mistaken for the declaration, and
+# `\A` would defeat that by anchoring to the start of the whole file instead.
 _ARRAY_RE = re.compile(r"^SYMLINK_TARGETS=\((.*?)^\)", re.MULTILINE | re.DOTALL)
 _ENTRY_RE = re.compile(r'"([^"\n]+)"|\'([^\'\n]+)\'')
 
 # A target name is one path segment. The installer joins it onto `$CLAUDE_DIR`,
 # so anything that escapes a segment would make the digest walk a tree the
 # installer never links.
-_SEGMENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+#
+# ⚠ `\A`/`\Z`, NEVER `^`/`$`, AND THIS ONE WAS A LIVE DEFECT RATHER THAN A
+# STYLE POINT. `$` also matches BEFORE a trailing newline, so the anchored-
+# looking `^…$` form accepted `"no-installer\n"` — and this same pattern gates
+# `unavailable_tag_value`, whose output is composed straight into a
+# `bag-info.txt` line. A reason ending in a newline would therefore have forged
+# a second tag, which is exactly the lifecycle-flag forgery `bag._refuse_folded_value`
+# exists to stop. Caught by `test_journal_regex_anchors.py`.
+_SEGMENT_RE = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9._-]*\Z")
 
 
 class ConfigDigestError(RuntimeError):
@@ -296,13 +306,19 @@ def _lines_for_target(root: Path, target: str) -> tuple[list[str], str | None]:
     for dirpath, dirnames, filenames in os.walk(path, followlinks=False,
                                                 onerror=lambda _e: None):
         here = Path(dirpath)
-        for name in sorted(dirnames):
+        # NOT SORTED HERE, AND THAT IS DELIBERATE. The manifest is sorted once,
+        # in `config_digest` below, and that single sort is the whole of the
+        # order-independence property. Sorting again at each level looked like
+        # belt-and-braces and was worse than useless: it put a `sorted(...)` on
+        # the line a reader would mutate to test the property, where deleting it
+        # changes nothing — which is precisely how a control ends up unable to
+        # fail. One property, one place.
+        for name in dirnames:
             if (here / name).is_symlink():
                 rel = (here / name).relative_to(path)
                 lines.append(f"{target}/{rel}\0symlinked-dir")
-        dirnames[:] = sorted(n for n in dirnames
-                             if not (here / n).is_symlink())
-        for name in sorted(filenames):
+        dirnames[:] = [n for n in dirnames if not (here / n).is_symlink()]
+        for name in filenames:
             entry = here / name
             rel = entry.relative_to(path)
             try:

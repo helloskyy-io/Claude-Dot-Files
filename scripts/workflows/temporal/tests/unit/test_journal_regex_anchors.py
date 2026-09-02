@@ -77,7 +77,19 @@ sys.path.insert(0, str(REPO_ROOT / "scripts" / "workflows" / "temporal"))
 # Patterns in this package that legitimately anchor with `^` or `$`, each with
 # the reason it cannot use `\A`/`\Z`. Empty, and an entry added here is a claim a
 # reader can check — which is the point of declaring rather than skipping.
-_DECLARED: dict[str, str] = {}
+_DECLARED: dict[str, str] = {
+    # `config_digest._ARRAY_RE`, which finds the `SYMLINK_TARGETS=( … )` block
+    # inside `install.sh`. Both `^` are LINE anchors under `re.MULTILINE` and
+    # `\A`/`\Z` would defeat the pattern outright: the array is in the middle of
+    # a 358-line file, so anchoring to the start of the STRING matches nothing.
+    # The line anchoring is the property — it is what stops a mention of the name
+    # in a comment or in a `"${SYMLINK_TARGETS[@]}"` expansion being read as the
+    # declaration. Nothing here validates untrusted input; the entries the block
+    # yields are validated separately by `_SEGMENT_RE`, which does use `\A`/`\Z`.
+    r"^SYMLINK_TARGETS=\((.*?)^\)":
+        "line anchors under re.MULTILINE — locates a block inside a file, and "
+        "does not validate anything",
+}
 
 # The module-level functions this package may use to run an UNCOMPILED pattern.
 # `re.compile` is how a pattern becomes visible to the sweep above, so a direct
