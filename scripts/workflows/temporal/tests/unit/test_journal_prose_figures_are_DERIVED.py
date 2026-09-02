@@ -156,21 +156,44 @@ def _reach_a_worktree() -> int:
     return total
 
 
+def _dry_run_and_bag_lines(src: str) -> tuple[int | None, int | None]:
+    """The first `dry_run` reference and the first `open_run_bag` CALL, by AST.
+
+    ⚠ READ FROM THE SYNTAX TREE, AND READ FROM RAW TEXT UNTIL 2026-09-02, WHEN A
+    DOCSTRING INVERTED IT. The old form took the first LINE mentioning each
+    string. `run_build_draft.py` carries this phase's family ruling in its module
+    docstring, which names `journal.open_run_bag(...)` at line 33 while the file's
+    real call is at line 172 — so the runner was counted as NOT returning from
+    its dry-run branch before bag-open, which is the opposite of what it does.
+    The count would have shipped one low with a green suite, in a guard whose
+    entire purpose is that a stated count is true.
+
+    A `dry_run` REFERENCE, not a mention: a `Name` or an `Attribute` the code
+    actually reads. A docstring is an `ast.Constant` and contributes nothing.
+    """
+    tree = ast.parse(src)
+    dry = [n.lineno for n in ast.walk(tree)
+           if (isinstance(n, ast.Name) and n.id == "dry_run")
+           or (isinstance(n, ast.Attribute) and n.attr == "dry_run")]
+    bag = [n.lineno for n in ast.walk(tree)
+           if isinstance(n, ast.Call)
+           and getattr(n.func, "attr", getattr(n.func, "id", None)) == "open_run_bag"]
+    return (min(dry) if dry else None), (min(bag) if bag else None)
+
+
 def _return_from_a_dry_run_before_bag_open() -> int:
     """Entrypoints whose `--dry-run` path returns before the bag is opened.
 
     LINE ORDER IS THE RIGHT INSTRUMENT AND THE WEAK ONE, so it is stated. The
     property the prose claims is "returns before reaching bag-open"; what is
-    cheaply computable is "mentions `dry_run` above the `open_run_bag` line".
-    The two agree on every entrypoint today, and the four that have no
-    `--dry-run` at all — which is what made the claimed EIGHT unreachable — are
-    counted correctly by either.
+    cheaply computable is "reads `dry_run` above the `open_run_bag` call". The
+    two agree on every entrypoint today, and the five that have no `--dry-run`
+    at all — which is what made the claimed EIGHT unreachable — are counted
+    correctly by either.
     """
     total = 0
     for src in _entrypoint_sources().values():
-        lines = src.splitlines()
-        dry = next((i for i, l in enumerate(lines) if "dry_run" in l), None)
-        bag = next((i for i, l in enumerate(lines) if "open_run_bag" in l), None)
+        dry, bag = _dry_run_and_bag_lines(src)
         if dry is not None and bag is not None and dry < bag:
             total += 1
     return total
@@ -240,43 +263,40 @@ _DERIVERS = {
 # KEYED BY THE FIGURE'S OWN TEXT so an entry survives a line move and LAPSES
 # when the sentence is reworded — a reworded claim is a new claim.
 _BOUND_FIGURES = {
-    ("journal_activities.py", "FIVE of this fleet's eleven entrypoints"):
-        "cut their own worktree",
-    ("journal_activities.py", "nine of eleven"):
-        "reach a worktree before workflow-module code",
-    ("journal_activities.py", "eleven entrypoints"): "the entrypoint population",
-    ("journal_activities.py", "eleven entrypoint"): "the entrypoint population",
-    ("journal_activities.py", "Ten of the eleven entrypoints"): "do not catch OSError",
-    ("conftest.py", "eleven entrypoints"): "the entrypoint population",
-    ("test_journal_bag.py", "eleven entrypoints"): "the entrypoint population",
-    ("test_journal_root.py", "Ten of the eleven entrypoints"): "do not catch OSError",
-    ("test_journal_root.py", "ten of eleven entrypoints"): "do not catch OSError",
-    ("test_every_parent_opens_a_run_bag.py", "ELEVEN entrypoints"):
-        "the entrypoint population",
-    ("test_every_parent_opens_a_run_bag.py", "FIVE of those eleven"):
-        "cut their own worktree",
-    ("test_every_parent_opens_a_run_bag.py", "NINE of the eleven"):
-        "reach a worktree before workflow-module code",
-    ("test_every_parent_opens_a_run_bag.py", "Seven of the eleven entrypoints"):
-        "return from a dry-run branch before bag-open",
-    ("test_every_parent_opens_a_run_bag.py", "nine of eleven"):
-        "inside the ordering check's reach",
-    ("test_every_parent_opens_a_run_bag.py", "9 OF 11"):
-        "inside the ordering check's reach",
-    ("test_every_parent_opens_a_run_bag.py", "five entrypoints"): "cut their own worktree",
-    ("test_every_parent_opens_a_run_bag.py", "two of the eleven entrypoints"):
-        "outside the ordering check's reach",
-    ("test_every_parent_opens_a_run_bag.py", "NINE of eleven entrypoints"):
-        "reach a worktree before workflow-module code",
-    ("test_the_suite_never_writes_to_the_operators_journal.py", "eleven entrypoints"):
-        "the entrypoint population",
     # MOVED HERE BY THIS PR'S OWN EXTRACTION, from the two modules above.
-    ("journal_entrypoint_facts.py", "9 OF 11"):
-        "inside the ordering check's reach",
-    ("journal_entrypoint_facts.py", "five entrypoints"): "cut their own worktree",
-    ("phase1_the_run_bag.md", "Seven of the 11 entrypoints"):
+
+    # ── SEVENTEEN-ENTRYPOINT ERA. `Dual-mode children` gave six children runners
+    #    of their own on 2026-09-02; every row above it was keyed on a sentence
+    #    naming ELEVEN and is gone rather than kept beside its successor, because
+    #    this registry's own rule is that a reworded claim is a new claim.
+    ("journal_activities.py", "ELEVEN of this fleet's seventeen entrypoints"):
+        "cut their own worktree",
+    ("journal_activities.py", "fifteen of seventeen"):
+        "reach a worktree before workflow-module code",
+    ("journal_activities.py", "seventeen entrypoints"): "the entrypoint population",
+    ("journal_activities.py", "seventeen entrypoint"): "the entrypoint population",
+    ("journal_activities.py", "Sixteen of the seventeen entrypoints"): "do not catch OSError",
+    ("conftest.py", "seventeen entrypoints"): "the entrypoint population",
+    ("test_journal_bag.py", "seventeen entrypoints"): "the entrypoint population",
+    ("test_journal_root.py", "Sixteen of the seventeen entrypoints"): "do not catch OSError",
+    ("test_journal_root.py", "sixteen of seventeen entrypoints"): "do not catch OSError",
+    ("test_every_parent_opens_a_run_bag.py", "SEVENTEEN entrypoints"):
+        "the entrypoint population",
+    ("test_every_parent_opens_a_run_bag.py", "ELEVEN of those seventeen"):
+        "cut their own worktree",
+    ("test_every_parent_opens_a_run_bag.py", "FIFTEEN of the seventeen"):
+        "reach a worktree before workflow-module code",
+    ("test_every_parent_opens_a_run_bag.py", "Thirteen of the seventeen entrypoints"):
         "return from a dry-run branch before bag-open",
-    ("phase1_the_run_bag.md", "9 of the 11 entrypoints"):
+    ("test_every_parent_opens_a_run_bag.py", "fifteen of seventeen"):
+        "inside the ordering check's reach",
+    ("test_every_parent_opens_a_run_bag.py", "two of the seventeen entrypoints"):
+        "outside the ordering check's reach",
+    ("test_every_parent_opens_a_run_bag.py", "FIFTEEN of seventeen entrypoints"):
+        "reach a worktree before workflow-module code",
+    ("test_the_suite_never_writes_to_the_operators_journal.py", "seventeen entrypoints"):
+        "the entrypoint population",
+    ("journal_entrypoint_facts.py", "15 OF 17"):
         "inside the ordering check's reach",
 }
 
@@ -291,13 +311,23 @@ _DECLARED_NON_DERIVATIONS = {
         "many of the eleven do anything. No deriver could produce it because it "
         "is not a claim about the fleet, and binding it to one would make a "
         "derived number answer a question nobody asked.",
-    ("journal_activities.py", "nine of eleven entrypoints"):
-        "the PRE-FIX state inside this PR: how many omitted the then-optional "
-        "`worktree_name`. The argument for making it required rests on it, and "
-        "the tree no longer holds it — all eleven pass one now.",
-    ("journal_activities.py", "nine of eleven"):
-        "the same pre-fix figure carried into its consequence — nine of eleven "
-        "RUNS would have recorded no worktree. Same absent ground truth.",
+    # ⚠ EIGHT ROWS WERE DELETED FROM THIS REGISTRY ON 2026-09-02 AND THE REASON
+    #   IS THE MECHANIC, NOT THE ROWS. `_figures_in`'s second pattern anchors on
+    #   the CURRENT total, so a historical `<N> of <old total>` stops matching
+    #   the moment the population moves: its row goes dead IN SILENCE, and the
+    #   inner `<old total> entrypoints` fragment surfaces as a NEW figure
+    #   claiming the old number. Taking the fleet from eleven to seventeen
+    #   dissolved every compound at once. Two rows here — `journal_activities`'s
+    #   `eleven-entrypoint fleet` and `nine of eleven` — were among them; the
+    #   sentence they exempted now names its era ("in the eleven-entrypoint fleet
+    #   of 2026-08"), which is readable AND carries no figure for any future
+    #   total to dissolve.
+    #
+    #   THE ROWS WERE FOUND BY `test_no_registry_row_is_STALE`, NOT BY READING.
+    #   A review pass reading the diff found two of the eight; the check found
+    #   all eight the first time it ran. That is the argument for the check over
+    #   a sixth hand correction, and it is the same argument this file already
+    #   makes for its own class sweep two comments down.
     ("phase2_content_store.md", "two entry points"):
         "NOT A POPULATION FIGURE, AND THE COLLISION IS IN THE PREDICATE RATHER "
         "THAN IN THE PROSE. Phase 2 requirement 8 reads 'the store's two entry "
@@ -312,40 +342,51 @@ _DECLARED_NON_DERIVATIONS = {
         "then. The same collision was hit one module over by the pass that "
         "wrote the store, which reworded its own docstring; a phase doc in "
         "another repository is not this repo's to reword.",
-    ("phase1_the_run_bag.md", "nine of eleven entrypoints"):
-        "the same pre-fix figure, in the doc that records why the 496-byte bag "
-        "measurement was superseded. Not derivable for the same reason.",
-    ("phase1_the_run_bag.md", "nine of eleven"):
-        "its consequence clause, as above.",
+    ("journal_entrypoint_facts.py", "five entrypoints"):
+        "HISTORY, AND IT WAS BOUND TO A DERIVER UNTIL 2026-09-02. The sentence "
+        "records what the ORDERING CHECK'S FIRST VERSION could see: five of the "
+        "eleven-era entrypoints cut their own worktree and the other six had no "
+        "detectable side effect. `cut their own worktree` derives 11 today, so "
+        "the binding turned a true statement about a past tree into a reported "
+        "contradiction — and 'correcting' it to 11 would have left the very next "
+        "clause reading 11 + 6 = 11. A figure whose sentence also states its "
+        "complement cannot be renumbered one term at a time.",
     ("test_every_parent_opens_a_run_bag.py", "seven entrypoints"):
         "`test_preflight`'s ORIGINAL defect — six of SEVEN, in the "
         "seven-entrypoint era. It is the exemplar this file was built on, and "
         "it is history, not a claim about today's tree.",
-    ("test_every_parent_opens_a_run_bag.py", "six of eleven"):
-        "a QUOTATION of the figure that was wrong: the docstring records that "
-        "three passes said 'six of eleven' when the count was five. Deriving it "
-        "would mean asserting the false figure is true.",
-    ("test_every_parent_opens_a_run_bag.py", "one entrypoint"):
-        "not a population count — `_side_effect_lines` returns the side-effect "
-        "lines *in one entrypoint*, i.e. per file. The number binds to a unit "
-        "of work, not to how many entrypoints do something.",
-    ("test_a_real_bag_validates.py", "ten of eleven entrypoints"):
-        "a HYPOTHETICAL — the fleet this tier would still pass on if bag-open "
-        "silently stopped. It describes a fleet that has never existed.",
-    ("file_structure.txt", "ten of eleven"):
-        "the same hypothetical, restated in the map's annotation for that tier.",
-    ("file_structure.txt", "six of eleven"):
-        "a QUOTATION of a figure that was WRONG, in this file's annotation for "
-        "this guard. Deriving it would assert the false count is true — the same "
-        "reason the identical quotation in `test_every_parent_opens_a_run_bag` "
-        "is declared rather than bound.",
+    # ⚠ THE ROW THAT WAS HERE IS GONE BECAUSE THE SENTENCE NO LONGER CARRIES A
+    #   FIGURE AT ALL. It read "a fleet where ten of eleven entrypoints had
+    #   quietly stopped opening bags"; when the population moved to seventeen the
+    #   compound stopped matching and the bare fragment `eleven entrypoints`
+    #   surfaced as a NEW claim about today's tree. A hypothetical does not need
+    #   a number to make its point, so it was reworded to "all but one" — which
+    #   is the same claim, immune to the next change, and needs no registry row.
+    ("phase1_the_run_bag.md", "11 entrypoints"):
+        "PHASE 1'S OWN RECORD, in another repository and about the eleven-"
+        "entrypoint fleet it shipped against. The compound forms this file used "
+        "to bind — `Seven of the 11 entrypoints`, `9 of the 11 entrypoints` — "
+        "stopped matching when `Dual-mode children` took the population to "
+        "seventeen, leaving these fragments. It is a dated record of what was "
+        "true, not a claim about today, and a phase doc in another repository is "
+        "not this repo's to reword — the same reasoning `phase2_content_store.md` "
+        "carries below. SURFACED for that component's own doc pass rather than "
+        "silently corrected here.",
+    ("phase1_the_run_bag.md", "eleven entrypoints"):
+        "the same record, in the superseded-measurement note at the foot of that "
+        "document. Declared for the same reason.",
     ("file_structure.txt", "eight entrypoints"):
-        "the second quoted-wrong figure in that same annotation: the `--dry-run` "
-        "count this guard was built after. Seven is the derived value and it is "
-        "bound, twice, where it is CLAIMED rather than quoted.",
+        "a quoted-wrong figure in the map's annotation for this guard: the "
+        "`--dry-run` count it was built after. Seven is the derived value and it "
+        "is bound, twice, where it is CLAIMED rather than quoted.\n"
+        "⚠ IT WAS ONE OF TWO UNTIL 2026-09-02. Its sibling was keyed `six of "
+        "eleven` and dissolved when the population moved — see the comment at "
+        "the head of this registry. The row's reasoning is unaffected: what "
+        "changed is that the annotation's other quoted figure no longer matches "
+        "the sweep's pattern at all, so it needs no exemption.",
 }
 
-# ⚠ THE TWO ENTRIES ABOVE WERE ADDED BECAUSE THIS GUARD CAUGHT ITS OWN AUTHOR,
+# ⚠ THE ENTRY ABOVE WAS ADDED BECAUSE THIS GUARD CAUGHT ITS OWN AUTHOR,
 # in the same sitting, on the map annotation describing the guard itself. That is
 # the argument for a class check over a fifth hand correction, delivered by the
 # check rather than by this comment — and it is why quoting a wrong figure is a
@@ -553,3 +594,109 @@ def test_the_figure_sweep_CATCHES_a_wrong_count_and_an_unbound_one() -> None:
     # AND THE NUMBER MUST BIND TO THE NOUN, or the guard teaches vaguer prose.
     assert not _figures_in("five modules reach an entrypoint today"), (
         "a count of MODULES is not a claim about the entrypoint population")
+
+
+def _rows_matching_no_prose(
+        registries: tuple[tuple[dict, str], ...] | None = None) -> list[str]:
+    """THE PREDICATE. Every registry key whose figure is no longer in its file.
+
+    THE REGISTRIES ARE A PARAMETER SO THE CONTROL BELOW DRIVES THIS FUNCTION
+    ITSELF, and that is not a style choice — it was MEASURED. Written to read
+    the two module globals directly, the control had to drive `_figures_in`
+    instead, and a mutation replacing this function's comparison with `if False`
+    left the whole module GREEN. A control that re-implements the predicate
+    stops describing it the moment either one moves, which is the defect
+    `test_test_tree_hygiene`'s residual test records at length one directory
+    over — committed here by the pass that was fixing this registry.
+    """
+    by_name = {path.name: path for path in _PROSE}
+    stale: list[str] = []
+    for registry, label in (registries or ((_BOUND_FIGURES, "_BOUND_FIGURES"),
+                                           (_DECLARED_NON_DERIVATIONS,
+                                            "_DECLARED_NON_DERIVATIONS"))):
+        for name, figure in registry:
+            path = by_name.get(name)
+            if path is None:
+                stale.append(f"{label}: {name!r} is not in `_PROSE` at all")
+                continue
+            if not path.is_file():
+                stale.append(f"{label}: ({name!r}, {figure!r}) — file is gone")
+                continue
+            if figure not in _figures_in(path.read_text(encoding="utf-8")):
+                stale.append(f"{label}: ({name!r}, {figure!r}) matches nothing in {name}")
+    return stale
+
+
+def test_no_registry_row_is_STALE() -> None:
+    """A row that binds nothing is a carve-out nobody is using, and it is silent.
+
+    THE OTHER DIRECTION FROM THE SWEEP ABOVE, which asks whether every figure in
+    the prose has a row. This asks whether every row still has a figure, and it
+    is the half that fails without a symptom: an unmatched key costs nothing to
+    have and shows up in no output.
+
+    A DEAD `_DECLARED_NON_DERIVATIONS` ROW IS THE DANGEROUS HALF. It is an
+    EXEMPTION keyed on `(file, text)`, so the next figure that happens to take
+    the same key is excused from binding without anyone deciding that — the
+    guard stays green and the class it protects quietly loses a member.
+
+    MEASURED, AND IT IS WHY THIS EXISTS RATHER THAN TWO DELETED LINES. The pull
+    request that moved the entrypoint population from eleven to seventeen
+    reworded ~20 sentences and orphaned every row keyed on the old wording, in
+    one commit, with nothing reporting it. The run that did it removed the rows
+    it noticed and surfaced the missing check as a proposal; a review then found
+    two survivors — one of them orphaned by a rewording in the same hunk that
+    edited its own reason text. Enumerating dead rows does not converge, because
+    every population change dissolves every historical compound at once.
+
+    THE EXEMPLAR IS `test_no_exemption_is_stale` IN
+    `test_a_census_guard_proves_its_own_predicate`, one module over, which
+    solves the identical problem for that file's grandfather list. This is the
+    same rule applied to the registry that had none.
+
+    WHAT THIS DOES NOT LOOK AT: whether a row that DOES match is bound to the
+    RIGHT deriver. The sweep above owns that, by recomputing the figure.
+    """
+    require_planning_corpus()
+    stale = _rows_matching_no_prose()
+    assert not stale, (
+        "REGISTRY ROWS THAT BIND NOTHING:\n  " + "\n  ".join(sorted(stale)) +
+        "\n\nDelete them. A row keyed on prose that has been reworded or removed "
+        "contributes no coverage, and a dead `_DECLARED_NON_DERIVATIONS` row "
+        "silently exempts the next figure that takes the same key.")
+
+
+def test_THE_STALENESS_CHECK_CATCHES_A_ROW_THAT_BINDS_NOTHING() -> None:
+    """CONTROL. The predicate must fire on a dead key and stay quiet on a live one.
+
+    Driven through `_figures_in` on literal text rather than through the
+    registries, so the arms are attributable to the row under test and not to
+    whatever the tree currently says.
+    """
+    swept = {path.name for path in _PROSE}
+    assert "journal_activities.py" in swept, (
+        "the control drives the real sweep against a real swept file; if that "
+        "file leaves `_PROSE` the arms below stop meaning anything")
+
+    dead = (({("journal_activities.py", "nine of eleven"): "why"}, "FAKE"),)
+    assert len(_rows_matching_no_prose(dead)) == 1, (
+        "the predicate must report the dead key that actually shipped — "
+        "`nine of eleven` stopped matching when the population moved to "
+        "seventeen and the row went on exempting nothing")
+
+    live = (({("journal_activities.py", "seventeen entrypoints"): "why"}, "FAKE"),)
+    assert _rows_matching_no_prose(live) == [], (
+        "a row keyed on prose that is still there must NOT be reported — a "
+        "staleness check that fires on live rows gets its assertion deleted")
+
+    gone = (({("a_file_that_is_not_swept.py", "seventeen entrypoints"): "why"}, "FAKE"),)
+    assert len(_rows_matching_no_prose(gone)) == 1, (
+        "a row naming a file outside `_PROSE` binds nothing either, and is the "
+        "shape a renamed module leaves behind")
+
+    # AND THE REGISTRIES REALLY ARE THE POPULATION. A helper reading an empty
+    # dict would report no stale rows forever, which is this file's own class.
+    assert len(_BOUND_FIGURES) + len(_DECLARED_NON_DERIVATIONS) >= 15, (
+        f"only {len(_BOUND_FIGURES) + len(_DECLARED_NON_DERIVATIONS)} registry "
+        f"rows; there were 24 when this control was written. A staleness check "
+        f"over an empty registry passes vacuously.")

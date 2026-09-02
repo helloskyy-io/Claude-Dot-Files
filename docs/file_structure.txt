@@ -267,8 +267,22 @@ claude-dot-files/
 │           │                                        #   bag nobody can retry into. It is the client side of a dispatch and becomes the
 │           │                                        #   Temporal client at port time, which is why minting here is generation on the INPUT
 │           │                                        #   side rather than inside retried work
-│           │                                        #   research.sh / research_minor.sh are SIBLING entries, not one script with a flag —
-│           │                                        #   different parents, different model keys, separately-budgeted turn caps
+│           │                                        #   SEVENTEEN runner/shim pairs since 2026-09-02, and every workflow module in the
+│           │                                        #   four families now has one. Workflow Decomposition Phase 3 (Dual-mode children)
+│           │                                        #   added the last six — build_draft, build_draft_minor, build_refine,
+│           │                                        #   build_refine_minor, research_draft, research_refine — which were reachable ONLY
+│           │                                        #   through their parent before that, so every iteration on a child cost the whole
+│           │                                        #   chain. A parent still imports the core function and calls it directly; the pair
+│           │                                        #   is the OTHER interface, not a recovery hatch. The one ruling all six were built
+│           │                                        #   against is `run_build_draft.py`'s module docstring — invariants, deliberate
+│           │                                        #   per-child variants, and the five places standalone and parent-driven diverge.
+│           │                                        #   A standalone child cuts its OWN worktree, because the parent that would have
+│           │                                        #   established isolation for it is not running; every one uses ctx.worktree_name
+│           │                                        #   research.sh is a SIBLING entry to the family's children, not one script with a
+│           │                                        #   flag — different parents, different model keys, separately-budgeted turn caps.
+│           │                                        #   (This read `research.sh / research_minor.sh` until 2026-09-02; research_minor
+│           │                                        #   was deleted when the research tiers merged on 2026-08-28 and the map kept
+│           │                                        #   pointing at it)
 │           │                                        #   triage_candidates.sh / plan_draft.sh / plan_refine.sh / plan_sprint.sh are
 │           │                                        #   siblings for the same reason: four jobs, four model keys, four turn caps. Each
 │           │                                        #   runs standalone AND is called in order by plan_project.sh. plan_draft.sh and
@@ -336,7 +350,12 @@ claude-dot-files/
 │                   │                                #   ReviewTypes and its dispatch_tool enum named build and planning tools only, so a
 │                   │                                #   research reviewer reached a mandatory REDISPATCH exit with no legal value to emit
 │                   ├── test_preflight.py             # Preconditions fail BEFORE anything is created, so a dead run leaves no
-│                   │                                #   orphaned worktree behind it (#49)
+│                   │                                #   orphaned worktree behind it (#49). Also holds `refuse()` — the family's ONE
+│                   │                                #   operator-facing refusal, extracted 2026-09-02 from 24 byte-identical copies
+│                   │                                #   across the 17 runners AND validate_bag.py / verify_citations.py (which pass
+│                   │                                #   `exit_code=`, the reason the helper takes one) — plus the AST sweep that stops
+│                   │                                #   it being re-inlined. That sweep is the only duplication guard this repo has
+│                   │                                #   over Python: the prompt ratchet's population is `prompts/*.md`
 │                   ├── test_render_opaque_operator_text.py # An operator's literal `${...}` reaches the model UNSUBSTITUTED — two
 │                   │                                #   dispatches died on briefs that were merely DESCRIBING the placeholder mechanism
 │                   ├── test_resource_telemetry.py    # The numbers are real, THERE IS NO CEILING, and an unmeasured run stays countable.
@@ -398,6 +417,9 @@ claude-dot-files/
 │                   │                                #   instruction set was unreachable from the major tier — invisible to every guard that
 │                   │                                #   drives the CHILD directly with a fixture-supplied plan
 │                   ├── test_a_prose_COUNT_of_a_collection_is_DERIVED.py # Prose here that counts a collection the same module defines
+│                   ├── test_a_read_that_GATES_a_run_happens_BEFORE_the_cut.py # A read that can refuse the run — repo_slug,
+│                                #   task_text, base_ref — must precede worktree_add, or its failure strands a registered worktree.
+│                                #   The task_text hoist left repo_slug three lines below the cut; a review named 3 sites, the sweep found 5
 │                   │                                #   must match it — the fourth corpus to gate the figure-nobody-derives class
 │                   ├── test_a_named_observer_is_actually_WIRED.py # A MAY_NOT_OBSERVERS entry naming a `*_this_run_had_no_right_to`
 │                   ├── test_a_loop_back_chain_REPORTS_WHAT_IT_HAS_SPENT.py # A loop-back chain reports what it has SPENT, at every

@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from preflight import RepoPathParser  # noqa: E402
+from preflight import RepoPathParser, refuse  # noqa: E402
 from dispatch_identity import add_identity_arguments, resolve_identity  # noqa: E402
 from dispatch_context import RunContext  # noqa: E402
 from modules.assistant.review_pr import review_pr_activities as review_act  # noqa: E402
@@ -77,8 +77,7 @@ def main(argv=None) -> int:
         context = act_shared.task_context(repo_root, a.task_file)
     except RuntimeError as exc:
         # Nothing has been created yet — that is the point of preflight.
-        print(f"\n✗ {exc}", file=sys.stderr)
-        return 1
+        return refuse(exc)
     component, cands = resolved["component"], resolved["candidates"]
 
     # REFUSED BEFORE ANYTHING IS CREATED, not diagnosed after a dispatch. There
@@ -415,8 +414,7 @@ def main(argv=None) -> int:
     except (RuntimeError, FileNotFoundError, ValueError) as exc:
         # These carry operator-facing recovery instructions from the layer that
         # knew what failed. Do not wrap or reformat them.
-        print(f"\n✗ {exc}", file=sys.stderr)
-        return 1
+        return refuse(exc)
 
     print(f"\n{BANNER}\n  {url}\n{BANNER}")
     print(f"\nSIZED — the estimates are in {component_rel}/{own.ROADMAP} and nowhere else.")

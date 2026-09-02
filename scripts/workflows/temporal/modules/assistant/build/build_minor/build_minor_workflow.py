@@ -50,14 +50,14 @@ def run_build_minor(task: BuildInput, repo_root: Path, worktree_name: str) -> Bu
     started = act.clock_now()
     description = task_text(task, repo_root)
 
+    # Read BEFORE THE CUT, for the reason its sibling parent states at length.
+    slug = act.repo_slug(repo_root)
+
     # ISOLATION IS ESTABLISHED ONCE, HERE. Children receive the path and never
     # create one — two children creating the same named worktree is a
     # `fatal: already exists` that killed the draft->refine handoff.
     ref = act.base_ref(task.pr_number, repo_root)
     worktree = act.worktree_add(repo_root, worktree_name, ref)
-
-    # Read BEFORE the child, for the reason its sibling parent states.
-    slug = act.repo_slug(repo_root)
 
     # `path_for_the_model`, for the reason its sibling parent states at the
     # same call: what the model is SHOWN and what the fleet READS are two answers,

@@ -14,8 +14,9 @@ dispatch has run there, and there is nothing honest to assert about that.
 WHAT THIS DOES NOT PROVE, so a green run is not over-read:
 
   * It does not prove any PARTICULAR workflow opened a bag. It reads whatever is
-    on disk; a fleet where ten of eleven entrypoints had quietly stopped opening
-    bags would still pass here on the eleventh's output. The structural guarantee
+    on disk; a fleet where every entrypoint but a single straggler had quietly
+    stopped opening bags would still pass here on that one's output. The
+    structural guarantee
     is `tests/unit/test_every_parent_opens_a_run_bag.py`, and this tier does not
     substitute for it.
   * It does not exercise a REFUSAL against a real misconfigured root. A

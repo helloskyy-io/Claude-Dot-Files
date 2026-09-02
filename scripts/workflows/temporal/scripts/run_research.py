@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from preflight import RepoPathParser  # noqa: E402
+from preflight import RepoPathParser, refuse  # noqa: E402
 from dispatch_identity import add_identity_arguments, resolve_identity  # noqa: E402
 from dispatch_context import RunContext  # noqa: E402
 from modules.assistant import assistant_activities as act_shared  # noqa: E402
@@ -50,8 +50,7 @@ def main(argv=None) -> int:
         context = act_shared.task_context(repo_root, a.task_file)
     except RuntimeError as exc:
         # Nothing has been created yet — that is the point of preflight.
-        print(f"\n✗ {exc}", file=sys.stderr)
-        return 1
+        return refuse(exc)
     research_dir = resolved["research_dir"]
     target = str(research_dir.relative_to(repo_root))
 
@@ -113,8 +112,7 @@ def main(argv=None) -> int:
                                  worktree_name=ctx.worktree_name, context=context,
                                  pr_number=a.pr_number, verbose=a.verbose)
     except (RuntimeError, FileNotFoundError, ValueError) as exc:
-        print(f"\n✗ {exc}", file=sys.stderr)
-        return 1
+        return refuse(exc)
 
     print()
     print(BANNER)

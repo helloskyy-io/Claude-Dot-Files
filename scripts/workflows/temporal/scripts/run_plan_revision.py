@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from preflight import preflight  # noqa: E402
+from preflight import preflight, refuse  # noqa: E402
 from dispatch_identity import add_identity_arguments, resolve_identity  # noqa: E402
 from dispatch_context import RunContext  # noqa: E402
 
@@ -123,8 +123,7 @@ def main(argv: list[str] | None = None) -> int:
         # dependency check; both now come from one place.
         repo_root = preflight(a.repo_target)
     except RuntimeError as exc:
-        print(f"\n✗ {exc}", file=sys.stderr)
-        return 1
+        return refuse(exc)
 
     try:
 
@@ -196,8 +195,7 @@ def main(argv: list[str] | None = None) -> int:
     except (RuntimeError, FileNotFoundError, ValueError) as exc:
         # These carry operator-facing recovery instructions from the layer that
         # knew what failed. Do not wrap or reformat them.
-        print(f"\n✗ {exc}", file=sys.stderr)
-        return 1
+        return refuse(exc)
 
     print(f"\n{BANNER}\n  {url}\n{BANNER}")
     print("\nTo clean up when done:\n  /cleanup-merged-worktrees    (after the PR is merged or closed)\n")

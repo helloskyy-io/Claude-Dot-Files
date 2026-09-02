@@ -6,7 +6,7 @@ by a run id. It did not say who NAMES a run, because at the time there was only
 one shape a run could take: a parent, started from a terminal, minting its own
 name on the way in. Two decisions ended that — the Temporal port makes an
 entrypoint a client that starts a workflow, and Workflow Decomposition Phase 3
-gives nine children runners of their own — so an invocation that is not a
+gives six children runners of their own — so an invocation that is not a
 parent, and may or may not be a run, can now begin.
 
   `mint_run_id`         — the fleet's ONE naming authority (in the journal package)
@@ -91,7 +91,7 @@ WHY THIS LIVES IN `scripts/` AND NOT IN `modules/journal/`. The journal package
 is DEPENDENCY-FREE ON THE WORKFLOW TREE and does I/O that has to be recorded and
 retried; this module parses argv. It is a launch concern, exactly like
 `preflight.py` beside it, and `preflight` is the precedent: a helper the
-entrypoints share so the CLI contract is defined in one place rather than eleven.
+entrypoints share so the CLI contract is defined in one place rather than seventeen.
 The naming authority itself stays in the journal package, because the run id is
 the bag's key and the package that owns the key owns the alphabet it is drawn
 from.
@@ -186,8 +186,11 @@ class RunIdentity:
         override="none — it is declared, and `--writer` is the only input.",
         scope="wrong ⇒ a child silently becomes its own run and its records "
               "leave the parent's bag, or a parent adopts a bag it should have "
-              "created. It also gates the run-context echo: a member does not "
-              "reprint what its parent already said."))
+              "created. It NO LONGER gates the run-context echo — it did, as a "
+              "proxy for *constructed here*, and a standalone child that "
+              "legitimately carries both flags was silenced by it. See "
+              "`RunContext.echo`. What it still does for a reader is LABEL the "
+              "echo: `render`'s run row names the writer whenever one is set."))
 
     #: True when nothing supplied the name and this boundary made one.
     minted: bool = field(metadata=derivation(
@@ -213,8 +216,8 @@ def add_identity_arguments(parser: argparse.ArgumentParser) -> None:
     """The two identity inputs, defined ONCE for every entrypoint.
 
     Defined here rather than in each `run_*.py` for the reason `preflight` is
-    shared: eleven copies of a CLI contract agree until one is edited, and this
-    fleet is about to gain nine more entrypoints from Workflow Decomposition
+    shared: seventeen copies of a CLI contract agree until one is edited, and
+    this fleet gained six of them at once from Workflow Decomposition
     Phase 3. `test_the_run_id_ARRIVES_from_outside.py` asserts that every
     discovered entrypoint routes through this function rather than declaring its
     own `--run-id`, so a tenth spelling of the same flag cannot appear quietly.
@@ -241,13 +244,14 @@ def resolve_identity(argv: list[str] | None = None, *, announce: bool = True) ->
     """Turn the two identity inputs into this invocation's identity.
 
     TAKES `argv`, NOT THE ENTRYPOINT'S PARSED NAMESPACE, and the reason is
-    uniformity rather than convenience. The eleven entrypoints do not agree on
+    uniformity rather than convenience. The seventeen entrypoints do not agree on
     what a parse produces — four return a typed workflow input, one returns a
     `(task, dry_run)` pair, one returns a bare `Namespace`, the rest keep it
     local to `main` — and threading a namespace through each would mean four
     signature changes in files whose return types the suite asserts against.
     Re-reading two flags costs nothing and gives every entrypoint, including the
-    nine Workflow Decomposition Phase 3 is about to add, the identical two lines.
+    six Workflow Decomposition Phase 3 added on 2026-09-02, the identical two
+    lines.
 
     THIS IS NOT A SECOND DECLARATION OF THE FLAGS. The throwaway parser below is
     built by `add_identity_arguments` — the same function every entrypoint's real

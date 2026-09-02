@@ -31,6 +31,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from preflight import refuse  # noqa: E402
 from modules.journal import verify  # noqa: E402
 from modules.journal.journal_activities import load_journal_config  # noqa: E402
 from modules.journal.root import resolve_journal_root  # noqa: E402
@@ -57,8 +58,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             root = resolve_journal_root(config=load_journal_config(), create=False)
         except RuntimeError as exc:
-            print(f"\n✗ {exc}", file=sys.stderr)
-            return verify.EXIT_USAGE
+            return refuse(exc, exit_code=verify.EXIT_USAGE)
         args = args + [str(root)]
     return verify.main(args)
 

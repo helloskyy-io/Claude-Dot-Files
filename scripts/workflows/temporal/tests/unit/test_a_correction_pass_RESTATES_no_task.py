@@ -73,6 +73,8 @@ from __future__ import annotations
 
 import ast
 import inspect
+import io
+import sys
 from pathlib import Path
 
 import pytest
@@ -185,12 +187,39 @@ def _runners_building_a_build_input() -> list[Path]:
 
 
 def test_the_derivation_found_the_build_runners() -> None:
-    """VACUITY FLOOR for the parametrization below."""
+    """VACUITY FLOOR for the parametrization below.
+
+    SIX SINCE 2026-09-02, WHEN `Dual-mode children` GAVE THE FOUR BUILD CHILDREN
+    RUNNERS OF THEIR OWN. The two parents were the whole population for as long as
+    a child could only be started through one; the rule this file holds is a
+    property of the CLI contract, so it now has to hold on the children's CLIs
+    too — and the four inherited it by construction, which is what a family
+    ruling is for.
+    """
     found = {p.name for p in _runners_building_a_build_input()}
-    assert found == {"run_build.py", "run_build_minor.py"}, (
+    assert found == {"run_build.py", "run_build_minor.py",
+                     "run_build_draft.py", "run_build_draft_minor.py",
+                     "run_build_refine.py", "run_build_refine_minor.py"}, (
         f"the runners constructing a BuildInput are {sorted(found)}. If a tier was "
         f"added, extend the expectation; if one vanished, the check below is "
         f"asserting over less than it claims.")
+
+
+def _parsed_task(module, argv: list[str]) -> BuildInput:
+    """The `BuildInput` a runner's `parse_args` produced, whichever shape it returns.
+
+    TWO SHAPES EXIST IN THIS FLEET AND BOTH ARE LEGITIMATE. The two parents return
+    the dataclass alone; the four children return `(task, dry_run)`, because they
+    carry a `--dry-run` whose value is not a field of `BuildInput` and putting it
+    there would change a dataclass three parents share to suit a flag none of them
+    has. `resolve_identity`'s own docstring already records the pair shape as one
+    of the fleet's, on `run_plan_revision`.
+
+    Unpacked HERE rather than in each test so the assertions stay about the task
+    rule, which is what this file is for.
+    """
+    parsed = module.parse_args(argv)
+    return parsed[0] if isinstance(parsed, tuple) else parsed
 
 
 @pytest.mark.parametrize("runner", _runners_building_a_build_input(),
@@ -203,9 +232,34 @@ def test_a_build_entrypoint_ACCEPTS_pr_alone(runner: Path, capsys) -> None:
     that path exits the process. This drives the CLI.
     """
     module = __import__(runner.stem)
-    task = module.parse_args(["--pr", "124", "--repo", "/opt/x"])
+    task = _parsed_task(module, ["--pr", "124", "--repo", "/opt/x"])
     assert task.pr_number == "124"
     assert not (task.description or task.task_file or task.plan_path)
+
+
+def _refusal_text(module, argv: list[str]) -> str:
+    """What argparse wrote to stderr while refusing `argv`."""
+    captured = io.StringIO()
+    stderr, sys.stderr = sys.stderr, captured
+    try:
+        with pytest.raises(SystemExit):
+            module.parse_args(argv)
+    finally:
+        sys.stderr = stderr
+    return captured.getvalue()
+
+
+def _EXITED_ON_A_MISSING_PR(message: str) -> bool:
+    """Did argparse refuse for a missing REQUIRED `--pr`, and not for the task rule?
+
+    ANCHORED ON ARGPARSE'S OWN SENTENCE — `error: the following arguments are
+    required: --pr` — because that string is emitted by exactly one code path
+    (`ArgumentParser.error` for an absent required argument) and cannot be
+    produced by a refusal this file is meant to read. A predicate assembled from
+    the loose tokens `--pr` and `required` matches the draft tiers' task-source
+    message too, which is how this exemption came to swallow its own population.
+    """
+    return "the following arguments are required: --pr" in message
 
 
 @pytest.mark.parametrize("runner", _runners_building_a_build_input(),
@@ -216,10 +270,60 @@ def test_a_build_entrypoint_STILL_REFUSES_a_dispatch_with_no_task_at_all(
 
     `--repo` alone is a run with a target and nothing to do, which is the empty-PR
     case the original rule was written for and the case it must still catch.
+
+    ⚠ THE REFUSAL IS ASSERTED BY ITS REASON, NOT ONLY BY ITS EXIT. Both refine
+    tiers make `--pr` required, so `--repo` alone exits on the missing flag before
+    the task rule is consulted — the exit is the same object and means something
+    entirely different. Reading the message is what keeps this a control on FOUR
+    of the six rather than a green light on all six.
+
+    ⚠ THE EXEMPTION IS ARGPARSE'S OWN SENTENCE, AND KEYING IT LOOSELY MADE THIS
+    CONTROL VACUOUS ON ALL SIX. It first read `if "--pr" in message and "required"
+    in message`, which the DRAFT tiers also satisfy: their usage line carries
+    `[--pr PR_NUMBER]` and their refusal text names `--pr <n>` as one of the task
+    sources, beside the word "required". Every one of the six took the early
+    return and the assertion below ran on nothing — the docstring above claimed a
+    control on four and delivered one on zero. `test_THE_NO_TASK_CONTROL_...`
+    below is the negative control that keeps this honest.
     """
     module = __import__(runner.stem)
-    with pytest.raises(SystemExit):
-        module.parse_args(["--repo", "/opt/x"])
+    message = _refusal_text(module, ["--repo", "/opt/x"])
+    if _EXITED_ON_A_MISSING_PR(message):
+        # `--pr` IS a task source, so a run that must carry one can never reach
+        # the no-task state. Unreachable, not unchecked.
+        return
+    assert "task source is required" in message, (
+        f"{runner.name} refused a no-task dispatch for a reason that is neither "
+        f"the task-source rule nor a required --pr:\n{message}")
+
+
+def test_THE_NO_TASK_CONTROL_ACTUALLY_REACHES_ITS_ASSERTION() -> None:
+    """NEGATIVE CONTROL FOR THE EXEMPTION ABOVE — the floor that was missing.
+
+    The check above is only a control on the tiers that do NOT take its early
+    return, and nothing asserted that any tier failed to take it. When the
+    predicate was `"--pr" in message and "required" in message`, all six
+    exempted themselves and the module reported green over an unheld property —
+    the same shape as `test_the_FLAG_SWEEP_read_something` one file over, and the
+    reason a count of things EXAMINED is asserted rather than assumed.
+
+    The split is a fact about the CLI, not a list: a tier reaches the assertion
+    exactly when it does not make `--pr` required, so the two draft tiers must
+    reach it and the two refine tiers must not.
+    """
+    reached, exempted = [], []
+    for runner in _runners_building_a_build_input():
+        module = __import__(runner.stem)
+        message = _refusal_text(module, ["--repo", "/opt/x"])
+        (exempted if _EXITED_ON_A_MISSING_PR(message) else reached).append(runner.name)
+
+    assert set(reached) == {"run_build.py", "run_build_minor.py",
+                            "run_build_draft.py", "run_build_draft_minor.py"}, (
+        f"the task-source rule is asserted on {sorted(reached)} and exempted on "
+        f"{sorted(exempted)}. A tier that does not require `--pr` MUST reach the "
+        f"assertion — if a draft tier appears in the exempted list, the exemption "
+        f"predicate has widened past argparse's missing-argument sentence and is "
+        f"swallowing the population it was written to narrow.")
 
 
 # --- 2. the plan reaches the draft child --------------------------------------

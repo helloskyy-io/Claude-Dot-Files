@@ -316,8 +316,8 @@ def test_JournalRootError_is_a_RuntimeError() -> None:
 
     This is what makes r9's fail-stop reach the operator as a printed message
     rather than as a traceback — and it is asserted rather than assumed, because
-    changing the base class would silently turn eleven handled refusals into
-    eleven stack traces with the suite still green.
+    changing the base class would silently turn seventeen handled refusals into
+    seventeen stack traces with the suite still green.
     """
     assert issubclass(JournalRootError, RuntimeError)
 
@@ -327,7 +327,7 @@ def test_a_MALFORMED_config_refuses_as_a_RuntimeError_not_a_traceback(tmp_path: 
 
     Every entrypoint catches `RuntimeError` and prints the message the layer that
     knew what failed wrote. `yaml.YAMLError` is not a `RuntimeError`, so an
-    unparseable `config.yaml` gave all eleven a raw traceback for exactly the
+    unparseable `config.yaml` gave all seventeen a raw traceback for exactly the
     class of problem — a misconfiguration — that this design exists to report
     cleanly. The refusal names the file and the parser's own complaint.
     """
@@ -393,7 +393,7 @@ def test_every_way_the_config_can_fail_is_a_RuntimeError(tmp_path: Path) -> None
     Three separate fixes landed on `load_journal_config` in three passes — the
     `yaml.YAMLError`, then the parses-to-a-scalar `AttributeError`, then the
     `PermissionError` from `read_text` — each correct, each written as though it
-    were the last one. Ten of the eleven entrypoints catch
+    were the last one. Sixteen of the seventeen entrypoints catch
     `(RuntimeError, FileNotFoundError[, ValueError])`, so any fourth branch that
     raises something else is a raw traceback for precisely the misconfiguration
     r9 exists to report cleanly, and it is `open_run_bag`'s FIRST call, so
@@ -430,7 +430,7 @@ def test_an_UNREADABLE_config_names_the_file_and_does_not_traceback(tmp_path: Pa
     Reachable on the systemd deployment shape this plan explicitly targets: the
     service account and the checkout's owner can differ, and `config.yaml` is
     read from the fleet's own repo root. Before this, `path.read_text` raised a
-    bare `PermissionError` — not a `RuntimeError`, so ten of eleven entrypoints
+    bare `PermissionError` — not a `RuntimeError`, so sixteen of seventeen entrypoints
     printed a traceback instead of the refusal.
     """
     if os.geteuid() == 0:

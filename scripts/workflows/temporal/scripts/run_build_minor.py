@@ -13,7 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from preflight import preflight  # noqa: E402
+from preflight import preflight, refuse  # noqa: E402
 from dispatch_identity import add_identity_arguments, resolve_identity  # noqa: E402
 from dispatch_context import RunContext  # noqa: E402
 
@@ -66,8 +66,7 @@ def main(argv: list[str] | None = None) -> int:
             repo_root = preflight(task.repo_target)
         except RuntimeError as exc:
             # Nothing has been created yet — that is the point of preflight.
-            print(f"\n✗ {exc}", file=sys.stderr)
-            return 1
+            return refuse(exc)
         # REQUIREMENT 11 — the run's bag is opened BEFORE the first side
         # effect, and a root that will not resolve stops the run here (r9). Why
         # this is not a helper each file remembers to call, and what the sweep
@@ -99,8 +98,7 @@ def main(argv: list[str] | None = None) -> int:
     except (RuntimeError, FileNotFoundError) as exc:
         # These carry operator-facing recovery instructions from the layer that
         # knew what failed. Do not wrap or reformat them.
-        print(f"\n✗ {exc}", file=sys.stderr)
-        return 1
+        return refuse(exc)
 
     print()
     print(BANNER)

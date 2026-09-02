@@ -106,8 +106,12 @@ WHAT THIS GUARD DOES NOT LOOK AT:
     correction pass — the mechanism that produced this finding class four times.
     This bullet is the second arm of the rule above: not derived, and therefore
     not written as a universal.
-  * **Whether a grandfathered module's debt is ever paid.** The 11 names in
+  * **Whether a grandfathered module's debt is ever paid.** The 10 names in
     `_WITHOUT_A_CONTROL_YET` are excused from the rule, not from the class.
+    (Eleven until 2026-09-02: `test_preflight.py` gained a positive control when
+    `Dual-mode children` added a refusal sweep to it, so its line came out. That
+    is one unit of issue #103's debt paid, by a phase that was not about it —
+    which is what "the list may only shrink" buys.)
     Nothing here forces one of them to gain a control — only that the list
     cannot GROW and cannot go stale. A list that stops shrinking is invisible
     to this file and visible to a reader, which is the honest split.
@@ -199,7 +203,14 @@ _HERE = Path(__file__).resolve().parent
 # grandfathered — and the anchor guard's control is not decoration: exercising
 # it is how its recogniser was found blind to `re.compile(r"…" % N)`, which is
 # the spelling of the digest gate that IS r7(b)'s path safety.
-_PINNED = (38, 27)
+# 39 -> 40 and 29 -> 30 when a `build-refine` correction pass added
+# `test_a_read_that_GATES_a_run_happens_BEFORE_the_cut.py` — the class-check for
+# a gating read evaluated below `worktree_add`, of which the finding it was
+# raised on named three sites and the sweep found five. BOTH numbers moved
+# because it ships its own literal control: the shipped arrangement, the
+# corrected one, a function that never cuts, and a call that legitimately
+# needs the worktree.
+_PINNED = (40, 30)
 
 
 # GRANDFATHERED — walks the tree, has no literal control, PREDATES this rule.
@@ -247,7 +258,6 @@ _WITHOUT_A_CONTROL_YET = frozenset({
     "test_loop_cap_prose_is_counted.py",
     "test_model_gets_the_worktree_path.py",
     "test_pr_url_address.py",
-    "test_preflight.py",
     "test_run_log_emission.py",
     "test_triage_candidates_split.py",
 })

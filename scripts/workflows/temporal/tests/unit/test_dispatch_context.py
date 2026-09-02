@@ -8,9 +8,12 @@ properties are checkable here and each had a measured failure behind it:
     independently and `run_build_minor` had drifted — `workflow_key="build-minor"`
     beside a worktree named `build-…`, so its trees were indistinguishable on
     disk from the `build` parent's.
-  * THE ECHO IS GATED ON *IS THIS INVOCATION THE RUN*, not on `verbose` and not
-    on `minted`. An operator retrying with `--run-id X` has `minted=False` and is
-    exactly the caller who most needs to see what the retry derived.
+  * THE ECHO IS UNGATED. It was gated on *is this invocation the run* — `writer
+    is None`, a proxy for *constructed here* — until this phase's standalone
+    children made the proxy wrong; see `RunContext.echo`. It was never gated on
+    `verbose` and never on `minted`, and an operator retrying with `--run-id X`
+    has `minted=False` while being the caller who most needs to see what the
+    retry derived.
   * THE REHEARSAL AND THE LIVE RUN PRINT THE SAME OBJECT. A `--dry-run` that
     assembles its own copy previews something that is not what runs, and this
     family has shipped that bug once already (`run_review`'s own docstring
@@ -158,19 +161,35 @@ def test_the_run_ECHOES_what_it_derived() -> None:
     assert "#42" in out
 
 
-def test_a_MEMBER_of_a_run_does_NOT_REPRINT_what_its_parent_said() -> None:
-    """The `constructed here or received` discriminator, exercised.
+def test_a_context_carrying_a_WRITER_still_ECHOES_because_it_BUILT_itself() -> None:
+    """The gate that was here silenced the case `Dual-mode children` introduces.
 
-    `--writer` is the only thing that distinguishes a child started by a parent
-    from a child started by a person reproducing what a parent did, so it is the
-    only honest gate. A parent that hands nine children one context should say it
-    once.
+    ⚠ THIS ASSERTS THE OPPOSITE OF WHAT IT ASSERTED UNTIL 2026-09-02, and the
+    reversal is the requirement rather than a relaxation. `echo` gated on
+    `writer is None` as a proxy for *this process constructed the context*, and
+    `RunContext.echo`'s own ⚠ named the trigger where the proxy stops holding: a
+    standalone child is a SEPARATE PROCESS, so it always constructs its own
+    context and can never be handed one — yet passed `--writer` it derived a
+    worktree name and a target and said nothing. Six such entrypoints land in
+    this phase.
+
+    A `RunContext` is reachable only by constructing one, so *constructed here*
+    is true at every call site and the gate could only ever be wrong. What a
+    reader needs instead is the LABEL, which `render` carries and which the
+    assertion below pins: the run row names the writer.
     """
     member = RunContext(run_id="r1", writer="plan_refine", minted=False,
                         repo_root=Path("/repo"), journal_root=None,
                         workflow_key="plan-refine", worktree_name="plan-refine-1",
                         pr_number=None, target=None)
-    assert _echoed(member) == ""
+    out = _echoed(member)
+    assert "plan-refine-1" in out, (
+        "a standalone child carrying --writer said nothing about what it "
+        "derived — the invisibility this object exists to close, arriving on "
+        "the runs that spend the model time")
+    assert "(writer plan_refine)" in out, (
+        "the echo fired but does not say this invocation is a MEMBER of a run "
+        "rather than the run — which is the fact the dropped gate used to carry")
 
 
 def test_the_echo_is_NOT_GATED_ON_MINTED_because_a_RETRY_needs_it_most() -> None:
@@ -412,8 +431,8 @@ def test_every_entrypoint_SAYS_IT_BEFORE_THE_BAG_OPENS_and_UNCONDITIONALLY() -> 
         + "\n".join(f"  {o}" for o in offenders)
         + "\n\nThe echo exists for the operator about to spend an hour of model "
           "time on the wrong component, so it goes BEFORE the bag opens and it "
-          "is not switchable. `RunContext.echo` gates itself on whether this "
-          "invocation IS the run; nothing at the call site may gate it further."
+          "is not switchable. `RunContext.echo` gates on nothing at all; a "
+          "call site may not reintroduce a gate it deliberately dropped."
     )
 
 

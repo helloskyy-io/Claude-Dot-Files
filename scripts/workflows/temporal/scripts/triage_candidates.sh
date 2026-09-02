@@ -6,9 +6,9 @@
 # exactly one place that defines the CLI contract.
 #
 # Usage:
-#   ./triage_candidates.sh --verbose
-#   ./triage_candidates.sh --candidates tracked/candidates
-#   ./triage_candidates.sh --pr 42 --verbose
+#   ./triage_candidates.sh --repo /opt/skyy-net/skyynet-master-planning --verbose
+#   ./triage_candidates.sh --repo /opt/skyy-net/skyynet-master-planning --candidates tracked/candidates
+#   ./triage_candidates.sh --repo /opt/skyy-net/skyynet-master-planning --pr 42 --verbose
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 exec python3 "${SCRIPT_DIR}/run_triage_candidates.py" "$@"

@@ -1,6 +1,6 @@
 """What the entrypoint population IS — discovered once, for every test that asks.
 
-WHY THIS MODULE EXISTS. Two guards need the same facts about the eleven
+WHY THIS MODULE EXISTS. Two guards need the same facts about the seventeen
 `run_*.py` kickoff entrypoints: `test_every_parent_opens_a_run_bag` asserts each
 one opens a bag before its first side effect, and
 `test_journal_prose_figures_are_DERIVED` checks that the counts this package's
@@ -35,12 +35,15 @@ BAG_OPEN = "open_run_bag"
 # run stops early*.
 SIDE_EFFECT_ATTRS = ("worktree_add",)
 
-# ⚠ THE ORDERING CHECK'S REAL COVERAGE IS 9 OF 11, AND STATING THE NUMBER IS THE
+# ⚠ THE ORDERING CHECK'S REAL COVERAGE IS 15 OF 17, AND STATING THE NUMBER IS THE
 # POINT. The first version of that check listed `worktree_add` alone, which made
 # the assertion bite on only the five entrypoints that cut their own worktree —
 # the other six had no detectable side effect, so `opens and effects` was False
 # and the check silently passed without examining anything. That is a guard whose
-# comment claimed more than its code did.
+# comment claimed more than its code did. (Those two figures are the ELEVEN-ERA
+# fleet, and they stay as written: 5 + 6 = 11 was the arithmetic of the tree the
+# defect was found in, and renumbering history to today's totals would make the
+# sentence describe a fleet in which nothing added up.)
 #
 # Adding the by-name workflow handoff takes it to eight. The remaining three —
 # `run_research.py`, `run_research_minor.py`, `run_review_pr.py` — reach their
@@ -52,6 +55,13 @@ SIDE_EFFECT_ATTRS = ("worktree_add",)
 # `run_research_minor.py` was the third until 2026-08-28, when the research
 # tiers merged and it was deleted. Two remain, and the count this feeds is
 # derived from this tuple rather than restated.
+#
+# THE SIX RUNNERS `Dual-mode children` ADDED ON 2026-09-02 ARE ALL COVERED, and
+# that is a property of how they were written rather than luck: the family ruling
+# in `run_build_draft.py` makes every one of them call `act.worktree_add`
+# directly AND import its core function BY NAME, so both detectable shapes are
+# present in each. Coverage went 9/11 -> 15/17 and the uncovered pair did not
+# move.
 ORDERING_UNCOVERED = ("run_research.py", "run_review_pr.py")
 
 

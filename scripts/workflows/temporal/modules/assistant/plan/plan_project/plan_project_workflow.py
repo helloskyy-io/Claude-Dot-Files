@@ -71,15 +71,16 @@ def run_plan_project(*, repo_root: Path, worktree_name: str,
     """
     notes: list[str] = []
 
+    # Read BEFORE THE CUT, so a `gh` failure costs a dispatch that has produced
+    # nothing AND leaves no registered worktree behind — the reason
+    # `build_workflow` states at length at the same call.
+    slug = _shared.repo_slug(repo_root)
+
     # ISOLATION IS ESTABLISHED ONCE, HERE. The child receives the path and never
     # creates one — two actors creating the same named worktree is a
     # `fatal: already exists` that has killed a handoff before.
     ref = act.base_ref(pr_number, repo_root)
     worktree = act.worktree_add(repo_root, worktree_name, ref)
-
-    # Read BEFORE the triage child, so a `gh` failure costs a dispatch that has
-    # produced nothing rather than one that has already triaged a sprint.
-    slug = _shared.repo_slug(repo_root)
 
     # --- Step 1: TRIAGE ----------------------------------------------------
     # The PR URL is both the handoff and the child's completion contract; the

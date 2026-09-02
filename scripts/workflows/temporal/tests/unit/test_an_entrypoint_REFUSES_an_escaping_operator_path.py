@@ -76,7 +76,12 @@ _ARGV_SHAPE: dict[str, list[str]] = {
     "run_plan_sprint.py": ["--dry-run"],
     "run_triage_candidates.py": ["--dry-run"],
     "run_research.py": ["--dry-run"],
-    "run_research_minor.py": ["--dry-run"],
+    "run_research_draft.py": ["--dry-run"],
+    # `--pr` is `required=True` on this one: a verify pass has nothing to open,
+    # so an invocation without it exits at the parser and never reaches the
+    # resolver this file is about. The number is arbitrary and unreachable —
+    # `--dry-run` returns before any `gh` call.
+    "run_research_refine.py": ["--dry-run", "--pr", "1"],
     # No `--dry-run` exists on this one; it is stopped by the resolver before it
     # can dispatch, and the fixture below replaces the dispatch so that a
     # REGRESSION fails loudly here instead of cutting a worktree and spending.
@@ -255,12 +260,43 @@ def test_every_runner_with_a_repo_path_is_exercised() -> None:
     `_ARGV_SHAPE` is the one hand-written thing in this file. Left as a lookup
     with a default, a runner missing from it would quietly contribute no
     coverage; asserted, it costs one line to add and cannot be forgotten.
+
+    ⚠ THIS BODY WENT MISSING FOR ONE PASS. `test_no_ARGV_SHAPE_ENTRY_NAMES_A_
+    RUNNER_THAT_IS_GONE` was inserted BETWEEN this docstring and the assertion
+    below, so this test had a docstring-only body and asserted nothing while its
+    `unshaped` check ran under the other name. Two defects in one edit: a guard
+    reported green while examining nothing, and two independent properties
+    short-circuited, so a change that both orphaned a key and added an unshaped
+    runner reported only the first. `test_no_TEST_IN_THIS_SUITE_ASSERTS_NOTHING`
+    now holds the class.
     """
     unshaped = [name for name in _SUBJECTS if name not in _ARGV_SHAPE]
     assert not unshaped, (
         f"{unshaped} declare a repo path but have no argv shape here, so nothing "
         f"drives them. Add the non-path arguments each needs to reach its "
         f"resolution — the repo paths themselves are read off the parser.")
+
+
+def test_no_ARGV_SHAPE_ENTRY_NAMES_A_RUNNER_THAT_IS_GONE() -> None:
+    """THE OTHER DIRECTION, and it is the one that fails SILENTLY.
+
+    The assertion below catches a runner with no shape — a gap that shouts. A
+    shape with no runner is the mirror defect and nothing saw it: `_ARGV_SHAPE`
+    keyed `run_research_minor.py` for five days after that runner was deleted
+    (2026-08-28), because an unused key in a lookup costs nothing to have. It is
+    dead config in the one hand-maintained map in a file whose neighbours all
+    derive their populations, and the next one arrives the next time a workflow
+    is renamed — this fleet renamed four in a fortnight.
+
+    Cheap here, and unavailable anywhere else: nothing in the suite reads this
+    map except the two assertions in this module.
+    """
+    scripts = {p.name for p in _SCRIPTS.glob("run_*.py")}
+    orphaned = sorted(set(_ARGV_SHAPE) - scripts)
+    assert not orphaned, (
+        f"{orphaned} have argv shapes but no runner on disk. A renamed or "
+        f"deleted workflow leaves its key behind, and an unused key contributes "
+        f"no coverage while reading exactly like coverage.")
 
 
 @pytest.mark.parametrize("runner,escaping", _CASES, ids=lambda v: v)
