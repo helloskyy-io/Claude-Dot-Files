@@ -222,13 +222,14 @@ def main(argv: list[str] | None = None) -> int:
         description = task_text(task, repo_root)
         plan_path = path_for_the_model(repo_root, task.plan_path)
 
+        # Read BEFORE THE CUT, as the parents do: `repo_slug` is a `gh` round
+        # trip that depends on nothing the worktree provides, so below the cut
+        # it stranded a worktree on an expired token — the same class this
+        # function's `task_text` hoist closes three lines above.
+        slug = act.repo_slug(repo_root)
+
         ref = act.base_ref(task.pr_number, repo_root)
         worktree = act.worktree_add(repo_root, ctx.worktree_name, ref)
-
-        # Read BEFORE the child runs, as the parent does: a `gh` failure then
-        # costs a dispatch that has produced nothing, rather than sitting between
-        # a completed multi-hour child and the PR it opened.
-        slug = act.repo_slug(repo_root)
 
         pr_url = run_draft(
             description=description, repo_root=repo_root,

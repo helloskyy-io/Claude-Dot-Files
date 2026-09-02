@@ -203,7 +203,14 @@ _HERE = Path(__file__).resolve().parent
 # grandfathered — and the anchor guard's control is not decoration: exercising
 # it is how its recogniser was found blind to `re.compile(r"…" % N)`, which is
 # the spelling of the digest gate that IS r7(b)'s path safety.
-_PINNED = (39, 29)
+# 39 -> 40 and 29 -> 30 when a `build-refine` correction pass added
+# `test_a_read_that_GATES_a_run_happens_BEFORE_the_cut.py` — the class-check for
+# a gating read evaluated below `worktree_add`, of which the finding it was
+# raised on named three sites and the sweep found five. BOTH numbers moved
+# because it ships its own literal control: the shipped arrangement, the
+# corrected one, a function that never cuts, and a call that legitimately
+# needs the worktree.
+_PINNED = (40, 30)
 
 
 # GRANDFATHERED — walks the tree, has no literal control, PREDATES this rule.

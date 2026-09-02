@@ -38,13 +38,14 @@ def run_research(*, research_dir: Path, repo_root: Path, worktree_name: str,
     """Produce, verify, disposition. Returns a typed result."""
     notes: list[str] = []
 
+    # Read BEFORE THE CUT, so a `gh` failure costs a dispatch that has produced
+    # nothing AND leaves no registered worktree behind — the reason
+    # `build_workflow` states at length at the same call.
+    slug = repo_slug(repo_root)
+
     # Isolation once, at the parent. Children receive the path.
     ref = act.base_ref(pr_number, repo_root)
     worktree = act.worktree_add(repo_root, worktree_name, ref)
-
-    # Read BEFORE the child, so a `gh` failure costs a dispatch that has
-    # produced nothing rather than one that has already written a paper.
-    slug = repo_slug(repo_root)
 
     pr_url = draft.run_research_draft(
         research_dir=research_dir, repo_root=repo_root, worktree=worktree,

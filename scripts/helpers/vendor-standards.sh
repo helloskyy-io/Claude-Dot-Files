@@ -64,7 +64,21 @@ FILES=(
 # product repo like `image-manager` hold drift-checkable copies instead of
 # hand-maintained ones.
 _CDF="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-_SIBLINGS="$(cd "$_CDF/.." && pwd)"
+# THE SIBLINGS DIRECTORY IS THE MAIN CHECKOUT'S PARENT, NOT THIS TREE'S. Every
+# autonomous dispatch runs from a linked worktree under
+# `<main checkout>/.claude/worktrees/<name>`, where `$_CDF/..` is `.claude/
+# worktrees/` and no sibling repo is there — so `--check` exited 1 with
+# "skyynet-master-planning not found" for exactly the caller that runs it most.
+# `--git-common-dir` is git's own answer to "which checkout is this a worktree
+# of": in the main checkout it is that repo's `.git`, and in a linked worktree it
+# is still the MAIN repo's `.git`, so one expression covers both. Falls back to
+# the plain parent when git cannot answer, which is the pre-existing behaviour.
+_COMMON_GIT_DIR="$(git -C "$_CDF" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+if [[ -n "$_COMMON_GIT_DIR" && -d "$_COMMON_GIT_DIR" ]]; then
+    _SIBLINGS="$(cd "$_COMMON_GIT_DIR/../.." && pwd)"
+else
+    _SIBLINGS="$(cd "$_CDF/.." && pwd)"
+fi
 
 CHECK_ONLY=false
 TARGET=""

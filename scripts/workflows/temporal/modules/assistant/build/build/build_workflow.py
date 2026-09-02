@@ -61,17 +61,22 @@ def run_build(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildRes
     started = act.clock_now()
     description = task_text(task, repo_root)
 
+    # READ BEFORE THE CUT, NOT MERELY BEFORE THE CHILD. `repo_slug` is a `gh`
+    # round trip — network and auth, the most failure-prone call in this
+    # sequence — and it depends on nothing the worktree provides. Below
+    # `worktree_add` it was the stranded-worktree class one call later: an
+    # expired token or a network blip left a registered worktree and a
+    # completed fetch behind, which is what `preflight`'s header says the
+    # boundary exists to prevent. Taken here it also still precedes the
+    # child, so a `gh` failure costs a dispatch that has produced nothing
+    # rather than sitting between a completed multi-hour child and its PR.
+    slug = act.repo_slug(repo_root)
+
     # ISOLATION IS ESTABLISHED ONCE, HERE. Children receive the path and never
     # create one — two children creating the same named worktree is a
     # `fatal: already exists` that killed the draft->refine handoff.
     ref = act.base_ref(task.pr_number, repo_root)
     worktree = act.worktree_add(repo_root, worktree_name, ref)
-
-    # READ BEFORE THE CHILD RUNS, DELIBERATELY. `repo_slug` is a `gh` round trip
-    # and it gates a value the child produces — but taken here, a `gh` failure
-    # costs a dispatch that has produced nothing, while taken after the draft it
-    # would sit between a completed multi-hour child and the PR it opened.
-    slug = act.repo_slug(repo_root)
 
     # --- Step 1: DRAFT -----------------------------------------------------
     # The PR URL is both the handoff and the child's completion contract; the

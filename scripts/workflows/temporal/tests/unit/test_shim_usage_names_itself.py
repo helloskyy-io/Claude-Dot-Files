@@ -33,11 +33,18 @@ template, which is when a wrong flag stops being one operator's afternoon.
 
 WHAT IT CANNOT SEE, stated because a sweep is only as good as its predicate:
 
-  * It reads the flags a runner DECLARES, never whether the VALUES beside them
-    are usable. `./research.sh /abs/path/into/another/repo` was equally wrong and
-    equally documented — the pool is resolved against the repo root, so an
-    absolute path elsewhere is refused as escaping — and nothing here could have
-    caught it. That one was found by reading, and fixed in the same pass.
+  * ⚠ IT USED TO READ ONLY THE FLAGS A RUNNER DECLARES, NEVER WHETHER THE VALUES
+    BESIDE THEM ARE USABLE — and this bullet used to end *"nothing here could
+    have caught it."* THE THIRD HALF BELOW IS THAT GAP CLOSED, added 2026-09-02,
+    and it found ten sites on arrival. `./research.sh /abs/path/into/another/repo`
+    was the shape: a repo path is resolved against the repo root, so an absolute
+    one elsewhere is refused as escaping. That instance was found by reading and
+    fixed by hand; a review then found nine more of it in the plan family, which
+    is what a class looks like when only its instances are ever fixed.
+    What the value half STILL cannot see is a refusal that is not about the path
+    at all — `plan_refine` refuses a component with no `roadmap.md`, and a usage
+    line naming such a component parses, resolves, exists, and fails anyway. The
+    only instrument for that is running the line, which is how it was found.
   * It reads the runner's SOURCE, not a live `--help`. A flag added dynamically,
     or one whose name is computed, is invisible. Nothing does that today; the
     limit is named so a reader does not assume the sweep is exhaustive.
@@ -47,6 +54,8 @@ from __future__ import annotations
 
 import ast
 import re
+import shlex
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
@@ -273,3 +282,347 @@ def test_THE_IDENTITY_FLAGS_REACH_A_RUNNER_THAT_DECLARES_THEM() -> None:
         f"these runners do not route through `add_identity_arguments`: {missing}. "
         f"`test_the_run_id_ARRIVES_from_outside` owns that property; it is "
         f"restated here because this sweep's flag union DEPENDS on it.")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# THE THIRD HALF — THE VALUES, not just the flags.
+#
+# A usage line is a documented invocation an operator copies. The name half
+# proves it names its own script; the flag half proves every `--flag` in it
+# exists. Neither looks at what sits BESIDE a flag, and that is where the defect
+# had moved: ten documented invocations across `plan.sh` (3), `plan_refine.sh`
+# (3), `plan_draft.sh` (3) and `triage_candidates.sh` (1) were refused on
+# arrival — seven naming an absolute path into another checkout with no `--repo`
+# (`✗ component … resolves outside the repo`), three naming a repo-relative tree
+# that exists in no repo the line points at (`✗ component not found`).
+#
+# THE CLASS IS NOT "SEVEN ABSOLUTE PATHS". It is *a documented invocation the
+# runner refuses*, and the previous pass fixed one member of it by hand in
+# `research.sh` and declared it closed after sweeping `add_repo_path` HELP
+# STRINGS — a different surface from the one the defect was found on. That is
+# why this is a predicate over the whole corpus rather than ten more edits.
+# ─────────────────────────────────────────────────────────────────────────────
+
+#: This repository's root, which is the root a `--repo`-less invocation resolves
+#: against — `preflight.resolve_repo_root` falls back to the operator's cwd, and
+#: the operator copying a line out of a shim in this tree is standing in it.
+_REPO_ROOT = SCRIPTS.parents[3]
+
+#: A usage line, with its `#   ./shim.sh` prefix stripped. Separate from
+#: `_INVOCATION` above, which captures the script NAME; this one captures the
+#: ARGUMENTS, and one regex trying to do both reads worse than two doing one.
+_INVOCATION_ARGS = re.compile(r"^#\s+\./[a-z_0-9]+\.sh(.*)$")
+
+#: A token an operator must substitute before the line can run: `<component>`,
+#: `<N>`, or the `/path/to/…` spelling three shims use for the same idea. A line
+#: carrying one is a TEMPLATE, so "does this path exist" is not a question that
+#: has an answer for it — the existence check below skips such lines and says so.
+_PLACEHOLDER = re.compile(r"<[a-z][a-z0-9_-]*>|/path/to/", re.I)
+
+#: argparse actions that consume no following token. Anything else does — which
+#: is what lets the binder below know that `42` in `--pr 42` is the flag's value
+#: and not a positional. Getting this wrong shifts every positional after it.
+_ACTIONS_WITHOUT_A_VALUE = frozenset(
+    {"store_true", "store_false", "store_const", "count", "help", "version"})
+
+
+@dataclass
+class ArgSpec:
+    """What one runner's parser accepts, read off its source.
+
+    `repo_dests` is the subset declared with `add_repo_path` — the ones
+    `preflight.resolve_operator_paths` resolves against the repo root and
+    refuses when they escape it. `--task-file` and `--phase` are deliberately
+    NOT in it: `test_a_task_SOURCE_path_is_anchored_to_the_repo` records the
+    ruling that a task source may legitimately live outside the tree, so an
+    absolute one in a usage line is correct and must not be flagged here.
+    """
+
+    value_flags: dict[str, str] = field(default_factory=dict)
+    positionals: list[tuple[str, bool]] = field(default_factory=list)
+    repo_dests: set[str] = field(default_factory=set)
+
+
+def _declared_arguments(module: Path, spec: ArgSpec | None = None) -> ArgSpec:
+    """THE WALK. One runner's declared arguments, read off disk.
+
+    Split from the predicate for the same reason `_declared_flags` is: the
+    meta-guard recognises a tree-walking check by the literal shape
+    `ast.parse(<x>.read_text(...))` and requires the predicate to be exercised
+    against a literal snippet. A single function taking a `Path` would put this
+    sweep outside the census that exists to catch exactly that.
+    """
+    return _declared_arguments_in(
+        ast.parse(module.read_text(encoding="utf-8")), spec)
+
+
+def _declared_arguments_in(tree: ast.Module, spec: ArgSpec | None = None) -> ArgSpec:
+    """THE PREDICATE. Declared arguments from an already-parsed module.
+
+    SORTED BY SOURCE POSITION, WHICH IS NOT WHAT `ast.walk` GIVES YOU. Positional
+    order is the whole meaning of a positional: `run_plan.py` declares
+    `component` first, and a breadth-first walk can hand it back after `--sprint`
+    depending on nesting. That would bind the wrong token to the repo path and
+    the sweep would be checking a value nobody typed there.
+    """
+    spec = spec if spec is not None else ArgSpec()
+    calls = [n for n in ast.walk(tree)
+             if isinstance(n, ast.Call)
+             and getattr(n.func, "attr", None) in ("add_argument", "add_repo_path")]
+    for node in sorted(calls, key=lambda n: (n.lineno, n.col_offset)):
+        names = [a.value for a in node.args
+                 if isinstance(a, ast.Constant) and isinstance(a.value, str)]
+        if not names:
+            continue
+        keywords = {k.arg: k.value for k in node.keywords}
+
+        def literal(key: str):
+            node_ = keywords.get(key)
+            return node_.value if isinstance(node_, ast.Constant) else None
+
+        dest = literal("dest")
+        if names[0].startswith("-"):
+            resolved = dest or names[0].lstrip("-").replace("-", "_")
+            if literal("action") not in _ACTIONS_WITHOUT_A_VALUE:
+                for name in names:
+                    spec.value_flags[name] = resolved
+        else:
+            resolved = dest or names[0]
+            spec.positionals.append((resolved, literal("nargs") not in ("?", "*")))
+        if getattr(node.func, "attr", None) == "add_repo_path":
+            spec.repo_dests.add(resolved)
+    return spec
+
+
+def _arg_spec_for(runner: Path) -> ArgSpec:
+    """The runner's own declarations, plus the two `add_identity_arguments` adds.
+
+    Conditional for the same reason `_runner_flags` is conditional, and the
+    control below exercises the negative arm: crediting a runner with
+    `--run-id` when it does not route through the helper would make the binder
+    swallow the following token as that flag's value.
+    """
+    spec = _declared_arguments(runner)
+    if "add_identity_arguments" in runner.read_text(encoding="utf-8"):
+        _declared_arguments(_IDENTITY, spec)
+    return spec
+
+
+def _bind(tokens: list[str], spec: ArgSpec) -> tuple[list[tuple[str, str]], int]:
+    """Bind a usage line's tokens to the dests the runner would put them in.
+
+    Returns `(bindings, positionals_supplied)`. An UNRECOGNISED flag is skipped
+    without consuming a value, which is the safe direction: the flag half of
+    this guard already fails on any flag the runner does not declare, so an
+    unknown one here means that assertion is about to fire anyway.
+    """
+    bindings: list[tuple[str, str]] = []
+    supplied = index = 0
+    while index < len(tokens):
+        token = tokens[index]
+        if token.startswith("-") and token != "-":
+            if token in spec.value_flags and index + 1 < len(tokens):
+                bindings.append((spec.value_flags[token], tokens[index + 1]))
+                index += 2
+                continue
+            index += 1
+            continue
+        if supplied < len(spec.positionals):
+            bindings.append((spec.positionals[supplied][0], token))
+        supplied += 1
+        index += 1
+    return bindings, supplied
+
+
+def _invocations(shim: Path) -> list[list[str]]:
+    """Every documented invocation in one shim, tokenised as a shell would.
+
+    The trailing `# no model, no spend` comments four shims carry are stripped
+    before tokenising — `shlex` would otherwise hand back `no`, `model,` and
+    `spend` as three positionals and the required-positional count below would
+    pass on prose.
+    """
+    lines = []
+    for line in shim.read_text(encoding="utf-8").splitlines():
+        matched = _INVOCATION_ARGS.match(line)
+        if matched:
+            lines.append(shlex.split(matched.group(1).split("#")[0].strip()))
+    return lines
+
+
+def _repo_path_values(shim: Path) -> list[tuple[list[str], str, str]]:
+    """`(tokens, dest, value)` for every repo-anchored path in every usage line."""
+    spec = _arg_spec_for(_runner_for(shim))
+    found = []
+    for tokens in _invocations(shim):
+        bindings, _ = _bind(tokens, spec)
+        found += [(tokens, dest, value) for dest, value in bindings
+                  if dest in spec.repo_dests]
+    return found
+
+
+@pytest.mark.parametrize("shim", _shims(), ids=lambda p: p.name)
+def test_every_usage_REPO_PATH_is_REPO_RELATIVE(shim: Path) -> None:
+    """THE REQUIREMENT, first arm. A repo path documented as an absolute path is
+    refused for every operator who does not additionally pass a `--repo` naming
+    an ancestor of it — which none of the seven that shipped did.
+
+    Repo-relative is the invariant rather than "absolute unless `--repo`
+    matches", because the second is a coincidence between two strings in one
+    line and reads as correct right up until somebody moves a checkout.
+    """
+    offenders = [(dest, value) for _, dest, value in _repo_path_values(shim)
+                 if value.startswith("/")]
+    assert not offenders, (
+        f"{shim.name}'s usage block documents an ABSOLUTE path for "
+        f"{sorted({d for d, _ in offenders})}, which `resolve_operator_paths` "
+        f"refuses as escaping unless `--repo` names an ancestor: {offenders}. "
+        f"Write the path relative to the repo and name the checkout with "
+        f"`--repo`, which is the form every conforming line in this fleet uses.")
+
+
+@pytest.mark.parametrize("shim", _shims(), ids=lambda p: p.name)
+def test_every_LITERAL_usage_line_names_a_path_that_EXISTS(shim: Path) -> None:
+    """THE REQUIREMENT, second arm. A line with nothing left to substitute is one
+    an operator copies verbatim, so its paths have to be there verbatim.
+
+    `docs/development/fleet-reliability` and `docs/development/managed-
+    configuration` shipped in `plan_draft.sh` naming a tree layout that exists in
+    neither this repo nor the planning one, and `triage_candidates.sh` documented
+    `tracked/candidates` with no `--repo`, which resolves into THIS repo where
+    there is no `tracked/`. All three parse, carry a declared flag, and fail.
+
+    SKIPPED FOR TEMPLATE LINES ON PURPOSE. `development/<component>/research` has
+    no truth value until the operator substitutes, and demanding a concrete
+    example everywhere would trade a real check for a worse-documented corpus.
+    SKIPPED ALSO WHEN THE NAMED CHECKOUT IS ABSENT, so the sweep degrades to the
+    first arm on a machine holding only this repo rather than failing there.
+    """
+    missing = []
+    for tokens, dest, value in _repo_path_values(shim):
+        if _PLACEHOLDER.search(" ".join(tokens)):
+            continue
+        bindings = dict(_bind(tokens, _arg_spec_for(_runner_for(shim)))[0])
+        root = Path(bindings["repo_target"]) if "repo_target" in bindings else _REPO_ROOT
+        if not root.is_dir():
+            continue
+        if not (root / value).exists():
+            missing.append((dest, value, str(root)))
+    assert not missing, (
+        f"{shim.name} documents a copy-pasteable invocation naming a path that "
+        f"is not there: {missing}. An operator following it gets "
+        f"`✗ <arg> not found` from text that reads official.")
+
+
+@pytest.mark.parametrize("shim", _shims(), ids=lambda p: p.name)
+def test_every_usage_line_supplies_the_REQUIRED_POSITIONALS(shim: Path) -> None:
+    """THE REQUIREMENT, third arm, and it closes this guard's other stated hole.
+
+    `plan_sprint.sh` shipped a usage block that omitted the required `component`
+    positional entirely, so EVERY documented invocation would have failed. The
+    previous pass fixed it by reading and wrote *"it does not check that required
+    positionals are documented"* into this file's limits. It does now.
+    """
+    spec = _arg_spec_for(_runner_for(shim))
+    required = sum(1 for _, is_required in spec.positionals if is_required)
+    short = [(tokens, supplied) for tokens in _invocations(shim)
+             if (supplied := _bind(tokens, spec)[1]) < required]
+    assert not short, (
+        f"{shim.name} documents {len(short)} invocation(s) supplying fewer than "
+        f"the {required} required positional(s) "
+        f"{[name for name, req in spec.positionals if req]}: {short}. "
+        f"argparse refuses the line before the workflow starts.")
+
+
+def test_the_VALUE_SWEEP_read_something() -> None:
+    """VACUITY FLOOR FOR THE VALUE HALF, and it is a third distinct floor.
+
+    Every assertion above is over a list that is empty when the binder stops
+    binding — a shape change in `add_repo_path`, a `dest` moved into `**kwargs`,
+    a usage-comment prefix reworded — and three green sweeps over nothing look
+    exactly like three green sweeps over the fleet.
+    """
+    examined = sum(len(_repo_path_values(shim)) for shim in _shims())
+    # THE BASIS: 27 repo-anchored path values were documented across the
+    # seventeen shims when this floor was set. It sits below the measurement for
+    # the reason the flag floor states — a total that moves whenever any usage
+    # block is reworded cannot be pinned to its own measurement — and 15 is the
+    # point below which the binder must have stopped binding.
+    assert examined >= 15, (
+        f"the usage blocks across {len(_shims())} shims bind only {examined} "
+        f"repo-anchored path values between them; there were 27 when this floor "
+        f"was set. A binder that has stopped binding passes vacuously.")
+
+
+def test_THE_VALUE_SWEEP_CATCHES_THE_LINES_THAT_SHIPPED() -> None:
+    """NEGATIVE CONTROL, on all three arms, against the lines that actually shipped.
+
+    THE FIXTURE IS SELF-CONTAINED — a literal runner and literal usage lines, no
+    files — for the reason the sibling control states: a control sharing a
+    fixture with the code it perturbs over-fires, and the census guard needs to
+    see this guard's PREDICATE exercised against `ast.parse` of a string.
+    """
+    runner = (
+        "import argparse\n"
+        "def main(argv=None):\n"
+        "    p = RepoPathParser(prog='plan')\n"
+        "    p.add_repo_path('component', kind='dir')\n"
+        "    p.add_repo_path('--sprint', default='development/sprints.md')\n"
+        "    p.add_argument('--repo', dest='repo_target')\n"
+        "    p.add_argument('--pr', dest='pr_number')\n"
+        "    p.add_argument('--task-file', dest='task_file')\n"
+        "    p.add_argument('--verbose', '-v', action='store_true')\n")
+    spec = _declared_arguments_in(ast.parse(runner))
+
+    assert spec.repo_dests == {"component", "sprint"}, (
+        f"the predicate did not read the repo paths: {spec.repo_dests}")
+    assert spec.positionals == [("component", True)], (
+        f"the predicate did not read the positionals in order: {spec.positionals}")
+    assert "--verbose" not in spec.value_flags, (
+        "a store_true flag must not be credited with consuming the next token — "
+        "that shifts every positional after it and the sweep checks the wrong "
+        "value while still reporting a count")
+
+    def repo_values(line: str) -> list[tuple[str, str]]:
+        bindings, _ = _bind(shlex.split(line), spec)
+        return [(d, v) for d, v in bindings if d in spec.repo_dests]
+
+    # ARM 1 — `plan.sh` as it shipped: an absolute component, no `--repo`.
+    shipped = "/opt/skyy-net/skyynet-master-planning/development/x --pr 145 --verbose"
+    assert [v for _, v in repo_values(shipped) if v.startswith("/")] == [
+        "/opt/skyy-net/skyynet-master-planning/development/x"], (
+        "the sweep must bind the absolute component that actually shipped")
+
+    # …and the corrected form must NOT fire. A guard that flags the fix too is
+    # a guard whose only available remedy is deleting the documentation.
+    corrected = "development/x --repo /opt/skyy-net/skyynet-master-planning --pr 145"
+    assert [v for _, v in repo_values(corrected) if v.startswith("/")] == [], (
+        "a repo-relative path beside an absolute `--repo` is the CORRECT form; "
+        "flagging it would leave no conforming way to document an invocation")
+
+    # `--pr 145` must not be read as the component. This is the binder's whole
+    # reason for reading actions: get it wrong and arm 1 checks `145`.
+    assert repo_values("development/x --pr 145") == [("component", "development/x")]
+
+    # ARM 2 — `plan_draft.sh` as it shipped: concrete, relative, and nowhere.
+    tokens = shlex.split("docs/development/fleet-reliability")
+    bindings, supplied = _bind(tokens, spec)
+    assert dict(bindings)["component"] == "docs/development/fleet-reliability"
+    assert not _PLACEHOLDER.search(" ".join(tokens)), (
+        "the shipped line had nothing to substitute — that is why it was "
+        "copy-pasteable and why its absence mattered")
+    assert not (_REPO_ROOT / "docs/development/fleet-reliability").exists(), (
+        "the existence arm is asserted against a path this repo really lacks; "
+        "if that tree ever appears the control is testing nothing")
+    # …and a template line is exempt, which is the arm that keeps the check honest.
+    assert _PLACEHOLDER.search("development/<component>/research")
+
+    # ARM 3 — `plan_sprint.sh` as it shipped: no `component` at all.
+    assert _bind(shlex.split("--verbose"), spec)[1] == 0, (
+        "the sweep must see zero positionals in the usage block that shipped")
+    assert _bind(shlex.split("development/x --verbose"), spec)[1] == 1
+
+    # AND THE IDENTITY FLAGS ARE NOT MAGIC, same negative arm the flag half
+    # carries: a runner not routing through the helper must not be credited with
+    # `--writer`, or the binder eats the token after it.
+    assert "--writer" not in spec.value_flags

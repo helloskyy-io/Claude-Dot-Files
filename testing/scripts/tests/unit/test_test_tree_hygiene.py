@@ -202,3 +202,126 @@ def test_an_ASSEMBLED_module_path_is_the_residual_this_gate_does_NOT_see() -> No
         "than the docstring paragraph above claims. Nothing is broken — delete "
         f"this test and that paragraph in one commit. (Saw: {stems})"
     )
+
+
+def _docstring_only_tests(tree: ast.AST) -> list[tuple[int, str]]:
+    """THE PREDICATE. `(lineno, name)` for every `test_*` whose body is a docstring.
+
+    A MODULE-LEVEL FUNCTION SO THE CONTROL BELOW CAN CALL IT, for the reason the
+    residual test one function up states at length: a control that re-types the
+    extraction asserts a property of `ast` rather than of this gate.
+
+    `pass` and `...` are stripped alongside the docstring. They are the two other
+    spellings of "no statements", and a rule that caught one but not the others
+    would be satisfied by the shortest possible edit to the file it fired on.
+    """
+    found: list[tuple[int, str]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if not node.name.startswith("test_"):
+            continue
+        body = list(node.body)
+        if body and isinstance(body[0], ast.Expr) \
+                and isinstance(body[0].value, ast.Constant) \
+                and isinstance(body[0].value.value, str):
+            body = body[1:]
+        body = [statement for statement in body
+                if not isinstance(statement, ast.Pass)
+                and not (isinstance(statement, ast.Expr)
+                         and isinstance(statement.value, ast.Constant)
+                         and statement.value.value is Ellipsis)]
+        if not body:
+            found.append((node.lineno, node.name))
+    return found
+
+
+def test_no_TEST_IN_THIS_SUITE_ASSERTS_NOTHING() -> None:
+    """A test whose whole body is its docstring passes by examining nothing.
+
+    THE DEFECT THIS HOLDS, measured 2026-09-02. A new guard was inserted BETWEEN
+    `test_every_runner_with_a_repo_path_is_exercised`'s docstring and its body,
+    in `scripts/workflows/temporal/tests/unit/
+    test_an_entrypoint_REFUSES_an_escaping_operator_path.py`. The result was two
+    defects from one edit: that test kept its name, its docstring and its green
+    tick while asserting nothing, and its `unshaped` assertion ran under the
+    other test's name — so the two independent properties short-circuited and a
+    change that both orphaned a key and added an unshaped runner would have
+    reported only the first.
+
+    IT IS THE CLASS AND NOT THE INSTANCE THAT IS HELD HERE, because the instance
+    was found by a reviewer reading a diff, which does not scale to 1688 test
+    functions and did not catch it in the pass that wrote it. The file it landed
+    in is the same file that builds vacuity FLOORS for its own sweeps; a floor
+    protects a guard that runs, and nothing protected the guard that did not.
+
+    WHAT THIS DOES NOT LOOK AT, stated because a sweep is its predicate:
+
+      * **A body that runs but asserts nothing.** `validate(cfg, hooks)  # must
+        not raise` is a deliberate and legitimate shape — seven live tests use
+        it, each saying so — and the not-raising IS the assertion. Demanding an
+        `assert` keyword would require an exemption list of seven correct tests,
+        and an exemption list is the mechanism whose rot this repo has measured
+        twice. The docstring-only body has no legitimate use, so it needs none.
+      * **A body whose assertions cannot fail.** `assert True` passes here.
+        `test_a_census_guard_proves_its_own_predicate` holds the tree-walking
+        subset of that question; the general case is what review is for.
+    """
+    offenders: list[str] = []
+    for path in _test_modules():
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        offenders += [f"{path.relative_to(REPO_ROOT)}:{lineno} {name}"
+                      for lineno, name in _docstring_only_tests(tree)]
+
+    assert not offenders, (
+        "these test functions have a docstring and no statements, so they pass "
+        "by examining nothing: " + "; ".join(sorted(offenders))
+        + ". Either the body was displaced — check whether the function below "
+          "it grew an assertion that belongs here — or the test was never "
+          "finished. A named green tick over nothing is worse than no test."
+    )
+
+
+def test_THE_VACUITY_SWEEP_READ_THE_TREE_AND_CATCHES_THE_SHAPE() -> None:
+    """CONTROL, both halves: the walk found tests, and the predicate discriminates.
+
+    The floor is asserted because every assertion above is over a list that is
+    empty when the walk stops walking — a moved `REPO_ROOT`, a changed glob, a
+    `SKIP_PARTS` entry that swallows the tree — and a green sweep over nothing
+    is indistinguishable from a green sweep over 1688 functions.
+    """
+    # 1688 test functions across the tree when this floor was set; the floor sits
+    # well below it because the count moves with every ordinary test added or
+    # removed, and a floor pinned to its own measurement fails on the next edit.
+    counted = sum(
+        1 for path in _test_modules()
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name.startswith("test_"))
+    assert counted >= 800, (
+        f"the sweep found only {counted} test functions under {REPO_ROOT}; "
+        f"there were 1688 when this floor was set. A walk that has stopped "
+        f"walking passes vacuously.")
+
+    # THE PREDICATE, against literal sources — the shape that shipped, the two
+    # other spellings of an empty body, and the three shapes that must NOT fire.
+    shipped = ('def test_every_runner_is_exercised() -> None:\n'
+               '    """A new runner must fail HERE, not be skipped."""\n'
+               'def test_no_entry_names_a_runner_that_is_gone() -> None:\n'
+               '    assert not orphaned\n')
+    assert [name for _lineno, name in _docstring_only_tests(ast.parse(shipped))] \
+        == ["test_every_runner_is_exercised"], (
+        "the predicate must flag the docstring-only body that actually shipped")
+
+    for empty in ('def test_x():\n    pass\n',
+                  'def test_x():\n    """doc"""\n    ...\n',
+                  'def test_x():\n    """doc"""\n    pass\n'):
+        assert _docstring_only_tests(ast.parse(empty)), (
+            f"an empty body spelled another way must still fire: {empty!r}")
+
+    for holds in ('def test_x():\n    """doc"""\n    validate(cfg)\n',
+                  'def test_x():\n    """doc"""\n    assert 1\n',
+                  'def helper():\n    """doc"""\n'):
+        assert not _docstring_only_tests(ast.parse(holds)), (
+            f"this must NOT fire — a guard that flags correct code gets "
+            f"deleted: {holds!r}")
