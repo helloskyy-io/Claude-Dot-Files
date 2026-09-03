@@ -22,6 +22,7 @@ WHAT THESE GUARDS DO NOT LOOK AT:
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -303,3 +304,270 @@ def test_the_reader_REFUSES_a_NON_UTF8_bag_info(rig: Path) -> None:
     assert result.returncode == 2, (
         f"got {result.returncode}; 1 would mean DIFFERENT. "
         f"{result.stdout}{result.stderr}")
+
+
+# --------------------------------------------------------------------------
+# The BOUNDARY, swept — the class check the three named escapes came from
+# --------------------------------------------------------------------------
+#
+# ⚠ THREE EXCEPTION CLASSES REACHED `open_run_bag` FROM THE DIGEST, AND EACH WAS
+# FIXED SEPARATELY. The handler caught `ConfigDigestError` — which is exactly the
+# set of failures the design had already thought of — so every failure it had NOT
+# thought of took the one path the contract forbids: a `UnicodeEncodeError` from
+# an undecodable filename, a `PermissionError` from an unsearchable directory,
+# and `Path.home()`'s BARE `RuntimeError` (whose subclass `ConfigDigestError` is,
+# which is why naming the child did not catch the parent). Each is now refused at
+# its own site. This sweep is what holds the CLASS: whatever the fourth turns out
+# to be, a bag opens and records that it had nothing to say.
+
+
+def _hostile(kind: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+             claude: Path) -> None:
+    """Arrange one shape that used to stop every dispatch on the machine."""
+    if kind == "undecodable-filename":
+        (claude / "agents" / os.fsdecode(b"bad_\xff.md")).write_bytes(b"x")
+    elif kind == "unsearchable-directory":
+        outer = claude / "agents" / "outer"
+        outer.mkdir()
+        (outer / "inner").mkdir()
+        outer.chmod(0o444)
+    elif kind == "no-home-at-all":
+        monkeypatch.delenv("CLAUDE_CONFIG_DIR")
+        monkeypatch.delenv("HOME", raising=False)
+        monkeypatch.setattr(
+            Path, "home",
+            staticmethod(lambda: (_ for _ in ()).throw(
+                RuntimeError("Could not determine home directory."))))
+    elif kind == "undecodable-installer":
+        bad = tmp_path / "bad-install.sh"
+        bad.write_bytes(b'SYMLINK_TARGETS=(\n    "agents"\xff\n)\n')
+        monkeypatch.setattr(ja, "INSTALL_SH_PATH", bad)
+    elif kind == "installer-is-a-directory":
+        wrong = tmp_path / "installer-dir"
+        wrong.mkdir()
+        monkeypatch.setattr(ja, "INSTALL_SH_PATH", wrong)
+    else:  # pragma: no cover - a typo in the parametrize list
+        raise AssertionError(f"unknown hostile shape: {kind}")
+
+
+#: What each shape must produce, and the second column is what makes this sweep
+#: DISCRIMINATE rather than merely survive.
+#:
+#: ⚠ THE BACKSTOP ALONE SATISFIES "A BAG OPENS", AND THAT IS EXACTLY WHY THE
+#: OUTCOME IS PINNED TOO. Measured: with only "the bag opens" asserted, reverting
+#: the `surrogateescape` fix at its own site left this sweep GREEN — the widened
+#: boundary handler caught the escape and recorded `unavailable`, so the contract
+#: held while the digest silently stopped being computed for a tree that is
+#: perfectly readable. Two layers, one assertion, and the outer one hid the
+#: inner. A shape whose configuration IS establishable must produce a real
+#: digest; only the three that genuinely cannot establish a population may record
+#: `unavailable`, and then with the slug that names WHICH kind.
+_HOSTILE = {
+    "undecodable-filename": None,
+    "unsearchable-directory": None,
+    "no-home-at-all": "config-tree-unlocatable",
+    "undecodable-installer": "installer-set-unreadable",
+    "installer-is-a-directory": "installer-set-unreadable",
+}
+
+
+@pytest.mark.parametrize("kind", sorted(_HOSTILE))
+def test_NO_configuration_shape_stops_the_run_from_opening_its_bag(
+        kind: str, rig: Path, tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """The contract, driven: the bag opens, and the tag says what it knows.
+
+    Stated by two docstrings and held by nothing — *"an unestablishable
+    configuration population is one unknown fact and never a reason a run may not
+    proceed"*. Each shape below was a raw traceback with no bag written.
+    """
+    _hostile(kind, tmp_path, monkeypatch, tmp_path / "claude")
+    try:
+        bag = _open(rig, f"runhostile{abs(hash(kind)) % 10000}")
+    finally:
+        outer = tmp_path / "claude" / "agents" / "outer"
+        if outer.exists():
+            outer.chmod(0o755)
+
+    labels = [label for label, _ in bag.info()]
+    assert LABEL_CONFIG_DIGEST in labels, (
+        "the bag opened without the sixth tag — a field with nothing to say "
+        "records that it had nothing to say rather than being omitted")
+    for label in PRE_EXISTING:
+        assert label in labels, f"{label} was lost: {kind}"
+
+    digest, fields = parse_tag_value(_tag(bag))
+    expected_reason = _HOSTILE[kind]
+    if expected_reason is None:
+        assert digest and len(digest) == 64, (
+            f"{kind}: the population IS establishable and the tree IS readable, "
+            f"so a real digest is owed. Recording `unavailable` here means the "
+            f"failure was caught by the boundary backstop instead of being "
+            f"handled where it happens — the run keeps going and stops saying "
+            f"anything, which is the silent degradation this tag exists to end.")
+    else:
+        assert digest is None, f"{kind}: expected no digest, got {digest}"
+        assert fields.get("reason") == (expected_reason,), (
+            f"{kind}: recorded reason={fields.get('reason')}, expected "
+            f"{expected_reason!r} — a slug that names the wrong kind of failure "
+            f"is a confidently wrong record")
+
+
+def test_a_digest_failure_records_WHICH_KIND_it_was() -> None:
+    """One slug per class, because `installer-set-unreadable` for a permission
+    bit on the config tree is a confidently wrong record — the shape this whole
+    component exists to remove."""
+    assert ja._digest_failure_reason(
+        ja.ConfigDigestError("x")) == "installer-set-unreadable"
+    assert ja._digest_failure_reason(PermissionError(13, "denied")) == \
+        "config-tree-unreadable"
+    assert ja._digest_failure_reason(
+        UnicodeEncodeError("utf-8", "x", 0, 1, "bad")) == \
+        "config-tree-undecodable"
+    assert ja._digest_failure_reason(RuntimeError("bare")) == \
+        "config-probe-failed"
+    # ⚠ ORDER, NOT MEMBERSHIP. `ConfigDigestError` subclasses `RuntimeError`, so
+    # a table walked the other way would label every designed refusal with the
+    # backstop's slug and the tag would stop distinguishing anything.
+    assert ja._digest_failure_reason(
+        ja.ConfigTreeError("x")) == "config-tree-unlocatable"
+    # ⚠ ORDER, MEASURED RATHER THAN ASSUMED. Every class here subclasses the one
+    # below it somewhere in the table, so the FIRST match wins and the table must
+    # run most-specific first. Written the other way, `ConfigTreeError` reported
+    # `installer-set-unreadable` — sending an operator to an installer that is
+    # perfectly fine for a run that could not locate its config TREE. That was
+    # caught by the outcome column of the hostile sweep, not by review.
+    classes = [cls for cls, _ in ja._DIGEST_FAILURE_REASONS]
+    for i, cls in enumerate(classes):
+        later = classes[i + 1:]
+        assert not any(issubclass(other, cls) for other in later), (
+            f"{cls.__name__} precedes its own subclass in the table, so the "
+            f"subclass can never be reached: {[c.__name__ for c in later]}")
+    assert ja._DIGEST_FAILURE_CLASSES == \
+        tuple(cls for cls, _ in ja._DIGEST_FAILURE_REASONS)
+
+
+def test_a_NON_UTF8_config_yaml_is_a_JournalRootError_not_a_traceback(
+        tmp_path: Path) -> None:
+    """The same partial-handler defect one file over from the digest.
+
+    `journal_activities.py` reads `config.yaml` with `read_text(encoding="utf-8")`
+    under a docstring asserting *"every call on the resolution path raises
+    `JournalRootError` or nothing"*. `UnicodeDecodeError` is a `ValueError`, so
+    it escaped that rule and the operator got a traceback instead of the named
+    diagnostic that every entrypoint's precondition handler prints.
+    `test_journal_decode_handlers.py` sweeps the package for the shape.
+    """
+    bad = tmp_path / "config.yaml"
+    bad.write_bytes(b"journal:\n  root: /tmp/\xff\n")
+    with pytest.raises(ja.JournalRootError, match="not valid UTF-8"):
+        ja.load_journal_config(bad)
+
+
+# --------------------------------------------------------------------------
+# The reader's remaining exit-code routes
+# --------------------------------------------------------------------------
+
+def test_the_reader_REFUSES_a_bag_carrying_TWO_digest_tags(rig: Path) -> None:
+    """Exit 2, not a confident answer about metadata that is not trustworthy.
+
+    The tag is written once at bag-open and a bag is never edited afterwards, so
+    a second line means the file was tampered with or a writer broke that
+    contract. Silently taking the first would report SAME or DIFFERENT about a
+    bag whose record cannot be believed.
+    """
+    good = _open(rig, "runduptwin")
+    doubled = _open(rig, "rundoubled")
+    info = doubled.path / "bag-info.txt"
+    line = next(ln for ln in info.read_text().splitlines()
+                if ln.startswith(LABEL_CONFIG_DIGEST))
+    info.write_text(info.read_text() + line + "\n")
+
+    result = _read(good.path, doubled.path)
+    assert result.returncode == 2, (
+        f"got {result.returncode}; 1 would mean DIFFERENT. "
+        f"{result.stdout}{result.stderr}")
+    assert "not trustworthy" in result.stderr
+
+
+def test_a_bag_with_NO_tag_at_all_is_UNKNOWN_and_not_DIFFERENT(
+        rig: Path) -> None:
+    """Exit 3's other cause: a bag written before this tag existed.
+
+    3 is separate from 1 on purpose — *"these runs differed"* and *"I cannot
+    tell whether they differed"* are different answers, and reporting an unknown
+    as a divergence is the confidently-wrong shape the digest exists to remove.
+    """
+    good = _open(rig, "runhastag")
+    older = _open(rig, "runnotag")
+    info = older.path / "bag-info.txt"
+    info.write_text("".join(
+        f"{ln}\n" for ln in info.read_text().splitlines()
+        if not ln.startswith(LABEL_CONFIG_DIGEST)))
+
+    result = _read(good.path, older.path)
+    assert result.returncode == 3, (
+        f"got {result.returncode}; 1 would mean DIFFERENT and 2 a bad bag. "
+        f"{result.stdout}{result.stderr}")
+    assert "UNKNOWN" in result.stdout
+    assert "predates the tag" in result.stderr
+
+
+def test_the_reader_reports_DIFFERENT_when_only_the_POPULATION_changed(
+        rig: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The end-to-end shape of the SAME-for-different-populations defect.
+
+    Two runs over one unchanged tree, whose installers declare different sets
+    with the extra target present-and-empty. The reader printed SAME and exited
+    0 while rendering the two different `targets:` lists two lines below it —
+    contradicting itself on one screen.
+    """
+    (tmp_path / "claude" / "plugins").mkdir()
+    narrow = _open(rig, "runnarrow")
+
+    wide = tmp_path / "wide-install.sh"
+    wide.write_text('SYMLINK_TARGETS=(\n    "settings.json"\n    "agents"\n'
+                    '    "plugins"\n)\n')
+    monkeypatch.setattr(ja, "INSTALL_SH_PATH", wide)
+    broad = _open(rig, "runbroad")
+
+    result = _read(narrow.path, broad.path)
+    assert result.returncode == 1, (
+        f"got {result.returncode}; 0 would mean SAME for two runs that absorbed "
+        f"different populations. {result.stdout}{result.stderr}")
+    assert "DIFFERENT" in result.stdout
+
+
+@pytest.mark.parametrize("raised,expected", [
+    (lambda: ja.ConfigTreeError("nowhere"), "config-tree-unlocatable"),
+    (lambda: ja.ConfigDigestError("no set"), "installer-set-unreadable"),
+    (lambda: PermissionError(13, "Permission denied"), "config-tree-unreadable"),
+    (lambda: UnicodeEncodeError("utf-8", "x", 0, 1, "surrogate"),
+     "config-tree-undecodable"),
+    (lambda: RuntimeError("something nobody enumerated"), "config-probe-failed"),
+])
+def test_the_BOUNDARY_absorbs_a_class_nobody_enumerated(
+        raised, expected: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """⚠ THE BACKSTOP, DRIVEN DIRECTLY, BECAUSE NOTHING ELSE CAN REACH IT.
+
+    Measured: with every site fix in place, narrowing `_config_digest_value`'s
+    handler back to `except ConfigDigestError` alone left the whole suite green.
+    That is the correct behaviour of defence in depth and it is also how a
+    backstop becomes untested code — a refactor deletes it, nothing goes red, and
+    the next unanticipated class stops every dispatch on the machine exactly as
+    the three named ones did.
+
+    So this drives the boundary with the exception rather than through a tree
+    shaped to provoke it. The point is precisely that the fourth class is one
+    nobody has thought of: `RuntimeError` below stands in for it.
+    """
+    monkeypatch.setattr(
+        ja, "config_digest",
+        lambda **_kwargs: (_ for _ in ()).throw(raised()))
+    value = ja._config_digest_value()
+    digest, fields = parse_tag_value(value)
+    assert digest is None
+    assert fields.get("reason") == (expected,), (
+        f"the boundary recorded reason={fields.get('reason')} for "
+        f"{raised().__class__.__name__}; a slug naming the wrong kind of "
+        f"failure is a confidently wrong record")
