@@ -133,7 +133,14 @@ EMPTY = "none"
 # allowlist, so such an entry is refused BY NAME below rather than dropped quietly.
 _ARRAY_RE = re.compile(r"^SYMLINK_TARGETS=\(([^)]*)\)", re.MULTILINE)
 
-# `SYMLINK_TARGETS+=(` … `)`, which this module REFUSES rather than reads.
+# EVERY use of the name `SYMLINK_TARGETS` in the installer's source that is not a
+# `$…` / `${…}` EXPANSION. Reading the array requires a `$`; anything else — an
+# assignment, an append, an indexed write, a `declare`/`read`/`mapfile`/`unset`
+# argument — is a use that can change what the installer links. This module reads
+# ONE declaration, so a source that uses the name more than once is REFUSED rather
+# than read past. Refused rather than reconciled: supporting the general case would
+# GENERALISE the grammar this module reads, and "the population could not be
+# established" is a fact it already knows how to record truthfully.
 #
 # ⚠ IT USED TO BE INVISIBLE, AND THAT IS THE ONE FAILURE THIS COMPONENT MAY NOT
 # HAVE. `_ARRAY_RE` matches `SYMLINK_TARGETS=(`; an append block begins
@@ -143,10 +150,51 @@ _ARRAY_RE = re.compile(r"^SYMLINK_TARGETS=\(([^)]*)\)", re.MULTILINE)
 # the installer appended, with nothing going red: no exception, no `unavailable`,
 # no hole recorded in the tag. That is exactly the confidently-wrong answer the
 # read-never-copy design exists to rule out, reached from the other direction.
-# REFUSED rather than concatenated: supporting `+=` would GENERALISE the grammar
-# this module reads, and "the population could not be established" is a fact it
-# already knows how to record truthfully.
-_APPEND_RE = re.compile(r"^SYMLINK_TARGETS\+=\(", re.MULTILINE)
+#
+# ⚠ TWICE, THE FIX KEYED ON A SPELLING AND THE NEXT READER FOUND THE NEXT
+# SPELLING. First it was `^SYMLINK_TARGETS\+=\(` under `re.MULTILINE` — a
+# column-zero anchor — which fired only on an append written flush left, while the
+# platform-conditional continuation it was written for is indented inside an `if`.
+# Then it was `SYMLINK_TARGETS(\+?)=\(` — unanchored, so all four of those closed
+# — which still keyed on the `=(` SHAPE, and `SYMLINK_TARGETS[1]=…`,
+# `read -a SYMLINK_TARGETS`, `mapfile -t SYMLINK_TARGETS` and `unset
+# SYMLINK_TARGETS` are none of them, and all four returned the first block alone
+# with nothing going red. Every enumeration of spellings has been beaten by the
+# next spelling. So this keys on the one property with no spellings: the name is
+# USED, and a use that is not an expansion is not a read.
+#
+# ⚠ IT OVER-REFUSES ON A BARE MENTION, AND THAT IS CHOSEN. An installer that names
+# the array in a quoted message — `error "SYMLINK_TARGETS is empty"` — is counted
+# and refused, because telling a quoted word from a command word needs a bash
+# tokeniser and this module is a regex. A comment `_COMMENT_RE` does not
+# recognise counts for the same reason: bash opens one after `;` or `)` with no
+# space, and this pattern wants whitespace before the `#`. The cost of the false positive is
+# `unavailable reason=<slug>`: LOUD, recorded, visible in the tag, and remedied by
+# one word in the installer. The cost of the false negative is a digest computed
+# over the wrong population, which is the outcome this component may not have.
+# Between a fact recorded and an answer invented, this module records.
+#
+# The lookbehind excludes the two expansion spellings and a longer name ENDING in
+# this one; the lookahead excludes a longer name STARTING with it.
+_NAME_RE = re.compile(r"(?<![\w${])SYMLINK_TARGETS(?!\w)")
+
+# A bash comment: `#` at the start of the source or after whitespace, to the end
+# of its line. STRIPPED BEFORE ANY OTHER PATTERN READS THE SOURCE. Both patterns
+# here would otherwise read a mention in a comment as code — a commented-out
+# append would refuse a legal installer, and a `)` in a trailing comment would
+# truncate `_ARRAY_RE`'s body at a paren the array does not contain. `(?<![^\s])`
+# is "at the start, or preceded by whitespace" spelled without a `^`, which under
+# `re.MULTILINE` carries a second meaning this module does not want.
+#
+# ⚠ IT HAS NO NOTION OF QUOTING, AND THE RESIDUE IS NAMED RATHER THAN CLOSED. A
+# `#` inside a quoted string is literal to bash and a comment to this pattern, so
+# `echo "a # b"; SYMLINK_TARGETS+=( … )` — a quoted hash and a real use on the
+# SAME physical line, the use written after the hash — loses the use and answers
+# anyway. Closing it needs a quote-state tokeniser, which is a bash parser by
+# another name; the shape is exotic enough (one line, both halves) that the parser
+# is not worth its own defect surface. Pinned by a test so it is discoverable
+# rather than surprising, and it is the one silent-wrong path left in this file.
+_COMMENT_RE = re.compile(r"(?<![^\s])#[^\n]*")
 
 # QUOTED *AND* BARE ENTRIES, AND THE BARE HALF WAS MISSING. `SYMLINK_TARGETS=(
 # agents hooks )` is legal, idiomatic bash and the installer's own array could be
@@ -314,26 +362,59 @@ def parse_symlink_targets(text: str) -> list[str]:
     with no installer on disk, and so the sweep that proves this module holds no
     copied list has one function to point at.
     """
-    if _APPEND_RE.search(text):
+    source = _COMMENT_RE.sub("", text)
+    uses = _NAME_RE.findall(source)
+    if len(uses) > 1:
         raise ConfigDigestError(
-            "install.sh appends to SYMLINK_TARGETS with `+=`, and this module "
-            "reads the single `SYMLINK_TARGETS=( … )` declaration only. Reading "
-            "the first block alone would digest a population missing every "
-            "appended entry with nothing going red, so the population is "
-            "recorded as unestablishable rather than guessed at.")
-    match = _ARRAY_RE.search(text)
+            f"install.sh uses the name SYMLINK_TARGETS {len(uses)} times outside "
+            f"a `${{…}}` expansion, and this module reads the single "
+            f"`SYMLINK_TARGETS=( … )` declaration only. A second use can append "
+            f"to the array, write one element of it or replace it outright, and "
+            f"reading the declaration alone would then digest a population the "
+            f"installer disagrees with — with nothing going red. The population "
+            f"is recorded as unestablishable rather than guessed at.")
+    match = _ARRAY_RE.search(source)
     if match is None:
+        if uses:
+            # ONE USE, AND IT IS NOT THE DECLARATION THIS GRAMMAR READS. An
+            # append with nothing to append to, an indexed write, a
+            # `declare`/`read`/`mapfile`, or a declaration indented inside a
+            # conditional or a function where a static read cannot tell whether
+            # it runs at all. ONE MESSAGE FOR ALL OF THEM, AND THAT IS THE
+            # POINT: this module gives two facts two sentences when their
+            # REMEDIES differ, and every one of these has the same remedy —
+            # declare the array once, bare, at the start of a line. A sentence
+            # per spelling is the enumeration that has already been beaten
+            # twice, in prose this time.
+            raise ConfigDigestError(
+                "install.sh uses SYMLINK_TARGETS once, but not as a bare "
+                "`SYMLINK_TARGETS=( … )` declaration at the start of a line — an "
+                "append, an indexed write, a `declare`/`read`/`mapfile`, or a "
+                "declaration indented inside a conditional or a function, which "
+                "may or may not run and which a static read cannot tell apart. "
+                "That single line-anchored form is the whole grammar this module "
+                "reads, so the population is recorded as unestablishable rather "
+                "than read out of a construct it cannot follow.")
         raise ConfigDigestError(
             "install.sh declares no SYMLINK_TARGETS=( … ) array. The digest's "
             "population is READ from the installer and is never defaulted, "
             "because a digest over a guessed set answers confidently about a "
             "set nobody syncs.")
-    body = match.group(1)
-    # Strip comments before extracting entries: a commented-out `# "plugins"`
-    # inside the array is a target the installer does NOT link, and admitting it
-    # would put a file in the population that no symlink puts in `~/.claude/`.
-    lines = [line.split("#", 1)[0] for line in body.splitlines()]
-    stripped = "\n".join(lines)
+    # A commented-out entry inside the array is a target the installer does NOT
+    # link, and admitting it would put a file in the population that no symlink
+    # puts in `~/.claude/`. Those comments are already gone — `_COMMENT_RE`
+    # stripped them from the whole source above, which is where they have to be
+    # stripped anyway so a `)` inside one cannot truncate the block.
+    #
+    # ⚠ THIS USED TO BE A SECOND, NAIVER STRIP HERE, AND IT DIVERGED FROM BASH.
+    # It cut each line at the first `#` unconditionally, so a legal entry with a
+    # `#` inside it was silently truncated to its first half and the digest was
+    # computed over a target the installer does not link — the same
+    # confidently-wrong shape as the append hole above, in the same function. A
+    # `#` not preceded by whitespace is not a comment to bash and is no longer
+    # treated as one here; such an entry is now refused BY NAME by `_SEGMENT_RE`
+    # below, which is this module's stated preference over a quiet repair.
+    stripped = match.group(1)
     entries = [m.group(1) or m.group(2) or m.group(3)
                for m in _ENTRY_RE.finditer(stripped)]
     if not entries:

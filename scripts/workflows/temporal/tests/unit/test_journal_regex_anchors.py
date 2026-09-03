@@ -99,14 +99,16 @@ _DECLARED: dict[str, str] = {
         "line anchor under re.MULTILINE — locates a block inside a file, and "
         "does not validate anything",
 
-    # `config_digest._APPEND_RE`, which DETECTS `SYMLINK_TARGETS+=( … )` so the
-    # parse can refuse it by name. Same line anchor for the same reason and with
-    # the same non-role: it validates nothing and decides nothing about a value —
-    # it answers only "does this installer append to the array somewhere", and an
-    # append reached through a `"${SYMLINK_TARGETS[@]}"` mention is not one.
-    r"^SYMLINK_TARGETS\+=\(":
-        "line anchor under re.MULTILINE — detects a block inside a file, and "
-        "does not validate anything",
+    # ⚠ A SECOND ROW USED TO SIT HERE, FOR `config_digest._APPEND_RE`
+    # (`^SYMLINK_TARGETS\+=\(`), and its line anchor was the defect rather than
+    # the property. It claimed to answer *"does this installer append to the
+    # array somewhere"*; the `^` made it answer *"…at the start of a line"*, so
+    # an append indented inside a conditional — the case the pattern existed for
+    # — went unmatched and the digest was computed over an incomplete
+    # population. The pattern is gone: `_MUTATION_RE` counts mutations of the
+    # array in any spelling and needs no anchor at all, so there is nothing left
+    # here to declare. A row removed with its pattern, rather than left
+    # describing code that no longer exists.
 }
 
 # The module-level functions this package may use to run an UNCOMPILED pattern.

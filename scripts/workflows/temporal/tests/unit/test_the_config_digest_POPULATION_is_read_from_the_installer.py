@@ -849,37 +849,259 @@ def test_an_UNREADABLE_array_and_an_EMPTY_one_are_DIFFERENT_facts() -> None:
         parse_symlink_targets('SYMLINK_TARGETS=(\n    ""\n)\n')
 
 
-def test_an_APPENDED_target_block_is_REFUSED_rather_than_silently_DROPPED() -> None:
-    """`SYMLINK_TARGETS+=( … )` was invisible, so the digest answered anyway.
+def _population_via_bash(source: str) -> list[str]:
+    """What BASH makes of an installer snippet — the whole snippet, not a slice.
 
-    `_ARRAY_RE` matches `SYMLINK_TARGETS=(`; an append block begins
-    `SYMLINK_TARGETS+=(`. A platform-conditional continuation was therefore not
-    matched, not reported and not included — the parse returned the first block's
-    entries alone and a digest was computed over a population missing every
-    appended one. Verified before the fix: this exact source returned
-    `['agents']`, with no exception, no `unavailable`, and no hole in the tag.
-
-    That silence is the whole defect. Every other way this parse can fail is
-    RECORDED — `unavailable reason=<slug>` — and a reader is told. This one
-    produced a confidently wrong answer, which is the single outcome the
-    read-never-copy design exists to rule out. Refused, not concatenated:
-    supporting `+=` generalises the grammar, while "the population could not be
-    established" is a fact this module already records truthfully.
+    `_targets_via_bash` above `sed`s the declaration block out of the real
+    installer, which by construction cannot see a second mutation somewhere else
+    in the file. This one runs the source as bash would, so a conditional
+    append, a re-declaration and a one-line `if …; then …; fi` are all read the
+    way the installer's own shell reads them. That is what makes the sweep below
+    an ORACLE rather than a second opinion from the same author.
     """
-    appended = ('SYMLINK_TARGETS=(\n    "agents"\n)\n'
-                'SYMLINK_TARGETS+=(\n    "rules"\n)\n')
-    with pytest.raises(ConfigDigestError, match=r"appends to SYMLINK_TARGETS"):
-        parse_symlink_targets(appended)
-    # The refusal is on the APPEND, not on some incidental property of the text:
-    # the identical source with the second block declared rather than appended
-    # parses, and carries both entries.
+    script = f'set -euo pipefail\n{source}\nprintf "%s\\n" "${{SYMLINK_TARGETS[@]}}"\n'
+    out = subprocess.run(["bash", "-c", script], capture_output=True, text=True,
+                         timeout=30)
+    assert out.returncode == 0, f"bash could not read the snippet: {out.stderr}"
+    return sorted(line for line in out.stdout.splitlines() if line)
+
+
+# Installer sources that mutate `SYMLINK_TARGETS` more than once, one per
+# SPELLING of the mutation. This is a matrix rather than a list of cases: the
+# property under test is "the parse never answers with a population bash would
+# not agree with", and every row is a different way of writing the same
+# violation of it.
+_MULTIPLY_MUTATED = {
+    "append flush left":
+        'SYMLINK_TARGETS=(\n    "agents"\n)\nSYMLINK_TARGETS+=( "rules" )\n',
+    # The motivating case: a platform-conditional continuation. The condition is
+    # written to be TRUE on the machine running the suite rather than as an
+    # `$OSTYPE` test, because the oracle below has to see bash actually append —
+    # a row bash reads as one target would pass that assertion vacuously. The
+    # shape under test is the indentation, not the predicate.
+    "append indented with spaces":
+        'SYMLINK_TARGETS=(\n    "agents"\n)\n'
+        'if [[ -n "${HOME:-}" ]]; then\n'
+        '  SYMLINK_TARGETS+=( "rules" )\nfi\n',
+    "append indented with a tab":
+        'SYMLINK_TARGETS=(\n    "agents"\n)\nif true; then\n'
+        '\tSYMLINK_TARGETS+=( "rules" )\nfi\n',
+    "append on a one-line conditional":
+        'SYMLINK_TARGETS=(\n    "agents"\n)\n'
+        'if true; then SYMLINK_TARGETS+=( "rules" ); fi\n',
+    "append inside a function":
+        'SYMLINK_TARGETS=(\n    "agents"\n)\n'
+        'extra() {\n    SYMLINK_TARGETS+=( "rules" )\n}\nextra\n',
+    "a second declaration, which bash takes and we would not":
+        'SYMLINK_TARGETS=( agents )\nSYMLINK_TARGETS=( agents rules )\n',
+    "a second declaration, indented":
+        'SYMLINK_TARGETS=( agents )\nif true; then\n'
+        '    SYMLINK_TARGETS=( agents rules )\nfi\n',
+    # ⚠ THE FOUR BELOW ARE NOT `=(` AT ALL, AND THAT IS WHY THEY ARE HERE. The
+    # first fix for this defect keyed on a column-zero `+=`; the second keyed on
+    # the `=(` shape and closed every row above it. Each of these mutates the
+    # array without writing `=(` anywhere, and each returned the first block
+    # alone — silently — under that second fix. They are what moved the guard
+    # off "the array is assigned" and onto "the name is used".
+    "an indexed write":
+        'SYMLINK_TARGETS=(\n    "agents"\n)\nSYMLINK_TARGETS[1]="rules"\n',
+    "read -a":
+        'SYMLINK_TARGETS=(\n    "agents"\n)\n'
+        'read -r -a SYMLINK_TARGETS <<< "agents rules"\n',
+    "mapfile":
+        'SYMLINK_TARGETS=(\n    "agents"\n)\n'
+        'mapfile -t SYMLINK_TARGETS < <(printf "agents\\nrules\\n")\n',
+    "an append with no parentheses at all":
+        'SYMLINK_TARGETS=(\n    "agents"\n)\nSYMLINK_TARGETS+=( rules )\n',
+}
+
+
+@pytest.mark.parametrize("source", _MULTIPLY_MUTATED.values(),
+                         ids=list(_MULTIPLY_MUTATED))
+def test_an_installer_that_mutates_the_array_TWICE_is_REFUSED(source) -> None:
+    r"""A population this module cannot establish is refused, in every spelling.
+
+    ⚠ THE FIRST FIX FOR THIS CLOSED ONE SPELLING OF SEVERAL, AND THE ONE IT
+    CLOSED WAS NOT THE MOTIVATING CASE. `_APPEND_RE` was `^SYMLINK_TARGETS\+=\(`
+    under `re.MULTILINE`, so it fired only on an append written flush left —
+    while the platform-conditional continuation its own comment named as the
+    reason it existed is written inside an `if` block, indented. Every other row
+    here returned `["agents"]` at that commit: no exception, no `unavailable`,
+    no hole in the tag, and a digest computed over a population missing
+    everything the installer added. Two runs that absorbed genuinely different
+    configuration then compare SAME, which is the one contradiction the reader
+    this component ships exists to rule out.
+
+    So the assertion is on the PROPERTY, keyed by a matrix of spellings: an
+    installer that mutates the array more than once is refused, however that
+    second mutation is written. A spelling nobody has thought of yet is a row
+    added here, not a second regex.
+    """
+    with pytest.raises(ConfigDigestError, match=r"uses the name SYMLINK_TARGETS"):
+        parse_symlink_targets(source)
+
+
+@pytest.mark.parametrize("source", _MULTIPLY_MUTATED.values(),
+                         ids=list(_MULTIPLY_MUTATED))
+def test_no_spelling_of_a_second_mutation_yields_a_population_BASH_disagrees_with(
+        source) -> None:
+    """The oracle half: refusing is fine, answering WRONGLY is the defect.
+
+    The test above would stay green if the parse refused for some incidental
+    reason while still being readable as a source bash disagrees with. This one
+    states the actual contract — the parse either refuses, or agrees with the
+    shell that runs the installer — and it is the assertion that would have
+    caught the line-anchored guard directly, because bash reads all seven rows
+    as two-target installers and the parse read four of them as one.
+    """
+    theirs = _population_via_bash(source)
+    assert len(theirs) > 1, (
+        f"the oracle read only {theirs} from this row, so it does not actually "
+        f"disagree with a first-block-only parse and would pass vacuously")
+    try:
+        ours = parse_symlink_targets(source)
+    except ConfigDigestError:
+        return
+    assert ours == theirs, (
+        f"the parse answered {ours} where bash reads {theirs}. A population "
+        f"the installer's own shell disagrees with is the confidently-wrong "
+        f"answer this module is built to refuse.")
+
+
+# A SINGLE use of the name that is not the declaration this module reads. Each is
+# a different bash construct and they share one remedy — declare the array once,
+# bare, at the start of a line — so they share one message.
+_UNREADABLE_SOLE_USE = {
+    "an append with nothing to append to":
+        'SYMLINK_TARGETS+=(\n    "rules"\n)\n',
+    "a declaration indented inside a conditional":
+        'if true; then\n    SYMLINK_TARGETS=( agents )\nfi\n',
+    "a declaration behind a `declare` keyword":
+        'declare -a SYMLINK_TARGETS=( agents rules )\n',
+    "an indexed write with no declaration":
+        'SYMLINK_TARGETS[0]="agents"\n',
+    "an unset":
+        'unset SYMLINK_TARGETS\n',
+}
+
+
+@pytest.mark.parametrize("source", _UNREADABLE_SOLE_USE.values(),
+                         ids=list(_UNREADABLE_SOLE_USE))
+def test_a_SOLE_use_that_is_not_the_declaration_is_refused_by_its_own_message(
+        source) -> None:
+    """One use, and it is outside the grammar — a different fact from "no array".
+
+    `_ARRAY_RE`'s line anchor is deliberate: it is what stops a mention inside a
+    `"${SYMLINK_TARGETS[@]}"` expansion being read as the declaration. So each
+    row here is a construct this module will not read from, and telling their
+    authors that the installer "declares no SYMLINK_TARGETS array" would be
+    false about a file that declares one — in a place the parse ignores.
+
+    ⚠ ONE MESSAGE FOR FIVE CONSTRUCTS, DELIBERATELY. This module gives two facts
+    two sentences when their REMEDIES differ. These five have one remedy, and a
+    sentence per spelling is the enumeration that has already been beaten twice
+    in this function's history.
+    """
+    with pytest.raises(ConfigDigestError, match=r"but not as a bare"):
+        parse_symlink_targets(source)
+
+
+def test_the_refusal_is_on_the_MUTATION_COUNT_and_not_on_the_text_around_it() -> None:
+    """The control on the two above: the same sources, minus the second mutation.
+
+    A guard that refused everything would pass every assertion above while
+    making the component useless, so each shape is shown parsing once its extra
+    mutation is removed — including the conditional and the function body, which
+    are legal context around a single declaration.
+    """
     assert parse_symlink_targets(
-        appended.replace("SYMLINK_TARGETS+=(\n    \"rules\"\n)\n", "")
+        'SYMLINK_TARGETS=(\n    "agents"\n)\nif true; then\n    :\nfi\n'
     ) == ["agents"]
-    # An append with no base declaration is refused by the same, precise message
-    # rather than by the vaguer "declares no SYMLINK_TARGETS array".
-    with pytest.raises(ConfigDigestError, match=r"appends to SYMLINK_TARGETS"):
-        parse_symlink_targets('SYMLINK_TARGETS+=(\n    "rules"\n)\n')
+    assert parse_symlink_targets(
+        'SYMLINK_TARGETS=( agents rules )\nextra() {\n    :\n}\n'
+    ) == ["agents", "rules"]
+
+
+def test_a_MENTION_of_the_array_is_not_a_mutation_of_it() -> None:
+    """The other direction, and the one that costs a legal installer if wrong.
+
+    The mutation count is what refuses now, so anything it counts wrongly turns
+    a perfectly good installer dark. An expansion is not followed by `=(` and a
+    comment is stripped before the count runs — both are checked here, because a
+    guard that over-counts degrades every bag on every machine to `unavailable`
+    exactly as silently as the hole it replaced.
+    """
+    assert parse_symlink_targets(
+        'SYMLINK_TARGETS=(\n    "agents"\n)\n'
+        'for item in "${SYMLINK_TARGETS[@]}"; do\n    echo "$item"\ndone\n'
+    ) == ["agents"]
+    assert parse_symlink_targets(
+        'SYMLINK_TARGETS=(\n    "agents"\n)\n'
+        '# never write SYMLINK_TARGETS+=( … ) here; the digest refuses it\n'
+    ) == ["agents"]
+    # A longer name ENDING in the array's name is a different variable.
+    # A longer name ENDING in the array's name, and one STARTING with it, are
+    # different variables. Both directions are checked because the guard now
+    # counts the NAME rather than an assignment shape, so a boundary slip here
+    # turns a legal installer dark rather than merely missing a mutation.
+    assert parse_symlink_targets(
+        'SYMLINK_TARGETS=(\n    "agents"\n)\nEXTRA_SYMLINK_TARGETS=( rules )\n'
+    ) == ["agents"]
+    assert parse_symlink_targets(
+        'SYMLINK_TARGETS=(\n    "agents"\n)\nSYMLINK_TARGETS_EXTRA=( rules )\n'
+    ) == ["agents"]
+    # The other expansion spelling, without braces.
+    assert parse_symlink_targets(
+        'SYMLINK_TARGETS=(\n    "agents"\n)\necho "$SYMLINK_TARGETS"\n'
+    ) == ["agents"]
+
+
+def test_a_PAREN_inside_a_trailing_comment_does_not_truncate_the_array() -> None:
+    """Comments are stripped from the SOURCE, not from the block after matching.
+
+    `_ARRAY_RE`'s body is `[^)]*`, so it ends at the first `)`. While comments
+    were stripped only after that match, a `)` written in a comment inside the
+    array cut the block short and the entries below it vanished from the
+    population — silently, with a digest computed over what was left.
+    """
+    assert parse_symlink_targets(
+        'SYMLINK_TARGETS=(\n    "agents"    # the two we sync (for now)\n'
+        '    "rules"\n)\n') == ["agents", "rules"]
+    # AND THE STRIP IS NO LONGER NAIVE. A `#` with no whitespace before it is not
+    # a comment to bash, so an entry containing one is a target the installer
+    # really links. It used to be cut at the `#` and the remainder digested — a
+    # population the installer disagrees with, arrived at silently. Refused by
+    # name now, which is this module's stated preference over a quiet repair.
+    with pytest.raises(ConfigDigestError, match="single path segment"):
+        parse_symlink_targets('SYMLINK_TARGETS=(\n    "a#b"\n)\n')
+
+
+def test_the_comment_strip_s_ONE_BLIND_SPOT_is_pinned_rather_than_discovered() -> None:
+    """A quoted `#` and a real use on the SAME line: the one silent-wrong path left.
+
+    `#` inside a quoted string is literal to bash and a comment to `_COMMENT_RE`,
+    so the strip eats the rest of the physical line — including a use of the
+    array written after it. The parse then answers with the first block alone,
+    which is the confidently-wrong shape this whole function exists to refuse.
+
+    ⚠ THIS ASSERTS THE WRONG ANSWER ON PURPOSE. Closing it needs a quote-state
+    tokeniser, which is a bash parser by another name, and the shape is exotic —
+    it needs both halves on one physical line, in that order. Pinned so the blind
+    spot is DISCOVERABLE: a reader hitting it finds this test rather than
+    concluding the guard is sound, and anyone who does write the tokeniser will
+    see this go red and delete it. An undocumented hole and a documented one are
+    not the same artifact.
+    """
+    same_line = ('SYMLINK_TARGETS=(\n    "agents"\n)\n'
+                 'echo "a # b"; SYMLINK_TARGETS+=( extra )\n')
+    assert parse_symlink_targets(same_line) == ["agents"], (
+        "the blind spot closed — delete this test and the ⚠ paragraph on "
+        "`_COMMENT_RE` that names it")
+    # The bound on it: the same two halves on SEPARATE lines are caught, which is
+    # what makes this a one-line blind spot rather than a quoting-wide one.
+    with pytest.raises(ConfigDigestError, match=r"uses the name SYMLINK_TARGETS"):
+        parse_symlink_targets('SYMLINK_TARGETS=(\n    "agents"\n)\n'
+                              'echo "a # b"\nSYMLINK_TARGETS+=( extra )\n')
 
 
 def test_the_population_is_DEDUPLICATED_and_sorted() -> None:

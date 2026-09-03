@@ -158,14 +158,16 @@ def test_every_consumer_of_the_pr_url_address_holds_the_OWNING_object() -> None:
 # listed one goes away — a list that only grows is a gate that widens itself.
 DECLARED_SPLITS = {
     ("resource_telemetry.py", "_read_anon"),         # a /proc line, not a URL
-    # `parse_symlink_targets` splits the bash array body on "#" to drop trailing
-    # comments before the entries are extracted. Not a URL and not a path: both
-    # halves are shell source, and a wrong split can only ever ADMIT or DROP a
-    # target name — which `_SEGMENT_RE` then refuses if it is not one segment, and
-    # which the bash cross-check in
-    # `test_the_config_digest_POPULATION_is_read_from_the_installer.py` catches by
-    # comparing against bash's own reading of the same array.
-    ("config_digest.py", "parse_symlink_targets"),
+    # ⚠ `parse_symlink_targets` WAS DECLARED HERE AND IS NOT ANY MORE, and the
+    # removal came through this gate rather than around it. It split the bash
+    # array body on "#" to drop trailing comments, which diverged from bash: a
+    # `#` with no whitespace before it is not a comment to the shell, so a legal
+    # entry containing one was silently truncated and the digest computed over a
+    # target the installer does not link. Comments are now stripped from the
+    # whole installer source by a pattern, before anything reads it, and the
+    # function splits nothing. The row is deleted with the split rather than left
+    # describing code that no longer exists — this set is asserted exactly, so
+    # the deletion is what turned this test red and made the edit deliberate.
     # `parse_tag_value` partitions a `bag-info.txt` tag VALUE this same module
     # composed — `sha256:<hex> targets=… absent=… unreadable=…`. The separators
     # are `" "` and `"="`, chosen because every field is a hex digest or a path
