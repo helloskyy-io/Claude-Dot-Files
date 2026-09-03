@@ -51,7 +51,8 @@ from pathlib import Path
 
 from .bag import Bag, open_bag
 from .config_digest import (LABEL_CONFIG_DIGEST, ConfigDigestError,
-                            config_digest, unavailable_tag_value)
+                            ConfigTreeError, config_digest,
+                            unavailable_tag_value)
 from .root import JournalRootError, resolve_journal_root
 
 __all__ = ["mint_run_id", "open_run_bag", "load_journal_config", "JournalRootError"]
@@ -132,12 +133,16 @@ def load_journal_config(config_path: Path | None = None) -> Mapping[str, object]
     holds the population instead of this docstring, because three consecutive
     fixes to one function is what a missing check looks like.
 
-    AND THERE WAS A FOURTH, WHICH IS WHY THE RULE IS WRITTEN DOWN. `read_text`
-    also raises `UnicodeDecodeError` — a `ValueError`, not an `OSError` — so a
-    non-UTF-8 `config.yaml` escaped the branch above it exactly the way the
-    `PermissionError` did. It was found from one import away, by the same fix
-    landing in `config_digest.installer_targets`, rather than by anything here;
-    the enumerated population is what turns that from luck into a check.
+    ⚠ AND THEN THERE WAS A FOURTH, WHICH SETTLES THE ARGUMENT ABOVE RATHER THAN
+    WEAKENING IT. `read_text(encoding="utf-8")` raises `UnicodeDecodeError` — a
+    `ValueError`, not an `OSError` — so a non-UTF-8 `config.yaml` walked straight
+    past the third fix's handler and out of this function. The test named above
+    holds the *outcome* for the ways anyone thought to enumerate; what it could
+    not do is notice a way nobody had. `test_journal_decode_handlers.py` is the
+    check that keys on the CLASS instead: it sweeps every
+    `read_text(encoding=…)` in this package and fails the ones whose handler
+    names some of that call's failures but not the decode failure. Two sites in
+    this package were live when it was written, in two different files.
     """
     path = CONFIG_PATH if config_path is None else config_path
     try:
@@ -153,22 +158,23 @@ def load_journal_config(config_path: Path | None = None) -> Mapping[str, object]
             f"shape. Defaulting past a config that exists would put verbatim "
             f"transcripts somewhere the operator did not choose.") from exc
     except UnicodeDecodeError as exc:
-        # ⚠ THE FOURTH BRANCH, AND NOT AN `OSError` — WHICH IS THE WHOLE REASON
-        # IT NEEDS ITS OWN CLAUSE. `UnicodeDecodeError` is a `ValueError`, so the
-        # handler above never saw it and one bad byte in `config.yaml` came out
-        # of this function as a raw traceback, breaking the rule the docstring
-        # states two paragraphs up: every call on the resolution path raises
-        # `JournalRootError` or nothing. This is `open_run_bag`'s FIRST call, so
-        # nothing else could report it first. Identical in shape to the clause
-        # `config_digest.installer_targets` carries one import away.
+        # ⚠ THE FOURTH BRANCH OF THE SAME RULE, AND IT IS NOT AN `OSError`.
+        # `UnicodeDecodeError` is a `ValueError`, so the clause above never saw
+        # it: one non-UTF-8 byte in `config.yaml` escaped the docstring's stated
+        # rule that every call on this path raises `JournalRootError` or
+        # nothing, and the operator got a traceback instead of the named
+        # diagnostic. Identical in shape to the clause `installer_targets` needed
+        # one import away, which is what makes it a class rather than a fourth
+        # coincidence — `test_journal_decode_handlers.py` now sweeps the package
+        # for it so the fifth site fails when it is written.
         raise JournalRootError(
             f"config.yaml is not valid UTF-8: {path}\n"
             f"  failing property: {exc.reason} at byte {exc.start}\n"
             f"  remedy: rewrite the file as UTF-8, or remove it to accept the "
-            f"documented default for this deployment shape. A file that cannot "
-            f"be decoded cannot be read for the operator's intent, and "
-            f"defaulting past it would put verbatim transcripts somewhere they "
-            f"did not choose.") from exc
+            f"documented default for this deployment shape. The journal root is "
+            f"read from this file, and defaulting past bytes that cannot be "
+            f"decoded would put verbatim transcripts somewhere the operator did "
+            f"not choose.") from exc
     import yaml  # a hard preflight dependency; see scripts/preflight.py
     try:
         loaded = yaml.safe_load(text) or {}
@@ -397,6 +403,50 @@ def open_run_bag(*, run_id: str, writer: str | None, repo_root: Path,
 INSTALL_SH_PATH = _FLEET_ROOT / "install.sh"
 
 
+#: What a digest failure is recorded AS, keyed on the class that reached this
+#: boundary. Ordered, and `ConfigDigestError` is first BECAUSE it subclasses
+#: `RuntimeError` — a membership test walked in the other order would label every
+#: designed refusal with the backstop's slug.
+_DIGEST_FAILURE_REASONS: tuple[tuple[type[BaseException], str], ...] = (
+    (ConfigTreeError, "config-tree-unlocatable"),
+    (ConfigDigestError, "installer-set-unreadable"),
+    (OSError, "config-tree-unreadable"),
+    (ValueError, "config-tree-undecodable"),
+    (RuntimeError, "config-probe-failed"),
+)
+_DIGEST_FAILURE_CLASSES = tuple(cls for cls, _ in _DIGEST_FAILURE_REASONS)
+
+
+def _digest_failure_reason(exc: BaseException) -> str:
+    """The reason slug for an exception that reached the digest's boundary.
+
+    ⚠ THE HANDLER ABOVE IS A BACKSTOP AND IT IS NOT A SUBSTITUTE FOR FIXING THE
+    SITES. It exists because catching `ConfigDigestError` alone caught only the
+    failures the design had ALREADY THOUGHT OF, and every failure it had not
+    thought of took the one path the contract forbids: three separate classes —
+    a `UnicodeEncodeError` from an undecodable filename, a `PermissionError`
+    from an unsearchable directory, and `Path.home()`'s BARE `RuntimeError`
+    (whose subclass `ConfigDigestError` is, which is why naming the child did
+    not catch the parent) — each escaped and stopped every dispatch on the
+    machine. Each is now refused at its own site as well; this is what keeps the
+    NEXT one, whatever it turns out to be, from doing the same thing.
+
+    THE SLUG NAMES THE CLASS RATHER THAN COLLAPSING TO ONE VALUE, because a bag
+    that says `installer-set-unreadable` for a permission bit on the config tree
+    is a confidently wrong record, which is the shape this whole component
+    exists to remove. `unavailable reason=` is the tag's own vocabulary for
+    "nothing to say", and saying WHICH nothing costs one word.
+    """
+    for cls, slug in _DIGEST_FAILURE_REASONS:
+        if isinstance(exc, cls):
+            return slug
+    # Unreachable while the table's last entry is `RuntimeError` and the handler
+    # is built from the same table — kept so a future edit that narrows one
+    # without the other degrades to a recorded unknown rather than to a raise
+    # from inside the handler that exists to prevent one.
+    return "config-probe-failed"
+
+
 def _config_digest_value() -> str:
     """The sixth tag's value — the configuration this run absorbed.
 
@@ -418,38 +468,8 @@ def _config_digest_value() -> str:
     """
     try:
         return config_digest(install_sh=INSTALL_SH_PATH).tag_value()
-    except (ConfigDigestError, OSError, ValueError, RuntimeError) as exc:
-        return unavailable_tag_value(_digest_failure_slug(exc))
-
-
-def _digest_failure_slug(exc: BaseException) -> str:
-    """Which KIND of failure stopped the digest, as a reason slug.
-
-    ⚠ THE HANDLER ABOVE USED TO CATCH `ConfigDigestError` ALONE, AND THE
-    DOCSTRING IT SERVES PROMISED SOMETHING WIDER THAN THAT. Three other classes
-    reached it and each one aborted the dispatch — `UnicodeEncodeError` from a
-    non-UTF-8 filename, `PermissionError` from a mode-444 directory (which
-    `open_run_bag`'s own `except OSError` then rewrote into a `JournalRootError`
-    blaming the journal root), and a BARE `RuntimeError` from `Path.home()`,
-    which `except ConfigDigestError` cannot catch because `ConfigDigestError` is
-    its SUBCLASS. All three are fixed at their own sites in `config_digest`; this
-    is the backstop that keeps a FOURTH one of the same shape from ever being a
-    reason a run may not proceed, which is what the promise actually requires.
-
-    ONE SLUG PER CLASS RATHER THAN ONE SLUG FOR ALL FOUR. A backstop that
-    collapsed everything to `installer-set-unreadable` would put a false
-    diagnosis in a permanent record — the tag would blame the installer for a
-    permission bit on the config tree — and the tag is written once and never
-    edited, so there is no later pass to correct it. The reader is told which
-    kind of thing went wrong even though nothing decides anything from it.
-    """
-    if isinstance(exc, ConfigDigestError):
-        return "installer-set-unreadable"
-    if isinstance(exc, OSError):
-        return "config-tree-unreadable"
-    if isinstance(exc, ValueError):
-        return "config-tree-undecodable"
-    return "config-digest-unexpected-error"
+    except _DIGEST_FAILURE_CLASSES as exc:
+        return unavailable_tag_value(_digest_failure_reason(exc))
 
 
 def _open(root: Path, run_id: str, writer: str | None, repo_root: Path,

@@ -693,6 +693,13 @@ claude-dot-files/
 │                   │                                #   declares why it cannot escape — so ADDING a join is what fails. The battery beside it
 │                   │                                #   catches the other half: reverting a guard leaves the declaration standing and true of
 │                   │                                #   nothing, which the sweep alone reads as covered
+│                   ├── test_journal_decode_handlers.py # The PARTIAL-HANDLER spelling of the same class: read_text(encoding=…) fails as
+│                   │                                #   OSError AND as UnicodeDecodeError (a ValueError), so `except OSError` catches the
+│                   │                                #   failure everybody thinks of and lets the other through while LOOKING handled. Four
+│                   │                                #   sites in four files, each found separately over two review passes; the fourth
+│                   │                                #   (validate_bag, whose whole contract is to RETURN a report) was found by this sweep.
+│                   │                                #   Predicate is "guarded but incomplete" — an unguarded read is out of scope and
+│                   │                                #   correctly silent, because nothing about it misleads the next reader
 │                   ├── test_journal_regex_anchors.py # The ANCHOR spelling of the same class-check shape: `$` matches before a TRAILING
 │                   │                                #   newline, so `re.compile(r"^…$")` is an anchored-LOOKING validator that admits one.
 │                   │                                #   Two instances — the digest gate that IS r7(b)'s path safety, then _LABEL_RE, still

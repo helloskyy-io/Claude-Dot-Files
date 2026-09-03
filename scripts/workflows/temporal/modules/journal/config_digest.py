@@ -13,12 +13,15 @@ WHAT THE DIGEST COVERS, STATED HERE AND RESTATED IN THE TAG ITSELF (requirement
 2). It covers exactly the items `install.sh` symlinks into `~/.claude/` — the
 `SYMLINK_TARGETS` array, READ from that file at digest time. For a file target
 the bytes are hashed; for a directory target every regular file beneath it is
-hashed, path-relative and sorted. The declared target SET is itself part of what
-is hashed, so two runs whose installers declare different populations never
-compare equal however similar the trees are. Anything beneath a target that is
-not a regular file — a FIFO, a device node, a nested symlinked directory — is
-recorded BY KIND rather than opened, because opening it is at best meaningless
-and at worst a hang.
+hashed, path-relative and sorted. Anything that is not a regular file — a FIFO,
+a device node, a socket — is recorded by KIND and never opened, because opening
+one can block forever and this runs before the run has a bag to say so in.
+
+THE DECLARED POPULATION IS ITSELF PART OF THE DIGEST, not merely reported beside
+it. Two installers declaring different sets over one tree must not produce the
+same value, and they did while the manifest held only the targets' byte-effects:
+a declared target that is present-and-empty contributes no line, so `{agents}`
+and `{agents, plugins}` hashed identically and the reader answered SAME.
 
 WHAT IT DELIBERATELY EXCLUDES, BY NAME. Everything else under `~/.claude/`, which
 is machine-local state rather than absorbed configuration: `.credentials.json`,
@@ -79,10 +82,11 @@ from pathlib import Path
 # this package, so the dependency runs one way only.
 from .bag import sha256_of
 
-__all__ = ["ConfigDigestError", "ConfigDigest", "DIGEST_ALGORITHM",
-           "FIELD_ORDER", "LABEL_CONFIG_DIGEST", "UNAVAILABLE",
-           "claude_config_dir", "config_digest", "installer_targets",
-           "parse_symlink_targets", "parse_tag_value", "unavailable_tag_value"]
+__all__ = ["ConfigDigestError", "ConfigTreeError", "ConfigDigest",
+           "DIGEST_ALGORITHM", "FIELD_ORDER",
+           "LABEL_CONFIG_DIGEST", "UNAVAILABLE", "claude_config_dir",
+           "config_digest", "installer_targets", "parse_symlink_targets",
+           "parse_tag_value", "unavailable_tag_value"]
 
 DIGEST_ALGORITHM = "sha256"
 LABEL_CONFIG_DIGEST = "Journal-Config-Digest"
@@ -144,35 +148,48 @@ _ARRAY_RE = re.compile(r"^SYMLINK_TARGETS=\(([^)]*)\)", re.MULTILINE)
 # already knows how to record truthfully.
 _APPEND_RE = re.compile(r"^SYMLINK_TARGETS\+=\(", re.MULTILINE)
 
-# One array entry: double-quoted, single-quoted, or a BARE WORD.
-#
-# ⚠ THE BARE-WORD BRANCH IS A FIX, NOT A GENERALISATION. Without it this pattern
-# matched only quoted entries, so an UNQUOTED bash array — legal, idiomatic, and
-# what a maintainer writing `SYMLINK_TARGETS=(agents rules)` would produce —
-# yielded zero entries and was reported as *"declares SYMLINK_TARGETS as an EMPTY
-# array"*. That message is false when the array declares seven, and its own
-# stated reasoning ("the installer could not be read for its set") does not apply
-# to a set that is sitting right there. Admitting bare words makes the digest
-# work for that installer instead of merely diagnosing it better, and anything a
-# bare word admits that is NOT a target name — `$FOO`, `${OTHER[@]}` — is refused
-# by `_SEGMENT_RE` below with a message that names the offending entry.
-_ENTRY_RE = re.compile(r'"([^"\n]+)"|\'([^\'\n]+)\'|(\S+)')
+# QUOTED *AND* BARE ENTRIES, AND THE BARE HALF WAS MISSING. `SYMLINK_TARGETS=(
+# agents hooks )` is legal, idiomatic bash and the installer's own array could be
+# rewritten that way tomorrow. While this matched only quoted entries such an
+# array yielded zero of them and was reported as *"declares SYMLINK_TARGETS as an
+# EMPTY array"* — false when it declares seven, and a diagnostic that actively
+# misdirects is worse than one that is merely unhelpful. `(` and `)` are excluded
+# from the bare alternative so the array's own delimiters cannot become entries.
+_ENTRY_RE = re.compile(r'"([^"\n]+)"|\'([^\'\n]+)\'|([^\s"\'()]+)')
+
+# Anything bash would expand before the installer ever sees it as a name. A
+# STATIC READ CANNOT RESOLVE THESE, and pretending otherwise would put a
+# literal `$EXTRA` in the population. Refused with its own message rather
+# than through the segment gate below, because the two facts have different
+# remedies: one is a typo, the other is an installer this module cannot read.
+_EXPANDS_RE = re.compile(r"[$`\\*?\[\]{}~!]")
 
 # A target name is one path segment. The installer joins it onto `$CLAUDE_DIR`,
 # so anything that escapes a segment would make the digest walk a tree the
 # installer never links.
 #
-# ⚠ A LEADING DOT IS ALLOWED, AND FORBIDDING IT SILENTLY DISABLED THE WHOLE
-# COMPONENT. This pattern used to demand a leading alphanumeric, though the only
-# thing it is here to refuse is a value that ESCAPES a path segment — which `.`
-# and `..` do and `.mcp.json` does not. `.mcp.json` is a real Claude Code config
-# file and an obvious future entry in `SYMLINK_TARGETS`; adding it made
-# `parse_symlink_targets` raise for the WHOLE array, `_config_digest_value`
-# swallowed that into `unavailable`, and every bag on every machine recorded no
-# digest with nothing going red. That inverts this module's central argument —
-# that READING the population is what stops a newly-added target being missed.
-# So the two escaping values are refused by name and the rest of the segment
-# grammar is unchanged.
+# ⚠ A LEADING DOT IS ALLOWED, AND REFUSING IT WAS A LIVE DEFECT RATHER THAN
+# CAUTION. The stated purpose above is to refuse a value that ESCAPES a path
+# segment; `.mcp.json` does not, and it is a real Claude Code config file and an
+# obvious future entry in `SYMLINK_TARGETS`. While the class demanded a leading
+# alphanumeric, adding it would have made `parse_symlink_targets` raise for the
+# WHOLE array, `_config_digest_value` swallow that, and EVERY bag on EVERY
+# machine record `unavailable` — with nothing going red. That inverts this
+# module's central argument: reading the population is supposed to be what stops
+# a newly-added target being missed.
+#
+# What genuinely escapes a segment is `.` and `..`, and those are refused by
+# name. `none` is refused for a different reason and it is not a path rule: it is
+# the `EMPTY` sentinel, so a target or a reason slug spelled `none` does not
+# round-trip through `parse_tag_value` — the reader would decode a one-item list
+# as the empty one. Both live here because this is the one gate every value
+# composed into the tag passes through.
+#
+# `EMPTY` IS INTERPOLATED RATHER THAN RESPELLED. Two literals kept in agreement
+# by a test is a test standing between two spellings; the f-string makes the
+# drift impossible instead of detected. The anchors stay in the pattern's
+# CONSTANT segments, which is what `test_journal_regex_anchors._literal_parts`
+# reads — an expression that sweep cannot read is a finding there, not a skip.
 #
 # ⚠ `\A`/`\Z`, NEVER `^`/`$`, AND THIS ONE WAS A LIVE DEFECT RATHER THAN A
 # STYLE POINT. `$` also matches BEFORE a trailing newline, so the anchored-
@@ -181,7 +198,8 @@ _ENTRY_RE = re.compile(r'"([^"\n]+)"|\'([^\'\n]+)\'|(\S+)')
 # `bag-info.txt` line. A reason ending in a newline would therefore have forged
 # a second tag, which is exactly the lifecycle-flag forgery `bag._refuse_folded_value`
 # exists to stop. Caught by `test_journal_regex_anchors.py`.
-_SEGMENT_RE = re.compile(r"\A(?!\.\.?\Z)[A-Za-z0-9.][A-Za-z0-9._-]*\Z")
+_SEGMENT_RE = re.compile(
+    rf"\A(?!\.\.?\Z)(?!{re.escape(EMPTY)}\Z)[A-Za-z0-9.][A-Za-z0-9._-]*\Z")
 
 
 class ConfigDigestError(RuntimeError):
@@ -190,6 +208,24 @@ class ConfigDigestError(RuntimeError):
     A `RuntimeError` so it joins the class every entrypoint's precondition
     handler already prints, matching `JournalRootError` and `BagError`. Callers
     that want the run to continue catch it and record `unavailable`.
+    """
+
+
+class ConfigTreeError(ConfigDigestError):
+    """WHERE the run's configuration tree is could not be established.
+
+    A SEPARATE CLASS BECAUSE IT IS A SEPARATE FACT, and collapsing it was caught
+    by a control rather than by review. The module docstring is explicit that
+    `install.sh` answers *which items* while `CLAUDE_CONFIG_DIR`/`HOME` answer
+    *which tree*, and that neither is inferred from the other — so a run that
+    could not locate the tree recording `reason=installer-set-unreadable` sends
+    an operator to a file that is perfectly fine. Different facts, different
+    remedies, different slugs; the same split `absent` and `unreadable` already
+    have one level down.
+
+    It SUBCLASSES `ConfigDigestError` so every existing caller keeps its
+    fail-soft behaviour unchanged: the run still proceeds, it just records the
+    right thing.
     """
 
 
@@ -231,24 +267,6 @@ def _join(items: tuple[str, ...]) -> str:
     return ",".join(items) if items else EMPTY
 
 
-def _refuse_reserved(value: str, what: str) -> None:
-    """Refuse a value that collides with the tag's own empty-list sentinel.
-
-    `EMPTY` is the string a field with no members serializes to, so a member
-    literally named `none` does not round-trip: `parse_tag_value` reads
-    `targets=none` back as the EMPTY TUPLE, and a reader would be told a run
-    absorbed nothing when it absorbed one target called `none`. The collision is
-    a property of the serialization, so it is refused at both places a value
-    enters it rather than at one of them.
-    """
-    if value == EMPTY:
-        raise ConfigDigestError(
-            f"{what} may not be {EMPTY!r}: that is the sentinel this tag's "
-            f"list fields use for 'no members', so the value does not survive "
-            f"a round trip through `parse_tag_value` and would be read back as "
-            f"an empty list.")
-
-
 def unavailable_tag_value(reason: str) -> str:
     """The tag value for a run whose population could not be established.
 
@@ -263,7 +281,6 @@ def unavailable_tag_value(reason: str) -> str:
             f"not a reason slug: {reason!r}. The tag value is composed, not "
             f"escaped, so this field takes a closed vocabulary rather than an "
             f"exception's text.")
-    _refuse_reserved(reason, "a reason slug")
     return f"{UNAVAILABLE} reason={reason}"
 
 
@@ -316,9 +333,23 @@ def parse_symlink_targets(text: str) -> list[str]:
     # inside the array is a target the installer does NOT link, and admitting it
     # would put a file in the population that no symlink puts in `~/.claude/`.
     lines = [line.split("#", 1)[0] for line in body.splitlines()]
+    stripped = "\n".join(lines)
     entries = [m.group(1) or m.group(2) or m.group(3)
-               for m in _ENTRY_RE.finditer("\n".join(lines))]
+               for m in _ENTRY_RE.finditer(stripped)]
     if not entries:
+        # TWO DIFFERENT FACTS, AND THEY USED TO SHARE ONE MESSAGE. "The array is
+        # empty" and "the array has content this parser could not read" have
+        # different remedies, and reporting the second as the first tells an
+        # operator their installer declares nothing when it declares seven
+        # things. Same silent-degradation shape the `absent`/`unreadable` split
+        # exists to refuse, one function over.
+        if stripped.strip():
+            raise ConfigDigestError(
+                f"install.sh declares SYMLINK_TARGETS with no entries this "
+                f"parser could read: {stripped.strip()!r}. The population is "
+                f"read from the installer and never guessed, so an array whose "
+                f"contents cannot be extracted is recorded as unavailable "
+                f"rather than treated as empty.")
         raise ConfigDigestError(
             "install.sh declares SYMLINK_TARGETS as an EMPTY array. An empty "
             "population is refused rather than digested: the hash of nothing is "
@@ -326,13 +357,40 @@ def parse_symlink_targets(text: str) -> list[str]:
             "configuration when what actually happened is that the installer "
             "could not be read for its set.")
     for entry in entries:
+        if entry == EMPTY:
+            # A DIFFERENT RULE FROM THE ONE BELOW, SO IT GETS A DIFFERENT
+            # SENTENCE. `_SEGMENT_RE` refuses this too, but telling an operator
+            # that `none` "is not a single path segment" is false and would send
+            # them looking for a slash. It is refused because it is the tag's
+            # own empty-list sentinel.
+            raise ConfigDigestError(
+                f"SYMLINK_TARGETS entry collides with the tag's empty-list "
+                f"sentinel: {entry!r}. `{EMPTY}` is what a field with nothing in "
+                f"it records, so a target of that name would be read back by "
+                f"`parse_tag_value` as a population of zero targets rather than "
+                f"of one.")
+        if _EXPANDS_RE.search(entry):
+            # ⚠ AN ARRAY BASH COMPUTES AT RUNTIME CANNOT BE READ STATICALLY, AND
+            # SAYING THAT IS A DIFFERENT FACT FROM "THIS IS NOT A PATH SEGMENT".
+            # `SYMLINK_TARGETS=( $EXTRA )` is legal bash; the bare-word
+            # alternative above extracts `$EXTRA` verbatim, which is not what the
+            # installer links. Refusing the whole array is correct — the
+            # population is READ and never guessed — but the segment message sent
+            # the reader looking for a slash. The suite's independent bash-oracle
+            # check catches this if it ever reaches the real installer; this is
+            # what an operator sees if it does not.
+            raise ConfigDigestError(
+                f"SYMLINK_TARGETS entry is computed by the shell rather than "
+                f"literal: {entry!r}. The population is read from the "
+                f"installer's source and never expanded, so an array whose "
+                f"contents depend on the environment is recorded as unavailable "
+                f"rather than digested against a value this parser guessed at.")
         if not _SEGMENT_RE.match(entry):
             raise ConfigDigestError(
                 f"SYMLINK_TARGETS entry is not a single path segment: {entry!r}. "
                 f"The installer joins each entry onto $CLAUDE_DIR, so a value "
                 f"that escapes a segment would walk a tree the installer never "
                 f"links.")
-        _refuse_reserved(entry, "a SYMLINK_TARGETS entry")
     return sorted(set(entries))
 
 
@@ -378,79 +436,26 @@ def claude_config_dir(env: dict[str, str] | None = None) -> Path:
     home = environ.get("HOME")
     if home:
         return Path(home) / ".claude"
-    # ⚠ `Path.home()` RAISES A **BARE** `RuntimeError`, AND THAT IS WHY IT NEEDS
-    # A WRAPPER RATHER THAN BEING LEFT ALONE. With `HOME` unset and the uid
-    # absent from `/etc/passwd` — an ordinary container shape — `pwd.getpwuid`
-    # fails and `Path.home()` raises `RuntimeError("Could not determine home
-    # directory.")`. `ConfigDigestError` SUBCLASSES `RuntimeError`, so the
-    # caller's `except ConfigDigestError` does not catch its own parent: the
-    # five-word message escaped `open_run_bag` and refused the dispatch outright,
-    # which is the one thing this module's contract says an unestablishable
-    # population must never do. Re-raised as the module's own class so the
-    # existing `unavailable reason=` path handles it like every other hole.
     try:
         return Path.home() / ".claude"
     except RuntimeError as exc:
-        raise ConfigDigestError(
+        # ⚠ `Path.home()` RAISES A **BARE** `RuntimeError`, AND
+        # `ConfigDigestError` SUBCLASSES `RuntimeError` — SO THE CALLER'S
+        # `except ConfigDigestError` DOES NOT CATCH ITS OWN PARENT. With `HOME`
+        # unset and the uid absent from `/etc/passwd` (an ordinary container
+        # shape), that bare error escaped this module, escaped
+        # `_config_digest_value`, and refused the dispatch with a five-word
+        # message and no remedy — for a condition this module's contract says is
+        # one unknown fact and never a reason a run may not proceed. Re-raised as
+        # `ConfigDigestError` so it takes the `unavailable reason=` path with
+        # everything else that cannot establish the population.
+        raise ConfigTreeError(
             f"the tree a run absorbs could not be located: neither "
-            f"CLAUDE_CONFIG_DIR nor HOME is set and this uid has no home "
-            f"directory on record — {exc}. The population is recorded as "
-            f"unavailable rather than guessed at a path nobody read."
+            f"CLAUDE_CONFIG_DIR nor HOME is set and the account has no home "
+            f"directory — {exc}. Which tree was read is not guessed, so this "
+            f"run records that it could not be established."
         ) from exc
 
-
-def _file_status(entry: Path) -> str | None:
-    """`None` when `entry`'s bytes may be hashed, else the token that stands in.
-
-    ⚠ A FIFO UNDER A TARGET PARKED THE DISPATCH FOREVER, BEFORE IT HAD A BAG.
-    `os.walk` sorts FIFOs, device nodes and sockets into `filenames`, and
-    `sha256_of` opened them with a plain `open()` — which on a FIFO with no
-    writer BLOCKS, with no timeout anywhere in the chain. Verified by execution:
-    `timeout 8` on `config_digest()` over a tree holding one FIFO exited 124.
-    The module docstring has always promised that *every REGULAR file* beneath a
-    target is hashed; this is the check that makes the code say what the prose
-    said. A time-based bound is deliberately NOT the remedy — it would make the
-    digest depend on machine speed and destroy the cross-machine agreement the
-    tag exists for. That question is separate and is tracked upstream.
-
-    A SYMLINK TO A FILE IS STILL HASHED, and that asymmetry with `symlinked-dir`
-    is the reviewed decision rather than an oversight. A symlinked DIRECTORY is
-    not descended, so without a marker its whole subtree would vanish silently;
-    a symlinked FILE is read, and its bytes ARE what the run absorbed. The
-    `lstat` here is what stops the hang, not a change to that ruling — so a
-    symlink is followed one hop with `stat()` and hashed only when what it points
-    at is itself a regular file.
-
-    `"unreadable"` rather than a kind token when the entry cannot be stat-ed at
-    all, including a dangling symlink: nothing about it is knowable, which is a
-    hole in the digest. A live non-regular entry is NOT a hole — it is recorded
-    by kind so the digest still changes, but the run did not fail to read
-    anything, so it does not set `unreadable=`. Same reasoning as `symlinked-dir`
-    beside it.
-
-    ⚠ NAMED RESIDUAL RISK — THIS CHECK IS TOCTOU AND IS NOT CLOSED. The caller
-    stats the path here and then `sha256_of` REOPENS IT BY NAME moments later. An
-    entry replaced by a FIFO in that window is opened with a plain `open()` and
-    the dispatch parks forever, which is the same consequence the check above
-    exists to prevent, reached through the gap between the check and the act
-    rather than through the missing check. It is named rather than closed
-    because both structural remedies cost more than the risk: opening the file
-    here with `O_NONBLOCK` and hashing from the descriptor would put a SECOND
-    chunked sha256 in this package, which the import comment at the top of this
-    file refuses by name, and changing `bag.sha256_of`'s open semantics would
-    alter a contract two other components (`bag.manifest`, `validate`) depend on
-    for a race that needs write access to `~/.claude/` mid-walk. A single-user
-    config tree being rewritten underneath its own dispatch is a different
-    problem from the one this module solves. Stated here so the next reader
-    inherits a known gap rather than an assumed guarantee.
-    """
-    try:
-        mode = entry.lstat().st_mode
-        if stat.S_ISLNK(mode):
-            mode = entry.stat().st_mode
-    except OSError:
-        return "unreadable"
-    return None if stat.S_ISREG(mode) else "not-a-regular-file"
 
 
 def _lines_for_target(root: Path, target: str) -> tuple[list[str], str | None]:
@@ -519,65 +524,83 @@ def _lines_for_target(root: Path, target: str) -> tuple[list[str], str | None]:
         # the line a reader would mutate to test the property, where deleting it
         # changes nothing — which is precisely how a control ends up unable to
         # fail. One property, one place.
-        # ⚠ `is_symlink()` RE-RAISES `EACCES`, AND IT WAS CALLED TWICE OUTSIDE
-        # ANY HANDLER. A directory at mode 444 is LISTABLE (read) but not
-        # SEARCHABLE (no execute), so `os.walk` happily reports its children and
-        # the `lstat` behind `Path.is_symlink()` on any of them raises
-        # `PermissionError`. That escaped this module, was caught by
-        # `open_run_bag`'s `except OSError`, and came back to the operator as
-        # `JournalRootError` blaming free space under the JOURNAL ROOT — a false
-        # diagnosis for a permission bit on a config tree. Mode 000 on the same
-        # directory was handled correctly all along, via `_record_unlistable`;
-        # the adjacent shape one bit over was fatal.
-        #
-        # One classification per name, in one place: the second `is_symlink()`
-        # call that built `dirnames[:]` is gone, so a name cannot be recorded as
-        # a link and then descended into (or vice versa) if the answer changes
-        # between the two calls.
-        #
-        # ⚠ AND A SYMLINKED DIRECTORY IS NO LONGER PRUNED FROM `dirnames`, WHICH
-        # IS A DELETION RATHER THAN AN OMISSION. `followlinks=False` above ALREADY
-        # holds *do not descend into a nested link* — verified by execution, not
-        # assumed — so the prune was a second copy of a property the walk itself
-        # enforces. It was measured to carry nothing: mutating it away left the
-        # test written for that property GREEN, which is the same defect as the
-        # inner `sorted(filenames)` this function used to have. One property, one
-        # place, and the mutation that tests it is now `followlinks`.
-        #
-        # The UNSTAT-ABLE branch below still prunes, and for an unrelated reason:
-        # `os.walk` would try to descend into it, fail, and record it a SECOND
-        # time through `_record_unlistable`, making the manifest's shape depend
-        # on how a hole was reported rather than on what was read.
-        unstatable: set[str] = set()
+        skip: list[str] = []
         for name in dirnames:
             rel = (here / name).relative_to(path)
             try:
                 linked = (here / name).is_symlink()
             except OSError:
-                # Not stat-able, so neither its kind nor its contents are
-                # knowable. A line, not a silence — same choice as everywhere
-                # else in this function.
+                # ⚠ `is_symlink()` LSTATS, AND LSTAT NEEDS SEARCH PERMISSION ON
+                # THE PARENT. A directory at mode 444 is LISTABLE — `os.scandir`
+                # returns its children's names straight off `readdir`, and their
+                # `d_type` says which are directories without any stat — so the
+                # walk hands us a name whose `lstat` then raises EACCES. That
+                # call sat outside every handler here, so the whole exception
+                # left the module and `open_run_bag` re-raised it as
+                # `JournalRootError`, blaming free space under the JOURNAL root
+                # for a permission bit on the CONFIG tree. Mode 000 on the same
+                # directory was handled correctly the whole time; the shape one
+                # bit over was fatal.
                 unreadable = True
                 lines.append(f"{target}/{rel}\0unreadable")
-                unstatable.add(name)
+                skip.append(name)
                 continue
             if linked:
                 lines.append(f"{target}/{rel}\0symlinked-dir")
-        dirnames[:] = [n for n in dirnames if n not in unstatable]
+                skip.append(name)
+        dirnames[:] = [n for n in dirnames if n not in skip]
         for name in filenames:
             entry = here / name
             rel = entry.relative_to(path)
-            status = _file_status(entry)
-            if status is None:
-                try:
-                    lines.append(f"{target}/{rel}\0{sha256_of(entry)}")
-                except OSError:
-                    unreadable = True
-                    lines.append(f"{target}/{rel}\0unreadable")
-                continue
-            if status == "unreadable":
+            try:
+                mode = entry.stat().st_mode
+            except OSError:
                 unreadable = True
-            lines.append(f"{target}/{rel}\0{status}")
+                lines.append(f"{target}/{rel}\0unreadable")
+                continue
+            if not stat.S_ISREG(mode):
+                # ⚠ ONLY REGULAR FILES ARE OPENED, AND A PLAIN `open()` ON THE
+                # ALTERNATIVE IS WHY. `os.walk` puts FIFOs, device nodes and
+                # sockets into `filenames`, and `sha256_of` opens what it is
+                # given — an `open()` on a FIFO with no writer BLOCKS FOREVER,
+                # and this call runs before the bag exists, so the run parks
+                # with no record of itself. That is the one failure the journal
+                # cannot describe. Verified before this check existed: a FIFO
+                # under a target took the whole digest to a `timeout 8` exit.
+                #
+                # It is recorded rather than skipped — the line changes the
+                # digest, so a machine with a FIFO under `hooks/` is
+                # distinguishable from one without. It is NOT counted in
+                # `unreadable`: nothing failed to be read. `stat()` follows
+                # links deliberately, so a symlink to a regular file is still
+                # hashed (its bytes are what the run absorbed) while a symlink
+                # to a FIFO is not opened.
+                #
+                # ⚠ NAMED RESIDUAL RISK — THIS CHECK IS TOCTOU AND IS NOT
+                # CLOSED. The `stat()` above and `sha256_of`'s `open()` below
+                # resolve the SAME PATH BY NAME at two different moments. An
+                # entry replaced by a FIFO in that window is opened with a plain
+                # `open()` and the dispatch parks forever — the same consequence
+                # this check exists to prevent, reached through the gap between
+                # the check and the act rather than through the missing check.
+                # Named rather than closed because both structural remedies cost
+                # more than the risk: hashing from an `O_NONBLOCK` descriptor
+                # would put a SECOND chunked sha256 in this package, which this
+                # file's import comment refuses by name, and changing
+                # `bag.sha256_of`'s open semantics would alter a contract
+                # `bag.manifest` and `validate.py` depend on — for a race that
+                # needs write access to `~/.claude/` mid-walk. A config tree
+                # rewritten underneath its own dispatch is a different problem
+                # from the one this module solves. Stated so the next reader
+                # inherits a known gap rather than an assumed guarantee.
+                lines.append(
+                    f"{target}/{rel}\0not-a-regular-file:{stat.filemode(mode)[0]}")
+                continue
+            try:
+                lines.append(f"{target}/{rel}\0{sha256_of(entry)}")
+            except OSError:
+                unreadable = True
+                lines.append(f"{target}/{rel}\0unreadable")
 
     for name in unlistable:
         unreadable = True
@@ -613,7 +636,24 @@ def config_digest(*, claude_dir: Path | None = None,
     root = claude_config_dir() if claude_dir is None else claude_dir
     targets = installer_targets(install_sh)
 
-    lines: list[str] = []
+    # ⚠ THE DIGEST COVERS ITS OWN DECLARED POPULATION, NOT ONLY THAT
+    # POPULATION'S BYTE-EFFECTS — AND OMITTING THIS LINE WAS A LIVE DEFECT.
+    # Every other line here is an effect of a target: bytes, an absence, a hole.
+    # A target that is declared and happens to be PRESENT-AND-EMPTY produces no
+    # line at all, so an installer declaring `{agents}` and one declaring
+    # `{agents, plugins}` over the same tree hashed IDENTICALLY — and
+    # `compare_run_config` then printed SAME and exited 0 while rendering the two
+    # different `targets:` lists two lines below it. That is the confidently
+    # wrong answer this component exists to remove, reproduced inside the reader
+    # built to remove it. The population is what the tag claims to be about, so
+    # it is hashed rather than merely reported beside the hash.
+    #
+    # `\0` LEADS THE LINE so it cannot collide with a target's own lines, which
+    # are `<target>\0…` and whose target names `_SEGMENT_RE` has already proven
+    # are non-empty. No migration is needed and none should be written: the tag
+    # is introduced by the change that introduces this line, so no bag in
+    # existence carries a digest computed without it.
+    lines: list[str] = [f"\0targets\0{','.join(targets)}"]
     absent: list[str] = []
     unreadable: list[str] = []
     for target in targets:
@@ -630,33 +670,18 @@ def config_digest(*, claude_dir: Path | None = None,
             unreadable.append(target)
         lines.extend(target_lines)
 
-    # ⚠ THE DECLARED POPULATION IS PART OF THE MANIFEST, AND LEAVING IT OUT MADE
-    # THE READER CONFIDENTLY WRONG. Every line above records a target's
-    # BYTE-EFFECTS; none of them records the SET the digest was computed over. So
-    # two installers declaring `{agents}` and `{agents, plugins}` over one tree,
-    # with `plugins/` present and empty, produced the IDENTICAL digest — measured
-    # — and `compare_run_config` printed SAME and exited 0 while rendering the two
-    # different `targets:` lists two lines below it. That is the confidently-wrong
-    # shape this whole component exists to remove, reproduced inside the reader
-    # built to remove it, and it defeats requirement 2's reason for carrying the
-    # population at all. The line leads with `\0` so it sorts ahead of every
-    # target line, and no target name can contain `,` or `\0` because
-    # `_SEGMENT_RE` has already refused both.
-    #
-    # NO MIGRATION, DELIBERATELY: the tag is introduced by the unmerged change
-    # that also fixes this, so no bag in existence carries a digest computed the
-    # old way and there is nothing to be compatible with.
-    manifest = "\n".join(["\0targets\0" + ",".join(targets)] + sorted(lines)) + "\n"
+    manifest = "\n".join(sorted(lines)) + "\n"
     return ConfigDigest(
-        # `surrogateescape`, and this was a live halt rather than a nicety. A
-        # filename under a target that is not valid UTF-8 comes back from
-        # `os.walk` carrying lone surrogates, which `str.encode("utf-8")` refuses
-        # with `UnicodeEncodeError` — a `ValueError`, so it sailed past the
-        # caller's `except ConfigDigestError` and out of `open_run_bag`, and the
-        # run died with a raw traceback before it had a bag to record the death
-        # in. The manifest is only ever hashed and never decoded, so encoding the
-        # surrogates back to the original bytes is lossless and keeps the digest
-        # stable across machines that see the same undecodable name.
+        # ⚠ `surrogateescape`, BECAUSE A FILENAME IS BYTES AND NOT TEXT. A file
+        # whose name is not valid UTF-8 reaches this string as a lone surrogate
+        # (that is how `os.fsdecode` represents the undecodable bytes), and a
+        # plain `.encode("utf-8")` raises `UnicodeEncodeError` on it — a
+        # `ValueError`, so it escaped `_config_digest_value`'s
+        # `except ConfigDigestError`, escaped `open_run_bag`'s `except OSError`,
+        # and stopped every dispatch on the machine with a raw traceback and no
+        # bag. The manifest is only ever hashed and never decoded again, so
+        # round-tripping the original bytes is both correct and stable: the same
+        # filename produces the same digest on every machine that holds it.
         digest=hashlib.sha256(
             manifest.encode("utf-8", "surrogateescape")).hexdigest(),
         targets=tuple(targets),

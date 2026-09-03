@@ -22,23 +22,21 @@ the rule to each member, so a third bag-inspection tool inherits it on the day i
 is written rather than on the day someone mistypes a path at it.
 
 THE POPULATION IS DERIVED, NOT LISTED. It is every non-kickoff entrypoint under
-`scripts/` that reads a finished bag — either by importing a checker
-(`modules.journal.validate`, `modules.journal.verify`) or by reading a bag's tag
-file directly (`modules.journal.bag.read_tag_file`).
+`scripts/` that imports one of this package's bag readers by name — the
+`validate` or `verify` checkers, or `bag.read_tag_file`.
 
-⚠ THIS SENTENCE USED TO SAY *"a tool added later joins the sweep by importing the
-checker it wraps, which it must do to be one"*, AND THAT WAS DISPROVEN BY THE
-NEXT TOOL WRITTEN. `compare_run_config.py` inspects an operator-named bag, is
-described in its own PR as *"the third of the operator tools, and the same shape
-as `validate_bag.py` and `verify_citations.py` beside it"* — and wraps NEITHER
-checker, because comparing two recorded digests needs no validation. It read its
-tags through `bag.read_tag_file` instead, got the usage/finding split right BY
-HAND, and was invisible to this sweep: the population was measured as exactly
-`['validate_bag.py', 'verify_citations.py']`. A rule applied by hand to one
-`main()` is the very thing this file exists to refuse, so the predicate is the
-thing that was wrong, not the tool. What actually makes a member is READING A
-FINISHED BAG; wrapping a checker is one way to do that and was mistaken for the
-only one.
+⚠ AND THE PREDICATE WAS TOO NARROW, WHICH IS THE SAME DEFECT ONE LEVEL UP. It
+read only the two checker modules, and its docstring claimed *"a tool added
+later joins the sweep by importing the checker it wraps, **which it must do to
+be one**"*. `compare_run_config.py` disproved that sentence on the day it was
+written: it is the third operator tool, its own sibling-facts table says so in
+those words, and it inspects a finished bag by reading a tag out of it rather
+than by wrapping a checker — so it was outside the very sweep whose reason for
+existing is that *a rule applied by hand to one `main()` is a rule nothing
+holds*. Its `main()` got the usage/finding split right BY HAND. A derived
+population is only as wide as its predicate, and a predicate that describes the
+members present on the day it was written is a list wearing a derivation's
+clothes.
 
 ⚠ WHAT THIS DOES NOT COVER, because a sweep is only as good as its predicate:
 
@@ -72,11 +70,15 @@ ENTRYPOINTS_DIR = TEMPORAL / "scripts"
 
 _CHECKER_MODULES = ("modules.journal.validate", "modules.journal.verify")
 
-#: The other way an entrypoint reads a finished bag: straight off its tag file,
-#: with no checker in between. `modules.journal.bag` is NOT itself evidence —
-#: `open_bag` is how a bag is WRITTEN, and a writer is not an operator tool — so
-#: membership turns on the specific reader being imported by name.
-_BAG_READERS = ("read_tag_file",)
+#: The bag readers that are not checker MODULES. A tool can inspect a finished
+#: bag by reading a tag straight out of it, and `compare_run_config.py` does
+#: exactly that — so membership keys on importing a bag reader BY NAME rather
+#: than on importing the `bag` module, which every writer in the fleet does. That
+#: distinction is what keeps `from modules.journal import bag` decidable as a
+#: non-member, and it is asserted as a literal below rather than left implied.
+_BAG_READERS: dict[str, tuple[str, ...]] = {
+    "modules.journal.bag": ("read_tag_file",),
+}
 
 # The code every member of this population must return for a target that is not
 # there. It is spelled once so that a tool answering "2" for a coincidental
@@ -85,12 +87,12 @@ EXIT_USAGE = 2
 
 
 def imports_a_bag_checker(tree: ast.Module) -> bool:
-    """True when this module's parsed source READS A FINISHED BAG.
+    """True when this module's parsed source reads a finished bag.
 
-    Two ways to be one, because the tree contains both: wrapping `validate` or
-    `verify`, or reading a bag's tag file directly via `bag.read_tag_file`. The
-    second branch is what the docstring at the top of this file describes; it was
-    added when the third operator tool turned out to need no checker at all.
+    Either by wrapping a checker (`validate`, `verify`) or by importing a bag
+    reader by name (`bag.read_tag_file`). Both are what "a tool that inspects a
+    bag an operator names" means in this tree; only the first was recognised
+    until the third such tool shipped outside the sweep.
 
     AST rather than a substring search: a filename mentioned in a docstring or a
     usage string is not an import, and this predicate's whole job is to be a
@@ -109,9 +111,9 @@ def imports_a_bag_checker(tree: ast.Module) -> bool:
             if node.module == "modules.journal":
                 if any(alias.name in ("validate", "verify") for alias in node.names):
                     return True
-            if node.module == "modules.journal.bag":
-                if any(alias.name in _BAG_READERS for alias in node.names):
-                    return True
+            readers = _BAG_READERS.get(node.module or "", ())
+            if any(alias.name in readers for alias in node.names):
+                return True
         elif isinstance(node, ast.Import):
             if any(alias.name in _CHECKER_MODULES for alias in node.names):
                 return True
@@ -133,27 +135,8 @@ def test_the_predicate_finds_something_at_all() -> None:
     """
     found = bag_inspection_entrypoints()
     assert found, (
-        f"no entrypoint under {ENTRYPOINTS_DIR} imports {' or '.join(_CHECKER_MODULES)} "
-        f"or {' or '.join(_BAG_READERS)}; either the tools moved or the "
-        f"predicate went blind")
-
-
-def test_the_population_holds_ALL_THREE_operator_tools() -> None:
-    """The count the docstring's correction rests on, asserted rather than told.
-
-    A predicate that merely *finds something* passed while the third tool sat
-    outside it, so the check above cannot detect the failure this one exists for.
-    Naming the three is the deliberate exception to "the population is derived":
-    it is not the sweep's population, it is the claim that the derivation reaches
-    every tool this repo actually has — which nothing derived can assert about
-    itself.
-    """
-    names = {p.name for p in bag_inspection_entrypoints()}
-    assert names >= {"validate_bag.py", "verify_citations.py",
-                     "compare_run_config.py"}, (
-        f"an operator tool that reads a finished bag is outside the sweep that "
-        f"holds the usage-versus-finding split: {names}. A rule applied by hand "
-        f"to one main() is a rule nothing holds.")
+        f"no entrypoint under {ENTRYPOINTS_DIR} imports {' or '.join(_CHECKER_MODULES)}; "
+        "either the tools moved or the predicate went blind")
 
 
 def test_the_predicate_answers_correctly_on_a_LITERAL() -> None:
@@ -166,9 +149,9 @@ def test_the_predicate_answers_correctly_on_a_LITERAL() -> None:
     assert imports_a_bag_checker(ast.parse("from modules.journal import verify as v"))
     assert imports_a_bag_checker(ast.parse("from modules.journal.verify import main"))
     assert imports_a_bag_checker(ast.parse("import modules.journal.validate"))
-    # The second branch: a tool that reads a finished bag's tags with no checker
-    # in between is an operator tool by what it DOES, which is the correction the
-    # third tool forced.
+
+    # The widened half: a tool that reads a finished bag directly is a member,
+    # named function by named function.
     assert imports_a_bag_checker(
         ast.parse("from modules.journal.bag import read_tag_file"))
     assert imports_a_bag_checker(
@@ -180,14 +163,34 @@ def test_the_predicate_answers_correctly_on_a_LITERAL() -> None:
     assert not imports_a_bag_checker(ast.parse('USAGE = "modules.journal.verify"'))
     assert not imports_a_bag_checker(
         ast.parse("from modules.journal.root import resolve_journal_root"))
-    # ⚠ THESE TWO NEGATIVES ARE THE ONES THE WIDENING COULD HAVE EATEN, so they
-    # are stated more sharply rather than deleted. Importing the bag module is
-    # not evidence of anything — `open_bag` is how a bag is WRITTEN — and a
-    # writer answering a mistyped path is a different question with a different
-    # right answer. Membership turns on the READER being named.
+
+    # ⚠ THE CONTROL THE WIDENING HAD TO KEEP MEANINGFUL, AND IT IS DELIBERATELY
+    # NOT DELETED. Membership keys on a bag reader imported BY NAME, never on the
+    # `bag` module — which every writer in the fleet imports and none of them is
+    # an operator tool. Widening to the module would have swept `open_bag`'s
+    # callers in and made the population meaningless in the other direction.
     assert not imports_a_bag_checker(ast.parse("from modules.journal import bag"))
+    assert not imports_a_bag_checker(ast.parse("import modules.journal.bag"))
     assert not imports_a_bag_checker(
         ast.parse("from modules.journal.bag import open_bag"))
+
+
+def test_the_population_holds_ALL_THREE_operator_tools() -> None:
+    """The instance that proved the predicate was a list wearing a derivation.
+
+    `compare_run_config.py` declares itself the third operator tool in this
+    repo's own `journal_entrypoint_facts.py` — *"the same shape as
+    `validate_bag.py` and `verify_citations.py` beside it"* — and was outside
+    this sweep, so the split its `main()` implements was held by hand. Named
+    here rather than left to the parametrized cases: a population that silently
+    narrows again passes every case below it, because there is nothing to
+    parametrize over.
+    """
+    found = {p.name for p in bag_inspection_entrypoints()}
+    assert {"validate_bag.py", "verify_citations.py",
+            "compare_run_config.py"} <= found, (
+        f"an operator tool that inspects a bag is outside the sweep that holds "
+        f"the usage/finding split: {found}")
 
 
 @pytest.mark.parametrize("entrypoint", bag_inspection_entrypoints(),
@@ -198,21 +201,31 @@ def test_a_target_that_is_not_there_is_usage_and_prints_no_report(
 
     The silence is half the property. An exit code nobody looks at is repaired by
     a report that says `result: FAIL` next to a path the operator mistyped.
+
+    ⚠ ONE TARGET AND TWO, BECAUSE THE POPULATION IS NOT ALL ONE ARITY. The two
+    checker tools take a variadic list of targets; `compare_run_config.py` takes
+    exactly two bags, so a single missing target reaches its answer through the
+    ARITY branch and would pass this case without the missing-target property
+    ever being exercised. Driving both shapes means every member is asked the
+    question it can actually be asked, and a fixed-arity tool added later gets
+    the same treatment without anyone declaring its arity here.
     """
     if str(ENTRYPOINTS_DIR) not in sys.path:
         sys.path.insert(0, str(ENTRYPOINTS_DIR))
     module = importlib.import_module(entrypoint.stem)
 
-    code = module.main([str(tmp_path / "no-such-target")])
-    captured = capsys.readouterr()
+    missing = str(tmp_path / "no-such-target")
+    for argv in ([missing], [missing, missing]):
+        code = module.main(list(argv))
+        captured = capsys.readouterr()
 
-    assert code == EXIT_USAGE, (
-        f"{entrypoint.name} answered {code} for a target that is not there; "
-        f"{EXIT_USAGE} is usage and every other code this tool returns is a "
-        "statement about a bag that exists")
-    assert captured.out == "", (
-        f"{entrypoint.name} printed a report for a target that is not there:\n"
-        f"{captured.out}")
+        assert code == EXIT_USAGE, (
+            f"{entrypoint.name} answered {code} for {len(argv)} target(s) that "
+            f"are not there; {EXIT_USAGE} is usage and every other code this "
+            "tool returns is a statement about a bag that exists")
+        assert captured.out == "", (
+            f"{entrypoint.name} printed a report for a target that is not "
+            f"there:\n{captured.out}")
 
 
 @pytest.mark.parametrize("entrypoint", bag_inspection_entrypoints(),
