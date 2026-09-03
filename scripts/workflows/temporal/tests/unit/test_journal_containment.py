@@ -55,7 +55,6 @@ PACKAGE = REPO_ROOT / "scripts" / "workflows" / "temporal" / "modules" / "journa
 
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "workflows" / "temporal"))
 
-from modules.journal import bag as bagmod           # noqa: E402
 from modules.journal.bag import (BagError, PAYLOAD_DIR, contained_relpath,   # noqa: E402
                                  open_bag)
 from modules.journal.validate import validate_bag   # noqa: E402
