@@ -356,3 +356,106 @@ def test_the_regex_reads_the_DECLARATION_not_an_EXPANSION() -> None:
     assert len(re.findall(r"SYMLINK_TARGETS",
                           INSTALL_SH.read_text(encoding="utf-8"))) > 1
     assert installer_targets(INSTALL_SH) == _targets_via_bash()
+
+
+# --------------------------------------------------------------------------
+# The holes the walk itself can fall into — added by the build-refine pass
+# --------------------------------------------------------------------------
+
+def _hidden(path: Path) -> bool:
+    """True when this account really cannot list `path` after chmod 000.
+
+    ⚠ A SKIP WHOSE REASON IS DERIVED, SO IT IS DERIVED FROM THE ACTUAL TREE. Root
+    reads a mode-000 directory happily, and a skip asserting "this machine cannot"
+    while the machine can is a green result that checked nothing. This drives the
+    real syscall on the real path rather than inspecting `os.geteuid()`.
+    """
+    try:
+        os.listdir(path)
+    except OSError:
+        return True
+    return False
+
+
+def test_an_UNLISTABLE_TARGET_is_a_hole_and_not_an_empty_directory(
+        fixture) -> None:
+    """⚠ THE CASE THE MODULE'S OWN DOCSTRING NAMES, AND IT USED TO COLLIDE.
+
+    `os.walk` reports a directory it cannot open through `onerror` and then
+    yields nothing for it. While that callback discarded the error, a target
+    behind a permission wall contributed exactly what an empty one contributes
+    — so *"a machine that hides `hooks/` behind a permission wall hashes
+    identically to one that never had it"* was true of the code that promised
+    the opposite. Measured, not suspected: both digests were
+    `01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b`.
+    """
+    install_sh, cdir = fixture
+    (cdir / "agents" / "secret.md").write_text("something is in here")
+    (cdir / "agents").chmod(0o000)
+    try:
+        if not _hidden(cdir / "agents"):
+            pytest.skip("running as a user that can list mode-000 directories")
+        walled = config_digest(claude_dir=cdir, install_sh=install_sh)
+    finally:
+        (cdir / "agents").chmod(0o755)
+
+    for child in (cdir / "agents").iterdir():
+        child.unlink()
+    empty = config_digest(claude_dir=cdir, install_sh=install_sh)
+
+    assert walled.unreadable == ("agents",), (
+        "a target that could not be LISTED must be reported as a hole — "
+        "reporting only unreadable FILES leaves the whole-directory case silent")
+    assert empty.unreadable == ()
+    assert walled.digest != empty.digest, (
+        "a permission-walled target hashed identically to an empty one — the "
+        "exact collision this module's docstring promises to prevent")
+
+
+def test_an_UNLISTABLE_SUBDIRECTORY_is_a_hole_and_not_an_absence(
+        fixture) -> None:
+    """The same defect one level down, where it is likelier and quieter.
+
+    A whole subtree vanishing from the manifest reads as *this machine never had
+    that directory* — and nothing in `absent=` or `unreadable=` said otherwise.
+    """
+    install_sh, cdir = fixture
+    private = cdir / "agents" / "private"
+    private.mkdir()
+    (private / "one.md").write_text("s1")
+    (private / "two.md").write_text("s2")
+    private.chmod(0o000)
+    try:
+        if not _hidden(private):
+            pytest.skip("running as a user that can list mode-000 directories")
+        walled = config_digest(claude_dir=cdir, install_sh=install_sh).digest
+        holes = config_digest(claude_dir=cdir, install_sh=install_sh).unreadable
+    finally:
+        private.chmod(0o755)
+    for child in private.iterdir():
+        child.unlink()
+    private.rmdir()
+    without = config_digest(claude_dir=cdir, install_sh=install_sh).digest
+
+    assert holes == ("agents",)
+    assert walled != without, (
+        "a subdirectory the run could not enter hashed identically to one that "
+        "was never there")
+
+
+def test_a_NON_UTF8_INSTALLER_is_a_ConfigDigestError_and_not_a_ValueError(
+) -> None:
+    """⚠ `UnicodeDecodeError` IS A `ValueError`, SO `except OSError` NEVER SAW IT.
+
+    It escaped this module, escaped `_config_digest_value`'s
+    `except ConfigDigestError`, and came out of `open_run_bag` — meaning one bad
+    byte in `install.sh` stopped every dispatch on the machine before any of them
+    could open a bag. The design says an unestablishable population is one
+    unknown fact and never a reason a run may not proceed; this asserts that
+    rather than trusting the docstring which already said it.
+    """
+    import tempfile
+    bad = Path(tempfile.mkdtemp()) / "install.sh"
+    bad.write_bytes(b'SYMLINK_TARGETS=(\n    "agents"\xff\n)\n')
+    with pytest.raises(ConfigDigestError, match="not valid UTF-8"):
+        installer_targets(bad)

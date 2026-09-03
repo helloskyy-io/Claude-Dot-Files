@@ -238,3 +238,68 @@ def test_the_reader_reads_NOTHING_but_the_two_bags(rig: Path,
     result = _read(first.path, second.path)
     assert result.returncode == 0, result.stdout + result.stderr
     assert result.stdout.startswith("SAME")
+
+
+# --------------------------------------------------------------------------
+# The error paths that were not the DESIGNED ones — added by the build-refine
+# pass. The designed failures (absent, unreadable file, missing installer) were
+# covered; these are the classes the handlers did not anticipate.
+# --------------------------------------------------------------------------
+
+def test_a_NON_UTF8_INSTALLER_does_not_stop_the_run(
+        rig: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The same asymmetry as a MISSING installer, for a byte instead of a file.
+
+    `UnicodeDecodeError` is a `ValueError`, so it was caught by neither
+    `installer_targets`' `except OSError` nor `_config_digest_value`'s
+    `except ConfigDigestError`, and it aborted `open_run_bag`. One bad byte in
+    `install.sh` therefore made every dispatch on the machine undispatchable —
+    for a condition the design explicitly degrades to `unavailable`.
+    """
+    bad = rig.parent / "not-utf8-install.sh"
+    bad.write_bytes(b'SYMLINK_TARGETS=(\n    "agents"\xff\n)\n')
+    monkeypatch.setattr(ja, "INSTALL_SH_PATH", bad)
+
+    bag = _open(rig, "runbadbyte")
+    digest, fields = parse_tag_value(_tag(bag))
+    assert digest is None
+    assert fields["reason"] == ("installer-set-unreadable",)
+    assert [label for label, _ in bag.info() if label == "Journal-Workflow"], (
+        "the other five facts must still be recorded")
+
+
+def test_the_reader_REFUSES_an_unparseable_bag_INSTEAD_of_calling_it_different(
+        rig: Path) -> None:
+    """⚠ EXIT 2, AND IT USED TO BE EXIT 1 — WHICH THE CONTRACT CALLS "DIFFER".
+
+    `read_tag_file` raises `BagError` on a line that is neither a tag nor a
+    continuation. `_read_digest` caught only `OSError`, so the exception left
+    `main()` unhandled and CPython exited 1 — indistinguishable, to any caller
+    reading the exit code the docstring invites it to read, from two runs that
+    genuinely absorbed different configuration. That is the confidently-wrong
+    shape this phase exists to remove, reproduced inside its own reader.
+    """
+    good = _open(rig, "runok")
+    broken = rig / "not-a-real-bag"
+    broken.mkdir()
+    (broken / "bag-info.txt").write_text("this line is not a tag line\n")
+
+    result = _read(good.path, broken)
+    assert result.returncode == 2, (
+        f"got {result.returncode}; 1 would mean DIFFERENT. "
+        f"{result.stdout}{result.stderr}")
+    assert "could not be read" in result.stderr
+
+
+def test_the_reader_REFUSES_a_NON_UTF8_bag_info(rig: Path) -> None:
+    """The same exit-code collision reached through `ValueError` rather than
+    `BagError`, so fixing one class without the other would leave it live."""
+    good = _open(rig, "runok2")
+    broken = rig / "non-utf8-bag"
+    broken.mkdir()
+    (broken / "bag-info.txt").write_bytes(b"Journal-Config-Digest: sha256:\xff\n")
+
+    result = _read(good.path, broken)
+    assert result.returncode == 2, (
+        f"got {result.returncode}; 1 would mean DIFFERENT. "
+        f"{result.stdout}{result.stderr}")

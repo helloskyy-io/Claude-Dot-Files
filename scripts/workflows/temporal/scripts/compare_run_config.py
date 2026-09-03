@@ -50,7 +50,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from modules.journal.bag import BAG_INFO_FILE, read_tag_file  # noqa: E402
+from modules.journal.bag import BAG_INFO_FILE, BagError, read_tag_file  # noqa: E402
 from modules.journal.config_digest import (  # noqa: E402
     DIGEST_ALGORITHM, LABEL_CONFIG_DIGEST, parse_tag_value)
 
@@ -84,11 +84,25 @@ def _read_digest(bag_dir: Path) -> BagDigest:
         return BagDigest(bag_dir, None, {},
                          f"{bag_dir}: no {BAG_INFO_FILE} — not a run bag",
                          fatal=True)
+    # ⚠ THREE EXCEPTION CLASSES, AND CATCHING ONLY `OSError` WAS A LIVE DEFECT.
+    #
+    # (The `try` follows this note rather than preceding it so the reason sits
+    # with the clause it explains.)
+    # `read_tag_file` raises `BagError` on a line that is neither a `Label: value`
+    # tag nor a continuation — a bag left half-written by a crash, or hand-edited
+    # — and `ValueError` (as `UnicodeDecodeError`) on a `bag-info.txt` that is not
+    # UTF-8. Neither is an `OSError`, so both escaped `main()` as an unhandled
+    # exception, and CPython exits **1** on an unhandled exception: the exact code
+    # this tool's own contract assigns to "both bags recorded a digest and they
+    # DIFFER". A caller reading the exit code — which the contract above invites —
+    # could not tell a real divergence from a bag it failed to parse. Measured
+    # before the fix: a malformed tag line and a non-UTF-8 tag file both exited 1.
     try:
         rows = read_tag_file(info)
-    except OSError as exc:
+    except (OSError, BagError, ValueError) as exc:
+        detail = getattr(exc, "strerror", None) or exc
         return BagDigest(bag_dir, None, {},
-                         f"{info}: could not be read — {exc.strerror}",
+                         f"{info}: could not be read — {detail}",
                          fatal=True)
 
     values = [value for label, value in rows if label == LABEL_CONFIG_DIGEST]

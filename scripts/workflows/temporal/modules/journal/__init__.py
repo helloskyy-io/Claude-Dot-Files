@@ -83,9 +83,17 @@ from .citations import (CAPTURE_HARVEST, CAPTURE_READ_TIME, Citation,
                         CitationError, evidence_set_hash, new_citation,
                         read_citations, record_citation,
                         stage_evidence_hashes)
+# ⚠ THE FUNCTION `config_digest` IS DELIBERATELY NOT RE-EXPORTED HERE, and it is
+# the only public name in this package that is not. It shares its name with its
+# own submodule, and `from .config_digest import config_digest` REBINDS the
+# package attribute the import machinery just set to the module — so
+# `import modules.journal as j; j.config_digest.ConfigDigestError` would raise
+# `AttributeError` on a function object, which is how every other submodule in
+# this package can be reached. Callers take it by its full path:
+# `from modules.journal.config_digest import config_digest`.
 from .config_digest import (LABEL_CONFIG_DIGEST, ConfigDigest,
-                            ConfigDigestError, config_digest,
-                            installer_targets, parse_tag_value)
+                            ConfigDigestError, installer_targets,
+                            parse_tag_value, unavailable_tag_value)
 from .content_activities import (capture_code_citation, capture_fetched_source,
                                  capture_source, resolve_citation)
 from .content_store import (ContentStoreError, digest_of_bytes, load_object,
@@ -103,11 +111,11 @@ __all__ = [
     "CitationError", "CitationResult", "ConfigDigest", "ConfigDigestError",
     "ContentStoreError", "FetchPolicy", "FetchRefused", "JournalRootError",
     "VerifyReport", "capture_code_citation", "capture_fetched_source",
-    "capture_source", "config_digest", "digest_of_bytes", "evidence_set_hash",
-    "fetch_source", "installer_targets", "load_journal_config", "load_object",
-    "mint_run_id", "new_citation", "object_relpath", "open_bag", "open_run_bag",
+    "capture_source", "digest_of_bytes", "evidence_set_hash", "fetch_source",
+    "installer_targets", "load_journal_config", "load_object", "mint_run_id",
+    "new_citation", "object_relpath", "open_bag", "open_run_bag",
     "parse_tag_value", "read_citations", "read_tag_file", "record_citation",
     "render_report", "resolve_citation", "resolve_journal_root",
-    "stage_evidence_hashes", "store_bytes", "utc_now", "validate_bag",
-    "verify_bag", "verify_citation",
+    "stage_evidence_hashes", "store_bytes", "unavailable_tag_value", "utc_now",
+    "validate_bag", "verify_bag", "verify_citation",
 ]

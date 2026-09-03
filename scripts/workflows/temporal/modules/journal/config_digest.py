@@ -68,10 +68,15 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+# ONE CHUNKED SHA-256 IN THIS PACKAGE, NOT TWO. `bag.sha256_of` is byte-for-byte
+# the loop this module had its own copy of, and `bag.py` imports nothing from
+# this package, so the dependency runs one way only.
+from .bag import sha256_of
+
 __all__ = ["ConfigDigestError", "ConfigDigest", "DIGEST_ALGORITHM",
            "LABEL_CONFIG_DIGEST", "UNAVAILABLE", "claude_config_dir",
            "config_digest", "installer_targets", "parse_symlink_targets",
-           "parse_tag_value"]
+           "parse_tag_value", "unavailable_tag_value"]
 
 DIGEST_ALGORITHM = "sha256"
 LABEL_CONFIG_DIGEST = "Journal-Config-Digest"
@@ -85,8 +90,10 @@ LABEL_CONFIG_DIGEST = "Journal-Config-Digest"
 UNAVAILABLE = "unavailable"
 
 #: The sentinel for an empty list inside the tag value. A literal empty
-#: `absent=` would be ambiguous with a truncated line.
-NONE = "none"
+#: `absent=` would be ambiguous with a truncated line. NOT named `NONE`: it is a
+#: serialized string, and `else NONE` / `else None` look alike while composing
+#: differently, so a one-character slip would produce plausible wrong output.
+EMPTY = "none"
 
 # `SYMLINK_TARGETS=(` … `)` in install.sh. The `^` anchors here are LINE anchors
 # under `re.MULTILINE` and are declared as such in `test_journal_regex_anchors.py`:
@@ -152,7 +159,7 @@ class ConfigDigest:
 
 
 def _join(items: tuple[str, ...]) -> str:
-    return ",".join(items) if items else NONE
+    return ",".join(items) if items else EMPTY
 
 
 def unavailable_tag_value(reason: str) -> str:
@@ -186,7 +193,7 @@ def parse_tag_value(value: str) -> tuple[str | None, dict[str, tuple[str, ...]]]
         key, sep, raw = token.partition("=")
         if not sep:
             continue
-        fields[key] = () if raw == NONE else tuple(raw.split(","))
+        fields[key] = () if raw == EMPTY else tuple(raw.split(","))
     if head == UNAVAILABLE:
         return None, fields
     algorithm, sep, digest = head.partition(":")
@@ -243,6 +250,21 @@ def installer_targets(install_sh: Path) -> list[str]:
             f"digest's population comes from the installer and from nothing "
             f"else, so this is recorded as unavailable rather than guessed."
         ) from exc
+    except UnicodeDecodeError as exc:
+        # ⚠ NOT AN `OSError`, WHICH IS WHY IT NEEDS ITS OWN CLAUSE. It is a
+        # `ValueError`, so the clause above never saw it and it escaped this
+        # module entirely — past `_config_digest_value`'s `except
+        # ConfigDigestError` and out of `open_run_bag`, which means one bad byte
+        # in `install.sh` stopped EVERY dispatch on the machine before any of
+        # them could open a bag. The design says an unestablishable population
+        # is one unknown fact and never a reason a run may not proceed; this
+        # clause is what makes that true rather than merely stated.
+        raise ConfigDigestError(
+            f"install.sh is not valid UTF-8: {install_sh} — {exc.reason} at "
+            f"byte {exc.start}. The population cannot be read from a file that "
+            f"cannot be decoded, and it is never guessed, so this is recorded "
+            f"as unavailable."
+        ) from exc
     return parse_symlink_targets(text)
 
 
@@ -261,14 +283,6 @@ def claude_config_dir(env: dict[str, str] | None = None) -> Path:
     return (Path(home) if home else Path.home()) / ".claude"
 
 
-def _hash_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1 << 20), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
 def _lines_for_target(root: Path, target: str) -> tuple[list[str], str | None]:
     """Manifest lines for one target, and its status when it contributed none.
 
@@ -277,18 +291,18 @@ def _lines_for_target(root: Path, target: str) -> tuple[list[str], str | None]:
     status — it is present, it contributed nothing, and that is neither of the
     two holes the tag reports.
 
-    `"unreadable"` means AT LEAST ONE file under the target could not be read,
-    not that all of them failed. A directory with one unreadable file has a hole
-    in its digest, and reporting it only when every file failed would let the
-    common case — one root-owned file in an otherwise readable tree — pass as
-    clean.
+    `"unreadable"` means AT LEAST ONE file OR DIRECTORY under the target could
+    not be read, not that all of them failed. A directory with one unreadable
+    file has a hole in its digest, and reporting it only when every file failed
+    would let the common case — one root-owned file in an otherwise readable
+    tree — pass as clean.
     """
     path = root / target
     try:
         if not path.exists():
             return [], "absent"
         if path.is_file():
-            return [f"{target}\0{_hash_file(path)}"], None
+            return [f"{target}\0{sha256_of(path)}"], None
     except OSError:
         # A line, not an empty list: a target we could not even stat must still
         # change the digest, or a machine that hides `hooks/` behind a
@@ -297,6 +311,28 @@ def _lines_for_target(root: Path, target: str) -> tuple[list[str], str | None]:
 
     lines: list[str] = []
     unreadable = False
+    unlistable: list[str] = []
+
+    def _record_unlistable(exc: OSError) -> None:
+        """A directory that could not be LISTED is a hole, never a silence.
+
+        ⚠ THIS WAS `onerror=lambda _e: None` AND IT WAS A LIVE DEFECT, not a
+        style point. `os.walk` reports a directory it cannot open through this
+        callback and then yields NOTHING for it, so discarding the error made a
+        permission-walled directory contribute exactly what an empty one
+        contributes. Measured before the fix: a tree whose `agents/private/`
+        held two files at mode 000 hashed IDENTICALLY to a tree with no
+        `agents/private/` at all, and `unreadable=` reported none — which is the
+        very case the docstring three frames up promises to tell apart, one
+        level below where it was being handled.
+
+        `exc.filename` is made tree-relative below so the manifest line is the
+        same on two machines whose journal roots differ. A failure with no
+        filename at all still records the target, because contributing nothing
+        is the one thing this callback exists to stop.
+        """
+        unlistable.append(getattr(exc, "filename", None) or str(path))
+
     # `followlinks=False`: the TARGET itself is a symlink into the repo and
     # `os.walk` follows it as the starting point regardless, which is what we
     # want. A symlink NESTED inside it is a different matter — following those
@@ -304,7 +340,7 @@ def _lines_for_target(root: Path, target: str) -> tuple[list[str], str | None]:
     # Nested symlinked directories are recorded by name below so their presence
     # is visible rather than silently dropped.
     for dirpath, dirnames, filenames in os.walk(path, followlinks=False,
-                                                onerror=lambda _e: None):
+                                                onerror=_record_unlistable):
         here = Path(dirpath)
         # NOT SORTED HERE, AND THAT IS DELIBERATE. The manifest is sorted once,
         # in `config_digest` below, and that single sort is the whole of the
@@ -322,10 +358,23 @@ def _lines_for_target(root: Path, target: str) -> tuple[list[str], str | None]:
             entry = here / name
             rel = entry.relative_to(path)
             try:
-                lines.append(f"{target}/{rel}\0{_hash_file(entry)}")
+                lines.append(f"{target}/{rel}\0{sha256_of(entry)}")
             except OSError:
                 unreadable = True
                 lines.append(f"{target}/{rel}\0unreadable")
+
+    for name in unlistable:
+        unreadable = True
+        try:
+            rel = Path(name).relative_to(path)
+        except ValueError:
+            # A filename `os.walk` reported from outside the target — it should
+            # not happen, and recording the target rather than dropping the
+            # line is the same choice made everywhere else in this function.
+            lines.append(f"{target}\0unlistable")
+            continue
+        lines.append(f"{target}\0unlistable" if str(rel) == "."
+                     else f"{target}/{rel}\0unlistable")
     return lines, ("unreadable" if unreadable else None)
 
 

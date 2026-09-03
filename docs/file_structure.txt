@@ -774,6 +774,11 @@ claude-dot-files/
 │                   │                                #   offender; a comparison that is genuinely not a derivation is DECLARED with its reason,
 │                   │                                #   as test_journal_containment.py does for joins. Carries its own negative controls,
 │                   │                                #   including the set-membership check that catches a sweep passing over nothing
+│                   ├── test_every_entrypoint_can_REHEARSE.py # Every kickoff entrypoint declares --dry-run and branches
+│                   │                                #   on it, because the operator guide asserts the flag universally — three runners
+│                   │                                #   lacked it while all four build CHILDREN had it, so a reader checking the family
+│                   │                                #   got yes from every file they were likely to open. Shares journal_entrypoint_facts'
+│                   │                                #   predicate with the bag sweep below rather than re-deriving what an entrypoint is
 │                   └── test_every_parent_opens_a_run_bag.py # r11's actual guarantee — the activity boundary does not make the call happen,
 │                                                    #   and r9 cannot help because it fires only AFTER bag-open was invoked. Discovers every
 │                                                    #   run_*.py by AST (never substring: the sibling sweep shipped green because a COMMENT
