@@ -375,9 +375,19 @@ def _every_way_a_config_can_fail(tmp_path: Path):
     unreadable.write_text("journal:\n  deployment: user\n")
     os.chmod(unreadable, 0o000)
 
+    # THE FOURTH BRANCH, AND IT WAS FOUND FROM ONE IMPORT AWAY RATHER THAN HERE.
+    # `read_text(encoding="utf-8")` raises `UnicodeDecodeError` — a `ValueError`,
+    # not an `OSError` — so it escaped the same handler the `PermissionError`
+    # escaped, one row above. The identical shape was fixed in
+    # `config_digest.installer_targets` first; this row is what makes the
+    # enumeration catch the next one instead of a sibling module doing it.
+    undecodable = tmp_path / "undecodable.yaml"
+    undecodable.write_bytes(b"journal:\n  deployment: \xff\xfeuser\n")
+
     return [
         ("unparseable YAML", unparseable),
         ("parses to a scalar", not_a_mapping),
+        ("exists but is not valid UTF-8", undecodable),
         # A DIRECTORY IS NOT AN ABSENT FILE. `is_file()` is False for it, so this
         # one legitimately returns `{}` — asserted below as its own outcome
         # rather than left out, because "which branch does this land in" is the

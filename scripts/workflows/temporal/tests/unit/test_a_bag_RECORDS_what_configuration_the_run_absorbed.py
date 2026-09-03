@@ -303,3 +303,144 @@ def test_the_reader_REFUSES_a_NON_UTF8_bag_info(rig: Path) -> None:
     assert result.returncode == 2, (
         f"got {result.returncode}; 1 would mean DIFFERENT. "
         f"{result.stdout}{result.stderr}")
+
+
+# --------------------------------------------------------------------------
+# The error paths whose handlers this phase wrote, DRIVEN — added by the
+# correction pass. A review planted 16 mutations on the two new source files and
+# 12 survived: the designed behaviours were held, and the fail-safe behaviours
+# — precisely the ones this phase added — were not. A handler nothing drives is
+# deleted by the next refactor without turning anything red.
+# --------------------------------------------------------------------------
+
+def _rewrite_info(bag_dir: Path, transform) -> Path:
+    """A copy of `bag_dir` whose `bag-info.txt` lines went through `transform`.
+
+    A COPY, not an edit in place: a bag is append-only and never edited, so
+    mutating one would be asserting against a state the fleet does not produce.
+    What is being tested is the READER's behaviour when handed a file in that
+    state, whatever put it there.
+    """
+    damaged = bag_dir.parent / (bag_dir.name + "-damaged")
+    damaged.mkdir()
+    lines = (bag_dir / "bag-info.txt").read_text(encoding="utf-8").splitlines(True)
+    (damaged / "bag-info.txt").write_text("".join(transform(lines)),
+                                          encoding="utf-8")
+    return damaged
+
+
+def test_the_reader_REFUSES_a_bag_carrying_TWO_digest_tags(rig: Path) -> None:
+    """Two lines means the file was tampered with, and picking one is worse.
+
+    The tag is written once at bag-open and a bag is never edited afterwards, so
+    a second line is evidence the metadata is not trustworthy. Silently taking
+    the first would produce a confident SAME or DIFFERENT about a file whose
+    contents are known to be wrong — exit 2 says so instead.
+    """
+    good = _open(rig, "runduptwin")
+    source = _open(rig, "rundup")
+    doubled = _rewrite_info(source.path, lambda lines: [
+        line for entry in lines
+        for line in ([entry, entry] if entry.startswith(LABEL_CONFIG_DIGEST)
+                     else [entry])])
+
+    result = _read(good.path, doubled)
+    assert result.returncode == 2, (
+        f"got {result.returncode}; 1 would mean DIFFERENT and 3 would mean "
+        f"UNKNOWN. {result.stdout}{result.stderr}")
+    assert "not trustworthy" in result.stderr
+    assert result.stdout == "", "no verdict may be printed about a tampered bag"
+
+
+def test_a_bag_with_NO_TAG_AT_ALL_is_UNKNOWN_and_not_a_read_failure(
+        rig: Path) -> None:
+    """Exit 3's OTHER cause, which nothing drove.
+
+    A bag written before this tag existed is a real, readable, honest bag with
+    nothing to say — which is exit 3. The already-covered route to 3 is a tag
+    recording `unavailable`; this is the route where the LINE is absent, and a
+    reader that conflated it with "could not be read" would exit 2 and send an
+    operator looking for a corrupt file that is not corrupt.
+    """
+    good = _open(rig, "runolder")
+    source = _open(rig, "runold")
+    stripped = _rewrite_info(source.path, lambda lines: [
+        line for line in lines if not line.startswith(LABEL_CONFIG_DIGEST)])
+
+    result = _read(good.path, stripped)
+    assert result.returncode == 3, (
+        f"got {result.returncode}; 2 would claim the bag could not be read. "
+        f"{result.stdout}{result.stderr}")
+    assert "UNKNOWN" in result.stdout
+    assert "predates the tag" in result.stderr
+
+
+def test_the_reader_answers_DIFFERENT_when_only_the_POPULATION_differs(
+        rig: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """⚠ IT ANSWERED `SAME`, WHILE PRINTING THE TWO POPULATIONS ON THE NEXT LINES.
+
+    The digest covered each target's byte-effects and never the declared SET, so
+    two installers over one unchanged tree hashed identically whenever the extra
+    target was present-and-empty. The tool contradicted itself on one screen and
+    exited 0. This is the end-to-end shape of that defect: two real bags, one
+    real reader, nothing about the tree changed between them.
+    """
+    (rig.parent / "claude" / "plugins").mkdir()
+    narrow = _open(rig, "runnarrow")
+
+    wider = rig.parent / "wider.sh"
+    wider.write_text('SYMLINK_TARGETS=(\n    "settings.json"\n    "agents"\n'
+                     '    "plugins"\n)\n')
+    monkeypatch.setattr(ja, "INSTALL_SH_PATH", wider)
+    wide = _open(rig, "runwide")
+
+    result = _read(narrow.path, wide.path)
+    assert result.returncode == 1, (
+        f"got {result.returncode}; 0 means SAME, which is the defect. "
+        f"{result.stdout}{result.stderr}")
+    assert result.stdout.startswith("DIFFERENT")
+    assert "targets: agents, plugins, settings.json" in result.stdout, (
+        "the verdict and the rendered population must agree — printing two "
+        "different target lists under the word SAME is the failure itself")
+
+
+@pytest.mark.parametrize("raised,slug", [
+    (ja.ConfigDigestError("population"), "installer-set-unreadable"),
+    (PermissionError(13, "Permission denied"), "config-tree-unreadable"),
+    (UnicodeEncodeError("utf-8", "x", 0, 1, "surrogates"),
+     "config-tree-undecodable"),
+    (RuntimeError("Could not determine home directory."),
+     "config-digest-unexpected-error"),
+], ids=["population", "os-error", "value-error", "bare-runtime-error"])
+def test_the_BACKSTOP_records_a_DISTINCT_reason_per_failure_class(
+        rig: Path, monkeypatch: pytest.MonkeyPatch, raised: BaseException,
+        slug: str) -> None:
+    """The handler that keeps a FOURTH undesigned class from stopping a dispatch.
+
+    ⚠ EVERY ROW HERE WAS A LIVE ABORT, and each is fixed at its own site as well
+    — this is the net under those fixes, not a substitute for them. Three of the
+    four escaped `except ConfigDigestError` for a different reason: a
+    `UnicodeEncodeError` is a `ValueError`, a `PermissionError` is an `OSError`
+    that `open_run_bag` then re-diagnosed as a full journal root, and a bare
+    `RuntimeError` is the PARENT class of `ConfigDigestError`, which a handler
+    naming the child cannot catch.
+
+    ONE SLUG PER CLASS, ASSERTED AS DISTINCT: collapsing them all to
+    `installer-set-unreadable` would write a false diagnosis into a record that
+    is written once and never edited, blaming the installer for a permission bit
+    on the config tree.
+    """
+    def explode(**_kwargs):
+        raise raised
+
+    monkeypatch.setattr(ja, "config_digest", explode)
+    bag = _open(rig, f"runbackstop{slug.replace('-', '')}")
+
+    digest, fields = parse_tag_value(_tag(bag))
+    assert digest is None
+    assert fields["reason"] == (slug,), (
+        f"a {type(raised).__name__} was recorded as {fields.get('reason')}; the "
+        f"tag is permanent, so a wrong slug is a permanent wrong diagnosis")
+    assert [label for label, _ in bag.info() if label == "Journal-Workflow"], (
+        "the other five facts must still be recorded — the whole point of the "
+        "backstop is that the run proceeds and has a record")

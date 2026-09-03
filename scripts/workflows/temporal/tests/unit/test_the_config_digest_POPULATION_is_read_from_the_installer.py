@@ -232,21 +232,47 @@ def test_a_run_with_NO_readable_configuration_still_gets_a_real_digest(
     assert "absent=agents,settings.json" in result.tag_value()
 
 
+def _unreadable_here(path: Path) -> bool:
+    """True when this account really cannot open `path` after chmod 000.
+
+    THE FILE-LEVEL TWIN OF `_hidden()` BELOW, and it exists for the same reason:
+    a skip predicate must be a statement about the MACHINE. Root opens a mode-000
+    file happily, so the skip is real on a root runner and must not be reachable
+    on any other — and the only way to know which is to drive the syscall on the
+    actual path rather than to read back what the code under test concluded.
+    """
+    try:
+        path.read_bytes()
+    except OSError:
+        return True
+    return False
+
+
 def test_an_UNREADABLE_file_is_recorded_as_a_hole_not_skipped(fixture) -> None:
     """One unreadable file makes the whole target a reported hole.
 
     Reporting it only when EVERY file failed would let the common case — one
     root-owned file in an otherwise readable tree — pass as clean.
+
+    ⚠ THE SKIP USED TO BE PREDICATED ON THE CODE'S OWN OUTPUT — `if
+    result.unreadable == (): pytest.skip("running as … root")` — WHICH IS WORSE
+    THAN VACUOUS. Deleting `unreadable = True` from `_lines_for_target`'s per-file
+    `except OSError` turned this guard into `1 skipped` with a reason claiming
+    this account can read mode-000 files, measured as uid 1001, where it could
+    not. A regression that stops reporting unreadable files would have shipped
+    green. The machine is probed instead, exactly as `_hidden()` below does for
+    the directory cases, so the only thing that can turn this yellow is a fact
+    about the machine and the only thing that can turn it green is the assertion.
     """
     install_sh, cdir = fixture
     locked = cdir / "agents" / "reviewer.md"
     locked.chmod(0o000)
     try:
+        if not _unreadable_here(locked):
+            pytest.skip("running as a user that can read mode-000 files (root)")
         result = config_digest(claude_dir=cdir, install_sh=install_sh)
     finally:
         locked.chmod(0o644)
-    if result.unreadable == ():
-        pytest.skip("running as a user that can read mode-000 files (root)")
     assert result.unreadable == ("agents",)
     assert "unreadable=agents" in result.tag_value()
 
@@ -459,3 +485,444 @@ def test_a_NON_UTF8_INSTALLER_is_a_ConfigDigestError_and_not_a_ValueError(
     bad.write_bytes(b'SYMLINK_TARGETS=(\n    "agents"\xff\n)\n')
     with pytest.raises(ConfigDigestError, match="not valid UTF-8"):
         installer_targets(bad)
+
+
+# --------------------------------------------------------------------------
+# The exception classes NO handler named — added by the correction pass.
+#
+# The refine pass before this one fixed three undesigned error paths and the
+# review that followed reproduced four more of the identical shape by execution.
+# The meta-pattern is the finding: the DESIGNED failures (absent target,
+# unreadable file, missing installer) were covered thoroughly and the undesigned
+# ones were covered not at all, so each fix below is paired with a case that
+# drives it rather than a docstring that asserts it.
+# --------------------------------------------------------------------------
+
+def _surrogate_name() -> str:
+    """A filename that is real on disk and is not valid UTF-8.
+
+    `os.walk` hands undecodable names back with lone surrogates in them, which
+    is what `str.encode("utf-8")` refuses. Built from the bytes rather than
+    written as a literal so the test is about the encoding boundary rather than
+    about this file's own encoding.
+    """
+    return b"bad_\xff.md".decode("utf-8", "surrogateescape")
+
+
+def test_a_NON_UTF8_FILENAME_under_a_target_is_HASHED_and_does_not_raise(
+        fixture) -> None:
+    """⚠ IT RAISED `UnicodeEncodeError`, WHICH IS A `ValueError`, SO NOTHING CAUGHT IT.
+
+    Measured before the fix: `config_digest()` over a tree holding one such file
+    raised out of this module, past `_config_digest_value`'s
+    `except ConfigDigestError`, past `open_run_bag`'s `except OSError`, and past
+    the entrypoints' `(RuntimeError, FileNotFoundError)` — a raw traceback and no
+    bag written, for a filename. The contract says an unestablishable population
+    is one unknown fact and never a reason a run may not proceed; a file the run
+    genuinely CAN read is not even that, so it must simply be hashed.
+    """
+    install_sh, cdir = fixture
+    before = config_digest(claude_dir=cdir, install_sh=install_sh).digest
+    (cdir / "agents" / _surrogate_name()).write_bytes(b"an undecodable name")
+
+    result = config_digest(claude_dir=cdir, install_sh=install_sh)
+    assert len(result.digest) == 64
+    assert result.unreadable == (), (
+        "the file is readable — only its NAME is undecodable, and treating that "
+        "as a hole would report a fault where there is none")
+    assert result.digest != before, (
+        "a file added under a target must change the digest whatever its name "
+        "decodes to")
+    assert config_digest(claude_dir=cdir, install_sh=install_sh).digest == \
+        result.digest, "the surrogate round-trip must be stable across calls"
+
+
+def test_a_LISTABLE_BUT_UNSEARCHABLE_directory_is_a_HOLE_and_not_a_raise(
+        fixture) -> None:
+    """Mode 444: readable, so `os.walk` lists it; not searchable, so `lstat` fails.
+
+    ⚠ THE ADJACENT PERMISSION SHAPE ONE BIT OVER WAS ALREADY CORRECT, WHICH IS
+    WHAT MAKES THIS A DEFECT RATHER THAN A JUDGEMENT CALL. Mode 000 on the same
+    directory is reported as `unreadable=agents` through `_record_unlistable`.
+    At 444 `os.walk` succeeded, reported the children, and the unguarded
+    `Path.is_symlink()` on one of them raised `PermissionError` — which
+    `open_run_bag`'s `except OSError` then rewrote into a `JournalRootError`
+    about free space under the JOURNAL ROOT. A false diagnosis, pointing at a
+    different filesystem from the one with the problem.
+    """
+    install_sh, cdir = fixture
+    walled = cdir / "agents" / "half-open"
+    (walled / "inner").mkdir(parents=True)
+    (walled / "inner" / "one.md").write_text("s1")
+    walled.chmod(0o444)
+    try:
+        if _listable_but_unsearchable(walled) is not True:
+            pytest.skip("this account can search a mode-444 directory (root)")
+        result = config_digest(claude_dir=cdir, install_sh=install_sh)
+    finally:
+        walled.chmod(0o755)
+
+    assert result.unreadable == ("agents",), (
+        "a child that could not be stat-ed is a hole in the digest and must be "
+        "reported as one — the alternative measured here was an exception that "
+        "aborted the whole dispatch")
+
+
+def _listable_but_unsearchable(path: Path) -> bool:
+    """True when this account can list `path` at 444 but cannot stat its children.
+
+    THE MACHINE IS PROBED, NEVER THE RESULT — the rule `_hidden()` states and the
+    one this file's skip predicate broke. Root satisfies neither half, so it skips
+    on the fact rather than on the outcome of the code under test.
+    """
+    try:
+        children = os.listdir(path)
+    except OSError:
+        return False
+    for name in children:
+        try:
+            (path / name).lstat()
+        except OSError:
+            return True
+    return False
+
+
+def test_the_TREE_LOCATION_being_unknowable_is_the_MODULE_S_OWN_ERROR_CLASS(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """⚠ `ConfigDigestError` SUBCLASSES `RuntimeError`, SO IT CANNOT CATCH ITS PARENT.
+
+    With `HOME` unset and the uid absent from `/etc/passwd` — an ordinary
+    container shape — `Path.home()` raises a BARE `RuntimeError("Could not
+    determine home directory.")`. The caller's `except ConfigDigestError` does not
+    catch it, so the dispatch was refused with a five-word message and no remedy.
+    The inheritance direction is the whole trap and it is the reason this is
+    tested rather than reasoned about.
+    """
+    def no_home() -> Path:
+        raise RuntimeError("Could not determine home directory.")
+
+    monkeypatch.setattr(Path, "home", staticmethod(no_home))
+    with pytest.raises(ConfigDigestError) as exc:
+        claude_config_dir(env={})
+    assert "unavailable" in str(exc.value)
+    assert not type(exc.value) is RuntimeError, (
+        "a BARE RuntimeError is what escaped the caller's handler; the point of "
+        "the fix is that the class is this module's own")
+
+
+def test_a_FIFO_under_a_target_does_not_PARK_the_walk(tmp_path: Path) -> None:
+    """⚠ VERIFIED BY EXECUTION AS `timeout 8` -> EXIT 124, i.e. it never returned.
+
+    `os.walk` sorts FIFOs, device nodes and sockets into `filenames`, and
+    `sha256_of` opened them with a plain `open()`. A FIFO with no writer blocks
+    forever and there is no timeout anywhere in the chain — so a run parked
+    before it had opened its bag, which is the one failure the journal cannot
+    describe. The module docstring already promised only *"every regular file"*.
+
+    RUN IN A SUBPROCESS WITH A TIMEOUT, deliberately: an in-process regression
+    would HANG this suite rather than fail it, and a guard that converts a defect
+    into an unbounded wait is not a guard.
+    """
+    install_sh = tmp_path / "install.sh"
+    install_sh.write_text(INSTALLER)
+    cdir = tmp_path / "claude"
+    (cdir / "agents").mkdir(parents=True)
+    (cdir / "settings.json").write_text("{}")
+    (cdir / "agents" / "real.md").write_text("a regular file")
+
+    plain = _digest_in_a_subprocess(cdir, install_sh)
+    os.mkfifo(cdir / "agents" / "pipe")
+    with_fifo = _digest_in_a_subprocess(cdir, install_sh)
+
+    assert with_fifo != plain, (
+        "a FIFO appearing under a target must change the digest — it is part of "
+        "what is there, even though its bytes are not read")
+
+
+def test_a_DANGLING_SYMLINK_is_a_hole_and_a_SYMLINK_TO_A_FILE_is_hashed(
+        fixture) -> None:
+    """The two halves of the regularity check, which pull in opposite directions.
+
+    A symlink to a file IS read and its bytes ARE what the run absorbed, so it is
+    hashed — that asymmetry with `symlinked-dir` was re-examined at review and
+    stands. A symlink pointing at nothing can be stat-ed no further, so nothing
+    about it is knowable and it is a hole. A single `S_ISREG` check on `lstat`
+    alone would have got the first of these wrong.
+    """
+    install_sh, cdir = fixture
+    (cdir / "elsewhere.md").write_text("borrowed content")
+    (cdir / "agents" / "link.md").symlink_to(cdir / "elsewhere.md")
+    linked = config_digest(claude_dir=cdir, install_sh=install_sh)
+    assert linked.unreadable == ()
+
+    (cdir / "elsewhere.md").write_text("borrowed content, edited")
+    assert config_digest(claude_dir=cdir, install_sh=install_sh).digest != \
+        linked.digest, "a symlinked file's BYTES are what the run absorbed"
+
+    (cdir / "agents" / "dangling.md").symlink_to(cdir / "no-such-file.md")
+    dangling = config_digest(claude_dir=cdir, install_sh=install_sh)
+    assert dangling.unreadable == ("agents",), (
+        "a symlink pointing at nothing cannot be read and cannot be classified, "
+        "so it is a hole rather than a silence")
+
+
+def _digest_in_a_subprocess(cdir: Path, install_sh: Path) -> str:
+    """`config_digest(...).digest`, computed where a hang is a FAILURE."""
+    source = (
+        "import sys; sys.path.insert(0, %r)\n"
+        "from pathlib import Path\n"
+        "from modules.journal.config_digest import config_digest\n"
+        "print(config_digest(claude_dir=Path(%r), install_sh=Path(%r)).digest)\n"
+        % (str(REPO_ROOT / "scripts" / "workflows" / "temporal"),
+           str(cdir), str(install_sh)))
+    out = subprocess.run([sys.executable, "-c", source], capture_output=True,
+                         text=True, timeout=30)
+    assert out.returncode == 0, f"{out.stdout}{out.stderr}"
+    return out.stdout.strip()
+
+
+# --------------------------------------------------------------------------
+# The DECLARED POPULATION is part of what is hashed
+# --------------------------------------------------------------------------
+
+def test_TWO_INSTALLERS_over_ONE_TREE_do_not_produce_the_same_digest(
+        tmp_path: Path) -> None:
+    """⚠ THEY DID, AND THE READER THEN PRINTED `SAME` WHILE RENDERING THE DIFFERENCE.
+
+    The manifest recorded each target's byte-effects and never the declared SET,
+    so `{agents}` and `{agents, plugins}` over one tree — with `plugins/` present
+    and empty — hashed identically. `compare_run_config` compares digests alone,
+    so it exited 0 and printed SAME two lines above its own `targets:` lines
+    showing the two different populations. That defeats requirement 2's reason
+    for carrying the population at all.
+
+    THE FIXTURE IS ASYMMETRIC UNDER THE DEFECT ON PURPOSE: `plugins/` is present
+    and EMPTY, which is the only shape in which the byte-effects of the two
+    populations coincide. An absent or non-empty `plugins/` would have differed
+    for the wrong reason and the test would have passed against the defect.
+    """
+    cdir = tmp_path / "claude"
+    (cdir / "agents").mkdir(parents=True)
+    (cdir / "agents" / "reviewer.md").write_text("you review code")
+    (cdir / "plugins").mkdir()
+
+    narrow = tmp_path / "narrow.sh"
+    narrow.write_text('SYMLINK_TARGETS=(\n    "agents"\n)\n')
+    wide = tmp_path / "wide.sh"
+    wide.write_text('SYMLINK_TARGETS=(\n    "agents"\n    "plugins"\n)\n')
+
+    a = config_digest(claude_dir=cdir, install_sh=narrow)
+    b = config_digest(claude_dir=cdir, install_sh=wide)
+    assert a.targets == ("agents",) and b.targets == ("agents", "plugins")
+    assert a.digest != b.digest, (
+        "two runs whose installers declared different populations produced the "
+        "same digest — the reader compares digests alone, so it would call them "
+        "SAME while printing the two different target lists")
+
+
+# --------------------------------------------------------------------------
+# What the installer may legally declare
+# --------------------------------------------------------------------------
+
+def test_a_DOTFILE_target_is_a_LEGAL_SEGMENT_and_dot_and_dotdot_are_not() -> None:
+    """⚠ REFUSING A LEADING DOT SILENTLY DISABLED THE COMPONENT FLEET-WIDE.
+
+    `_SEGMENT_RE` demanded a leading alphanumeric although the only thing it is
+    there to refuse is a value that ESCAPES a path segment. `.mcp.json` is a real
+    Claude Code config file and an obvious future entry; adding it made
+    `parse_symlink_targets` raise for the WHOLE array, `_config_digest_value`
+    swallowed that, and every bag on every machine recorded `unavailable` with
+    nothing going red. The two values that genuinely escape a segment are refused
+    by name, which is what the stated justification actually supports.
+    """
+    assert parse_symlink_targets(
+        'SYMLINK_TARGETS=(\n    ".mcp.json"\n    "agents"\n)\n') == \
+        [".mcp.json", "agents"]
+    for escaping in (".", ".."):
+        with pytest.raises(ConfigDigestError, match="single path segment"):
+            parse_symlink_targets(f'SYMLINK_TARGETS=(\n    "{escaping}"\n)\n')
+
+
+def test_an_UNQUOTED_bash_array_is_READ_rather_than_called_EMPTY() -> None:
+    """An unquoted array is legal, idiomatic bash, and it read as seven-is-zero.
+
+    The entry pattern matched only quoted entries, so `SYMLINK_TARGETS=(agents
+    rules)` yielded nothing and was reported as *"declares SYMLINK_TARGETS as an
+    EMPTY array"* — false when it declares two, and the message's own reasoning
+    ("the installer could not be read for its set") does not apply to a set
+    sitting in plain view. A truly empty array still says so.
+    """
+    assert parse_symlink_targets(
+        'SYMLINK_TARGETS=(\n    agents\n    rules\n)\n') == ["agents", "rules"]
+    assert parse_symlink_targets(
+        "SYMLINK_TARGETS=(\n    'agents'\n    'rules'\n)\n") == ["agents", "rules"]
+    with pytest.raises(ConfigDigestError, match="EMPTY array"):
+        parse_symlink_targets("SYMLINK_TARGETS=(\n)\n")
+    # A bare word that is NOT a segment is now REACHED rather than skipped, and
+    # the message names it instead of claiming the array is empty.
+    with pytest.raises(ConfigDigestError, match="single path segment"):
+        parse_symlink_targets('SYMLINK_TARGETS=(\n    "${OTHER[@]}"\n)\n')
+
+
+def test_a_value_named_none_is_REFUSED_because_it_does_not_ROUND_TRIP() -> None:
+    """`none` is the sentinel a list field with no members serializes to.
+
+    A target actually called `none` would compose to `targets=none`, which
+    `parse_tag_value` reads back as the EMPTY tuple — so a reader would be told a
+    run absorbed nothing when it absorbed one target. Refused at both places a
+    value enters the serialization, because the collision belongs to the format
+    rather than to either caller.
+    """
+    with pytest.raises(ConfigDigestError, match="sentinel"):
+        parse_symlink_targets('SYMLINK_TARGETS=(\n    "none"\n)\n')
+    with pytest.raises(ConfigDigestError, match="sentinel"):
+        unavailable_tag_value("none")
+
+
+def test_a_target_DECLARED_TWICE_is_counted_once() -> None:
+    """`sorted(set(...))`, driven. A duplicated entry is a maintenance accident,
+    not a second population member, and hashing it twice would make the digest
+    depend on how many times somebody typed a line."""
+    assert parse_symlink_targets(
+        'SYMLINK_TARGETS=(\n    "agents"\n    "rules"\n    "agents"\n)\n') == \
+        ["agents", "rules"]
+
+
+# --------------------------------------------------------------------------
+# Where the tree is
+# --------------------------------------------------------------------------
+
+def test_CLAUDE_CONFIG_DIR_is_EXPANDED_rather_than_taken_literally(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """`~/elsewhere` names a directory; a literal `./~/elsewhere` names nothing.
+
+    An unexpanded override would send the walk somewhere that does not exist, and
+    every target would be reported absent — a confident tag about a tree nobody
+    read, which is the shape this module exists to refuse.
+    """
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", "~/elsewhere")
+    assert claude_config_dir() == tmp_path / "elsewhere"
+
+
+def test_the_tree_falls_back_to_the_ACCOUNT_S_HOME_when_no_variable_is_set(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Neither variable set: the account's own home, from the passwd database."""
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path / "fromapasswd"))
+    assert claude_config_dir(env={}) == tmp_path / "fromapasswd" / ".claude"
+
+
+def test_claude_config_dir_READS_THE_MAPPING_IT_IS_GIVEN() -> None:
+    """The `env=` parameter is the injectable seam and it must actually inject.
+
+    Every other test here reaches it through `monkeypatch.setenv`, so nothing
+    exercised the parameter itself — and a future caller passing `env=` while the
+    body silently read `os.environ` would get an answer about the wrong process.
+    """
+    assert claude_config_dir(env={"CLAUDE_CONFIG_DIR": "/somewhere/injected"}) == \
+        Path("/somewhere/injected")
+
+
+# --------------------------------------------------------------------------
+# The holes the walk itself can fall into — the paths whose handlers exist
+# --------------------------------------------------------------------------
+
+def test_a_CONFIG_ROOT_that_cannot_be_STATTED_is_a_hole_for_every_target(
+        fixture) -> None:
+    """The target-level `except OSError`, which nothing drove.
+
+    A config root the account cannot search fails `path.exists()` for every
+    target with `PermissionError`. Contributing an empty list there would make a
+    permission-walled machine hash identically to one with nothing installed —
+    the same collision as the directory case one level down, at the top.
+    """
+    install_sh, cdir = fixture
+    absent = config_digest(claude_dir=cdir.parent / "nothing-here",
+                           install_sh=install_sh)
+    cdir.chmod(0o000)
+    try:
+        if not _hidden(cdir):
+            pytest.skip("running as a user that can search mode-000 directories")
+        walled = config_digest(claude_dir=cdir, install_sh=install_sh)
+    finally:
+        cdir.chmod(0o755)
+
+    assert walled.unreadable == ("agents", "settings.json")
+    assert walled.absent == (), (
+        "a target that could not be stat-ed is UNREADABLE, not ABSENT — the two "
+        "are different facts and are diagnosed differently")
+    assert walled.digest != absent.digest, (
+        "a config root behind a permission wall hashed identically to one where "
+        "nothing was ever installed")
+
+
+def test_a_SYMLINKED_SUBDIRECTORY_is_RECORDED_and_NOT_DESCENDED(
+        fixture, tmp_path: Path) -> None:
+    """Both halves, because each alone would hide the other.
+
+    RECORDED: without a marker line the whole subtree vanishes from the manifest
+    and reads as a directory this machine never had. NOT DESCENDED: following
+    nested links admits a cycle, and a digest that hangs is worse than one that
+    is coarse. A test asserting only the marker would pass while the walk
+    descended; one asserting only the non-descent would pass while the link
+    vanished.
+
+    ⚠ THE SECOND HALF IS HELD BY `followlinks=False`, AND NOWHERE ELSE — which
+    this test is the reason we know. The walk also carried a `dirnames[:]`
+    comprehension dropping symlinked directories, and mutating that away left
+    this test green: `os.walk` was already refusing to follow them, so the
+    comprehension asserted a property it did not hold. It has been deleted, the
+    way the inner `sorted(filenames)` was deleted before it, and the mutation
+    that falsifies this case is now `followlinks=True`.
+    """
+    install_sh, cdir = fixture
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "one.md").write_text("original")
+
+    plain = config_digest(claude_dir=cdir, install_sh=install_sh).digest
+    (cdir / "agents" / "linked").symlink_to(outside, target_is_directory=True)
+    with_link = config_digest(claude_dir=cdir, install_sh=install_sh).digest
+    assert with_link != plain, (
+        "a symlinked subdirectory that changes nothing in the manifest is a "
+        "subtree that vanished silently")
+
+    (outside / "one.md").write_text("edited behind the link")
+    (outside / "two.md").write_text("and a new file too")
+    assert config_digest(claude_dir=cdir, install_sh=install_sh).digest == \
+        with_link, (
+        "the walk followed a nested symlink — the marker records that the link "
+        "is there, and its CONTENTS are deliberately outside the population")
+
+
+def test_the_PRODUCTION_SHAPE_where_the_TARGET_ITSELF_is_a_symlink(
+        tmp_path: Path) -> None:
+    """What `install.sh` actually creates, which no other fixture here builds.
+
+    Every target in `~/.claude/` is a symlink into the repo's `config/`. The walk
+    must follow the target as its starting point — `followlinks=False` governs
+    NESTED links only — or the digest on every real machine would be seven
+    `symlinked-dir` markers and no content at all, and nothing here would have
+    noticed.
+    """
+    repo_config = tmp_path / "repo" / "config"
+    (repo_config / "agents").mkdir(parents=True)
+    (repo_config / "agents" / "reviewer.md").write_text("you review code")
+    (repo_config / "settings.json").write_text('{"model":"opus"}')
+
+    cdir = tmp_path / "claude"
+    cdir.mkdir()
+    (cdir / "agents").symlink_to(repo_config / "agents", target_is_directory=True)
+    (cdir / "settings.json").symlink_to(repo_config / "settings.json")
+
+    install_sh = tmp_path / "install.sh"
+    install_sh.write_text(INSTALLER)
+
+    linked = config_digest(claude_dir=cdir, install_sh=install_sh)
+    assert linked.absent == () and linked.unreadable == ()
+
+    (repo_config / "agents" / "reviewer.md").write_text("you review code, v2")
+    assert config_digest(claude_dir=cdir, install_sh=install_sh).digest != \
+        linked.digest, (
+        "an edit inside the repo the symlinks point at must change the digest — "
+        "that mid-flight edit is the entire reason this tag exists")
