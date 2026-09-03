@@ -34,7 +34,7 @@ sys.path.insert(0, str(TEMPORAL))
 
 from modules.journal import journal_activities as ja  # noqa: E402
 from modules.journal.config_digest import (  # noqa: E402
-    LABEL_CONFIG_DIGEST, parse_tag_value)
+    LABEL_CONFIG_DIGEST, parse_tag_value, unavailable_tag_value)
 
 READER = TEMPORAL / "scripts" / "compare_run_config.py"
 
@@ -444,3 +444,58 @@ def test_the_BACKSTOP_records_a_DISTINCT_reason_per_failure_class(
     assert [label for label, _ in bag.info() if label == "Journal-Workflow"], (
         "the other five facts must still be recorded — the whole point of the "
         "backstop is that the run proceeds and has a record")
+
+
+def test_EVERY_slug_the_backstop_can_PRODUCE_is_one_the_tag_can_CARRY() -> None:
+    """The backstop's own last line can raise, and nothing was checking it.
+
+    ⚠ THIS IS THE CLASS THIS PR EXISTS TO CLOSE, ONE CALL AWAY FROM WHERE IT IS
+    CLOSED. `_config_digest_value` ends its handler with
+    `unavailable_tag_value(_digest_failure_slug(exc))` — and that call is not
+    itself inside a `try`. `unavailable_tag_value` validates its argument against
+    `_SEGMENT_RE` and `_refuse_reserved`, so a slug carrying a space, a newline,
+    or the reserved word `none` makes it raise `ConfigDigestError` from inside
+    the very handler whose contract is that a digest failure NEVER stops a run.
+    The raise would escape `_config_digest_value`, escape `open_run_bag`, and
+    abort the dispatch before a bag exists — the exact abort-with-no-record shape
+    the four site fixes and this backstop were written to end.
+
+    It does not happen today, and that is the point: the four slugs are literal,
+    hyphenated and non-reserved, so the coupling is TRUE BY ACCIDENT rather than
+    CHECKED. A fifth branch returning `f"unexpected: {exc}"` — an entirely
+    natural thing to write, since it reads as more informative — reintroduces a
+    fleet-wide fatal defect and turns nothing red. This walks the ladder's whole
+    output population and pushes each value through the real validator, so the
+    pairing is held by a test instead of by luck.
+
+    The population is DERIVED from the ladder rather than listed here. A hand-kept
+    list of four is a hand-kept list: it cannot see the fifth branch, which is the
+    only branch this test exists for.
+    """
+    import ast
+    import inspect
+
+    tree = ast.parse(inspect.getsource(ja._digest_failure_slug).lstrip())
+    slugs = [n.value.value for n in ast.walk(tree)
+             if isinstance(n, ast.Return) and isinstance(n.value, ast.Constant)]
+    non_literal = [n for n in ast.walk(tree)
+                   if isinstance(n, ast.Return)
+                   and not (isinstance(n.value, ast.Constant)
+                            and isinstance(n.value.value, str))]
+    assert not non_literal, (
+        "_digest_failure_slug returned something other than a string literal. "
+        "Whatever it is must still satisfy unavailable_tag_value, which is "
+        "called on the result OUTSIDE any try — extend this test to drive it "
+        "rather than deleting the check.")
+    assert len(slugs) >= 4, (
+        f"expected the ladder's four-or-more slugs, derived {slugs} — if the "
+        f"function was restructured, re-derive the population, do not hardcode")
+
+    for slug in slugs:
+        # The real validator, on the real value, at the real call site's
+        # argument position. If this raises, every dispatch on every machine
+        # that hits the corresponding exception class dies without a bag.
+        value = unavailable_tag_value(slug)
+        assert "\n" not in value and slug in value, (
+            f"slug {slug!r} does not survive unavailable_tag_value intact")
+

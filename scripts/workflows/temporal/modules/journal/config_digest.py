@@ -80,12 +80,22 @@ from pathlib import Path
 from .bag import sha256_of
 
 __all__ = ["ConfigDigestError", "ConfigDigest", "DIGEST_ALGORITHM",
-           "LABEL_CONFIG_DIGEST", "UNAVAILABLE", "claude_config_dir",
-           "config_digest", "installer_targets", "parse_symlink_targets",
-           "parse_tag_value", "unavailable_tag_value"]
+           "FIELD_ORDER", "LABEL_CONFIG_DIGEST", "UNAVAILABLE",
+           "claude_config_dir", "config_digest", "installer_targets",
+           "parse_symlink_targets", "parse_tag_value", "unavailable_tag_value"]
 
 DIGEST_ALGORITHM = "sha256"
 LABEL_CONFIG_DIGEST = "Journal-Config-Digest"
+
+#: The tag's list-valued fields, in the order they are composed and rendered.
+#: DECLARED ONCE AND IMPORTED BY THE READER, because the writer and the operator
+#: tool spelled these three names independently: `ConfigDigest.tag_value` built
+#: them into an f-string and `compare_run_config._render` iterated its own
+#: literal tuple. `parse_tag_value` is generic over `key=value`, so nothing
+#: related the two — a fourth field added to the tag would simply never appear in
+#: the only tool an operator reads it with, and no test would say so. That is a
+#: silent loss of a fact the tag went to some trouble to record.
+FIELD_ORDER = ("targets", "absent", "unreadable")
 
 #: What a field with nothing to say records. The bag's contract is that a value
 #: is written once and never edited, and that a field with nothing to say says so
@@ -101,12 +111,38 @@ UNAVAILABLE = "unavailable"
 #: differently, so a one-character slip would produce plausible wrong output.
 EMPTY = "none"
 
-# `SYMLINK_TARGETS=(` … `)` in install.sh. The `^` anchors here are LINE anchors
-# under `re.MULTILINE` and are declared as such in `test_journal_regex_anchors.py`:
-# they exist so a mention of the name inside a comment or a
+# `SYMLINK_TARGETS=(` … `)` in install.sh. The `^` anchor here is a LINE anchor
+# under `re.MULTILINE` and is declared as such in `test_journal_regex_anchors.py`:
+# it exists so a mention of the name inside a comment or a
 # `"${SYMLINK_TARGETS[@]}"` expansion cannot be mistaken for the declaration, and
 # `\A` would defeat that by anchoring to the start of the whole file instead.
-_ARRAY_RE = re.compile(r"^SYMLINK_TARGETS=\((.*?)^\)", re.MULTILINE | re.DOTALL)
+#
+# ⚠ THE CLOSING PAREN IS NOT LINE-ANCHORED, AND ANCHORING IT REFUSED A LEGAL
+# INSTALLER. This pattern used to end at `^\)`, which requires the array to span
+# several physical lines with the paren first on a line of its own. So
+# `SYMLINK_TARGETS=(agents rules)` — the one-line form quoted immediately below as
+# the very thing the bare-word branch exists to support — matched NOTHING, and the
+# whole component degraded to `unavailable` against an installer declaring its set
+# in plain view. `[^)]*` ends at the first `)` instead, which admits the inline
+# form, the indented-paren form and the original multi-line form alike. A `)`
+# inside an entry would truncate the body, but `)` is outside `_SEGMENT_RE`'s
+# allowlist, so such an entry is refused BY NAME below rather than dropped quietly.
+_ARRAY_RE = re.compile(r"^SYMLINK_TARGETS=\(([^)]*)\)", re.MULTILINE)
+
+# `SYMLINK_TARGETS+=(` … `)`, which this module REFUSES rather than reads.
+#
+# ⚠ IT USED TO BE INVISIBLE, AND THAT IS THE ONE FAILURE THIS COMPONENT MAY NOT
+# HAVE. `_ARRAY_RE` matches `SYMLINK_TARGETS=(`; an append block begins
+# `SYMLINK_TARGETS+=(`, so a platform-conditional continuation was not matched, not
+# reported and not included. The parse returned the FIRST block's entries alone and
+# the digest was then computed — confidently — over a population missing everything
+# the installer appended, with nothing going red: no exception, no `unavailable`,
+# no hole recorded in the tag. That is exactly the confidently-wrong answer the
+# read-never-copy design exists to rule out, reached from the other direction.
+# REFUSED rather than concatenated: supporting `+=` would GENERALISE the grammar
+# this module reads, and "the population could not be established" is a fact it
+# already knows how to record truthfully.
+_APPEND_RE = re.compile(r"^SYMLINK_TARGETS\+=\(", re.MULTILINE)
 
 # One array entry: double-quoted, single-quoted, or a BARE WORD.
 #
@@ -183,10 +219,12 @@ class ConfigDigest:
         rather than escapes, and the guarantee is upstream where it can be
         checked once.
         """
-        return (f"{DIGEST_ALGORITHM}:{self.digest}"
-                f" targets={_join(self.targets)}"
-                f" absent={_join(self.absent)}"
-                f" unreadable={_join(self.unreadable)}")
+        fields = {"targets": self.targets, "absent": self.absent,
+                  "unreadable": self.unreadable}
+        # Composed from FIELD_ORDER rather than from a second literal spelling,
+        # so the reader's render and this line cannot drift apart silently.
+        return " ".join([f"{DIGEST_ALGORITHM}:{self.digest}"]
+                        + [f"{key}={_join(fields[key])}" for key in FIELD_ORDER])
 
 
 def _join(items: tuple[str, ...]) -> str:
@@ -259,6 +297,13 @@ def parse_symlink_targets(text: str) -> list[str]:
     with no installer on disk, and so the sweep that proves this module holds no
     copied list has one function to point at.
     """
+    if _APPEND_RE.search(text):
+        raise ConfigDigestError(
+            "install.sh appends to SYMLINK_TARGETS with `+=`, and this module "
+            "reads the single `SYMLINK_TARGETS=( … )` declaration only. Reading "
+            "the first block alone would digest a population missing every "
+            "appended entry with nothing going red, so the population is "
+            "recorded as unestablishable rather than guessed at.")
     match = _ARRAY_RE.search(text)
     if match is None:
         raise ConfigDigestError(
@@ -382,6 +427,22 @@ def _file_status(entry: Path) -> str | None:
     by kind so the digest still changes, but the run did not fail to read
     anything, so it does not set `unreadable=`. Same reasoning as `symlinked-dir`
     beside it.
+
+    ⚠ NAMED RESIDUAL RISK — THIS CHECK IS TOCTOU AND IS NOT CLOSED. The caller
+    stats the path here and then `sha256_of` REOPENS IT BY NAME moments later. An
+    entry replaced by a FIFO in that window is opened with a plain `open()` and
+    the dispatch parks forever, which is the same consequence the check above
+    exists to prevent, reached through the gap between the check and the act
+    rather than through the missing check. It is named rather than closed
+    because both structural remedies cost more than the risk: opening the file
+    here with `O_NONBLOCK` and hashing from the descriptor would put a SECOND
+    chunked sha256 in this package, which the import comment at the top of this
+    file refuses by name, and changing `bag.sha256_of`'s open semantics would
+    alter a contract two other components (`bag.manifest`, `validate`) depend on
+    for a race that needs write access to `~/.claude/` mid-walk. A single-user
+    config tree being rewritten underneath its own dispatch is a different
+    problem from the one this module solves. Stated here so the next reader
+    inherits a known gap rather than an assumed guarantee.
     """
     try:
         mode = entry.lstat().st_mode

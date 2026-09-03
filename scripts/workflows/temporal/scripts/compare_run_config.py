@@ -52,7 +52,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from modules.journal.bag import BAG_INFO_FILE, BagError, read_tag_file  # noqa: E402
 from modules.journal.config_digest import (  # noqa: E402
-    DIGEST_ALGORITHM, LABEL_CONFIG_DIGEST, parse_tag_value)
+    DIGEST_ALGORITHM, FIELD_ORDER, LABEL_CONFIG_DIGEST, parse_tag_value)
 
 USAGE = "usage: compare_run_config.py <bag-a> <bag-b>"
 
@@ -132,7 +132,7 @@ def _read_digest(bag_dir: Path) -> BagDigest:
 
 def _render(bag: BagDigest) -> list[str]:
     lines = [f"  {bag.path}: {DIGEST_ALGORITHM}:{bag.digest}"]
-    for key in ("targets", "absent", "unreadable"):
+    for key in FIELD_ORDER:
         if key in bag.fields:
             lines.append(f"      {key}: {', '.join(bag.fields[key]) or 'none'}")
     return lines

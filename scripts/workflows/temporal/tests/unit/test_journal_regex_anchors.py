@@ -79,15 +79,33 @@ sys.path.insert(0, str(REPO_ROOT / "scripts" / "workflows" / "temporal"))
 # reader can check — which is the point of declaring rather than skipping.
 _DECLARED: dict[str, str] = {
     # `config_digest._ARRAY_RE`, which finds the `SYMLINK_TARGETS=( … )` block
-    # inside `install.sh`. Both `^` are LINE anchors under `re.MULTILINE` and
-    # `\A`/`\Z` would defeat the pattern outright: the array is in the middle of
-    # a 358-line file, so anchoring to the start of the STRING matches nothing.
+    # inside `install.sh`. The single `^` is a LINE anchor under `re.MULTILINE`
+    # and `\A`/`\Z` would defeat the pattern outright: the array is in the middle
+    # of a 358-line file, so anchoring to the start of the STRING matches nothing.
     # The line anchoring is the property — it is what stops a mention of the name
     # in a comment or in a `"${SYMLINK_TARGETS[@]}"` expansion being read as the
     # declaration. Nothing here validates untrusted input; the entries the block
     # yields are validated separately by `_SEGMENT_RE`, which does use `\A`/`\Z`.
-    r"^SYMLINK_TARGETS=\((.*?)^\)":
-        "line anchors under re.MULTILINE — locates a block inside a file, and "
+    #
+    # ⚠ THIS ROW ONCE SAID "BOTH `^`", AND THE SECOND ONE WAS A DEFECT. The
+    # closing paren used to be anchored too (`^\)`), which silently required the
+    # array to span several lines with the paren first on its own — so the
+    # one-line `SYMLINK_TARGETS=(agents rules)` matched nothing and the digest
+    # went dark against a perfectly legal installer. The close is now `[^)]*\)`,
+    # unanchored, and only the NAME is line-anchored. A row here is a claim a
+    # reader can check, so it is corrected rather than left describing the
+    # pattern it used to key.
+    r"^SYMLINK_TARGETS=\(([^)]*)\)":
+        "line anchor under re.MULTILINE — locates a block inside a file, and "
+        "does not validate anything",
+
+    # `config_digest._APPEND_RE`, which DETECTS `SYMLINK_TARGETS+=( … )` so the
+    # parse can refuse it by name. Same line anchor for the same reason and with
+    # the same non-role: it validates nothing and decides nothing about a value —
+    # it answers only "does this installer append to the array somewhere", and an
+    # append reached through a `"${SYMLINK_TARGETS[@]}"` mention is not one.
+    r"^SYMLINK_TARGETS\+=\(":
+        "line anchor under re.MULTILINE — detects a block inside a file, and "
         "does not validate anything",
 }
 

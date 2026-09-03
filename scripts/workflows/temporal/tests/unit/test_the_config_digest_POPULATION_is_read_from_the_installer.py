@@ -751,7 +751,23 @@ def test_an_UNQUOTED_bash_array_is_READ_rather_than_called_EMPTY() -> None:
     EMPTY array"* — false when it declares two, and the message's own reasoning
     ("the installer could not be read for its set") does not apply to a set
     sitting in plain view. A truly empty array still says so.
+
+    ⚠ THIS DOCSTRING NAMED A FORM THE TEST DID NOT DRIVE, AND THE FORM DID NOT
+    WORK. It quoted the ONE-LINE `SYMLINK_TARGETS=(agents rules)` while every
+    assertion below used the multi-line shape, so the bare-word fix was verified
+    and the form the prose promised was not: `_ARRAY_RE` demanded a line-anchored
+    closing paren, and the one-liner matched no array at all. Both halves are
+    driven here now, because a bare word only helps if the block containing it
+    parses.
     """
+    # The one-line form this docstring has always named, now actually driven.
+    assert parse_symlink_targets(
+        "SYMLINK_TARGETS=(agents rules)\n") == ["agents", "rules"]
+    assert parse_symlink_targets(
+        'SYMLINK_TARGETS=("agents" "rules")\n') == ["agents", "rules"]
+    # The closing paren need not start its line either.
+    assert parse_symlink_targets(
+        'SYMLINK_TARGETS=(\n    "agents"\n    )\n') == ["agents"]
     assert parse_symlink_targets(
         'SYMLINK_TARGETS=(\n    agents\n    rules\n)\n') == ["agents", "rules"]
     assert parse_symlink_targets(
@@ -762,6 +778,39 @@ def test_an_UNQUOTED_bash_array_is_READ_rather_than_called_EMPTY() -> None:
     # the message names it instead of claiming the array is empty.
     with pytest.raises(ConfigDigestError, match="single path segment"):
         parse_symlink_targets('SYMLINK_TARGETS=(\n    "${OTHER[@]}"\n)\n')
+
+
+def test_an_APPENDED_target_block_is_REFUSED_rather_than_silently_DROPPED() -> None:
+    """`SYMLINK_TARGETS+=( … )` was invisible, so the digest answered anyway.
+
+    `_ARRAY_RE` matches `SYMLINK_TARGETS=(`; an append block begins
+    `SYMLINK_TARGETS+=(`. A platform-conditional continuation was therefore not
+    matched, not reported and not included — the parse returned the first block's
+    entries alone and a digest was computed over a population missing every
+    appended one. Verified before the fix: this exact source returned
+    `['agents']`, with no exception, no `unavailable`, and no hole in the tag.
+
+    That silence is the whole defect. Every other way this parse can fail is
+    RECORDED — `unavailable reason=<slug>` — and a reader is told. This one
+    produced a confidently wrong answer, which is the single outcome the
+    read-never-copy design exists to rule out. Refused, not concatenated:
+    supporting `+=` generalises the grammar, while "the population could not be
+    established" is a fact this module already records truthfully.
+    """
+    appended = ('SYMLINK_TARGETS=(\n    "agents"\n)\n'
+                'SYMLINK_TARGETS+=(\n    "rules"\n)\n')
+    with pytest.raises(ConfigDigestError, match=r"appends to SYMLINK_TARGETS"):
+        parse_symlink_targets(appended)
+    # The refusal is on the APPEND, not on some incidental property of the text:
+    # the identical source with the second block declared rather than appended
+    # parses, and carries both entries.
+    assert parse_symlink_targets(
+        appended.replace("SYMLINK_TARGETS+=(\n    \"rules\"\n)\n", "")
+    ) == ["agents"]
+    # An append with no base declaration is refused by the same, precise message
+    # rather than by the vaguer "declares no SYMLINK_TARGETS array".
+    with pytest.raises(ConfigDigestError, match=r"appends to SYMLINK_TARGETS"):
+        parse_symlink_targets('SYMLINK_TARGETS+=(\n    "rules"\n)\n')
 
 
 def test_a_value_named_none_is_REFUSED_because_it_does_not_ROUND_TRIP() -> None:
