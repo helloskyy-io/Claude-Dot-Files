@@ -288,6 +288,34 @@ def test_a_missing_bag_info_is_STRUCTURAL(root: Path) -> None:
     assert any(BAG_INFO_FILE in item for item in report.structural)
 
 
+@pytest.mark.parametrize("victim", [BAGIT_FILE, BAG_INFO_FILE, MANIFEST_FILE])
+def test_a_NON_UTF8_tag_file_is_STRUCTURAL_and_never_an_exception(
+        root: Path, victim: str) -> None:
+    """⚠ THIS FUNCTION'S WHOLE CONTRACT IS THAT IT RETURNS A REPORT.
+
+    Its docstring says a programmatic sweep over a thousand bags wants a report
+    per bag rather than an exception on the first bad one — and three
+    `read_text(encoding="utf-8")` calls ran inside a block whose only handler was
+    `except OSError`. `UnicodeDecodeError` is a `ValueError`, so one bad byte in
+    any of the three raised straight out of `validate_bag`, past `main`, and
+    CPython exits **1** on an unhandled exception: the code this tool documents
+    as *a bag's bytes did not match its manifest*. A corrupt tag file was
+    indistinguishable from a real integrity failure.
+
+    Driven per file rather than once, because the three reads sit at different
+    depths inside that block and an inner `except BagError` covers one of them.
+    """
+    bag = _bag(root, f"badbytes{victim.split('.')[0]}", sealed=True,
+               redacted=False, incomplete=False)
+    (bag.path / victim).write_bytes(b"Journal-Workflow: \xff\xfe not utf-8\n")
+
+    report = validate_bag(bag.path)          # must not raise
+    assert not report.ok
+    assert report.structural, (
+        f"a non-UTF-8 {victim} produced a report with no structural finding — "
+        f"the operator is told nothing about why the bag could not be read")
+
+
 # --- the rendered report ---------------------------------------------------------
 
 def test_the_rendered_report_states_PASS_or_FAIL_and_never_only_a_state(root: Path) -> None:

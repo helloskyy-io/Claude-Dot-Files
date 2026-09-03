@@ -121,6 +121,13 @@ _ARRAY_RE = re.compile(r"^SYMLINK_TARGETS=\((.*?)^\)", re.MULTILINE | re.DOTALL)
 # from the bare alternative so the array's own delimiters cannot become entries.
 _ENTRY_RE = re.compile(r'"([^"\n]+)"|\'([^\'\n]+)\'|([^\s"\'()]+)')
 
+# Anything bash would expand before the installer ever sees it as a name. A
+# STATIC READ CANNOT RESOLVE THESE, and pretending otherwise would put a
+# literal `$EXTRA` in the population. Refused with its own message rather
+# than through the segment gate below, because the two facts have different
+# remedies: one is a typo, the other is an installer this module cannot read.
+_EXPANDS_RE = re.compile(r"[$`\\*?\[\]{}~!]")
+
 # A target name is one path segment. The installer joins it onto `$CLAUDE_DIR`,
 # so anything that escapes a segment would make the digest walk a tree the
 # installer never links.
@@ -142,6 +149,12 @@ _ENTRY_RE = re.compile(r'"([^"\n]+)"|\'([^\'\n]+)\'|([^\s"\'()]+)')
 # as the empty one. Both live here because this is the one gate every value
 # composed into the tag passes through.
 #
+# `EMPTY` IS INTERPOLATED RATHER THAN RESPELLED. Two literals kept in agreement
+# by a test is a test standing between two spellings; the f-string makes the
+# drift impossible instead of detected. The anchors stay in the pattern's
+# CONSTANT segments, which is what `test_journal_regex_anchors._literal_parts`
+# reads — an expression that sweep cannot read is a finding there, not a skip.
+#
 # ⚠ `\A`/`\Z`, NEVER `^`/`$`, AND THIS ONE WAS A LIVE DEFECT RATHER THAN A
 # STYLE POINT. `$` also matches BEFORE a trailing newline, so the anchored-
 # looking `^…$` form accepted `"no-installer\n"` — and this same pattern gates
@@ -149,7 +162,8 @@ _ENTRY_RE = re.compile(r'"([^"\n]+)"|\'([^\'\n]+)\'|([^\s"\'()]+)')
 # `bag-info.txt` line. A reason ending in a newline would therefore have forged
 # a second tag, which is exactly the lifecycle-flag forgery `bag._refuse_folded_value`
 # exists to stop. Caught by `test_journal_regex_anchors.py`.
-_SEGMENT_RE = re.compile(r"\A(?!\.\.?\Z)(?!none\Z)[A-Za-z0-9.][A-Za-z0-9._-]*\Z")
+_SEGMENT_RE = re.compile(
+    rf"\A(?!\.\.?\Z)(?!{re.escape(EMPTY)}\Z)[A-Za-z0-9.][A-Za-z0-9._-]*\Z")
 
 
 class ConfigDigestError(RuntimeError):
@@ -310,6 +324,22 @@ def parse_symlink_targets(text: str) -> list[str]:
                 f"it records, so a target of that name would be read back by "
                 f"`parse_tag_value` as a population of zero targets rather than "
                 f"of one.")
+        if _EXPANDS_RE.search(entry):
+            # ⚠ AN ARRAY BASH COMPUTES AT RUNTIME CANNOT BE READ STATICALLY, AND
+            # SAYING THAT IS A DIFFERENT FACT FROM "THIS IS NOT A PATH SEGMENT".
+            # `SYMLINK_TARGETS=( $EXTRA )` is legal bash; the bare-word
+            # alternative above extracts `$EXTRA` verbatim, which is not what the
+            # installer links. Refusing the whole array is correct — the
+            # population is READ and never guessed — but the segment message sent
+            # the reader looking for a slash. The suite's independent bash-oracle
+            # check catches this if it ever reaches the real installer; this is
+            # what an operator sees if it does not.
+            raise ConfigDigestError(
+                f"SYMLINK_TARGETS entry is computed by the shell rather than "
+                f"literal: {entry!r}. The population is read from the "
+                f"installer's source and never expanded, so an array whose "
+                f"contents depend on the environment is recorded as unavailable "
+                f"rather than digested against a value this parser guessed at.")
         if not _SEGMENT_RE.match(entry):
             raise ConfigDigestError(
                 f"SYMLINK_TARGETS entry is not a single path segment: {entry!r}. "

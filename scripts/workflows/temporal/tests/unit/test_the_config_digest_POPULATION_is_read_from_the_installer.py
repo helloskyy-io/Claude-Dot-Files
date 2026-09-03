@@ -943,3 +943,39 @@ def test_an_UNLOCATABLE_HOME_is_recorded_rather_than_refusing_the_run(
     monkeypatch.setattr(Path, "home", staticmethod(_no_home))
     with pytest.raises(ConfigDigestError, match="could not be located"):
         claude_config_dir({})
+
+
+def test_the_UNMOCKED_home_fallback_lands_under_dot_claude(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """⚠ THE ONE BRANCH EVERY OTHER TEST MOCKS PAST.
+
+    Two tests drive `Path.home()` — one deletes both variables and makes it
+    RAISE, one supplies `HOME` so it is never called. Nothing exercised the
+    success path, so `return Path.home()` with the `/ ".claude"` dropped, or
+    `Path.cwd()` substituted for `Path.home()`, passed the whole file. That is
+    the same untested-fallback shape the error-path block above exists to close,
+    one line further down the same function.
+    """
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    monkeypatch.delenv("HOME", raising=False)
+    assert claude_config_dir({}) == Path.home() / ".claude"
+    assert claude_config_dir({}).name == ".claude"
+
+
+def test_an_array_the_SHELL_COMPUTES_is_refused_by_its_own_name() -> None:
+    """`SYMLINK_TARGETS=( $EXTRA "agents" )` is legal bash and unreadable here.
+
+    The bare-word alternative extracts `$EXTRA` verbatim, which is not what the
+    installer links — so refusing the whole array is right, and the population
+    is recorded as unavailable rather than guessed. What the diagnostic must not
+    do is call it "not a single path segment", which sends the reader looking
+    for a slash that is not there.
+    """
+    for computed in ("$EXTRA", "${EXTRA}", "*.md", "~/elsewhere", "a`id`b"):
+        with pytest.raises(ConfigDigestError, match="computed by the shell"):
+            parse_symlink_targets(
+                f'SYMLINK_TARGETS=(\n    {computed}\n    "agents"\n)\n')
+    # And the two messages stay distinct: a real segment escape is still a
+    # segment escape, not a shell expansion.
+    with pytest.raises(ConfigDigestError, match="single path segment"):
+        parse_symlink_targets('SYMLINK_TARGETS=(\n    "a/b"\n)\n')
