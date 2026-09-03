@@ -18,7 +18,7 @@ party and each misleads differently. The prompt tells a MODEL its output has no
 cold reader, which changes what it writes. The banner tells an OPERATOR there is
 no next step to run. And the docstring says *"do not read any reference to it as a
 dependency"* — a maintainer acting on that would refactor away a live call from
-`plan_project._plan_one`. A false statement in the block a reader trusts stops
+`plan._refine_size_and_dispose`. A false statement in the block a reader trusts stops
 them checking, which is exactly the property that makes it expensive.
 
 WHAT IT KEYS ON. A workflow NAME in backticks, adjacent to a phrase asserting

@@ -22,7 +22,8 @@ because it stops them checking.
 
 WHAT THIS KEYS ON, AND WHY IT IS NOT `"raises" in docstring`. A naive sweep for
 the word fires on seven functions in this tree, every one of them correct:
-`_plan_one` says *"Raises what either child raises"* (it propagates), `repo_slug`
+`_is_unresearched` says *"raises `UnicodeDecodeError` out of the loop"* (it
+propagates), `repo_slug`
 says *"Raises through `gh` on failure"* (its callee does), `_redact` discusses
 `TypeError` in prose. All seven document a real outcome. Keying on the word would
 have made this module noise, and noise is how a check stops being read.

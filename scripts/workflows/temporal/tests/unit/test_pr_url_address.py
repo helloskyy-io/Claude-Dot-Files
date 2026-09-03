@@ -510,7 +510,7 @@ def _declared_completion_patterns() -> dict[str, str]:
 # reason. `plan-revision` has two terminal outcomes — a plan PR, or a STOP that
 # files an issue and prints its URL as the final line — and `stages_1_to_5.md`
 # makes the issue URL the STOP's completion signal in those words. Its workflow
-# already resolves the two by POSITION (`_completion_url`), so the wider ERE is
+# already resolves the two by POSITION (`completion_url`), so the wider ERE is
 # matched by a wider consumer rather than by a gate nobody widened.
 # NO LITERALS REMAIN. Both completion EREs now live in `routing.py` beside the
 # parser they must agree with: `PR_URL_COMPLETION_ERE` for the eight PR-only

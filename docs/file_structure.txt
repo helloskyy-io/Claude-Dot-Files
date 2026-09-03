@@ -967,6 +967,14 @@ claude-dot-files/
 │   │       │                                        #   prompt still describing a contract the code replaced. The largest
 │   │       │                                        #   finding class measured — 33 across 12 PRs. PR #105 changed what
 │   │       │                                        #   research-minor IS and left four surfaces stating the old one
+│   │       ├── test_prose_NAMES_a_symbol_that_RESOLVES.py # A backticked `_name` in a comment or
+│   │       │                                        #   docstring must be a name the tree BINDS. A removal note in the journal anchor
+│   │       │                                        #   guard credited a `_MUTATION_RE` that never shipped — the design that had already
+│   │       │                                        #   LOST — and the class sweep found eight more in eight files. Resolves against
+│   │       │                                        #   bindings only, never loads, so a ghost cannot borrow an unrelated local's
+│   │       │                                        #   spelling. Sees UNCOMMITTED files, because a guard blind to the edit under review
+│   │       │                                        #   is green exactly when it matters. testing/config-hooks/ is out of scope and one
+│   │       │                                        #   live instance sits there, named in the docstring rather than declared away
 │   │       └── test_retired_vocabulary_is_gone_from_live_surfaces.py # The retired Kind 1/2/3 labels survive only
 │   │                                                #   where they are a RECORD. Reads every
 │   │                                                #   tracked file as WHITESPACE-NORMALISED text — a different instrument than the

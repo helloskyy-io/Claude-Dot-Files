@@ -580,8 +580,9 @@ def test_EVERY_reason_the_backstop_can_PRODUCE_is_one_the_tag_can_CARRY() -> Non
     CLOSED. `_config_digest_value` ends its handler with
     `unavailable_tag_value(_digest_failure_reason(exc))`, and that call is NOT
     itself inside a `try`. `unavailable_tag_value` validates its argument against
-    `_SEGMENT_RE` and `_refuse_reserved`, so a reason carrying a space, a
-    newline, or the reserved word `none` raises `ConfigDigestError` from inside
+    `_SEGMENT_RE`, whose negative lookaheads refuse the reserved words as
+    well as the shape, so a reason carrying a space, a newline, or the reserved
+    word `none` raises `ConfigDigestError` from inside
     the very handler whose contract is that a digest failure NEVER stops a run.
     That raise escapes `_config_digest_value`, escapes `open_run_bag`, and aborts
     the dispatch before a bag exists — the exact abort-with-no-record shape the

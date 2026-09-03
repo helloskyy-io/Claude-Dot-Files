@@ -105,10 +105,37 @@ _DECLARED: dict[str, str] = {
     # array somewhere"*; the `^` made it answer *"…at the start of a line"*, so
     # an append indented inside a conditional — the case the pattern existed for
     # — went unmatched and the digest was computed over an incomplete
-    # population. The pattern is gone: `_MUTATION_RE` counts mutations of the
-    # array in any spelling and needs no anchor at all, so there is nothing left
-    # here to declare. A row removed with its pattern, rather than left
-    # describing code that no longer exists.
+    # population.
+    #
+    # WHAT REPLACED IT IS `_NAME_RE`, AND NAMING THE REPLACEMENT ACCURATELY IS
+    # THE WHOLE VALUE OF REMOVING A ROW. `_NAME_RE` counts every USE of the name
+    # `SYMLINK_TARGETS` that is not a `$`/`${` expansion, and it carries no
+    # `^`/`$` ANCHOR — the `$` inside its lookbehind is a class member matching a
+    # literal dollar, which is why `_anchor_positions` below does not report it —
+    # so there is nothing left here to declare.
+    #
+    # ⚠ IT IS NOT KEYED ON MUTATION SHAPE, AND THIS ROW USED TO SAY IT WAS. The
+    # note here named a `_MUTATION_RE` that counts *"mutations of the array in
+    # any spelling"*. No such pattern exists in this package or anywhere in the
+    # tree: counting `=(`-shaped mutations was the SECOND failed attempt and was
+    # never pushed, because `SYMLINK_TARGETS[1]=`, `read -a`, `mapfile` and
+    # `unset` all mutate the array without one. A reader re-deriving the design
+    # from a row here would have re-implemented the approach that had already
+    # lost twice — which is the cost of a removal note naming code that never
+    # shipped, in the file whose own docstring calls a published-and-false
+    # closure worse than an open one.
+    #
+    # AND THIS IS A ROW REMOVED, NOT A CLOSURE DECLARED — the package still
+    # bounds a match by what precedes it. `config_digest._COMMENT_RE` opens on a
+    # `#` whose preceding character is whitespace OR absent, spelled
+    # `(?<![^\s])`. That is a TOKEN boundary and deliberately NOT a line anchor:
+    # it fires on the trailing `foo   # …` as well as on a comment at column
+    # zero, which `^` under `re.MULTILINE` would not, and that module's own
+    # comment says it is spelled this way precisely to avoid `^`'s second
+    # meaning. It is correctly absent from `_DECLARED` because this sweep's
+    # scope is the `^`/`$` CHARACTERS and a lookbehind is neither, carrying none
+    # of `$`'s trailing-newline hazard — absent for that reason, not because
+    # nothing in the package bounds a match any more.
 }
 
 # The module-level functions this package may use to run an UNCOMPILED pattern.
