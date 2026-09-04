@@ -758,7 +758,7 @@ This skill is foundational for workflows that create documentation:
 - May update phase docs to reflect reality
 - This skill activates for those doc operations
 
-### `build-phase.sh` (feature build)
+### build.sh --phase (feature build)
 - Updates phase docs as work progresses
 - May SURFACE standards candidates during the build; never write one
 - May create guide docs for new features

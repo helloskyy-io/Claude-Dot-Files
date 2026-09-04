@@ -332,12 +332,12 @@ Writing a standard for a decision made without documentation. The real context i
 - Minor builds don't usually need standards
 - If a build surfaces a decision, pause and decide whether it needs a standard
 
-### build.sh (via children/build-draft.sh)
+### build.sh (via build_draft.sh)
 - Major builds often involve architectural re-thinking
 - This skill activates to analyze the proposed changes
 - New standards may be written as part of the build
 
-### build-phase.sh
+### build.sh --phase
 - Phases sometimes encounter decisions not anticipated in planning
 - This skill activates for those decisions
 - Build-phase should pause and write the standard, not plow through

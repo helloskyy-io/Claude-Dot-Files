@@ -94,7 +94,7 @@ def test_both_trees_are_where_this_module_looks() -> None:
     quietly green.
     """
     assert PROMPTS, f"no prompt files found under {PROMPT_ROOT}"
-    assert (FROZEN_DIR / "build.sh").is_file(), (
+    assert (FROZEN_DIR / "plan-new.sh").is_file(), (
         f"{FROZEN_DIR} no longer holds the frozen fleet. If the operator has "
         f"deleted it, delete this module too — a check with no population is not "
         f"a passing test, it is an absent one."
@@ -129,14 +129,14 @@ def test_the_RESOLUTION_PREDICATE_discriminates() -> None:
     what distinguishes the two.
     """
     fires = sorted({m for m in _SCRIPT.findall(
-        "Re-dispatch with build-minor.sh --pr 1 or plan-revision.sh."
+        "Re-dispatch with plan-new.sh or review-sprint.sh."
     ) if m in FROZEN_ONLY})
-    assert fires == ["build-minor.sh", "plan-revision.sh"], (
+    assert fires == ["plan-new.sh", "review-sprint.sh"], (
         f"the predicate no longer reports frozen-only referents (saw {fires}); "
         f"FROZEN_ONLY is {sorted(FROZEN_ONLY)}"
     )
     quiet = sorted({m for m in _SCRIPT.findall(
-        "Re-dispatch with build.sh --pr 1, research.sh, or testing/run-all.sh."
+        "Re-dispatch with build.sh --pr 1, research.sh, or testing/run-all.sh."  # noqa: E501 — all three resolve outside FROZEN_ONLY
     ) if m in FROZEN_ONLY})
     assert quiet == [], (
         f"the predicate now reports {quiet}, which resolve under the PYTHON shim "

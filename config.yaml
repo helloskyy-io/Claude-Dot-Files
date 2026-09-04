@@ -75,7 +75,7 @@ gh-monitor:
 #     watch-criteria). Upgrading a pin is a one-line commit.
 #
 # A/B override for a single dispatch (no config change):
-#   MODEL_OVERRIDE=fable ./scripts/workflows/build-phase.sh <args>
+#   MODEL_OVERRIDE=fable ./scripts/workflows/temporal/scripts/build.sh --phase <plan> <args>
 #
 # Changes take effect on the NEXT dispatch — no restarts required.
 models:

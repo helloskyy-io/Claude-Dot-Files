@@ -579,7 +579,7 @@ This skill is specifically designed for `plan-new.sh`. It's heavy machinery — 
 
 ### Other workflows
 - This skill should NOT activate for other workflows
-- If you're in build.sh or build-phase.sh, you're in an existing project
+- If you're in build.sh or `build.sh --phase`, you're in an existing project
 - Use planning-methodology or architecture-decisions instead
 
 ## Quick Decision Guide

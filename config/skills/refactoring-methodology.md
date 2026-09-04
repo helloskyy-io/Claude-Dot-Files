@@ -236,7 +236,7 @@ How to tell if a refactor was worth it:
 - Accept, reject, or defer each suggestion based on the criteria above
 - Focus on refactors that make the major build's goals achievable
 
-### build-phase.sh
+### build.sh --phase
 - Refactoring is sometimes needed before a feature can be built
 - If so, make it a separate task in the plan — don't mix refactoring with feature work in the same commit
 

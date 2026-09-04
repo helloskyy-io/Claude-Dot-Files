@@ -120,9 +120,10 @@ Watch for these common standards violations:
 
 ## Integration With Workflows
 
-This skill is loaded by the standards-auditor agent during review stages in:
-- **build.sh** — in its SECOND run (`children/build-refine.sh`), Stage 2a, alongside code review and refactoring evaluation. The standards audit deliberately runs in a context that did NOT write the code: an author who chose a pattern will defend it as the local convention, which is exactly the judgement this lens exists to make independently.
-- **build-phase.sh** — Stage 7 (STANDARDS), in the review pipeline
-- **build-minor.sh** — inline discovery reminder only (no dedicated standards stage)
+This skill is loaded by the `quality-control` and `standards-architect` agents during
+review stages in:
+- **build.sh** — in its SECOND run (`build_refine.sh`), Stage 2a, alongside code review. The standards audit deliberately runs in a context that did NOT write the code: an author who chose a pattern will defend it as the local convention, which is exactly the judgement this lens exists to make independently.
+- **`build.sh --phase`** — Stage 7 (STANDARDS), in the review pipeline
+- **build_minor.sh** — inline discovery reminder only (no dedicated standards stage)
 
-The standards-auditor focuses on **project-specific conformance** — not general code quality (code-reviewer) or structural improvement (code-reviewer's structure lens). Its unique value is connecting changes back to the project's documented standards and existing patterns.
+`quality-control` focuses on **project-specific conformance** — not general code quality or structural improvement, which are `code-reviewer`'s two lenses. Its unique value is connecting changes back to the project's documented standards and existing patterns.

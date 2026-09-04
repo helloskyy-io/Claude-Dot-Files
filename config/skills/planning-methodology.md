@@ -387,16 +387,16 @@ Don't solve all of these in v1 — but **acknowledge them** in the plan so the d
 
 ## Integration With Workflows
 
-### build-minor.sh (minor builds)
+### build_minor.sh (minor builds)
 - Usually doesn't need a plan — builds are small enough to just do
-- If a build needs planning, it belongs on `build.sh`, not `build-minor.sh`
+- If a build needs planning, it belongs on `build.sh`, not `build_minor.sh`
 
 ### build.sh (significant rework)
 - Its draft step uses this skill to plan the fix before implementing
 - Plan should assess what's broken, what needs to change, and in what order
 - The plan becomes part of the PR for reviewability
 
-### build-phase.sh (feature build)
+### build.sh --phase (feature build)
 - This is the primary consumer of planning methodology
 - The plan document IS the input to the workflow
 - Claude executes the plan task by task
