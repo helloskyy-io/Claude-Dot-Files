@@ -107,6 +107,21 @@ _DECLARED_TAG_VALUES = {
         "git, which resolves it inside an OBJECT DATABASE rather than on the "
         "filesystem, and it reaches no tag file; a line break in it makes git "
         "report an unknown object, which surfaces as a `missing` outcome.",
+    # ⚠ THIS ROW APPEARED WHEN A COMPOSITION WAS REFORMATTED, NOT WHEN A VALUE
+    # BECAME REACHABLE — and it is declared rather than reformatted back around,
+    # because hiding from the predicate by punctuation is not a guarantee. The
+    # value was ALWAYS interpolated after a colon here; the old spelling simply
+    # continued `" targets=…"` in the same f-string, so `values[3:]` was not
+    # whitespace-only and the sweep skipped it. Hoisting the field names into
+    # `config_digest.FIELD_ORDER` left the head as a bare `f"{ALGO}:{digest}"`,
+    # which is exactly the shape this sweep exists to see.
+    ("config_digest.py", "self.digest"):
+        "`ConfigDigest.digest` is the return of `hashlib.sha256(...).hexdigest()` "
+        "— 64 characters from `[0-9a-f]`, a set the language cannot spell a line "
+        "break with. It is composed into the head of the tag value, whose tail "
+        "is built from `FIELD_ORDER` over fields each already proven by "
+        "`_SEGMENT_RE` (`\\A`/`\\Z`-anchored, so a trailing newline is refused). "
+        "`open_bag`'s `_refuse_folded_value` is the backstop underneath both.",
     ("verify.py", "outcome"):
         "render_report writes to STDOUT, not to `bag-info.txt`. `outcome` is "
         "one of the four module constants in `OUTCOMES`, assigned by this "

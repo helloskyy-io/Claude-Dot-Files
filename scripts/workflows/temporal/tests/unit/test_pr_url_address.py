@@ -158,6 +158,23 @@ def test_every_consumer_of_the_pr_url_address_holds_the_OWNING_object() -> None:
 # listed one goes away — a list that only grows is a gate that widens itself.
 DECLARED_SPLITS = {
     ("resource_telemetry.py", "_read_anon"),         # a /proc line, not a URL
+    # ⚠ `parse_symlink_targets` WAS DECLARED HERE AND IS NOT ANY MORE, and the
+    # removal came through this gate rather than around it. It split the bash
+    # array body on "#" to drop trailing comments, which diverged from bash: a
+    # `#` with no whitespace before it is not a comment to the shell, so a legal
+    # entry containing one was silently truncated and the digest computed over a
+    # target the installer does not link. Comments are now stripped from the
+    # whole installer source by a pattern, before anything reads it, and the
+    # function splits nothing. The row is deleted with the split rather than left
+    # describing code that no longer exists — this set is asserted exactly, so
+    # the deletion is what turned this test red and made the edit deliberate.
+    # `parse_tag_value` partitions a `bag-info.txt` tag VALUE this same module
+    # composed — `sha256:<hex> targets=… absent=… unreadable=…`. The separators
+    # are `" "` and `"="`, chosen because every field is a hex digest or a path
+    # segment that cannot contain either. A malformed value yields `digest=None`,
+    # which the reader reports as UNKNOWN rather than as a comparison — so the
+    # failure mode is an honest refusal, never a plausible-but-different address.
+    ("config_digest.py", "parse_tag_value"),
     # A LITERAL WRITTEN IN THIS FILE, split at import to make a stop-word set —
     # the safest member of this census by a distance, since its input cannot
     # come from anywhere. Declared anyway rather than exempted: the gate is an
@@ -493,7 +510,7 @@ def _declared_completion_patterns() -> dict[str, str]:
 # reason. `plan-revision` has two terminal outcomes — a plan PR, or a STOP that
 # files an issue and prints its URL as the final line — and `stages_1_to_5.md`
 # makes the issue URL the STOP's completion signal in those words. Its workflow
-# already resolves the two by POSITION (`_completion_url`), so the wider ERE is
+# already resolves the two by POSITION (`completion_url`), so the wider ERE is
 # matched by a wider consumer rather than by a gate nobody widened.
 # NO LITERALS REMAIN. Both completion EREs now live in `routing.py` beside the
 # parser they must agree with: `PR_URL_COMPLETION_ERE` for the eight PR-only

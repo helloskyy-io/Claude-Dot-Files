@@ -133,6 +133,13 @@ NON_STARTING_FILES = {
         "an operator tool that READS a finished bag and prints a report. It "
         "addresses the journal without being a run, and opening a bag to "
         "validate one would be the tool recording itself.",
+    "compare_run_config.py":
+        "the third of the operator tools, and the same shape as `validate_bag.py` "
+        "and `verify_citations.py` beside it. It READS the `Journal-Config-Digest` "
+        "tag of two finished bags and reports whether the two runs absorbed the "
+        "same configuration. It starts no run and opens no bag — a reader that "
+        "recorded itself would add a bag to the population it exists to compare, "
+        "and would make the answer depend on how often the question was asked.",
     "verify_citations.py":
         "the same shape as `validate_bag.py` beside it, asking the other "
         "question: it READS a finished bag's citations and re-checks them "

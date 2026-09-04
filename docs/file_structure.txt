@@ -239,12 +239,24 @@ claude-dot-files/
 │           │                                        #   ruled PER-RUN and the store lives under data/, so the bag's own manifest already
 │           │                                        #   covers the cited bytes — Phase 7 ships them with the bag by construction and
 │           │                                        #   Phase 5's reachability pass is a no-op
+│           │                                        #   WORKFLOW DECOMPOSITION PHASE 5 ADDS config_digest.py: one sha256 over the
+│           │                                        #   configuration a run absorbed, written as a SIXTH Journal- tag beside the five
+│           │                                        #   journal_activities.py already writes. Its population is READ from install.sh's
+│           │                                        #   SYMLINK_TARGETS at digest time and never copied — a copied list cannot see a
+│           │                                        #   target added to the installer, and two open candidates (C-idwrru3n, C-7ymfdw28)
+│           │                                        #   propose changing that set. The tag carries the population beside the hash so a
+│           │                                        #   reader can recompute it without this module; an unestablishable population is
+│           │                                        #   recorded as `unavailable reason=<slug>` and does NOT stop the run
 │           ├── scripts/                             # Kickoff entrypoints, until an SDK path replaces them — plus preflight.py,
-│           │                                        #   validate_bag.py, verify_citations.py, dispatch_identity.py and dispatch_context.py,
+│           │                                        #   validate_bag.py, verify_citations.py, compare_run_config.py, dispatch_identity.py
+│           │                                        #   and dispatch_context.py,
 │           │                                        #   which are NOT kickoffs: they are what a run checks before, what an operator checks
 │           │                                        #   after (validate_bag asks whether a bag's bytes match its manifest; verify_citations
-│           │                                        #   asks whether the claims in it still stand against the sources they were made from),
-│           │                                        #   who NAMES the run, and what the run DERIVED. All five live here because they are
+│           │                                        #   asks whether the claims in it still stand against the sources they were made from;
+│           │                                        #   compare_run_config asks whether two runs absorbed the same configuration, from the
+│           │                                        #   two bags alone — no network, no live read of ~/.claude, and no cadence: it is run
+│           │                                        #   ON DEMAND when two runs are suspected to disagree),
+│           │                                        #   who NAMES the run, and what the run DERIVED. All six live here because they are
 │           │                                        #   launch concerns rather than workflow concerns. None is named run_*.py, and that
 │           │                                        #   is load-bearing — the entrypoint sweeps glob that prefix, so a helper wearing it
 │           │                                        #   is swept as a runner and fails five guards at once (measured 2026-09-01)
@@ -341,6 +353,12 @@ claude-dot-files/
 │                   │                                #   `review-pr` SIZES a redispatch from, so a figure that drifts from
 │                   │                                #   config.yaml routes a fix to a tier that stalls. Prose checked against
 │                   │                                #   the table too — "five lenses" outlived the 2026-08-18 consolidation
+│                   ├── test_the_config_digest_POPULATION_is_read_from_the_installer.py # Workflow Decomposition Phase 5 r2 — the
+│                   │                                #   digest's population is READ from install.sh's SYMLINK_TARGETS, cross-checked
+│                   │                                #   against BASH's own reading of the same array, and the module is scanned to prove
+│                   │                                #   it holds no copy of the list. States plainly that the obvious version of this
+│                   │                                #   check cannot fail: the code reads the array, so comparing it against the array
+│                   │                                #   compares a value with itself. The guard that CAN go red is the source scan
 │                   ├── test_the_dispatch_tool_enum_can_NAME_A_FIX_for_every_review_type.py  # disposition.md is SHARED by all three
 │                   │                                #   ReviewTypes and its dispatch_tool enum named build and planning tools only, so a
 │                   │                                #   research reviewer reached a mandatory REDISPATCH exit with no legal value to emit
@@ -404,6 +422,12 @@ claude-dot-files/
 │                   ├── test_a_refused_bag_mutation_CHANGES_NOTHING.py # Every mutator in bag.py is classified, and every refusal it
 │                   │                                #   declares is driven and must leave the bag byte-identical. Three members shipped
 │                   │                                #   mutate-then-validate; a review named two and the tree held a third (open_bag)
+│                   ├── test_a_bag_RECORDS_what_configuration_the_run_absorbed.py # Workflow Decomposition Phase 5 r1/r3/r4 — the
+│                   │                                #   SIXTH Journal- tag joins the five without replacing them, a re-open ADOPTS and
+│                   │                                #   does not rewrite it, and an unreadable installer records `unavailable` instead of
+│                   │                                #   omitting the tag or stopping the run. Also drives compare_run_config.py's four
+│                   │                                #   exit codes, with the config tree DELETED before the reader runs — which is what
+│                   │                                #   proves it answers from the two bags and not from what is installed now
 │                   ├── test_a_bounded_reply_is_CHECKED_not_only_read.py # A launch reply's stdout may not be read as evidence unless
 │                   │                                #   its return code was; per-BINDING, so a name rebound and read later stays a finding
 │                   ├── test_a_PARENT_forwards_what_its_CHILD_reads.py # No child entrypoint declares a param its body never
@@ -662,6 +686,13 @@ claude-dot-files/
 │                   │                                #   declares why it cannot escape — so ADDING a join is what fails. The battery beside it
 │                   │                                #   catches the other half: reverting a guard leaves the declaration standing and true of
 │                   │                                #   nothing, which the sweep alone reads as covered
+│                   ├── test_journal_decode_handlers.py # The PARTIAL-HANDLER spelling of the same class: read_text(encoding=…) fails as
+│                   │                                #   OSError AND as UnicodeDecodeError (a ValueError), so `except OSError` catches the
+│                   │                                #   failure everybody thinks of and lets the other through while LOOKING handled. Four
+│                   │                                #   sites in four files, each found separately over two review passes; the fourth
+│                   │                                #   (validate_bag, whose whole contract is to RETURN a report) was found by this sweep.
+│                   │                                #   Predicate is "guarded but incomplete" — an unguarded read is out of scope and
+│                   │                                #   correctly silent, because nothing about it misleads the next reader
 │                   ├── test_journal_regex_anchors.py # The ANCHOR spelling of the same class-check shape: `$` matches before a TRAILING
 │                   │                                #   newline, so `re.compile(r"^…$")` is an anchored-LOOKING validator that admits one.
 │                   │                                #   Two instances — the digest gate that IS r7(b)'s path safety, then _LABEL_RE, still
@@ -743,13 +774,14 @@ claude-dot-files/
 │                   │                                #   offender; a comparison that is genuinely not a derivation is DECLARED with its reason,
 │                   │                                #   as test_journal_containment.py does for joins. Carries its own negative controls,
 │                   │                                #   including the set-membership check that catches a sweep passing over nothing
-│                   ├── test_every_entrypoint_can_REHEARSE.py # The onboarding says every runner takes --dry-run; three did not,
-│                   │                                    #   and the gap was invisible because all four build CHILDREN had the
-│                   │                                    #   flag while the build PARENT did not. Walks run_*.py by AST for a
-│                   │                                    #   declaration AND a read — declaring the flag and ignoring it spends
-│                   │                                    #   while the operator believes they rehearsed. Found a fourth the
-│                   │                                    #   report missed: run_plan_project.py names --dry-run in a comment
-│                   │                                    #   saying it lacks one, which a substring search calls a declaration.
+│                   ├── test_every_entrypoint_can_REHEARSE.py # Every kickoff entrypoint declares --dry-run and branches
+│                   │                                #   on it, because the operator guide asserts the flag universally — FOUR runners
+│                   │                                #   lacked it while all four build CHILDREN had it, so a reader checking the family
+│                   │                                #   got yes from every file they were likely to open. The fourth was found BY this
+│                   │                                #   sweep, not by the report that prompted it: run_plan_project.py names --dry-run
+│                   │                                #   in a comment saying it has none, which a substring search reads as a declaration
+│                   │                                #   and an AST does not. Shares journal_entrypoint_facts' predicate with the bag
+│                   │                                #   sweep below rather than re-deriving what an entrypoint is.
 │                   └── test_every_parent_opens_a_run_bag.py # r11's actual guarantee — the activity boundary does not make the call happen,
 │                                                    #   and r9 cannot help because it fires only AFTER bag-open was invoked. Discovers every
 │                                                    #   run_*.py by AST (never substring: the sibling sweep shipped green because a COMMENT
@@ -932,25 +964,33 @@ claude-dot-files/
 │   │       │                                        #   finding class measured — 33 across 12 PRs. PR #105 changed what
 │   │       │                                        #   research-minor IS and left four surfaces stating the old one
 │   │       ├── test_no_SURFACE_NAMES_A_RETIRED_AGENT.py # No live prompt, skill or rule may dispatch
-│   │           #   an agent that no longer exists. The 2026-08-18 consolidation folded
-│   │           #   refactoring-evaluator into code-reviewer and standards-auditor into
-│   │           #   quality-control, updated the agent files and one table, and missed six
-│   │           #   other surfaces for seventeen days — including the skill quality-control
-│   │           #   itself loads, which told it to hand conformance findings to an agent
-│   │           #   that was gone. Discriminates on RETIREMENT VOCABULARY, not on proximity
-│   │           #   to the successor: the first draft forgave 'Dispatch code-reviewer,
-│   │           #   refactoring-evaluator and standards-auditor' because the successor
-│   │           #   appears in it — the one sentence that actually misroutes a run.
+│   │       │                                        #   an agent that no longer exists. The 2026-08-18 consolidation folded
+│   │       │                                        #   refactoring-evaluator into code-reviewer and standards-auditor into
+│   │       │                                        #   quality-control, updated the agent files and one table, and missed six
+│   │       │                                        #   other surfaces for seventeen days — including the skill quality-control
+│   │       │                                        #   itself loads, which told it to hand conformance findings to an agent
+│   │       │                                        #   that was gone. Discriminates on RETIREMENT VOCABULARY, not on proximity
+│   │       │                                        #   to the successor: the first draft forgave 'Dispatch code-reviewer,
+│   │       │                                        #   refactoring-evaluator and standards-auditor' because the successor
+│   │       │                                        #   appears in it — the one sentence that actually misroutes a run.
 │   │       ├── test_no_doc_NAMES_A_WORKFLOW_THAT_IS_GONE.py # An operator-facing doc may not name a
-│   │           #   workflow script that does not exist. Written from 2026-09-04, when
-│   │           #   get-started.md — the doc every session is told to read first — still
-│   │           #   advertised the hyphenated fleet and sent another repo's PM into a
-│   │           #   196-turn run against a retired stage. Keyed on RESOLVES rather than on
-│   │           #   is-not-V1, because three bash workflows have no successor and are still
-│   │           #   correct to name, while build.sh and research.sh exist in BOTH trees.
-│   │           #   Carries RETIRED_WITHOUT_A_TWIN for the one script whose successor
-│   │           #   changed shape — build-phase.sh became `build.sh --phase`, which the
-│   │           #   same-stem rule cannot see and which the first draft of the sweep missed.
+│   │       │                                        #   workflow script that does not exist. Written from 2026-09-04, when
+│   │       │                                        #   get-started.md — the doc every session is told to read first — still
+│   │       │                                        #   advertised the hyphenated fleet and sent another repo's PM into a
+│   │       │                                        #   196-turn run against a retired stage. Keyed on RESOLVES rather than on
+│   │       │                                        #   is-not-V1, because three bash workflows have no successor and are still
+│   │       │                                        #   correct to name, while build.sh and research.sh exist in BOTH trees.
+│   │       │                                        #   Carries RETIRED_WITHOUT_A_TWIN for the one script whose successor
+│   │       │                                        #   changed shape — build-phase.sh became `build.sh --phase`, which the
+│   │       │                                        #   same-stem rule cannot see and which the first draft of the sweep missed.
+│   │       ├── test_prose_NAMES_a_symbol_that_RESOLVES.py # A backticked `_name` in a comment or
+│   │       │                                        #   docstring must be a name the tree BINDS. A removal note in the journal anchor
+│   │       │                                        #   guard credited a `_MUTATION_RE` that never shipped — the design that had already
+│   │       │                                        #   LOST — and the class sweep found eight more in eight files. Resolves against
+│   │       │                                        #   bindings only, never loads, so a ghost cannot borrow an unrelated local's
+│   │       │                                        #   spelling. Sees UNCOMMITTED files, because a guard blind to the edit under review
+│   │       │                                        #   is green exactly when it matters. testing/config-hooks/ is out of scope and one
+│   │       │                                        #   live instance sits there, named in the docstring rather than declared away
 │   │       └── test_retired_vocabulary_is_gone_from_live_surfaces.py # The retired Kind 1/2/3 labels survive only
 │   │                                                #   where they are a RECORD. Reads every
 │   │                                                #   tracked file as WHITESPACE-NORMALISED text — a different instrument than the

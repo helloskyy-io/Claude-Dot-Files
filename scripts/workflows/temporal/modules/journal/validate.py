@@ -276,9 +276,21 @@ def validate_bag(bag_path: Path) -> BagReport:
                 if sha256_of(target) != checksum:
                     mismatched.append(name)
             unlisted = sorted(present - set(listed))
-    except OSError as exc:
+    except (OSError, UnicodeDecodeError) as exc:
+        # ⚠ `UnicodeDecodeError` IS NOT AN `OSError`, AND THIS FUNCTION'S WHOLE
+        # CONTRACT IS THAT IT RETURNS A REPORT RATHER THAN RAISING. Three
+        # `read_text(encoding="utf-8")` calls run inside this block — `bagit.txt`,
+        # `bag-info.txt` and the manifest — and a bag holding one non-UTF-8 byte
+        # in any of them raised out of `validate_bag`, past `main`, and CPython
+        # exits **1** on an unhandled exception: the code this tool documents as
+        # "a bag's bytes did not match its manifest". A corrupt tag file was
+        # indistinguishable from a real integrity failure. Found by the class
+        # sweep in `test_journal_decode_handlers.py` rather than by a report —
+        # same shape as the gaps fixed in `installer_targets` and
+        # `load_journal_config`, in the file nobody had reason to open.
+        detail = getattr(exc, "strerror", None) or exc
         structural.append(
-            f"could not be read: {exc.strerror} at "
+            f"could not be read: {detail} at "
             f"{getattr(exc, 'filename', None) or bag_path}. The report below is "
             f"partial — everything after this point was not examined.")
 

@@ -198,7 +198,7 @@ def test_every_comparator_the_registry_NAMES_is_one_the_workflow_CALLS(mod) -> N
 #
 # `test_a_census_guard_proves_its_own_predicate` requires this and the
 # requirement is the point: everything above is green whenever
-# `_called_attributes` returns too MUCH, and "too much" is what a widened AST
+# `_called_names` returns too MUCH, and "too much" is what a widened AST
 # match looks like. The snippets below are self-contained string literals rather
 # than fixtures shared with any workflow, so a miss here is a fact about the
 # predicate rather than about somebody else's file.
