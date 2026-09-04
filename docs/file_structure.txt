@@ -164,22 +164,17 @@ claude-dot-files/
 │       │   ├── format-stream.sh                     # Stream-json → human-readable formatter (pure transformation)
 │       │   └── shared-prompts.sh                    # DECISION_LOG_AND_REFLECTION (incl. fetch-verified deferral rules) + HEADLESS_EXECUTION_GUARD
 │       │
-│       ├── build.sh                                 # BUILD — PARENT: pure-bash orchestration of build-draft then build-refine (no model of its own)
-│       ├── build-minor.sh                           # BUILD-MINOR — PARENT: draft → refine (ONE lens) → review-pr. Same shape as build.sh, lighter middle child
-│       ├── build-phase.sh                           # BUILD-PHASE — implement from a plan doc
-│       ├── plan-new.sh                              # PLAN-NEW — greenfield project definition
-│       ├── plan-revision.sh                         # PLAN-REVISION — revise existing planning docs
-│       ├── research.sh                              # RESEARCH — create/extend component research pool + synthesis (--pr updates an existing research PR)
-│       ├── research-refresh.sh                      # RESEARCH-REFRESH — revalidate due papers (bash-side gate, clean no-op; --pr gates on that PR's pool)
-│       ├── review-runs.sh                           # REVIEW-RUNS — CPI log analysis, produces reports
-│       ├── review-sprint.sh                         # REVIEW-SPRINT — comprehensive whole-repo end-of-sprint review
-│       ├── children/                                # Child WORKFLOWS — full workflows (own model key, turn budget, worktree) INVOKED BY A PARENT, not dispatched by you.
-│                                                    #   Children are SHARED, not owned: review-pr is called by every PR-producing parent. Not namespaced per parent.
-│           ├── review-pr.sh                         # Disposition engine (decide-only) — every parent's last child. Verdict: MERGE | HOLD - redispatch | HOLD - needs-assistance
-│           ├── build-draft.sh                       # Child 1 of build.sh — writes the change, opens an UNREVIEWED PR; holds NO review authority
-│           ├── build-refine.sh                      # Child 2 of build.sh — FRESH context: fidelity, peer-review trio + quality-control, corrections
-│           ├── build-draft-minor.sh                 # Child 1 of build-minor.sh — writes the scoped change (was the monolithic build-minor.sh)
-│           └── build-refine-minor.sh                # Child 2 of build-minor.sh — FRESH context: fidelity, ONE lens (code-reviewer), corrections
+│       ├── plan-new.sh                              # PLAN-NEW — greenfield project definition. NOT YET PORTED:
+│                                                    #   the V2 fleet has no successor, so this stays until one exists.
+│       ├── review-runs.sh                           # REVIEW-RUNS — CPI log analysis, produces reports. NOT YET PORTED.
+│       ├── review-sprint.sh                         # REVIEW-SPRINT — comprehensive whole-repo end-of-sprint review.
+│                                                    #   NOT YET PORTED. Cited as live tooling by standards-governance.md.
+│                                                    #
+│                                                    #   THE OTHER ELEVEN WERE DELETED 2026-09-04, once every one had a
+│                                                    #   working V2 runner: build, build-minor, build-phase (now
+│                                                    #   `build.sh --phase`), plan-revision, research, research-refresh
+│                                                    #   and all five children. `common/` and `activities/` stay —
+│                                                    #   the three survivors above source them.
 │       │
 │       └── temporal/                                # V2 PORT: the bash workflows re-expressed in Python against the Temporal
 │           │                                        #   three-layer architecture — {name}_workflow.py orchestration,
@@ -653,8 +648,6 @@ claude-dot-files/
 │                   │                                #   two are entitled (markup reformat, a proposal placed unruled), and that second
 │                   │                                #   exemption is a defect the control found: diffing the id maps outright made the
 │                   │                                #   SHARED placement instruction unfollowable
-│                   ├── test_plan_revision_v1_parity.py # Prompt text is BYTE-IDENTICAL to plan-revision.sh — re-extracts the heredocs
-│                   │                                #   and both PROMPT= strings on every run. Catches the ~935-byte drop-the-stages failure
 │                   ├── test_research_draft.py         # The draft child sizes its own cycle, and the machinery it once lacked is
 │                   │                                #   green suite could not notice: a subtraction is invisible to every auto-discovering
 │                   │                                #   sweep. Renders BOTH children's prompts end to end — the prompt FILE is not the
@@ -970,6 +963,26 @@ claude-dot-files/
 │   │       │                                        #   prompt still describing a contract the code replaced. The largest
 │   │       │                                        #   finding class measured — 33 across 12 PRs. PR #105 changed what
 │   │       │                                        #   research-minor IS and left four surfaces stating the old one
+│   │       ├── test_no_SURFACE_NAMES_A_RETIRED_AGENT.py # No live prompt, skill or rule may dispatch
+│   │       │                                        #   an agent that no longer exists. The 2026-08-18 consolidation folded
+│   │       │                                        #   refactoring-evaluator into code-reviewer and standards-auditor into
+│   │       │                                        #   quality-control, updated the agent files and one table, and missed six
+│   │       │                                        #   other surfaces for seventeen days — including the skill quality-control
+│   │       │                                        #   itself loads, which told it to hand conformance findings to an agent
+│   │       │                                        #   that was gone. Discriminates on RETIREMENT VOCABULARY, not on proximity
+│   │       │                                        #   to the successor: the first draft forgave 'Dispatch code-reviewer,
+│   │       │                                        #   refactoring-evaluator and standards-auditor' because the successor
+│   │       │                                        #   appears in it — the one sentence that actually misroutes a run.
+│   │       ├── test_no_doc_NAMES_A_WORKFLOW_THAT_IS_GONE.py # An operator-facing doc may not name a
+│   │       │                                        #   workflow script that does not exist. Written from 2026-09-04, when
+│   │       │                                        #   get-started.md — the doc every session is told to read first — still
+│   │       │                                        #   advertised the hyphenated fleet and sent another repo's PM into a
+│   │       │                                        #   196-turn run against a retired stage. Keyed on RESOLVES rather than on
+│   │       │                                        #   is-not-V1, because three bash workflows have no successor and are still
+│   │       │                                        #   correct to name, while build.sh and research.sh exist in BOTH trees.
+│   │       │                                        #   Carries RETIRED_WITHOUT_A_TWIN for the one script whose successor
+│   │       │                                        #   changed shape — build-phase.sh became `build.sh --phase`, which the
+│   │       │                                        #   same-stem rule cannot see and which the first draft of the sweep missed.
 │   │       ├── test_prose_NAMES_a_symbol_that_RESOLVES.py # A backticked `_name` in a comment or
 │   │       │                                        #   docstring must be a name the tree BINDS. A removal note in the journal anchor
 │   │       │                                        #   guard credited a `_MUTATION_RE` that never shipped — the design that had already

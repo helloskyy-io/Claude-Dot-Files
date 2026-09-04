@@ -1,17 +1,32 @@
 # Personal Tooling
 
-Autonomous workflow scripts live at `~/Repos/claude-dot-files/scripts/workflows/`.
+Autonomous workflow scripts live at `~/Repos/claude-dot-files/scripts/workflows/temporal/scripts/`.
 
 Run `/get-started` at session start for the workflow inventory, role definitions, and dispatch guidance. Full reference at `~/Repos/claude-dot-files/docs/guide/workflows.md`.
 
-## The bash fleet is FROZEN REFERENCE. It is not a topic.
+## The Python fleet is the fleet. Its scripts use UNDERSCORES.
 
-`scripts/workflows/*.sh` and `scripts/workflows/children/*.sh` are kept **only** as a working backup while the Python fleet under `scripts/workflows/temporal/` is under construction. The operator deletes them when they stop being needed. That is the whole story.
+Every workflow you dispatch is `scripts/workflows/temporal/scripts/*.sh` — a thin shim over `run_*.py`, which owns the CLI contract. Names use underscores: `plan_revision.sh`, `build_minor.sh`, `review_pr.sh`.
+
+**`build.sh` and `research.sh` are the two names that also existed in the old fleet.** Always give a full path rather than a bare script name.
+
+**`build-phase.sh` no longer exists as a script.** Implementing from a plan doc is `build.sh --phase <plan>` — the build parent extracts the plan's success criteria and verifies against them.
+
+## Three bash workflows survive, and they are SUPPORTED, not frozen
+
+The V1 bash fleet was deleted on 2026-09-04 once every one of its members had a working Python runner. **Three had none and remain in `scripts/workflows/`:**
+
+- `plan-new.sh` — greenfield project definition (thirteen stages; nothing in the Python fleet covers it)
+- `review-runs.sh` — CPI log analysis
+- `review-sprint.sh` — whole-repo end-of-sprint review
 
 **Binding:**
 
-- **Never modify them.** Not to fix a defect, not to keep them in sync, not to "tidy" them.
-- **Never make the Python fleet depend on them** — no reading their source for a value, no invoking them.
-- **Never raise them as a consideration.** Do not report a defect that exists only there, do not propose migrating them, do not ask whether a change should also apply to them, and do not frame an answer around which fleet something is in. **If a fix belongs in the Python tree, just say where it goes and put it there.**
+- **These three are the correct thing to dispatch for their capability.** They are not deprecated and not a fallback; there is no alternative yet.
+- **Maintain them like any live script.** Fix defects in them. They share `scripts/workflows/common/` and `scripts/workflows/activities/`, which exist for them and are equally live.
+- **The Python fleet still must not depend on them** — no reading their source for a value, no invoking them.
+- **Porting them is real work, not tidying.** Deleting one without a successor removes a capability, so it needs an operator ruling rather than a cleanup pass.
 
-**Why this is stated this bluntly:** it has been re-explained several times in a single session — once after a brief wrongly asserted the bash children were load-bearing (they are not; nothing under `temporal/` invokes them), and again after an answer was framed as a V1-versus-V2 comparison when the fix was simply "in the Python tree". Each time it cost the operator a correction and taught nothing new. **The question "what about the bash fleet?" has one permanent answer — nothing — so stop asking it.**
+**Why this rule reversed.** It previously read *"the bash fleet is FROZEN REFERENCE, it is not a topic, never modify them, never raise them as a consideration."* That was correct while the whole fleet was a backup awaiting deletion. It stopped being correct the moment eleven were deleted and three were not: a blanket "not a topic" turned three live, dispatchable workflows into scripts nobody was allowed to fix. **`review-sprint.sh` was dispatching `refactoring-evaluator` and `standards-auditor`, agents consolidated away on 2026-08-18** — a defect that sat in a supported workflow precisely because the rule forbade noticing it.
+
+**The frozen framing also had a cost outside this repo.** `/get-started` advertised the old fleet for weeks after the Python fleet worked, so engineers in other repos dispatched V1 by following the tooling's own front door — one spent a 196-turn run against `build-phase.sh`'s retired agent roster, work that `build.sh --phase` would have reviewed correctly. A fleet nobody may discuss is also a fleet nobody notices is still being recommended.

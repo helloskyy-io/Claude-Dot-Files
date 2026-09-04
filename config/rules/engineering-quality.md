@@ -130,7 +130,7 @@ If your response to a non-trivial implementation does NOT include the alignment 
 
 ## Finding disposition — never dismiss, always decide
 
-When an agent (code-reviewer, standards-auditor, security-auditor, standards-architect, quality-control, doc-manager, architect, planner) surfaces a finding during review, every item must reach one of three explicit dispositions. **"Recommend we move on" is not a disposition — it is silent dismissal and is forbidden.**
+When an agent (code-reviewer, security-auditor, standards-architect, quality-control, doc-manager, architect, planner) surfaces a finding during review, every item must reach one of three explicit dispositions. **"Recommend we move on" is not a disposition — it is silent dismissal and is forbidden.**
 
 For each finding, follow this flow:
 
@@ -146,7 +146,7 @@ The training bias toward "agreeable and move forward" is real — it shows up as
 
 ### Finding QUALITY — every finding states its consequence and its remedy
 
-Disposition governs *whether* an item gets resolved. Quality governs *whether a human can act on it*. Both bind every agent that surfaces findings — code-reviewer, standards-auditor, quality-control, security-auditor, research-critic, architect, planner — and a finding that fails these is not a finding.
+Disposition governs *whether* an item gets resolved. Quality governs *whether a human can act on it*. Both bind every agent that surfaces findings — code-reviewer, quality-control, security-auditor, research-critic, architect, planner — and a finding that fails these is not a finding.
 
 - **State the CONSEQUENCE.** Name what breaks, is risked, or gets decided wrongly if this is not addressed. **A bare discrepancy is a note, not a finding** — "X doesn't match Y" only becomes a finding when the mismatch *does something*. Conformance and label checks are the usual offenders. The finding's TITLE names the consequence, not the mismatch: *"three key areas have no research coverage"* ✅, *"sizing label mismatch"* ❌.
 - **Carry a REMEDY.** Every finding proposes a concrete action — including rejected ones (the reasoning IS the remedy) and deferred ones (the pointer plus why-not-now). No finding reaches a human without a proposed next action.
@@ -157,7 +157,7 @@ Disposition governs *whether* an item gets resolved. Quality governs *whether a 
 
 ### Review-stage agent lenses (distinct, complementary)
 
-When multiple review agents run in a workflow stage, each has a distinct lens. Don't duplicate other agents' work; surface what YOUR lens catches. If you notice something another lens would catch, mention it briefly with a pointer ("standards-auditor should also flag this") but don't make it your primary finding.
+When multiple review agents run in a workflow stage, each has a distinct lens. Don't duplicate other agents' work; surface what YOUR lens catches. If you notice something another lens would catch, mention it briefly with a pointer ("quality-control should also flag this") but don't make it your primary finding.
 
 | Agent | Lens question | Scope |
 |---|---|---|

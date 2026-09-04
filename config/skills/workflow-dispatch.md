@@ -5,24 +5,30 @@ description: How to pick the right autonomous workflow and write an effective ta
 
 # Workflow Dispatch
 
+**Every script named here lives in `scripts/workflows/temporal/scripts/` and uses
+UNDERSCORES.** The hyphenated fleet in `scripts/workflows/` is frozen reference and is
+being removed — do not dispatch it. `build.sh` and `research.sh` exist in BOTH
+directories, so give the full path rather than a bare name. Three workflows are NOT
+yet ported and remain hyphenated: `plan-new.sh`, `review-runs.sh`, `review-sprint.sh`.
+
 Two questions every dispatch answers: (1) which workflow fits this task? (2) how do I write a task prompt the engineer can act on?
 
 ## Workflow Selection
 
 | Task | Workflow | Use when |
 |---|---|---|
-| Small code fix | `build-minor.sh` | Single file or small area, clear bounded scope, one concept |
+| Small code fix | `build_minor.sh` | Single file or small area, clear bounded scope, one concept |
 | Significant code rework | `build.sh` | Multiple files, architecture changes, refactor, review feedback. A **parent** — drafts in one run, then judges in a SECOND run with fresh context |
-| Implement from a plan doc | `build-phase.sh` | Phase/feature doc exists; engineer follows it step-by-step |
-| Revise planning docs | `plan-revision.sh` | Updating roadmap, phase docs, requirements, epics |
+| Implement from a plan doc | `build.sh --phase` | Phase/feature doc exists; engineer follows it step-by-step |
+| Revise planning docs | `plan_revision.sh` | Updating roadmap, phase docs, requirements, epics |
 | Define new project | `plan-new.sh` | Greenfield — project scope, stack, architecture undefined |
 
 ### Anti-patterns (DON'T)
 
-- **Bulk rename across many files** → `build-minor.sh` with `sed -i` or `Edit(replace_all: true)`. NEVER `plan-revision.sh` — it burns turns on per-occurrence Edits (observed: 301 turns / $37 on one miscategorized run).
-- **Small single-concept fix** → `build-minor.sh`. NOT `build.sh` — the second run and its 4-agent review are wasted overhead on trivial fixes.
-- **Code-only change** → `build*.sh` or `build-phase.sh`. NOT `plan-revision.sh` — wrong agents (architect+planner+standards-architect, not code-reviewer).
-- **Planning without a written plan** → `plan-revision.sh` updates EXISTING docs. `plan-new.sh` creates docs from scratch. If neither fits, the scope hasn't been thought through yet.
+- **Bulk rename across many files** → `build_minor.sh` with `sed -i` or `Edit(replace_all: true)`. NEVER `plan_revision.sh` — it burns turns on per-occurrence Edits (observed: 301 turns / $37 on one miscategorized run).
+- **Small single-concept fix** → `build_minor.sh`. NOT `build.sh` — the second run and its 4-agent review are wasted overhead on trivial fixes.
+- **Code-only change** → `build*.sh` or `build.sh --phase`. NOT `plan_revision.sh` — wrong agents (architect+planner+standards-architect, not code-reviewer).
+- **Planning without a written plan** → `plan_revision.sh` updates EXISTING docs. `plan-new.sh` creates docs from scratch. If neither fits, the scope hasn't been thought through yet.
 
 ### Size heuristic (MAX_TURNS budget indicates expected complexity)
 
@@ -45,9 +51,9 @@ If a task is likely to exceed the chosen workflow's MAX_TURNS budget, don't just
 - Task file exceeds ~300 lines of description (the description itself signals scope creep)
 
 **Escalate when the task is cohesive but large:**
-- `build-minor.sh` turns insufficient → `build.sh` (two 200-turn runs + 4-agent review in the second)
-- `build.sh` turns insufficient → write a phase doc first, then `build-phase.sh`
-- No plan exists and task is complex → `plan-new.sh` or `plan-revision.sh` FIRST, then `build-phase.sh`
+- `build_minor.sh` turns insufficient → `build.sh` (two 200-turn runs + 4-agent review in the second)
+- `build.sh` turns insufficient → write a phase doc first, then `build.sh --phase`
+- No plan exists and task is complex → `plan-new.sh` or `plan_revision.sh` FIRST, then `build.sh --phase`
 
 **Split when the task is multiple things bundled:**
 - Identify natural boundaries — separate features, separate components, separate phases, separate layers
@@ -77,7 +83,7 @@ Multi-paragraph tasks with code blocks, quotes, or special characters: write to 
 
 ## Templates
 
-### build-minor.sh (small code fix)
+### build_minor.sh (small code fix)
 
 Single paragraph, inline is enough:
 
@@ -109,12 +115,12 @@ Use --task-file. Structure:
 - <test requirements>
 ```
 
-### build-phase.sh (implement from a plan)
+### build.sh --phase (implement from a plan)
 
 Plan path is the primary input. Task file holds ONLY context not in the plan:
 
 ```
-build-phase.sh /path/to/phase-doc.md --task-file /tmp/claude-<name>.md
+build.sh --phase /path/to/phase-doc.md --task-file /tmp/claude-<name>.md
 ```
 
 Context file (optional, brief):
@@ -122,7 +128,7 @@ Context file (optional, brief):
 - Known gotchas or prior failure modes
 - Dependencies that came online since the plan was written
 
-### plan-revision.sh (update existing planning docs)
+### plan_revision.sh (update existing planning docs)
 
 Use --task-file for anything beyond trivial bullet updates:
 
@@ -160,7 +166,7 @@ Describe the project briefly while capturing hard constraints:
 
 ## @claude PR Comment Format
 
-> **Currently disabled.** `gh-monitor.enabled: false` in `config.yaml` — the `@claude` comment path is not in use, and a comment written in this format will NOT fire. Dispatch from the terminal instead, and use `review-pr.sh` for PR disposition. The format below is kept for when the service is re-enabled.
+> **Currently disabled.** `gh-monitor.enabled: false` in `config.yaml` — the `@claude` comment path is not in use, and a comment written in this format will NOT fire. Dispatch from the terminal instead, and use `review_pr.sh` for PR disposition. The format below is kept for when the service is re-enabled.
 
 For `gh-monitor` to pick up a comment, it must start with a route prefix:
 
@@ -179,7 +185,7 @@ Keep the comment concise — this is inline, not a full task file. If the task n
 - **Vague objective** — "fix auth" → better: "fix the login null-check that fails when email contains `+`"
 - **No scope fence** — engineer drifts into unrelated files
 - **Prescribing HOW instead of WHAT** — "use a regex to validate" closes off better approaches
-- **Wrong workflow** — bulk rename on `plan-revision.sh` (301 turns, $37, no deliverable)
+- **Wrong workflow** — bulk rename on `plan_revision.sh` (301 turns, $37, no deliverable)
 - **Missing done criteria** — engineer declares done when code compiles, not when behavior is verified
 - **Inlining long context** — multi-paragraph task hits command-line parsing issues; use `--task-file`
 
