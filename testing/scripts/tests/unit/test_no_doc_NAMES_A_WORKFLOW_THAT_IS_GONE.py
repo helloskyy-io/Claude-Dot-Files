@@ -45,7 +45,9 @@ _NAME = re.compile(r"\b([a-z][a-z0-9]*(?:[-_][a-z0-9]+)*\.sh)\b")
 SURFACES = sorted(
     p for d in ("config", "docs")
     for p in (REPO_ROOT / d).rglob("*.md")
-    if ".claude/worktrees" not in str(p)
+    # Relative to the repo root — see the sibling agent sweep for why an absolute
+    # substring test blanks the population inside a worktree.
+    if ".claude/worktrees/" not in p.relative_to(REPO_ROOT).as_posix()
 )
 
 

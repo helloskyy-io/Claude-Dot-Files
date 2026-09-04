@@ -48,7 +48,13 @@ RETIRED_AGENTS = {
 SURFACES = sorted(
     p for d in ("config", "docs", "scripts")
     for p in (REPO_ROOT / d).rglob("*")
-    if p.suffix in {".md", ".sh"} and ".claude/worktrees" not in str(p) and p.is_file()
+    # RELATIVE to the repo root, never a substring of the absolute path. Every
+    # dispatch runs inside `<repo>/.claude/worktrees/<name>/`, so an absolute-path
+    # test excludes the ENTIRE repo whenever the checkout is itself a worktree —
+    # and the sweep then passes over nothing, in exactly the runs that matter.
+    # Caught by this module's own vacuity floor on its first merge verification.
+    if p.suffix in {".md", ".sh"} and p.is_file()
+    and ".claude/worktrees/" not in p.relative_to(REPO_ROOT).as_posix()
 )
 
 
