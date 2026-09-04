@@ -14,7 +14,8 @@ This methodology is HOLISTIC — it pulls signals across multiple dimensions and
 Other reviewers apply narrow lenses:
 - **code-reviewer**: "is this code correct?" (correctness, bugs, edge cases)
 - **code-reviewer's STRUCTURE lens**: "could this be structured better?" (improvements) — absorbed from `refactoring-evaluator` 2026-08-18
-- **standards-auditor**: "does this match our documented standards?" (conformance)
+- **quality-control's CONFORMANCE lens**: "does this match our documented standards?"
+  — absorbed from `standards-auditor` 2026-08-18, so this one is YOURS
 - **security-auditor**: "are there vulnerabilities?" (security risks)
 
 None of them ask: "is this our BEST EFFORT? Is the QUALITY where it needs to be?" That gap lets the easy-path slip through review because no single reviewer is assigned to challenge it holistically.
@@ -185,7 +186,8 @@ Apply the six dimensions across the sprint's whole body of work. Focus on cumula
 Quality-control deliberately doesn't duplicate the other reviewers' work:
 - If something is a code-reviewer finding (correctness bug), let code-reviewer catch it
 - If something is a STRUCTURE-lens finding (better structure exists), let code-reviewer's structure lens catch it
-- If something is a standards-auditor finding (project convention violated), let standards-auditor catch it
+- A conformance finding (project convention violated) is YOURS — `standards-auditor`
+  was absorbed into this agent on 2026-08-18, so there is nobody else to leave it to
 - If something is a security-auditor finding (vulnerability), let security-auditor catch it
 
 Quality-control's unique contribution is the **integrated senior-engineer lens** — finding things no narrow reviewer catches because they require pulling multiple signals together.

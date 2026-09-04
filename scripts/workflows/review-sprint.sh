@@ -22,7 +22,7 @@
 #
 # Stages:
 #   1. DISCOVER — sprint boundary, planning docs, prior reviews, repo structure
-#   2. ANALYZE (parallel) — security-auditor + refactoring-evaluator + testing
+#   2. ANALYZE (parallel) — security-auditor + code-reviewer + testing
 #      review dispatched in a single message
 #   3. RUN TESTS — full suite via master runner (unit + integration + e2e)
 #   4. BUILD MISSING TESTS — auto-create unit/integration tests for sprint
@@ -294,7 +294,7 @@ Stage 2 has TWO sub-phases. Phase 2a runs the narrow-lens specialists in paralle
 
 ### Stage 2a: NARROW SPECIALIST ANALYSIS (parallel)
 
-Dispatch all THREE peer-review specialists — security-auditor, refactoring-evaluator, and a testing review (use the test-writer agent in review-mode — read-only, no test creation in this stage) — back-to-back BEFORE processing any results. They analyze the SAME codebase from independent lenses; there is no ordering dependency between them.
+Dispatch all THREE peer-review specialists — security-auditor, code-reviewer, and a testing review (use the test-writer agent in review-mode — read-only, no test creation in this stage) — back-to-back BEFORE processing any results. They analyze the SAME codebase from independent lenses; there is no ordering dependency between them.
 
 **The dispatch contract (headless-safe):** dispatch all three as FOREGROUND agents (`run_in_background: false`) in a single assistant message — foreground agents run concurrently where the harness allows AND the turn BLOCKS until every result returns. This is mandatory in a headless run: a text-only turn with no tool call ends the run, so you must NEVER background-dispatch and then wait (the wait becomes a run-killing text-only turn) and must NEVER use ScheduleWakeup to wait for agents here. quality-control (next sub-stage) runs only after ALL three narrow-lens results are in hand.
 
@@ -312,7 +312,7 @@ Focus areas:
 
 Severity: Critical / High / Medium / Low. Be specific — cite file paths and line numbers. Don't manufacture findings; if the codebase looks clean in a category, say so.
 
-#### refactoring-evaluator — WHOLE-REPO structural assessment
+#### code-reviewer (STRUCTURE lens) — WHOLE-REPO structural assessment
 
 Scope: the entire codebase. Different from per-PR refactoring evaluation (which focuses on changed code) — this is the holistic "has the codebase grown unevenly" lens.
 
@@ -342,9 +342,9 @@ Severity: Critical / High / Medium / Low.
 
 #### After Stage 2a's three specialists return
 
-Save their structured outputs. If one agent has no findings, note inline (e.g., "refactoring-evaluator: no significant whole-repo refactoring findings") rather than emitting a SKIPPED marker — the sub-phase as a whole still ran.
+Save their structured outputs. If one agent has no findings, note inline (e.g., "code-reviewer: no significant whole-repo refactoring findings") rather than emitting a SKIPPED marker — the sub-phase as a whole still ran.
 
-**Reviewer severity disagreement principle:** the three specialists may flag overlapping concerns at different severities (e.g., security-auditor flags an auth path as High, refactoring-evaluator notes the same code is structurally messy at Medium). When this happens, **engineering-quality bar is the override authority** — the higher-severity call wins, with the lower-severity perspective documented as additional context. Do NOT try to reconcile to a single label.
+**Reviewer severity disagreement principle:** the three specialists may flag overlapping concerns at different severities (e.g., security-auditor flags an auth path as High, code-reviewer notes the same code is structurally messy at Medium). When this happens, **engineering-quality bar is the override authority** — the higher-severity call wins, with the lower-severity perspective documented as additional context. Do NOT try to reconcile to a single label.
 
 ### Stage 2b: HOLISTIC REVIEW (sequential, after 2a returns)
 
@@ -352,7 +352,7 @@ After Stage 2a's three specialists return, dispatch the `quality-control` agent 
 
 The quality-control prompt MUST include:
 - The sprint scope being reviewed (file paths changed in the sprint, summary of sprint deliverables)
-- The structured findings from Stage 2a (security-auditor + refactoring-evaluator + test-writer review-mode outputs, verbatim or paraphrased clearly)
+- The structured findings from Stage 2a (security-auditor + code-reviewer + test-writer review-mode outputs, verbatim or paraphrased clearly)
 - Instruction to apply the holistic six-dimension lens AS A SPRINT-WIDE assessment AND look for meta-patterns across the trio's findings ("do these findings together suggest the sprint produced quality-compromised work? Did the quality bar slip across the sprint?")
 
 quality-control applies the senior-engineer integration test to the sprint as a whole: would a peer reviewer at a top-tier engineering organization sign off on this sprint's output? Sprint-review focus areas:
@@ -426,7 +426,7 @@ For sprint workflows that lack e2e coverage:
 ### What this stage does NOT do (surface-only for first 3+ runs)
 
 Per the engineering-quality rule (human-in-the-loop for new capabilities), this workflow is in surface-only mode for refactoring and security findings:
-- Do NOT auto-apply refactoring suggestions from refactoring-evaluator. Those go in the report and PR body for human review.
+- Do NOT auto-apply refactoring suggestions from code-reviewer's STRUCTURE lens. Those go in the report and PR body for human review.
 - Do NOT auto-apply security fixes from security-auditor. Same — report and surface, don't fix.
 - Do NOT modify source code in this stage. Test files are the only allowed creation.
 
@@ -518,7 +518,7 @@ ${STAGES_1_TO_5}
 - Update the PR body to mirror the report's section structure:
   - **Executive Summary** (Opus synthesis from Stage 5 — top findings, priority order, codebase health assessment in 2-3 paragraphs)
   - **Security Findings** (security-auditor section — Critical/High/Medium/Low with file:line citations)
-  - **Refactoring Observations** (refactoring-evaluator section — High/Medium/Low priorities)
+  - **Refactoring Observations** (code-reviewer STRUCTURE-lens section — High/Medium/Low priorities)
   - **Testing Review** (coverage gaps, suite tooling assessment, hierarchy health)
   - **Test Results** (unit/integration/e2e pass-fail counts)
   - **Tests Created** (table of new test files from Stage 4)
@@ -560,7 +560,7 @@ ${STAGES_1_TO_5}
 - Create a new PR using 'gh pr create'. Title format: \"review-sprint: <sprint label or date>\". The PR body should mirror the report's section structure:
   - **Executive Summary** (Opus synthesis from Stage 5 — top findings, priority order, codebase health assessment in 2-3 paragraphs)
   - **Security Findings** (security-auditor section — Critical/High/Medium/Low with file:line citations)
-  - **Refactoring Observations** (refactoring-evaluator section — High/Medium/Low priorities)
+  - **Refactoring Observations** (code-reviewer STRUCTURE-lens section — High/Medium/Low priorities)
   - **Testing Review** (coverage gaps, suite tooling assessment, hierarchy health)
   - **Test Results** (unit/integration/e2e pass-fail counts)
   - **Tests Created** (table of new test files from Stage 4)

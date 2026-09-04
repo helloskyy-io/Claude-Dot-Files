@@ -75,7 +75,7 @@ Then fix any Critical issue found by either review.
 - **code-reviewer's structure lens** judges structural improvement potential — uses High/Medium/Low priority, not Critical/Warning
 - **quality-control** judges documented-standard conformance — whether an explicit rule is violated — plus coarse security shapes and quality compromises
 
-**When severities conflict on the same code, the engineering-quality bar is the override authority.** A code-reviewer Critical or quality-control Critical trumps a standards-auditor Info on the same finding — real correctness/safety/quality concerns win over "no documented violation." Don't try to reconcile severities into a single label; address each reviewer's finding by their own bar.
+**When severities conflict on the same code, the engineering-quality bar is the override authority.** A code-reviewer Critical or quality-control Critical trumps an Info from either lens on the same finding — real correctness/safety/quality concerns win over "no documented violation." Don't try to reconcile severities into a single label; address each reviewer's finding by their own bar.
 
 Per the finding-disposition rule, every finding must reach fixed / rejected-with-reasoning / documented-deferral — never silent pass-through. Note which agent raised each finding when documenting.
 

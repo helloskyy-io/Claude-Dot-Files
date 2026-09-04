@@ -499,7 +499,7 @@ doc-manager doesn't duplicate these agents' work. It uses their skills and surfa
 - Edit code, tests, or build configuration
 - Auto-publish substance changes to any doc
 - Replace standards-architect (corpus audit) — use that agent for corpus health
-- Replace standards-enforcement (code conformance) — that's standards-auditor's domain
+- Replace standards-enforcement (code conformance) — that's quality-control's domain
 - Make archival or retirement decisions autonomously — surface, recommend, await approval
 - Generate documentation from code — doc-manager works WITH human intent, not BY observation
 - Operate on a schedule — invoke explicitly when needed (slash command, workflow integration, or directly)

@@ -71,6 +71,18 @@ def _known_workflow_names() -> set[str]:
     return {p.name for p in BASH_DIR.glob("*.sh")} | {p.name for p in SHIM_DIR.glob("*.sh")}
 
 
+def _successor_of(name: str, known: set[str]) -> str | None:
+    """What a reader should use instead, or None if the name is not retired."""
+    if name in RETIRED_WITHOUT_A_TWIN:
+        return RETIRED_WITHOUT_A_TWIN[name]
+    twin = name[:-3].replace("-", "_") + ".sh"
+    return twin if twin != name and twin in known else None
+
+
+def _paragraphs(text: str) -> list[str]:
+    return [b for b in text.split("\n\n") if b.strip()]
+
+
 def _dangling(text: str) -> list[str]:
     """Names that LOOK like a workflow this repo ships, but resolve to nothing.
 
@@ -82,17 +94,25 @@ def _dangling(text: str) -> list[str]:
     """
     known = _known_workflow_names()
     out = []
-    for m in sorted(set(_NAME.findall(text))):
-        if _resolves(m):
-            continue
-        if m in RETIRED_WITHOUT_A_TWIN:
-            out.append(f"{m} (now: {RETIRED_WITHOUT_A_TWIN[m]})")
-            continue
-        stem = m[:-3]
-        twin = stem.replace("-", "_") + ".sh"
-        if twin != m and twin in known:
-            out.append(f"{m} (renamed: {twin})")
-    return out
+    for block in _paragraphs(text):
+        for m in sorted(set(_NAME.findall(block))):
+            if _resolves(m):
+                continue
+            successor = _successor_of(m, known)
+            if successor is None:
+                continue
+            # A RETIREMENT NOTE IS THE OPPOSITE OF A MISROUTE, and this repo now
+            # ships several. `personal-tooling.md` has to write the words
+            # "build-phase.sh no longer exists" to say so, and the first version
+            # of this guard failed on the very rule announcing the deletion.
+            # Naming the successor in the same paragraph is the discriminator:
+            # a reader of that paragraph is told where to go, which is exactly
+            # what the misrouting doc failed to do.
+            if successor in block:
+                continue
+            label = "now" if m in RETIRED_WITHOUT_A_TWIN else "renamed"
+            out.append(f"{m} ({label}: {successor})")
+    return sorted(set(out))
 
 
 def test_the_two_trees_are_where_this_module_looks() -> None:
@@ -130,6 +150,12 @@ def test_no_doc_names_a_workflow_that_does_not_exist(path: Path) -> None:
         ("dispatch build.sh and research.sh", []),
         # NOT WORKFLOWS — hooks and runners are named alike and are out of scope.
         ("testing/run-all.sh and block-dangerous.sh", []),
+        # A RETIREMENT NOTE names the dead script AND its successor — allowed.
+        ("`build-phase.sh` no longer exists; use `build.sh --phase <plan>`.", []),
+        ("plan-revision.sh was renamed to plan_revision.sh.", []),
+        # ...but only when the successor is actually there to be read.
+        ("plan-revision.sh was renamed.\n\nplan_revision.sh is elsewhere.",
+         ["plan-revision.sh (renamed: plan_revision.sh)"]),
     ],
 )
 def test_the_RESOLUTION_PREDICATE_discriminates(text: str, expected: list[str]) -> None:
