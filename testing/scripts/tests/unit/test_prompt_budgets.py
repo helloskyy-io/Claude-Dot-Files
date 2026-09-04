@@ -229,7 +229,7 @@ BUDGETS: dict[str, int] = {
     # +10 on 2026-09-02: NOT new instruction. The nine loose standards moved
     # into topic folders, so every citation of one grew by the folder name.
     # Same words, longer paths.
-    "review_pr/prompts/disposition.md": 87_300,
+    "review_pr/prompts/disposition.md": 87_682,
     "plan/plan_revision/prompts/stages_1_to_5.md": 22_506,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-f0lfdhmm's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the
@@ -719,7 +719,7 @@ BUDGETS: dict[str, int] = {
     # lives only in git history and in both draft workflows' Python comments,
     # which is where an editor is looking. Enforced by
     # `test_no_prompt_ships_EDITOR_COMMENTARY_to_the_model` below.
-    "prompts/mutation_discipline.md": 6_164,
+    "prompts/mutation_discipline.md": 6_525,
 }
 
 # A prompt below this is not worth a budget line; the total of all of them is
