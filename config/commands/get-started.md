@@ -26,7 +26,6 @@ reviewed PR:
 - `build.sh --phase path/to/plan.md` — the same parent, pointed at a plan doc: it extracts the success criteria and verifies against them
 - `build_minor.sh "description"` — the same shape with ONE review lens, for small scoped changes
 - `plan.sh` — plan ONE component end to end: write, verify, size, reconcile the sprint, disposition
-- `plan_revision.sh "description"` — revise existing planning docs (roadmaps, phase docs, epics). A PLANNING build, not a code change
 - `plan_project.sh` — rule the research candidates and give the shipped ones a home
 - `research.sh` — produce or revalidate a research pool. It computes which papers are DUE, so this is also the refresh path
 - `review_pr.sh --pr <N>` — disposition a PR: decide-only, ending in MERGE or HOLD
@@ -50,7 +49,9 @@ on WHAT to do, not HOW.
 **Which script do I need?**
 - New repo from scratch → `plan-new.sh` *(old fleet — not yet ported)*
 - Plan a component end to end → `plan.sh`
-- Revise planning docs in an existing repo → `plan_revision.sh`
+- Revise an existing component's roadmap or phase docs → `plan.sh` (it extends rather than
+  rewrites: renaming, renumbering or deleting a phase doc is refused)
+- Revise a planning doc that is NOT inside a component → `build.sh`
 - Small code fix → `build_minor.sh`
 - Large code rework → `build.sh`
 - Implement from a plan doc → `build.sh --phase <plan>`
@@ -66,12 +67,12 @@ on WHAT to do, not HOW.
 - Example format:
 
 ```bash
-/path/to/claude-dot-files/scripts/workflows/temporal/scripts/plan_revision.sh "description of what to do. Additional context goes right here in the same string. Keep it all in one quoted block." --verbose
+/path/to/claude-dot-files/scripts/workflows/temporal/scripts/plan.sh "description of what to do. Additional context goes right here in the same string. Keep it all in one quoted block." --verbose
 ```
 
 - WRONG (will break on copy-paste):
 ```bash
-plan_revision.sh "desc" "$(cat <<'CONTEXT'
+plan.sh "desc" "$(cat <<'CONTEXT'
 multi-line stuff
 CONTEXT
 )" --verbose
@@ -79,7 +80,7 @@ CONTEXT
 
 - RIGHT:
 ```bash
-~/Repos/claude-dot-files/scripts/workflows/temporal/scripts/plan_revision.sh "Review the Phase 1 docs. Check for completeness, gaps, standards alignment. Do NOT modify files outside the target directory." --verbose
+~/Repos/claude-dot-files/scripts/workflows/temporal/scripts/plan.sh development/<edge>/<component> --task-file /tmp/claude-<name>.md  # "Review the Phase 1 docs. Check for completeness, gaps, standards alignment. Do NOT modify files outside the target directory." --verbose
 ```
 
 ## Our Pattern Each Session

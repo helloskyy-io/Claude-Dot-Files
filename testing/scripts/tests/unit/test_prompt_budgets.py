@@ -230,7 +230,6 @@ BUDGETS: dict[str, int] = {
     # into topic folders, so every citation of one grew by the folder name.
     # Same words, longer paths.
     "review_pr/prompts/disposition.md": 87_682,
-    "plan/plan_revision/prompts/stages_1_to_5.md": 22_506,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-f0lfdhmm's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the
     # residue is 19 bytes. Worth stating because this is the mechanism working

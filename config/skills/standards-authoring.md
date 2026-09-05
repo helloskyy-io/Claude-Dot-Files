@@ -170,10 +170,10 @@ When the standards-architect surfaces bloat-pattern findings, it should:
 This skill is loaded by:
 
 - **standards-architect agent** — for corpus audits looking for bloat patterns
-- **plan_revision.sh** workflows that touch `docs/standards/*` — to ensure the build doesn't add bloat
+- **plan.sh** workflows that touch `standards/*` — to ensure the build doesn't add bloat
 - **plan-new.sh** workflows that author new standards — to ensure the new doc starts timeless
 
-When standards-architect runs as part of `review-sprint.sh` or `plan_revision.sh`'s peer-review stage, bloat-pattern findings should surface in the structured report alongside the existing checks (cross-reference integrity, gap analysis, drift, etc.).
+When standards-architect runs as part of `review-sprint.sh` or `plan.sh`'s peer-review stage, bloat-pattern findings should surface in the structured report alongside the existing checks (cross-reference integrity, gap analysis, drift, etc.).
 
 ## Cross-reference
 

@@ -330,7 +330,7 @@ class RunContext(RunIdentity):
 
         THE "A MEMBER DOES NOT REPRINT" PROPERTY IS NOT LOST; IT WAS NEVER THIS
         GATE'S. An in-process child receives a WORKTREE PATH and a name, never a
-        context, and never calls this method — the seventeen entrypoints were and
+        context, and never calls this method — the sixteen entrypoints were and
         remain the only callers. What a reader needs instead is to tell a
         member's echo from the run's, and `render` already does that: its `run`
         row reads `<run id> (writer <name>)` whenever `writer` is set.

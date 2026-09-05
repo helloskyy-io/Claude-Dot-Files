@@ -49,7 +49,7 @@ if str(UNIT_TESTS) not in sys.path:
 
 # FOUND BY RUNNING THE SUITE AND THEN LOOKING AT THE OPERATOR'S HOME, which is the
 # only way it could have been found: every assertion passed the whole time.
-# PR #99 made all seventeen entrypoints open a journal bag, and the unit modules that
+# PR #99 made all sixteen entrypoints open a journal bag, and the unit modules that
 # drive an entrypoint's `main()` test its preconditions by running it — so each
 # `pytest` run
 # created REAL bags under `~/.local/state/claude-dot-files/journal/`. Twenty-four

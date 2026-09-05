@@ -196,8 +196,9 @@ claude-dot-files/
 │           │                                        #   Ahead of the research step sits plan-candidates — an ACTIVITY, not a child: no
 │           │                                        #   prompt, no model, it scaffolds a research pool per shipped candidate and is what
 │           │                                        #   gave the research step a reachable input again. Also
-│           │                                        #   plan_revision (ported, NOT yet wired into plan_project — see its docstring);
-│           │                                        #   plan_revision/prompts/*.md are GENERATED from plan-revision.sh, never retyped
+│           │                                        #   plan_revision was REMOVED 2026-09-05: `plan` already revises a
+│           │                                        #   component's docs and refuses to rename/renumber/delete a phase doc,
+│           │                                        #   and plan_revision had neither a judge nor a path fence.
 │           │                                        #   plan_activities.py holds ONLY what more than one of them calls; a helper with
 │           │                                        #   one consumer lives in that workflow's own {name}_activities.py, per §10.1
 │           │                                        #   rule 3 — consumer count decides, never taste
@@ -618,7 +619,6 @@ claude-dot-files/
 │                   │                                #   watches the INSIDE of the one file the grant opens, where boundary_crossings is
 │                   │                                #   blind by construction. Its ordering fixture FOUND a defect: a dropped phase used
 │                   │                                #   to raise UNSIZED, whose suggested remedy leaves the phase dropped
-│                   ├── test_plan_revision.py        # plan-revision's pure logic (context block, completion URL) and its CLI contract
 │                   ├── test_triage_candidates_split.py # The triage/sprint seam: the `decision` column moved to triage-candidates and
 │                   │                                #   plan-sprint FAILS THE RUN if it wrote one. Six mutation shapes — four offend,
 │                   │                                #   two are entitled (markup reformat, a proposal placed unruled), and that second

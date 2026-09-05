@@ -269,34 +269,34 @@ _BOUND_FIGURES = {
     #    of their own on 2026-09-02; every row above it was keyed on a sentence
     #    naming ELEVEN and is gone rather than kept beside its successor, because
     #    this registry's own rule is that a reworded claim is a new claim.
-    ("journal_activities.py", "ELEVEN of this fleet's seventeen entrypoints"):
+    ("journal_activities.py", "TEN of this fleet's sixteen entrypoints"):
         "cut their own worktree",
-    ("journal_activities.py", "fifteen of seventeen"):
+    ("journal_activities.py", "fourteen of sixteen"):
         "reach a worktree before workflow-module code",
-    ("journal_activities.py", "seventeen entrypoints"): "the entrypoint population",
-    ("journal_activities.py", "seventeen entrypoint"): "the entrypoint population",
-    ("journal_activities.py", "Sixteen of the seventeen entrypoints"): "do not catch OSError",
-    ("conftest.py", "seventeen entrypoints"): "the entrypoint population",
-    ("test_journal_bag.py", "seventeen entrypoints"): "the entrypoint population",
-    ("test_journal_root.py", "Sixteen of the seventeen entrypoints"): "do not catch OSError",
-    ("test_journal_root.py", "sixteen of seventeen entrypoints"): "do not catch OSError",
-    ("test_every_parent_opens_a_run_bag.py", "SEVENTEEN entrypoints"):
+    ("journal_activities.py", "sixteen entrypoints"): "the entrypoint population",
+    ("journal_activities.py", "sixteen entrypoint"): "the entrypoint population",
+    ("journal_activities.py", "Fifteen of the sixteen entrypoints"): "do not catch OSError",
+    ("conftest.py", "sixteen entrypoints"): "the entrypoint population",
+    ("test_journal_bag.py", "sixteen entrypoints"): "the entrypoint population",
+    ("test_journal_root.py", "Fifteen of the sixteen entrypoints"): "do not catch OSError",
+    ("test_journal_root.py", "fifteen of sixteen entrypoints"): "do not catch OSError",
+    ("test_every_parent_opens_a_run_bag.py", "SIXTEEN entrypoints"):
         "the entrypoint population",
-    ("test_every_parent_opens_a_run_bag.py", "ELEVEN of those seventeen"):
+    ("test_every_parent_opens_a_run_bag.py", "TEN of those sixteen"):
         "cut their own worktree",
-    ("test_every_parent_opens_a_run_bag.py", "FIFTEEN of the seventeen"):
+    ("test_every_parent_opens_a_run_bag.py", "FOURTEEN of the sixteen"):
         "reach a worktree before workflow-module code",
-    ("test_every_parent_opens_a_run_bag.py", "Seventeen of the seventeen entrypoints"):
+    ("test_every_parent_opens_a_run_bag.py", "Sixteen of the sixteen entrypoints"):
         "return from a dry-run branch before bag-open",
-    ("test_every_parent_opens_a_run_bag.py", "fifteen of seventeen"):
+    ("test_every_parent_opens_a_run_bag.py", "fourteen of sixteen"):
         "inside the ordering check's reach",
-    ("test_every_parent_opens_a_run_bag.py", "two of the seventeen entrypoints"):
+    ("test_every_parent_opens_a_run_bag.py", "two of the sixteen entrypoints"):
         "outside the ordering check's reach",
-    ("test_every_parent_opens_a_run_bag.py", "FIFTEEN of seventeen entrypoints"):
+    ("test_every_parent_opens_a_run_bag.py", "FOURTEEN of sixteen entrypoints"):
         "reach a worktree before workflow-module code",
-    ("test_the_suite_never_writes_to_the_operators_journal.py", "seventeen entrypoints"):
+    ("test_the_suite_never_writes_to_the_operators_journal.py", "sixteen entrypoints"):
         "the entrypoint population",
-    ("journal_entrypoint_facts.py", "15 OF 17"):
+    ("journal_entrypoint_facts.py", "14 OF 16"):
         "inside the ordering check's reach",
 }
 
@@ -684,12 +684,12 @@ def test_THE_STALENESS_CHECK_CATCHES_A_ROW_THAT_BINDS_NOTHING() -> None:
         "`nine of eleven` stopped matching when the population moved to "
         "seventeen and the row went on exempting nothing")
 
-    live = (({("journal_activities.py", "seventeen entrypoints"): "why"}, "FAKE"),)
+    live = (({("journal_activities.py", "sixteen entrypoints"): "why"}, "FAKE"),)
     assert _rows_matching_no_prose(live) == [], (
         "a row keyed on prose that is still there must NOT be reported — a "
         "staleness check that fires on live rows gets its assertion deleted")
 
-    gone = (({("a_file_that_is_not_swept.py", "seventeen entrypoints"): "why"}, "FAKE"),)
+    gone = (({("a_file_that_is_not_swept.py", "sixteen entrypoints"): "why"}, "FAKE"),)
     assert len(_rows_matching_no_prose(gone)) == 1, (
         "a row naming a file outside `_PROSE` binds nothing either, and is the "
         "shape a renamed module leaves behind")

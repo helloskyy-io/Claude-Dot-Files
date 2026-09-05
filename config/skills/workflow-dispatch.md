@@ -1,6 +1,6 @@
 ---
 name: workflow-dispatch
-description: How to pick the right autonomous workflow and write an effective task prompt or @claude PR comment. Use when preparing to dispatch a workflow script (build, build-minor, build-phase, plan-new, plan-revision), drafting an @claude PR comment for gh-monitor, or deciding which workflow fits a task.
+description: How to pick the right autonomous workflow and write an effective task prompt or @claude PR comment. Use when preparing to dispatch a workflow script (build, build_minor, build --phase, plan, plan-new), drafting an @claude PR comment for gh-monitor, or deciding which workflow fits a task.
 ---
 
 # Workflow Dispatch
@@ -20,15 +20,15 @@ Two questions every dispatch answers: (1) which workflow fits this task? (2) how
 | Small code fix | `build_minor.sh` | Single file or small area, clear bounded scope, one concept |
 | Significant code rework | `build.sh` | Multiple files, architecture changes, refactor, review feedback. A **parent** — drafts in one run, then judges in a SECOND run with fresh context |
 | Implement from a plan doc | `build.sh --phase` | Phase/feature doc exists; engineer follows it step-by-step |
-| Revise planning docs | `plan_revision.sh` | Updating roadmap, phase docs, requirements, epics |
+| Revise planning docs | `plan.sh` | Updating a component's roadmap or phase docs. It EXTENDS rather than rewrites — renaming, renumbering or deleting a phase doc is refused |
 | Define new project | `plan-new.sh` | Greenfield — project scope, stack, architecture undefined |
 
 ### Anti-patterns (DON'T)
 
-- **Bulk rename across many files** → `build_minor.sh` with `sed -i` or `Edit(replace_all: true)`. NEVER `plan_revision.sh` — it burns turns on per-occurrence Edits (observed: 301 turns / $37 on one miscategorized run).
+- **Bulk rename across many files** → `build_minor.sh` with `sed -i` or `Edit(replace_all: true)`. NEVER `plan.sh` — it burns turns on per-occurrence Edits (observed: 301 turns / $37 on one miscategorized run).
 - **Small single-concept fix** → `build_minor.sh`. NOT `build.sh` — the second run and its 4-agent review are wasted overhead on trivial fixes.
-- **Code-only change** → `build*.sh` or `build.sh --phase`. NOT `plan_revision.sh` — wrong agents (architect+planner+standards-architect, not code-reviewer).
-- **Planning without a written plan** → `plan_revision.sh` updates EXISTING docs. `plan-new.sh` creates docs from scratch. If neither fits, the scope hasn't been thought through yet.
+- **Code-only change** → `build*.sh` or `build.sh --phase`. NOT `plan.sh` — wrong agents (architect+planner+standards-architect, not code-reviewer).
+- **Planning without a written plan** → `plan.sh` writes AND revises a component's docs. `plan-new.sh` creates a whole project from scratch. If neither fits, the scope hasn't been thought through yet.
 
 ### Size heuristic (MAX_TURNS budget indicates expected complexity)
 
@@ -37,7 +37,7 @@ Two questions every dispatch answers: (1) which workflow fits this task? (2) how
 | build-minor | 100 | Fast, focused, low-stakes |
 | build (parent) | 200 + 200 | Multi-file, review-heavy. Two independent runs — the budgets do NOT share |
 | build-phase | 300 | Implementation from a plan |
-| plan-revision | 300 | Multi-doc planning changes |
+| plan | 300 | Multi-doc planning changes |
 | plan-new | 500 | Greenfield, extensive planning |
 
 ### When a task is too big — split or escalate
@@ -53,7 +53,7 @@ If a task is likely to exceed the chosen workflow's MAX_TURNS budget, don't just
 **Escalate when the task is cohesive but large:**
 - `build_minor.sh` turns insufficient → `build.sh` (two 200-turn runs + 4-agent review in the second)
 - `build.sh` turns insufficient → write a phase doc first, then `build.sh --phase`
-- No plan exists and task is complex → `plan-new.sh` or `plan_revision.sh` FIRST, then `build.sh --phase`
+- No plan exists and task is complex → `plan-new.sh` or `plan.sh` FIRST, then `build.sh --phase`
 
 **Split when the task is multiple things bundled:**
 - Identify natural boundaries — separate features, separate components, separate phases, separate layers
@@ -128,7 +128,7 @@ Context file (optional, brief):
 - Known gotchas or prior failure modes
 - Dependencies that came online since the plan was written
 
-### plan_revision.sh (update existing planning docs)
+### plan.sh (write or revise a component's planning docs)
 
 Use --task-file for anything beyond trivial bullet updates:
 
@@ -173,7 +173,7 @@ For `gh-monitor` to pick up a comment, it must start with a route prefix:
 ```
 @claude build: <short description>
 @claude build-minor: <short description>
-@claude plan-revision: <short description>
+@claude plan: <short description>
 @claude build-phase: <short description>
 @claude help
 ```
@@ -185,7 +185,7 @@ Keep the comment concise — this is inline, not a full task file. If the task n
 - **Vague objective** — "fix auth" → better: "fix the login null-check that fails when email contains `+`"
 - **No scope fence** — engineer drifts into unrelated files
 - **Prescribing HOW instead of WHAT** — "use a regex to validate" closes off better approaches
-- **Wrong workflow** — bulk rename on `plan_revision.sh` (301 turns, $37, no deliverable)
+- **Wrong workflow** — bulk rename on a planning workflow (301 turns, $37, no deliverable)
 - **Missing done criteria** — engineer declares done when code compiles, not when behavior is verified
 - **Inlining long context** — multi-paragraph task hits command-line parsing issues; use `--task-file`
 

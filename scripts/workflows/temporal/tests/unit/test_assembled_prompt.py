@@ -77,32 +77,24 @@ def test_a_SELF_REFERENTIAL_fragment_RAISES_rather_than_spinning(tmp_path) -> No
         expand("${ZZ_SELFREF_CONTROL}", pool=tmp_path)
 
 
-def test_a_CHILD_S_OWN_FILE_WINS_over_a_pool_fragment_of_the_same_stem() -> None:
-    """The case pool-only resolution got WRONG, driven on the real collision.
-
-    `plan_revision` supplies `${RULES}` from its own directory — the PLANNING
-    ruleset — while the pool's `rules.md` is the BUILD ruleset, and the two say
-    opposite things about whether a run may touch code. Named rather than
-    synthesised: a synthetic collision would prove the lookup order runs and not
-    that the tree contains a child this order is load-bearing for. If the
-    collision is ever reconciled, this goes red and says so instead of quietly
-    proving nothing.
-    """
-    child = (ASSISTANT / "plan" / "plan_revision" / "prompts")
-    assert (child / "rules.md").is_file() and (SHARED / "rules.md").is_file(), (
-        "the pool/child `rules` collision this test is about is gone — find the "
-        "new collision or delete this test rather than leaving it vacuous"
-    )
-    planning = "This is a PLANNING build — do not modify code, scripts, or configuration files"
-    assert planning in (child / "rules.md").read_text()
-    assert planning not in (SHARED / "rules.md").read_text()
-
-    out = assembled(child / "new_branch.md")
-    assert planning in out, (
-        "the planning ruleset did not reach the assembled planning prompt — "
-        "resolution fell through to the pool, which is the defect this order fixes"
-    )
-
+# `test_a_CHILD_S_OWN_FILE_WINS_over_a_pool_fragment_of_the_same_stem` WAS HERE,
+# AND IT IS DELETED RATHER THAN REWRITTEN SYNTHETICALLY — on its own instruction:
+# *"if the collision is ever reconciled, this goes red and says so instead of
+# quietly proving nothing."* It drove the resolver on the ONE real collision in
+# the tree: `plan_revision` supplied its own `rules.md` — the PLANNING ruleset —
+# shadowing the pool's BUILD ruleset, and the two said opposite things about
+# whether a run may touch code.
+#
+# `plan_revision` was removed on 2026-09-05 (`plan` already revises a component's
+# docs and refuses to rename, renumber or delete a phase doc), and no child
+# supplies a prompt whose stem collides with a pool fragment any more — measured,
+# zero. The resolver's child-wins precedence is still implemented and still
+# correct; it is simply load-bearing for nothing today.
+#
+# Re-add a driven test the moment a child shadows a pool stem again. A synthetic
+# fixture was deliberately rejected here once already, and the reason still
+# holds: it would prove the lookup order RUNS, not that the tree contains a child
+# the order matters for.
 
 def test_the_RESOLVER_AGREES_WITH_THE_render_IT_MODELS(tmp_path) -> None:
     """`expand` is a MODEL of `render`, and nothing was holding the two together.
