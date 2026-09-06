@@ -46,7 +46,7 @@ It exists because live-operational work — a multi-day vendor migration, an inc
 
 1. **EXCLUDE it from the Stage 1 open-issue enumeration.** It must not appear twice, and it must **never be aging-flagged** — a permanent artifact is not a stalled one. The anti-rot flag exists for issues that should have closed; firing it on the one document designed to persist is backwards.
 2. **Never apply the issue-disposition obligation to it.** That obligation binds a *container* that is supposed to close. An operations item's obligation binds the *item* (below). Do not merge the two taxonomies — forcing operations into the issue enum would require inventing an exit for *pruned*, which is a schema violation, not a convenience.
-3. **Render its structure; do not re-derive it.** Group the items by `state:` into **readiness states** — an item moves `BLOCKED` → `READY` → `IN FLIGHT` → `RESOLVED` — and that ordering is exactly how an operator triages: *what can I actually do right now.* Preserve that order and preserve each item's fields verbatim, including `ownership:` and `blocked_on:` even when the answer is "none". Those fields are deliberate forward compatibility: an agent asking *"what is ready, and which of it is mine?"* answers it from `ready:` + `ownership:` with no schema change. **If you normalise or reformat an item, that property is lost.** `skyynet-master-planning/standards/documentation/tracked_items_standard.md` document the format and are the shape-of-record — the rendering below is a VIEW, derived from the files and never edited in place of them.
+3. **Render its structure; do not re-derive it.** Group the items by `status:` into **readiness states** — an item moves `BLOCKED` → `READY` → `IN FLIGHT` → `RESOLVED` — and that ordering is exactly how an operator triages: *what can I actually do right now.* Preserve that order and preserve each item's fields verbatim, including `ownership:` and `blocked_on:` even when the answer is "none". Those fields are deliberate forward compatibility: an agent asking *"what is ready, and which of it is mine?"* answers it from `ready:` + `ownership:` with no schema change. **If you normalise or reformat an item, that property is lost.** `skyynet-master-planning/standards/documentation/tracked_items_standard.md` document the format and are the shape-of-record — the rendering below is a VIEW, derived from the files and never edited in place of them.
 
 ## Stage 1 — Sweep (dumb, complete enumeration)
 
@@ -69,7 +69,7 @@ For each repo in the Stage 0 set (run `gh` from inside the repo dir so it infers
 
 | Source | Done looks like | You write |
 |---|---|---|
-| **`tracked/operations/`** | the work is finished on a surface you checked | `state: resolved` + `resolved: <today>` |
+| **`tracked/operations/`** | the work is finished on a surface you checked | `status: resolved` + `resolved: <today>` |
 | **GitHub Issues** | the thing it asked for exists, or the condition it described is gone | **`gh issue close <N> --comment <evidence>`** — a done issue is CLOSED, never reported as done |
 
 **Closing an issue is the point, not a side effect.** An issue reported as "this is already done" every morning is the exact stacking the operator asked this command to stop. If you verified it is done, close it with the evidence in the comment and it never appears again.
@@ -79,14 +79,14 @@ For EVERY item in EVERY source, reach one of these — and **write the first thr
 | Finding | What you write |
 |---|---|
 | **Demonstrably DONE** — you checked the surface and it is finished | Resolve it / close it, per the table above. **It does not appear in the brief.** One tally line instead. |
-| **Blocker is GONE** — the thing it waited on has landed | Clear `blocked on:` and set `state: queued`. It appears, because it may now be ready to authorise. |
+| **Blocker is GONE** — the thing it waited on has landed | Clear `blocked_on:` and set `status: queued`. It appears, because it may now be ready to authorise. |
 | **Materially CHANGED** — still open but the line misdescribes it | Rewrite the line to what is true now. It appears, with what changed. |
 | **Still accurate and still open** | Touch nothing. It appears. |
 | **Cannot verify** | Touch nothing. It appears, marked unverified — **never assert a state you did not check.** |
 
 **Evidence, per resolution, stated in the tally.** *"T-05 — PR #31 merged, all three tiers exist, 297 tests"* is evidence. *"T-05 looks done"* is not, and resolving on that stamps a lie the pruning rule will later act on.
 
-Then edit the item file under `tracked/operations/` directly. **Preserve each item's shape exactly** — the six core fields of `skyynet-master-planning/standards/documentation/tracked_items_standard.md` in their order, then the store's own `state:`, `ownership:` and `blocked_on:`, present even when the answer is "none". You are updating values, never reshaping the file.
+Then edit the item file under `tracked/operations/` directly. **Preserve each item's shape exactly** — the six core fields of `skyynet-master-planning/standards/documentation/tracked_items_standard.md` in their order, then the store's own `ownership:`, `blocked_on:` and `ready:` (operator-only), present even when the answer is "none". You are updating values, never reshaping the file.
 
 **Two fields are NOT yours even here.** `ready:` is the operator's alone (§4) — it is an authorisation to act, not a statement about blockedness, and an item can be entirely unblocked and still `not-ready` because it is not its turn. And `id:` never changes: ids are immutable and never reused, terminal state included.
 
@@ -96,7 +96,7 @@ Then edit the item file under `tracked/operations/` directly. **Preserve each it
 
 | Source | Reaches the table | Never reaches it |
 |---|---|---|
-| Tracker | `state:` is `blocked`, `queued` or `in-progress` | `state: resolved` — **at ANY age**, pruned or not |
+| Tracker | `status:` is `blocked`, `queued` or `in-progress` | `status: resolved` — **at ANY age**, pruned or not |
 | Issues | the issue is OPEN right now | closed, at any point, for any reason |
 
 **A TIMER whose date is still in the future does not render either.** An item parked on a date — a decision deliberately deferred until enough time passes — needs nothing from the operator until that date is close. Rendering it daily until then is the same noise as rendering a finished item: eleven mornings of a row nobody can act on. **Render a timer only within 3 days of its date, or once it has passed.** Outside that window it is a count in the tally, nothing more.
@@ -166,7 +166,9 @@ One closing line: the tally of what Stage 2 cleared, and anything you could not 
 
 - **You write in exactly THREE places, enumerated at the top of this file: the `tracked/operations/` item files, whatever the harvest writes into `tracked/`, and a done issue's closure.** Edits to `tracked/`, plus `gh issue close <N> --comment <evidence>`. Everything else is a read — never `merge`, never comment on a PR, never edit a file in the repo.
 - **Resolve on EVIDENCE, never on impression.** A line moves to `resolved` because you checked the surface and it is done — a merged PR, a file that exists, a passing suite you ran. "It looks finished" is not evidence, and a wrongly-resolved line is worse than a stale one because the stamp makes it invisible.
-- **Never set `status: ready`.** That flag is the operator's authorisation and only they set it. You set `state`, and you stamp `resolved:`.
+- **Never set `ready:`.** It is a SEPARATE operator-only field, not a `status:` value, and it is
+  orthogonal to `status:` — an item can be entirely unblocked and still `not-ready` because it is
+  not its turn. You set `status:`, and you stamp `resolved:`.
 - Deliver pre-written actions verbatim; do not re-reason a HOLD's next-step — the disposition engine already did that work and the operator wants it as-written.
 - Empty is a valid report. If a surface has nothing, say so in one line; do not manufacture items to fill a section.
 - Keep it scannable — this is a standup, not an essay. Outcomes and actions, not process narration.
