@@ -168,7 +168,7 @@ Written for quick understanding, not for implementation.
 - **What this component is** — and what it explicitly does NOT own. The second half is what stops the next component's plan overlapping this one.
 - **One paragraph per phase**, what it achieves and not how, each linking to its phase doc where one exists.
 - **3–5 checkboxes per phase**, all unchecked, completion criteria rather than steps.
-- **Dependencies on other components, listed explicitly**, with links both ways where the sibling roadmap exists.
+- **Dependencies on other components, listed explicitly.** Each one is a NAME plus a LINK to the depended-on phase doc — or to that component's roadmap where it has no phase docs — never prose naming it. Links both ways where the sibling roadmap exists. **Declare what the research you read supports and OMIT the rest**: a dependency stated confidently and wrongly renders as an authoritative edge someone sequences work from, and absence is readable while a guess is not.
 - **Keep it concise. If a phase description exceeds one paragraph, the scope is too broad** — go back to Stage 2 and split it.
 
 ### `phaseN_<name>.md` — the working document for whoever builds it
@@ -176,7 +176,7 @@ Written for quick understanding, not for implementation.
 Detail is expected here; this is the long one.
 
 - **Requirements for completion at the top** — what *done* means, numbered so the roadmap's checkboxes can cite them.
-- **Dependencies** on other phases and other components.
+- **Dependencies** on other phases and other components — each a NAME plus a LINK, never prose alone.
 - **An ordered checklist of implementation steps**, with testing and verification steps **in** the checklist rather than in a section of their own.
 - **Decisions and gotchas inline** — where something looks wrong but is correct, leave the breadcrumb.
 - **A `§Runtime Verification` section is REQUIRED if this phase orchestrates an external runtime** (a daemon, a service, a vendor API): the commands run verbatim, the actual output observed, the date, and the host. Documentation describes intent; running systems define reality. This is binding, and its first violation was the PR that introduced it.
