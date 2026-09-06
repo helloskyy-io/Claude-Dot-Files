@@ -171,3 +171,82 @@ def test_the_FAMILY_PREDICATE_discriminates_on_a_literal() -> None:
     assert _family_of("review_pr") is None, (
         "the reviewer itself now maps to a family, so it could be named as its own "
         "remedy")
+
+
+# --- the PROSE, not only the enum ------------------------------------------------
+#
+# THE ENUM WAS ALREADY CORRECT WHEN THIS FAILED, WHICH IS THE WHOLE POINT.
+# `dispatch_tool: <...>` is the machine-readable field and the checks above hold it.
+# The RUNWAY is free text, and on `image-manager#1` a reviewer wrote step 3 as
+# *"redispatch (`plan_revision.sh --pr 1`)"* — a workflow deleted the day before —
+# while the enum beside it named only tools that exist. It copied the name from
+# THIS PROMPT, which still carried `plan_revision.sh` in three places: the
+# redispatch sentence, the tier table, and the write-scope escape hatch.
+#
+# The same pass also named `plan_draft.sh` as a numbered runway step, having
+# written the reason not to two paragraphs earlier — the prompt says NEVER NAME
+# `plan_draft.sh` IN A REDISPATCH RUNWAY in bold AND marks it OPERATOR DISPATCH
+# ONLY in the table. Prose that already forbids something twice does not need a
+# third sentence; it needs a check.
+#
+# So: a workflow name appearing anywhere in this prompt must be one the enum
+# permits, UNLESS the line is telling the model not to dispatch it. Anything else
+# is a name a reviewer can copy into a runway.
+
+_PROHIBITION_WORDS = ("never", "not a redispatch", "operator dispatch only",
+                      "do not name", "cannot reach", "silently skipped")
+
+_TOOL_IN_PROSE = re.compile(r"\b([a-z][a-z0-9_]*\.sh)\b")
+_ENUM_LINE = re.compile(r"^\s*dispatch_tool:")
+
+
+def _prose_tool_lines(text: str) -> dict[str, list[int]]:
+    """Every `<name>.sh` in the body, by the 1-indexed lines it appears on."""
+    out: dict[str, list[int]] = {}
+    for n, line in enumerate(text.splitlines(), 1):
+        if _ENUM_LINE.match(line):
+            continue                    # the enum itself, held by the checks above
+        for m in _TOOL_IN_PROSE.findall(line):
+            out.setdefault(m, []).append(n)
+    return out
+
+
+def _prose_offenders(text: str, permitted: set[str]) -> list[str]:
+    lines = text.splitlines()
+    bad = []
+    for name, where in sorted(_prose_tool_lines(text).items()):
+        if name in permitted:
+            continue
+        for n in where:
+            low = lines[n - 1].lower()
+            if any(w in low for w in _PROHIBITION_WORDS):
+                continue                # the line exists to forbid it — legitimate
+            bad.append(f"{name} at line {n}")
+    return bad
+
+
+def test_no_prose_line_NAMES_A_TOOL_THE_ENUM_DOES_NOT_PERMIT() -> None:
+    offenders = _prose_offenders(DISPOSITION.read_text(encoding="utf-8"), set(ENUM))
+    assert not offenders, (
+        "this prompt names a dispatch tool the `dispatch_tool` enum does not permit, "
+        "on a line that is not forbidding it:\n  " + "\n  ".join(offenders) + "\n\n"
+        f"The enum is {sorted(ENUM)}. A reviewer writes its runway as FREE TEXT and "
+        "copies tool names from this body, so a name here the enum rejects reaches an "
+        "operator as a step that dispatches nothing. Either add the tool to the enum, "
+        "or say plainly on that line that it must not be dispatched."
+    )
+
+
+def test_the_PROSE_PREDICATE_discriminates() -> None:
+    """Positive AND negative control, on literals.
+
+    Without the negative arm this is indistinguishable from a ban on naming any
+    script, which would fail on the prompt's own prohibitions — the lines that
+    exist precisely to stop a reviewer dispatching something.
+    """
+    text = ("Redispatch with plan_revision.sh --pr 1.\n"
+            "NEVER name plan_draft.sh in a redispatch runway.\n"
+            "Use build_minor.sh for a scoped correction.\n")
+    found = _prose_tool_lines(text)
+    assert set(found) == {"plan_revision.sh", "plan_draft.sh", "build_minor.sh"}
+    assert _prose_offenders(text, {"build_minor.sh"}) == ["plan_revision.sh at line 1"]
