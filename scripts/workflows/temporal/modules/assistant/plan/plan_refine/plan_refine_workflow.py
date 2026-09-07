@@ -300,6 +300,7 @@ def prompt_values(rel_component: Path, rel_candidates: Path, tree: Path,
             + context if context.strip() else ""
         ),
         "FILING_A_CANDIDATE_ROW": act.shared_prompt("filing_a_candidate_row"),
+        "DEPENDS_ON_LINE": act.shared_prompt("depends_on_line"),
         "SIMILAR_CANDIDATES": act.helper_script("similar-candidates.py"),
         "SUBMIT_PROMPT": act.submit_prompt(
             pr_number, f"plan-refine: size and judge {rel_component.name}"),

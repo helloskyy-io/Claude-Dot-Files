@@ -553,7 +553,7 @@ BUDGETS: dict[str, int] = {
     # `skyy-command` cites its planning repo the same way, hundreds of times —
     # and it is the only form that resolves from a worktree of another repo.
     # NO INSTRUCTION WAS ADDED; the same sentences got longer.
-    "plan/plan_refine/prompts/plan_refine.md": 18_761,
+    "plan/plan_refine/prompts/plan_refine.md": 18_776,
     # RATCHETED DOWN 14_437 -> 9_896, the other side of the same move. It stays
     # above the FLOOR, so it keeps its line rather than dropping off the table.
     # Then 9_896 -> 9_908, the same twelve substituted-away bytes as above.
