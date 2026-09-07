@@ -1094,11 +1094,15 @@ def open_bag(root: Path, run_id: str, *, info: dict[str, str] | None = None) -> 
     # the same reason one layer down.
     #
     # A crash between here and the rename leaves a hidden `.{run_id}.*` staging
-    # directory under the root: harmless, because it is never a valid bag and is
-    # never adopted (adoption keys on `<root>/<run_id>`), and a later retention
-    # pass sweeps it. The mkdir-then-write sequence this replaces littered a
-    # HALF-BUILT bag AT the run id, which the `exists()` fast path then adopted
-    # forever after — a hidden temp dir cannot be mistaken for the run.
+    # directory under the root. It is harmless — never a valid bag and never
+    # adopted (adoption keys on `<root>/<run_id>`) — and it is ACCEPTED litter,
+    # not a reclaimed resource: no retention pass exists yet to sweep it (that is
+    # unbuilt Phase 5 work), and the `rmtree` below is best-effort, so a hard
+    # crash or a failed cleanup can persist one. That is a deliberate trade
+    # against the mkdir-then-write sequence this replaces, which littered a
+    # HALF-BUILT bag AT the run id — one the `exists()` fast path then adopted
+    # forever after. A hidden temp dir cannot be mistaken for the run; a
+    # half-built one poisons it.
     staging = Path(tempfile.mkdtemp(prefix=f".{run_id}.", dir=str(root)))
     try:
         os.mkdir(str(staging / PAYLOAD_DIR), DIR_MODE)
