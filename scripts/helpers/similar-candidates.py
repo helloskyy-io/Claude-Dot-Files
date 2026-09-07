@@ -34,7 +34,7 @@ from pathlib import Path as pathlib_Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "workflows/temporal"))
 
-from modules.assistant.tracked import recurrence, tracked_items  # noqa: E402
+from modules.assistant.tracked import intake, recurrence, tracked_items  # noqa: E402
 
 
 def _default_root() -> tuple[pathlib_Path | None, tuple]:
@@ -90,6 +90,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--target", help="standards store: the standard being amended")
     ap.add_argument("--anchor", help="standards store: the section, precisely")
     ap.add_argument("--component", help="candidates store: the owning component")
+    ap.add_argument("--no-intake", action="store_true",
+                    help="store only — skip the intake queue. Use when offline; the "
+                         "answer is then incomplete and says so.")
     args = ap.parse_args(argv)
 
     repo_root, ambiguous = (args.repo_root, ()) if args.repo_root else _default_root()
@@ -105,9 +108,23 @@ def main(argv: list[str] | None = None) -> int:
 
     key = {k: v for k, v in (("target", args.target), ("anchor", args.anchor),
                              ("component", args.component)) if v}
-    print(recurrence.recurrence_block(
+    # THE STORE AND THE CONVEYOR, in that order. A finding is filed as an intake
+    # ISSUE and harvested into `tracked/` later, so a store-only answer is blind for
+    # the whole filing-to-harvest window — which is exactly when a sibling reviewer
+    # is most likely to have filed the same thing. Measured on skyy-command #285.
+    out = recurrence.recurrence_block(
         root, tracked_items.STORES[args.store], args.text,
-        key=key, limit=args.limit))
+        key=key, limit=args.limit)
+    if not args.no_intake:
+        # ADDRESSED BY `cwd`, NEVER `--repo` — `intake.open_intakes` documents why:
+        # every `--repo` in this fleet is a filesystem path, so handing one to `gh`
+        # fails with a message about slug format that reads as an unreadable repo.
+        try:
+            issues, err = intake.open_intakes(cwd=repo_root), None
+        except Exception as exc:               # IntakeError, and anything gh raises
+            issues, err = None, str(exc)
+        out += recurrence.intake_block(issues, args.text, limit=args.limit, error=err)
+    print(out)
     return 0
 
 

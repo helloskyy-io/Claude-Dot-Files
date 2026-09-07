@@ -21,6 +21,9 @@ Summarize what you extracted before proceeding.
 
 (No research-integrity check here: a build consumes the PLAN — which already carries its citations — and standards, never research directly. Evidence integrity is verified ONCE, at the planning gate. Post-merge paper staleness is the refresh cadence's concern, surfaced at Reflect — never a build gate. Research Standard §7.)
 
+${OPEN_PR_FOR_THIS_WORK}
+
+
 ## Stage 2: VALIDATE
 Evaluate whether the plan is actionable:
 - Are the requirements clear enough to implement?

@@ -61,3 +61,5 @@ Rules:
 - Always verify tests pass before committing
 - If tests cannot be made to pass, stop and clearly report the failure
 - At the end, report just the PR URL (the PR description already has the details)
+
+${OPEN_PR_FOR_THIS_WORK}

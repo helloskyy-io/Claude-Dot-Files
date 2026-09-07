@@ -342,6 +342,16 @@ claude-dot-files/
 │                   │                                #   `review-pr` SIZES a redispatch from, so a figure that drifts from
 │                   │                                #   config.yaml routes a fix to a tier that stalls. Prose checked against
 │                   │                                #   the table too — "five lenses" outlived the 2026-08-18 consolidation
+│                   ├── test_the_dependency_graph_is_DERIVED_not_declared.py # Rule 9 says four facts
+│                       #   are derived — the reverse edge, the component rollup plan_sprint orders
+│                       #   on, satisfaction, and the graph. This holds the derivation, because a rule
+│                       #   asserting "derived" with nothing deriving is a promise. Built BEFORE the
+│                       #   corpus converted and found two silent bugs against workflow-decomposition's
+│                       #   real table: the owning-entry lookup matched any MENTION of a phase doc — the
+│                       #   loose predicate phase_sizing had already measured and rejected — and read a
+│                       #   prose section as a phase entry, reporting a COMPLETE phase unfinished; and
+│                       #   gated_on returned a component's own internal edges as inbound. Both mutations
+│                       #   are driven here rather than the happy path.
 │                   ├── test_the_dispatch_tool_enum_can_NAME_A_FIX_for_every_review_type.py  # disposition.md is SHARED by all three
 │                   │                                #   ReviewTypes and its dispatch_tool enum named build and planning tools only, so a
 │                   │                                #   research reviewer reached a mandatory REDISPATCH exit with no legal value to emit

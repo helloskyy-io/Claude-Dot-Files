@@ -229,7 +229,7 @@ BUDGETS: dict[str, int] = {
     # +10 on 2026-09-02: NOT new instruction. The nine loose standards moved
     # into topic folders, so every citation of one grew by the folder name.
     # Same words, longer paths.
-    "review_pr/prompts/disposition.md": 87_682,
+    "review_pr/prompts/disposition.md": 88_685,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-f0lfdhmm's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the
     # residue is 19 bytes. Worth stating because this is the mechanism working

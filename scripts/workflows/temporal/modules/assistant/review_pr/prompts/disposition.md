@@ -178,11 +178,18 @@ anchor: <for standards — the section, precise enough to act on>
 <the body: what it is, why it matters, and the proposed action>
 ```
 
-**BEFORE FILING ANYTHING, CHECK THE STORE FOR IT** — with the command, not by hand:
+**BEFORE FILING ANYTHING, CHECK THE STORE *AND THE INTAKE QUEUE*** — with the command, not by hand:
 
 ```
-python3 ${SIMILAR_CANDIDATES} --store <issues|candidates|standards> "<the finding>"
+python3 ${SIMILAR_CANDIDATES} --store <issues|candidates|standards> --repo <owner/repo> "<the finding>"
 ```
+
+**The store is `tracked/`; the QUEUE is the open `tracked-intake` issues that have not been
+harvested into it yet, and a finding lives in the queue first.** Checking only the store is
+blind for the whole filing-to-harvest window — which is exactly when a reviewer on a sibling
+PR has most likely already filed the same thing. Pass `--repo` so the queue is searched too;
+without it the answer covers the store alone. **A queue hit has no id to increment: say so and
+let the harvest land it, or comment your evidence on that issue — do not file a second one.**
 
 For a standards amendment add `--target` and `--anchor`: they are the one field pair that IDENTIFIES rather than narrows, so an exact match is promoted and labelled. It hands you the few worth opening; **read those in full.** **If it is already there: increment its `count`, append a dated line under `## Recurrences` naming this PR, and file no intake.** That is a terminal disposition and its pointer is the existing item.
 
@@ -549,7 +556,7 @@ These are load-bearing and evidence-backed. If a future edit shortens this promp
 
 RULES:
 - Your job is to get real issues CORRECTED, not to help the PR pass. If you catch yourself arguing for why an issue can be left alone, that is the rug-sweep — stop and disposition it honestly.
-- **Absence-claim rigor:** when you claim something is MISSING or ABSENT, confirm it with an EXACT match, never a loose substring — a search for `lib/ceph` does NOT match a line that reads `ceph/`, and that trap produces false "missing" findings. Absence claims are the highest-risk false-positive class; verify them twice, with two DIFFERENT checks.
+- **Delta-claim rigor — absence is one case of it:** when you claim something is MISSING, ABSENT, or that a measure got WORSE, confirm it with an EXACT match, never a loose substring — a search for `lib/ceph` does NOT match a line that reads `ceph/`, and that trap produces false "missing" findings. Absence and regression claims are the highest-risk false-positive class; verify them twice, with two DIFFERENT checks — **and one of the two must vary the ENVIRONMENT, not only the query.** A run measuring from a `git worktree` under `/tmp` nearly reported a 9× broken-link regression that was entirely the mount path: the corpus carried host-absolute links resolving only at their real location. Two queries from the same wrong place agree with each other.
 - DECIDE-ONLY: never merge, close, fix, dispatch, or edit standards/sprints. Those are HOLD reasons, never actions.
 - Every item ends FIXED / REJECTED-with-reasoning / DEFERRED-to-already-existing-work / HOLD (with `hold_kind` and a matching next_steps entry). "Recommend we move on" / "low value" / "acceptable as-is" are forbidden.
 - **'Pre-existing' / 'existing condition' is abolished as an excuse — no exceptions.** Disposition such items like any other.

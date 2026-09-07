@@ -198,3 +198,79 @@ def recurrence_block(root: Path, store: ti.Store, text: str, *,
         f"why it differs. **A duplicate costs one triage ruling; a wrong merge "
         f"buries a finding under someone else's — so when they are close and you "
         f"cannot tell, FILE.**")
+
+
+# --- ranking the CONVEYOR with the same scorer -------------------------------------
+#
+# A finding is filed as an intake ISSUE and harvested into `tracked/` later, so every
+# unharvested item is invisible to the tool that exists to prevent duplicates — and the
+# filing-to-harvest window is exactly when a reviewer on a sibling PR is most likely to
+# reach the same finding. Measured: `review_pr` on skyy-command #285 searched the store,
+# got five items, and did not get `#226` — filed by `review_pr` on #284 one day earlier.
+#
+# READING THE QUEUE IS NOT THIS MODULE'S JOB. `tracked/intake.open_intakes` already does
+# it, through the fleet's bounded launcher and addressed by `cwd` rather than `--repo`,
+# because every `--repo` in this fleet is a filesystem path. This module stays pure: it
+# is handed the issues and ranks them.
+
+
+@dataclass
+class IntakeMatch:
+    """One UNHARVESTED intake issue worth reading. Deliberately not a `Match`.
+
+    A `Match` names a file in a store; this names a queue entry that has not landed.
+    Rendering them in one list would tell a filer to increment an id that does not
+    exist yet, so the two stay separate all the way to the output.
+    """
+    number: int
+    title: str
+    score: float
+
+
+def similar_intake(issues: list[dict], text: str, *, limit: int = 5) -> list[IntakeMatch]:
+    """Rank intake issues by the SAME rare-term scorer the store uses.
+
+    Scored against the intake population's own document frequency, never the store's:
+    rarity is a property of the corpus a thing is ranked WITHIN, and borrowing the
+    store's would make a common intake word look rare.
+    """
+    if not issues:
+        return []
+    docs = [_terms(f"{i.get('title', '')}\n{i.get('body') or ''}") for i in issues]
+    df = _document_frequency(docs)
+    total = len(issues)
+    mine = _terms(text)
+    out = []
+    for issue, terms in zip(issues, docs):
+        score = sum(math.log(total / df[t]) + 1.0 for t in (mine & terms))
+        if score > 0:
+            out.append(IntakeMatch(number=issue.get("number", 0),
+                                   title=issue.get("title", ""), score=score))
+    out.sort(key=lambda m: (-m.score, m.number))
+    return out[:limit]
+
+
+def intake_block(issues: list[dict] | None, text: str, *,
+                 limit: int = 5, error: str | None = None) -> str:
+    """The conveyor half of what a filer reads, labelled as a conveyor.
+
+    AN UNREADABLE QUEUE IS SAID OUT LOUD, never returned as an empty one. A silent
+    empty result is indistinguishable from an empty queue, which is the invisibility
+    this exists to end — the caller would get the store-only answer that caused the
+    duplicate, with nothing telling it the answer was partial.
+    """
+    if error is not None:
+        return ("\n\n**⚠ THE INTAKE QUEUE COULD NOT BE READ** — " + error + ". **This "
+                "answer covers the STORE only.** An item filed since the last harvest is "
+                "not in the store, so a duplicate is possible and this run cannot rule it "
+                "out. Check by hand: `gh issue list --label tracked-intake --state open`.")
+    issues = issues or []
+    hits = similar_intake(issues, text, limit=limit)
+    if not hits:
+        return (f"\n\n**The intake queue holds nothing resembling this** "
+                f"({len(issues)} open, checked).")
+    rows = "\n".join(f"- **#{m.number}** — {m.title}" for m in hits)
+    return ("\n\n**UNHARVESTED INTAKE ISSUES worth reading — a CONVEYOR, not a store.** "
+            "Filed and not yet landed in `tracked/`, so they carry no id to increment. "
+            "**If one is your finding, do not file: say so and let the harvest land it**, "
+            "or add your evidence as a comment on that issue.\n" + rows)
