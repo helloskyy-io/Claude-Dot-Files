@@ -135,6 +135,12 @@ claude-dot-files/
 │   │           │                                    #   summary makes no MODEL_KEY claim, with yq it claims a NON-ZERO count, STRICT makes a skip fatal
 │   │           │                                    #   (and every spelling of OFF turns it off), a scan over an empty tree is a failure rather than a
 │   │           │                                    #   tick, and a prompt block whose closing ')' is never found fails instead of vanishing
+│   │           ├── test_standards_index_audit.py # The header audit's three distinctions, each
+│   │               #   driven by a mutation: a field inside a section is NOT a header (a substring
+│   │               #   search would call a header-less standard conformant), a VENDORED standard is
+│   │               #   the owner's to fix and never this repo's worklist, and a retired OLD_ file is
+│   │               #   NOT filtered away — skipping it reports the corpus clean while a session can
+│   │               #   still read it. Exit 2 on a corpus it cannot find, never 0.
 │   │           ├── test_replay_completion_predicate.py  # Guards the anchoring and strict-vs-loose gap E5's zero depends on (3 mutation-proven)
 │   │           ├── test_replay_convergence_predicate.py  # Guards both early-fire counters — the OBSERVED one (a later pass reopened work)
 │   │           │                                    #   and the circular self-reported one — plus comment-order sequencing, the pass-1
