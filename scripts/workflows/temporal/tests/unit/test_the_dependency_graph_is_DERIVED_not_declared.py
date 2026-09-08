@@ -288,17 +288,20 @@ def test_THE_WRONG_LAYOUT_IS_REFUSED_NOT_REPORTED_AS_EMPTY(tmp_path: Path) -> No
 def test_A_DECLARED_LINE_THAT_YIELDS_NO_EDGE_IS_REPORTED_INERT(tmp_path: Path) -> None:
     """THE TWO DERIVATIONS MUST NOT DISAGREE SILENTLY. `declaration_state` reads the
     LINE and calls an intra-page anchor `declared`; `dependency_edges` resolves the
-    TARGET and yields nothing. Both are right about their own question. Before this,
-    the disagreement was invisible: `image-manager` reported 7 of 8 entries declared
-    and a graph with zero edges, so a renderer would draw a component that depends on
-    nothing while its roadmap declares seven.
+    TARGET and yields nothing. Both are right about their own question, and the
+    disagreement used to be invisible.
+
+    ⚠ THE ORIGINAL INSTANCE WAS INTRA-PAGE ANCHORS AND IS NO LONGER ONE. Rule 9 was
+    extended 2026-09-08 to address a phase by its anchor, so `image-manager`'s eight
+    declarations now derive. What still reaches this state is a line whose every link
+    the graph skips — today, external URLs.
     """
     repo = tmp_path / "im"
     rm = repo / "docs" / "development" / "c" / "roadmap.md"
     rm.parent.mkdir(parents=True)
     rm.write_text(
         "### One 🟠 PLANNED\n\n**Implementation:** [a](phase1_a.md)\n\n"
-        "**Depends on:** [Two](#two).\n\n"
+        "**Depends on:** [an upstream ticket](https://example.invalid/x).\n\n"
         "### Two 🟠 PLANNED\n\n**Implementation:** [b](phase2_b.md)\n\n"
         "**Depends on:** NONE\n", encoding="utf-8")
 
@@ -306,3 +309,63 @@ def test_A_DECLARED_LINE_THAT_YIELDS_NO_EDGE_IS_REPORTED_INERT(tmp_path: Path) -
     assert found == {"One": "inert"}, (
         f"an anchor-only declaration must surface as `inert`, and a NONE must stay "
         f"clean: {found}")
+
+
+# ── a phase is addressed however it CAN be addressed ────────────────────────
+
+
+def _inline(tmp_path: Path, marker: str = "🟠 PLANNED") -> Path:
+    """A small project: one roadmap, phases inline, explicit anchor ids."""
+    repo = tmp_path / "small-thing"
+    rm = repo / "docs" / "development" / "c" / "roadmap.md"
+    rm.parent.mkdir(parents=True, exist_ok=True)
+    rm.write_text(
+        f'### The Substrate <a id="the-substrate"></a> {marker}\n\n'
+        "**Depends on:** NONE\n\n"
+        '### Harbor Standing <a id="harbor-standing"></a> 🟠 PLANNED\n\n'
+        "**Depends on:** [c · The Substrate](#the-substrate).\n", encoding="utf-8")
+    return repo
+
+
+def test_A_PHASE_INSIDE_A_ROADMAP_IS_A_LEGAL_TARGET(tmp_path: Path) -> None:
+    """THE REQUIREMENT, ratified into rule 9 on 2026-09-08. A project small enough to be
+    one component keeps its phases inline and **is not an unfinished version of a larger
+    one**. Dropping `#anchor` links as "not an edge" made such a project's entire graph
+    empty while its roadmap declared eight dependencies — measured on `image-manager`,
+    where `declaration_state` read the lines as declared and the graph yielded nothing.
+    """
+    repo = _inline(tmp_path)
+    edges = pa.dependency_graph(repo)
+    assert len(edges) == 1, f"the inline declaration produced no edge: {edges}"
+    assert edges[0].fragment == "the-substrate"
+    assert pa.unassessed_phases(repo) == [], "a resolving anchor is not a finding"
+
+
+def test_AN_ANCHORED_PHASES_STATE_IS_ITS_OWN_RULE_8_MARKER(tmp_path: Path) -> None:
+    """The state comes from the depended-on ENTRY, read from the other place a phase can
+    live. The mutation is the marker: the same corpus, one word different.
+    """
+    assert pa.edge_state(pa.dependency_graph(_inline(tmp_path / "a"))[0],
+                         _inline(tmp_path / "a")) == "unsatisfied"
+    done = _inline(tmp_path / "b", marker="✅ COMPLETE")
+    assert pa.edge_state(pa.dependency_graph(done)[0], done) == "satisfied"
+
+
+def test_AN_ANCHOR_NOTHING_DECLARES_IS_BROKEN_NOT_SATISFIED(tmp_path: Path) -> None:
+    """POSITIVE CONTROL, and the reason ids are author-written rather than slugified.
+    A dead in-page anchor renders as a working link and resolves to nothing, so it must
+    read as `broken` — the same state as a missing file, for the same reason: it
+    addresses nothing while the author believes it does. Nine such links were sitting in
+    `temporal-integration/roadmap.md` and none of them failed visibly.
+    """
+    repo = tmp_path / "typo"
+    rm = repo / "docs" / "development" / "c" / "roadmap.md"
+    rm.parent.mkdir(parents=True)
+    rm.write_text(
+        '### One <a id="one"></a> 🟠 PLANNED\n\n'
+        "**Depends on:** [c · Two](#two-that-never-existed).\n", encoding="utf-8")
+
+    edge = pa.dependency_graph(repo)[0]
+    assert pa.edge_state(edge, repo) == "broken", (
+        "an anchor matching no declared id must be broken, not satisfied — otherwise a "
+        "typo reads as a met dependency")

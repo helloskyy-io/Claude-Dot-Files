@@ -1627,6 +1627,7 @@ class DependencyEdge(NamedTuple):
     text: str                #: the link text, as written
     target: Path             #: resolved absolute path of the depended-on artifact
     note: str                #: the rest of the line — prose the parser ignores
+    fragment: str = ""       #: the `#anchor` half, when the target is a phase INSIDE a roadmap
 
 
 def _entry_windows(text: list[str]) -> list[tuple[int, int, str]]:
@@ -1661,15 +1662,23 @@ def dependency_edges(roadmap: Path) -> list[DependencyEdge]:
                 continue
             body = m.group(1)
             for label, href in _MD_LINK.findall(body):
-                if href.startswith(("http://", "https://", "#")):
-                    continue          # an external or intra-page link is not an edge
+                if href.startswith(("http://", "https://")):
+                    continue          # an external link is not an edge in this graph
+                # `urldefrag`, never a split — `test_pr_url_address` holds the rule
+                # that a path segment is not derived by string surgery, and a link
+                # may legitimately carry `#section` after the file.
+                parts = urldefrag(href)
+                # A BARE `#anchor` ADDRESSES A PHASE IN THIS SAME ROADMAP, and used to be
+                # dropped here as "not an edge". Rule 9 (extended 2026-09-08) addresses a
+                # PHASE, however that phase can be addressed: its own doc where it has
+                # one, its anchor in a roadmap where it does not. A project small enough
+                # to be one component keeps its phases inline and is not an unfinished
+                # version of a larger one, so dropping these made its whole graph empty.
                 out.append(DependencyEdge(
                     roadmap=roadmap, phase=phase, text=label,
-                    # `urldefrag`, never a split — `test_pr_url_address` holds the
-                    # rule that a path segment is not derived by string surgery, and a
-                    # link may legitimately carry `#section` after the file.
-                    target=(roadmap.parent / urldefrag(href).url).resolve(),
+                    target=(roadmap.parent / parts.url).resolve() if parts.url else roadmap,
                     note=_MD_LINK.sub("", body).strip(" ·—-"),
+                    fragment=parts.fragment,
                 ))
     return out
 
@@ -1796,12 +1805,40 @@ def edge_state(edge: DependencyEdge, repo_root: Path) -> str:
     """
     if not edge.target.exists():
         return "broken"
+    if edge.fragment:
+        # THE ANCHOR NAMES A PHASE INSIDE A ROADMAP, so its state is that entry's rule-8
+        # marker — the same fact a phase doc's state comes from, read from the other
+        # place a phase can live. An anchor nothing declares is `broken` for the same
+        # reason a missing file is: it addresses nothing, and the author believes it does.
+        marker = _marker_for_anchor(edge.target, edge.fragment)
+        if marker is None:
+            return "broken"
+        return "satisfied" if "COMPLETE" in marker else "unsatisfied"
     if re.match(r"phase\d", edge.target.name):
         marker = _phase_marker_for(edge.target)
         if marker is None:
             return "unsatisfied"      # a doc no roadmap entry claims
         return "satisfied" if "COMPLETE" in marker else "unsatisfied"
     return "satisfied"                # a standard or other artifact: it resolves
+
+
+def _marker_for_anchor(roadmap: Path, anchor: str) -> str | None:
+    """The rule-8 marker on the phase entry carrying `<a id="anchor">`, or None.
+
+    THE ID IS AUTHOR-WRITTEN AND THAT IS WHY THIS READS IT RATHER THAN SLUGIFYING THE
+    HEADING. A generated slug changes when the heading is reworded and every inbound
+    link dies silently — a dead in-page anchor renders as a working link and resolves
+    to nothing. Measured 2026-09-08 on `temporal-integration/roadmap.md`: nine links
+    pointing at anchors that had never existed, none of which failed visibly.
+    """
+    if not roadmap.is_file():
+        return None
+    needle = f'<a id="{anchor}">'
+    for line in roadmap.read_text(encoding="utf-8").splitlines():
+        if line.startswith("#") and needle in line:
+            m = _PHASE_MARKER.search(line)
+            return m.group(0) if m else None
+    return None
 
 
 def _phase_marker_for(phase_doc: Path) -> str | None:
