@@ -206,3 +206,35 @@ def test_STALENESS_IS_SILENT_WHILE_HEADERS_ARE_MISSING(tmp_path: Path) -> None:
     _std(tmp_path, "a/bare.md", "# Bare\n\n## Body\n")
     (tmp_path / "CLAUDE.md").write_text(f"# R\n\n{si.BEGIN}\nanything\n{si.END}\n", encoding="utf-8")
     assert si.stale_block(tmp_path, si.standards_in(tmp_path)) is None
+
+
+# ── a field must not swallow the one below it ───────────────────────────────
+
+
+@pytest.mark.parametrize("filler", ["", "\n", "\n  - a.md\n  - b.md"])
+def test_AN_EMPTY_VALUED_FIELD_DOES_NOT_SWALLOW_THE_NEXT(tmp_path: Path, filler: str) -> None:
+    """THE REQUIREMENT. `\\s` matches a newline, so `\\s*` after the marker used to eat
+    the line break and capture the WHOLE NEXT FIELD LINE as this field's value —
+    `finditer` then resumed past it and the swallowed field was never seen.
+
+    THE AUDIT THEN REPORTS A FIELD MISSING FROM A FILE THAT HAS IT, which is worse
+    than a crash: the operator's remedy is to write a field they already wrote.
+    Found by MDC-PM3 on a real standard whose header carried `**Companion to:**`
+    above `**Read when:**` — one file in 46, and undetectable from the outside.
+
+    The parametrization is the mutation: an empty value, a blank line, and a
+    list-valued field are the three shapes that put a newline where the parser
+    expected a space.
+    """
+    s = tmp_path / "standards" / "x" / "s.md"
+    s.parent.mkdir(parents=True)
+    s.write_text(
+        f"# S\n\n**Binding scope:** everything\n**Companion to:**{filler}\n"
+        f"**Read when:** the trigger\n**Breaking it looks like:** the symptom\n",
+        encoding="utf-8")
+
+    got = si.read_standard(s)
+    assert not got.missing, (
+        f"a field between the required three swallowed one of them: {got.missing} "
+        f"reported missing from a file that declares all three")
+    assert got.fields["Read when"].strip() == "the trigger"

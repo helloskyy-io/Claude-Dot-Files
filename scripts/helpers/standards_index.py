@@ -39,7 +39,18 @@ from typing import NamedTuple
 REQUIRED = ("Binding scope", "Read when", "Breaking it looks like")
 
 #: A header line: `**Label:** value`, at the start of a line.
-_FIELD = re.compile(r"^\*\*([^:*]+):\*\*\s*(.*)$", re.M)
+#: `[ \t]*` AND NOT `\s*`, because `\s` matches a newline. A field whose value is
+#: empty or continues on the following lines — a list, a table, a wrapped paragraph —
+#: let `\s*` eat the newline, `(.*)$` then captured THE WHOLE NEXT FIELD LINE as this
+#: field's value, and `finditer` resumed past it so the swallowed field was never seen.
+#: The audit then reports a field missing from a file that HAS it, which inverts the
+#: tool's purpose: the operator's remedy is to write a field they already wrote.
+#: Found by MDC-PM3 on `stateful_patterns.md` (a `**Companion to:**` above `**Read
+#: when:**`), after a cycle spent proving the content was present — a tool reporting a
+#: missing field is not a shape you distrust first. It bites hardest where headers are
+#: richest, and a standard carrying `Companion to:` / `Pairs with:` / `Supersedes:` is
+#: the hub the index most needs to render correctly.
+_FIELD = re.compile(r"^\*\*([^:*]+):\*\*[ \t]*(.*)$", re.M)
 
 #: Everything above the first `##`. The contract says the header block lives there,
 #: so a `**Read when:**` written *inside* a section is not a header and is not counted —
