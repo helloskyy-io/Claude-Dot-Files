@@ -40,12 +40,23 @@ enumerating test is only as good as its discovery predicate:
   * WHETHER THE BOUNDARY'S OWN FUNCTIONS ARE CORRECT. `test_content_activities`
     and `test_verify_citations` own that; this file only asks who calls them.
 
-THE PACKAGE'S OWN `__init__` RE-EXPORTS THE RAW STORE FUNCTIONS, so the boundary
-is bypassable BY NAME — `from modules.journal import load_object` reaches the
-store without ever naming `content_store`. That is why the detector matches the
-imported NAMES as well as the module path: a guard that only knew the module
-path would be blind to the shortest bypass in the tree, and `__init__.py` is
-where it is spelled out today.
+THREE SHAPES REACH THE STORE WITHOUT A DOTTED PATH THAT NAMES IT, and the first
+version of this file caught only one of them. `modules/journal/__init__.py`
+re-exports the raw store functions and the package is a package, so all of these
+work and none contains the string `modules.journal.content_store`:
+
+    from modules.journal import load_object      # the re-exported FUNCTION
+    from modules.journal import content_store    # the SUBMODULE, bound as a name
+    from modules.journal import *                # both, and everything else
+
+⚠ THE MIDDLE ONE IS THE FLEET'S OWN IDIOM AND IT WAS THE ONE MISSED. Eighteen
+fleet modules import a journal submodule exactly that way: every entrypoint takes
+`journal_activities as journal`, and `verify_citations.py` and `validate_bag.py`
+take `verify` and `validate`. So it is the shape a real bypass would take,
+written by someone copying the line above it. A detector that matched module
+paths and re-exported function names read it as clean. Caught in review; the control is
+`test_the_SUBMODULE_AS_A_NAME_bypass_is_caught` below, and it is the reason this
+file matches imported names against the store MODULES as well.
 """
 
 from __future__ import annotations
@@ -53,8 +64,12 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-from journal_entrypoint_facts import REPO_ROOT
-
+# Derived locally rather than imported from `journal_entrypoint_facts`, which is
+# the dominant idiom in this suite: that helper exists to share the ENTRYPOINT
+# POPULATION between the guards that assert against it, and this file asserts
+# nothing about entrypoints. A `parents[5]` root cannot drift the way a
+# discovered population can, so sharing it would buy a coupling and no safety.
+REPO_ROOT = Path(__file__).resolve().parents[5]
 FLEET_ROOT = REPO_ROOT / "scripts" / "workflows" / "temporal"
 
 # The package whose modules ARE the boundary. Everything under it is exempt by
@@ -63,6 +78,10 @@ FLEET_ROOT = REPO_ROOT / "scripts" / "workflows" / "temporal"
 # digest-shape check. Exempting the package rather than listing four filenames
 # keeps this from failing the day a fifth module is added inside it.
 BOUNDARY_DIR = FLEET_ROOT / "modules" / "journal"
+
+# Its name alone, for the star-import case: `from modules.journal import *` names
+# no store module and no store function, and binds both.
+BOUNDARY_PACKAGE = BOUNDARY_DIR.name
 
 # Directories swept. `tests/` is excluded — see the docstring's scope list.
 SWEPT_DIRS = ("modules", "scripts")
@@ -148,10 +167,18 @@ def _reaches(path: Path, root: Path) -> list[str]:
             if parts & STORE_MODULES:
                 found.append(f"{where}:{node.lineno}: imports from {node.module}")
             for alias in node.names:
-                if alias.name in STORE_IO_NAMES:
+                if alias.name in STORE_MODULES:
+                    found.append(
+                        f"{where}:{node.lineno}: imports the store module "
+                        f"{alias.name} as a name")
+                elif alias.name in STORE_IO_NAMES:
                     found.append(
                         f"{where}:{node.lineno}: imports the store I/O name "
                         f"{alias.name}")
+                elif alias.name == "*" and BOUNDARY_PACKAGE in parts:
+                    found.append(
+                        f"{where}:{node.lineno}: star-imports {node.module}, "
+                        f"binding every name its __all__ re-exports")
         elif isinstance(node, ast.Constant) and isinstance(node.value, str):
             if id(node) in skip:
                 continue
@@ -302,6 +329,47 @@ def test_the_PACKAGE_RE_EXPORT_bypass_is_caught(tmp_path) -> None:
 
     flagged = _sweep(tmp_path)
     assert len(flagged) == 1 and "load_object" in flagged[0], flagged
+
+
+def test_the_SUBMODULE_AS_A_NAME_bypass_is_caught(tmp_path) -> None:
+    """THE SHAPE THIS FILE SHIPPED BLIND TO, kept as a control so it cannot return.
+
+    `from modules.journal import content_store` names the package, not the
+    module, and binds the module anyway — so neither a dotted-path check nor a
+    re-exported-function-name check sees it. It is also how eighteen fleet
+    modules already import a journal submodule, which is what makes it the
+    likeliest bypass rather than an exotic one.
+    """
+    modules = tmp_path / "modules"
+    modules.mkdir()
+    (modules / "idiomatic.py").write_text(
+        "from modules.journal import content_store\n"
+        "def run(bag, data):\n"
+        "    return content_store.store_bytes(bag.path, data)\n",
+        encoding="utf-8")
+
+    flagged = _sweep(tmp_path)
+    assert len(flagged) == 1 and "as a name" in flagged[0], flagged
+
+
+def test_a_STAR_IMPORT_of_the_journal_package_is_caught(tmp_path) -> None:
+    """`import *` binds every name `__all__` re-exports, naming none of them.
+
+    Flagged on the package rather than on a resolved name list, because a star
+    import's bindings are not knowable statically without importing — and a
+    module that star-imports the journal package has reached the store whether
+    or not it goes on to call `load_object`.
+    """
+    modules = tmp_path / "modules"
+    modules.mkdir()
+    (modules / "star.py").write_text(
+        "from modules.journal import *\n"
+        "def run(bag, digest):\n"
+        "    return load_object(bag.path, digest)\n",
+        encoding="utf-8")
+
+    flagged = _sweep(tmp_path)
+    assert len(flagged) == 1 and "star-imports" in flagged[0], flagged
 
 
 def test_a_module_COMPOSING_the_store_path_itself_is_caught(tmp_path) -> None:
