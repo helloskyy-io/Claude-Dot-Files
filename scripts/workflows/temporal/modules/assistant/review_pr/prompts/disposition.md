@@ -76,6 +76,16 @@ Enumerate by NAME and map each to a destination. "The tests were carried across"
 
 **INBOUND-CITATION SWEEP — the third direction, and the only one that reaches a file this PR did not touch.** The two sweeps above reason OUTWARD from the diff; neither sees a file with NO diff citing INTO one with a diff. Fire it whenever the PR changes a file's LINE COUNT, or adds, removes or renames a HEADING or named anchor. Two searches: grep the repo for the changed file's PATH, and for its anchors (`#the-heading-text`). Open each hit and check the citation still lands where it claims. **A positional or anchor citation breaks silently — nothing goes red, and the next reader believes it.**
 
+**RESOLVE AN ANCHOR WITH THE `contents` HTML RENDER — it is the only instrument that works:**
+`gh api repos/<o>/<r>/contents/<path> -H 'Accept: application/vnd.github.html'`, then read the
+`id=` attributes GitHub actually emitted. **Two others look right and produce FALSE breaks:**
+slugifying the heading yourself (em-dashes, inline code and `&` each have their own rule), and
+the `/markdown` API, which **emits no heading anchors at all** — so every anchor reads as
+broken. Both were tried on a real pass and both felt like verification. **If the render is
+unavailable, say the anchors were not checked**: an unchecked anchor is a known gap, a falsely
+broken one is a wrong answer where it looks official, and a batch of noisy anchor findings
+teaches the operator to discount the real ones.
+
 **COMPLETION-CHECKBOX SWEEP — mandatory whenever this PR flips `[ ]` → `[x]` in any planning artifact** (phase doc, `roadmap.md`, epic breakdown). The global rule `standards-governance.md` § *Completion checkboxes* (`~/.claude/rules/`, sourced from `config/rules/` in this repo) puts the flip in dispatch scope and puts the **verification on you**: you MUST check every flip against the artifact it claims, **not against the run's account of it**. Read the rule — it is binding, it records why the check and not the human is the safeguard, and it is deliberately not restated here.
 
 The check is per-box, and it is the same shape as the deleted-artifact sweep: `git diff` the planning artifacts, list every flipped line, and for each one name the thing in **this PR's diff** that satisfies it. **An unverified flip is a finding. A flip for work not in this diff HOLDS the PR** — categorize it `correctness`, because the durable consequence is that the default branch acquires an `[x]` for work the default branch does not contain, and the next dispatch sequences off it. Blanket-checking a section is the shape to watch for: a run that flipped every box in a block rather than the ones its diff earns.
@@ -161,6 +171,13 @@ All three still block MERGE. Only LAUNDERED counts against the producing run.
 ### FILING AUTHORITY — you may file TRACKED ITEMS via intake (and you are the ONLY autonomous run that may)
 
 **HOW you file.** Deferred work lives in `tracked/<store>/`, one file per item, and a file needs a commit you do not have and must not have. So you file an **INTAKE**: `gh issue create --label tracked-intake` — the API call you always made. [Tracked Items Standard §5.0](/opt/skyy-net/skyynet-master-planning/standards/documentation/tracked_items_standard.md) exempts it from §5, and a named harvest moves it into the store and closes it. **The issue is a conveyor, never a record** — cite the item it becomes, never the intake.
+
+**ENSURE THE LABEL BEFORE YOUR FIRST `gh issue create`:** `gh label create tracked-intake
+--color FBCA04 --description 'tracked-item intake conveyor' --force`. **`--force` makes it
+idempotent** — one wasted call where the label exists, and the difference between a filing and
+a lost finding where it does not. A repo nobody has filed into has no such label, and creating
+an issue against a missing one either fails or lands it **unlabelled**; an unlabelled intake is
+invisible to the harvest, so **a correctly-classified finding silently never becomes a record.**
 
 **The intake body IS the item**, so there is no second format to learn. Frontmatter, then the prose:
 

@@ -229,7 +229,24 @@ BUDGETS: dict[str, int] = {
     # +10 on 2026-09-02: NOT new instruction. The nine loose standards moved
     # into topic folders, so every citation of one grew by the folder name.
     # Same words, longer paths.
-    "review_pr/prompts/disposition.md": 88_685,
+    # 88_685 -> 90_050 for two instrument fixes, both from PM1's 2026-09-08
+    # handoff, and both about a run producing a CONFIDENT WRONG ANSWER rather
+    # than a slightly worse artifact — which is the class that earns bytes here.
+    # (a) ENSURE THE `tracked-intake` LABEL before the first `gh issue create`.
+    # A repo nobody has filed into has no such label, so the intake lands
+    # unlabelled and the harvest — which reads the label — never sees it. The
+    # finding is classified correctly and then silently ceases to exist, which
+    # is precisely what the conveyor was built to prevent.
+    # (b) NAME THE ANCHOR-RESOLUTION INSTRUMENT. The prompt demanded an anchor
+    # sweep and named no method; a real pass then burned two instruments that
+    # each produce 100% false breaks (a hand-rolled slugifier, and the
+    # `/markdown` API, which emits no heading anchors at all) before reaching
+    # the `contents` HTML render. Naming the one that works and the two that do
+    # not is strictly cheaper than the pass that rediscovers them.
+    # PARTLY FUNDED: both blocks were written 754 bytes longer and compressed
+    # before this number moved. 1_365 is the residue, on the file this dict
+    # still says most needs shrinking — that shrink pass remains owed.
+    "review_pr/prompts/disposition.md": 90_050,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-f0lfdhmm's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the
     # residue is 19 bytes. Worth stating because this is the mechanism working
