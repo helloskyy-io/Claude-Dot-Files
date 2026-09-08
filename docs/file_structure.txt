@@ -80,6 +80,14 @@ claude-dot-files/
 ├── scripts/                                         # ORGANIZING AXIS: *who invokes it?* — that one question explains every folder below
 │   ├── helpers/                                     # YOU run these. Pure bash, no AI, zero tokens
 │   │                                                #   (helpers/ = standalone executables you RUN; workflows/lib/ = bash you SOURCE. Different things, hence two folders)
+│   │   ├── standards_index.py         # Audits a standards corpus against the header
+│   │       #   contract — the three lines § Standards Corpus Organization requires, plus
+│   │       #   standards this repo's CLAUDE.md references nowhere. Built BEFORE the index
+│   │       #   generator on purpose: the generator had nothing to generate from, and
+│   │       #   building it first would have produced an index of blanks. Buckets VENDORED
+│   │       #   separately — a mirror's header is its owner's to write, and mixing them
+│   │       #   hands an operator findings they may not act on. Underscored, unlike its
+│   │       #   hyphenated siblings, so its predicates can be imported and driven.
 │   │   ├── similar-candidates.py                     # Which existing items to READ before filing one. A COMMAND, not a prompt value:
 │   │   │                                            #   the ranking needs the finding's text, which exists only mid-run. Ranks; never rules
 │   │   ├── merge-pr.py                              # Land a reviewed PR SET and drain the intake — the
