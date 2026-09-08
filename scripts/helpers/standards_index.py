@@ -61,6 +61,21 @@ class Standard(NamedTuple):
         return [r for r in REQUIRED if not self.fields.get(r, "").strip()]
 
 
+#: Friendlier headings for the buckets that have one; the order they read best in.
+#: A bucket absent from either map still renders — titled from its own folder name and
+#: sorted last, so a new topic folder appears in the index the day it is created rather
+#: than the day somebody remembers to add it here.
+_BUCKET_TITLES = {
+    "architecture": "Architecture (read first for any design work)",
+    "claude-code": "Tooling standards (the claude-dot-files corpus)",
+    "documentation": "Documentation and process",
+    "findings": "Findings and routing",
+}
+_BUCKET_ORDER = {"architecture": 0, "claude-code": 1, "workflows": 2, "services": 3,
+                 "documentation": 4, "findings": 5, "research": 6, "testing": 7,
+                 "temporal": 8}
+
+
 def read_standard(path: Path) -> Standard:
     text = path.read_text(encoding="utf-8", errors="replace")
     cut = _FIRST_SECTION.search(text)
@@ -118,18 +133,41 @@ def render_index(items: list[Standard], root: Path) -> str:
     """One line per standard, from its three header lines and nothing else.
 
     THE ENTRY CANNOT CARRY A SECTION SUMMARY, and that is the point rather than a
-    limitation. Today's hand-written entries are 1,403 bytes at the median because most
+    limitation. MDC's hand-written entries are 1,403 bytes at the median because most
     of each is a §-by-§ précis of the standard — neither a trigger nor a symptom, and the
     part that goes stale: the measured drift instance was a summary of a §2.3 model the
     standard had moved past. There is no header field to render one from, so generation
     deletes the class. Measured against real headers: 454 bytes per entry.
+
+    ⚠ THAT IS A SAVING FOR MDC AND A COST FOR US, and the second half was missing until
+    2026-09-08. SkyyNet's own entries are 270 bytes at the median — already terse — so
+    generating this corpus makes its index BIGGER (6,056 -> ~9,400). The trade is
+    different in each repo and the reason to generate here is drift, not size. Stated
+    because the 68%-reduction figure was quoted at another PM as though it were a
+    property of the tool.
+
+    GROUPED BY BUCKET, because a flat list was deleting structure that is DERIVABLE.
+    The hand-written index sorted its entries under `### Architecture`, `### Tooling`
+    and so on — and every one of those headings is just the standard's own folder
+    under `standards/`. A generator that flattened them would have forced a choice
+    between derived and navigable, which is a false choice: the grouping is in the
+    corpus already. `_BUCKET_TITLES` names the ones worth a friendlier heading; any
+    other folder titles itself.
     """
     out = [BEGIN, ""]
+    grouped: dict[str, list[Standard]] = {}
     for s in sorted(items, key=lambda x: x.path.as_posix()):
-        out.append(f"- **[{_title(s.path)}]({(root / s.path).resolve()})** — "
-                   f"**read when** {s.fields['Read when'].strip()} "
-                   f"*Breaking it looks like:* {s.fields['Breaking it looks like'].strip()}")
-    out += ["", END]
+        rel = (root / s.path).resolve().relative_to((root / "standards").resolve())
+        grouped.setdefault(rel.parts[0] if len(rel.parts) > 1 else "", []).append(s)
+    for bucket in sorted(grouped, key=lambda b: (_BUCKET_ORDER.get(b, 99), b)):
+        if bucket:
+            out += [f"### {_BUCKET_TITLES.get(bucket, bucket.replace('-', ' ').title())}", ""]
+        for s in grouped[bucket]:
+            out.append(f"- **[{_title(s.path)}]({(root / s.path).resolve()})** — "
+                       f"**read when** {s.fields['Read when'].strip()} "
+                       f"*Breaking it looks like:* {s.fields['Breaking it looks like'].strip()}")
+        out.append("")
+    out += [END]
     return "\n".join(out)
 
 
@@ -278,7 +316,11 @@ def main(argv: list[str] | None = None) -> int:
         for s in mirror_gaps:
             print(f"  {s.path.relative_to(root)} — missing {', '.join(s.missing)}")
         print()
-    if not (gaps or stray):
+    # `drift` BELONGS IN THIS CONDITION, and leaving it out printed the opposite of
+    # the truth: a stale index reported "clean" on the last line of a run that exited
+    # 1, and the last line is what a reader takes away. Observed 2026-09-08 driving
+    # the staleness gate with a mutation — the gate was right and its summary was not.
+    if not (gaps or stray or drift):
         print("clean: every owned standard carries the three header lines and is indexed.")
     return 1 if (a.check and (gaps or stray or drift)) else 0
 
