@@ -1708,6 +1708,40 @@ def declaration_state(roadmap: Path, phase: str) -> str:
     return "missing"
 
 
+def development_root(repo_root: Path) -> Path:
+    """Where component roadmaps live, DERIVED FROM REPO CLASS — never probed.
+
+    Same rule as `vendor-standards.sh`, and here for the same reason: a planning
+    repo's root IS its documentation tree, so it hoists the buckets; every other
+    repo keeps them under `docs/`. See
+    `skyynet-master-planning/standards/documentation/documentation_standard.md`
+    § *A repo that CONSUMES standards*, rule 1.
+
+    IT REFUSES RATHER THAN RETURNING AN EMPTY GLOB, and that is the whole point.
+    Globbing `development/` in a repo that keeps roadmaps at `docs/development/`
+    yields nothing, and nothing is indistinguishable from a corpus with no
+    dependencies to report. Measured 2026-09-08 on `image-manager`: the deriver
+    reported **0 edges and 0 unassessed phases** — a perfect score — for a roadmap
+    carrying eight declarations it never opened. A vacuous sweep is an ABSENT
+    test, not a passing one.
+
+    PROBING FOR WHICHEVER LAYOUT EXISTS IS THE WRONG FIX, and is refused here on
+    purpose. `vendor-standards.sh` used to do exactly that, and tolerating both
+    shapes is how the divergence survived: the one tool that could have caught it
+    was built to accommodate it.
+    """
+    planning = repo_root.name.endswith("-master-planning")
+    rel = "development" if planning else "docs/development"
+    root = repo_root / rel
+    if not root.is_dir():
+        raise FileNotFoundError(
+            f"{repo_root} is {'a planning repo' if planning else 'a non-planning repo'}, "
+            f"so its component roadmaps belong at {rel}/ — and that directory does not "
+            f"exist. Refusing rather than reporting an empty graph, which would read as "
+            f"a corpus with no dependencies.")
+    return root
+
+
 def unassessed_phases(repo_root: Path) -> list[tuple[Path, str, str]]:
     """Every phase entry whose dependency declaration is absent or qualified.
 
@@ -1716,21 +1750,35 @@ def unassessed_phases(repo_root: Path) -> list[tuple[Path, str, str]]:
     about itself*.
     """
     out = []
-    for rm in sorted((repo_root / "development").rglob("roadmap.md")):
+    for rm in sorted(development_root(repo_root).rglob("roadmap.md")):
         text = rm.read_text(encoding="utf-8").splitlines()
+        by_phase: dict[str, list] = {}
+        for e in dependency_edges(rm):
+            by_phase.setdefault(e.phase, []).append(e)
         for _, _, heading in _entry_windows(text):
             if not _PHASE_MARKER.search(heading):
                 continue                # not a rule-8 phase entry; nothing is claimed
             phase = _PHASE_MARKER.sub("", heading).strip()
             state = declaration_state(rm, phase)
-            if state in ("missing", "qualified"):
+            if state == "declared" and not by_phase.get(phase):
+                # DECLARED AND YET CONTRIBUTES NOTHING TO THE GRAPH. The only way
+                # to reach here is a line whose every link `dependency_edges`
+                # skips — today that means intra-page anchors (`#the-substrate`)
+                # and external URLs. `declaration_state` reads the LINE and calls
+                # it declared; the graph resolves the TARGETS and yields no edge.
+                # Both are right about their own question, and the disagreement
+                # is the finding: a renderer draws a component with no
+                # dependencies while its roadmap declares seven.
+                # Measured 2026-09-08 on `image-manager`: 7 of 8 entries.
+                state = "inert"
+            if state in ("missing", "qualified", "inert"):
                 out.append((rm, phase, state))
     return out
 
 
 def dependency_graph(repo_root: Path) -> list[DependencyEdge]:
     """Every forward edge in the corpus. Rule 9: this is the whole input."""
-    return [e for rm in sorted((repo_root / "development").rglob("roadmap.md"))
+    return [e for rm in sorted(development_root(repo_root).rglob("roadmap.md"))
             for e in dependency_edges(rm)]
 
 

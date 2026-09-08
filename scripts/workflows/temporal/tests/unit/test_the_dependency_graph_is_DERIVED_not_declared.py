@@ -32,6 +32,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "modules"))
 from assistant.plan import plan_activities as pa  # noqa: E402
 
 
+def _planning(tmp_path: Path) -> Path:
+    """A tmp repo whose NAME puts it in the planning class.
+
+    `development_root` derives the bucket location from the repo class rather than
+    probing for whichever exists, so a fixture has to declare which class it is.
+    Naming it is the declaration — the same fact the real repos carry in their names.
+    """
+    root = tmp_path / "fixture-master-planning"
+    root.mkdir(exist_ok=True)
+    return root
+
+
 def _component(root: Path, name: str, roadmap: str, docs: tuple[str, ...] = ()) -> Path:
     d = root / "development" / "edge" / name
     d.mkdir(parents=True, exist_ok=True)
@@ -43,6 +55,7 @@ def _component(root: Path, name: str, roadmap: str, docs: tuple[str, ...] = ()) 
 
 @pytest.fixture
 def corpus(tmp_path: Path) -> Path:
+    tmp_path = _planning(tmp_path)
     """Two components and a standard: one satisfied edge, one not, one cross-component."""
     (tmp_path / "standards" / "documentation").mkdir(parents=True)
     (tmp_path / "standards" / "documentation" / "s.md").write_text("# S", encoding="utf-8")
@@ -167,6 +180,7 @@ def _entry(name: str, marker: str, line: str | None) -> str:
 
 @pytest.fixture
 def states(tmp_path: Path) -> Path:
+    tmp_path = _planning(tmp_path)
     rm = tmp_path / "development" / "edge" / "c" / "roadmap.md"
     rm.parent.mkdir(parents=True)
     (rm.parent / "t.md").write_text("# t", encoding="utf-8")
@@ -217,6 +231,7 @@ def test_THE_WORKLIST_IS_WHAT_THE_CORPUS_DOES_NOT_KNOW_ABOUT_ITSELF(states: Path
 
 
 def test_A_NON_PHASE_HEADING_IS_NOT_A_FINDING(tmp_path: Path) -> None:
+    tmp_path = _planning(tmp_path)
     """A prose section claims nothing, so its silence is not a missing declaration.
 
     Without this the worklist reports every discussion heading in every roadmap and
@@ -228,3 +243,66 @@ def test_A_NON_PHASE_HEADING_IS_NOT_A_FINDING(tmp_path: Path) -> None:
     rm.write_text("# C\n\n### In plain words\n\nProse, no marker.\n\n"
                   + _entry("Real", "🟠 PLANNED", "**Depends on:** NONE"), encoding="utf-8")
     assert pa.unassessed_phases(tmp_path) == []
+
+
+# ── the repo class is DERIVED, and a vacuous sweep is refused ────────────────
+
+
+def test_A_NON_PLANNING_REPO_KEEPS_ITS_ROADMAPS_UNDER_docs(tmp_path: Path) -> None:
+    """THE REQUIREMENT. `image-manager` is not a planning repo, so its roadmaps
+    live at `docs/development/`. The deriver used to glob `development/` in every
+    repo, which in a non-planning one matches nothing — and the run reported
+    **0 edges and 0 unassessed phases** for a roadmap carrying eight declarations.
+    A perfect score, from a sweep that opened no files.
+    """
+    repo = tmp_path / "image-manager"
+    rm = repo / "docs" / "development" / "c" / "roadmap.md"
+    rm.parent.mkdir(parents=True)
+    (rm.parent / "phase1_x.md").write_text("# X", encoding="utf-8")
+    rm.write_text(
+        "### A Phase 🟠 PLANNED\n\n**Implementation:** [x](phase1_x.md)\n\n"
+        "**Depends on:** [c · B](phase1_x.md)\n", encoding="utf-8")
+
+    assert pa.development_root(repo) == repo / "docs" / "development"
+    assert len(pa.dependency_graph(repo)) == 1, (
+        "a non-planning repo's roadmaps were not read — this is the vacuity the "
+        "class derivation exists to remove")
+
+
+def test_THE_WRONG_LAYOUT_IS_REFUSED_NOT_REPORTED_AS_EMPTY(tmp_path: Path) -> None:
+    """POSITIVE CONTROL, and the half that matters. Returning `[]` for a repo whose
+    bucket is missing is indistinguishable from a corpus with no dependencies, so
+    the absence must RAISE. Driven by a mutation: a planning-class repo that keeps
+    its roadmaps in the non-planning place.
+    """
+    repo = tmp_path / "wrong-master-planning"
+    (repo / "docs" / "development" / "c").mkdir(parents=True)
+
+    with pytest.raises(FileNotFoundError) as e:
+        pa.dependency_graph(repo)
+    assert "development/" in str(e.value) and "planning repo" in str(e.value), (
+        "the refusal must name the layout it expected and the class it derived it "
+        f"from, or the operator cannot act on it: {e.value}")
+
+
+def test_A_DECLARED_LINE_THAT_YIELDS_NO_EDGE_IS_REPORTED_INERT(tmp_path: Path) -> None:
+    """THE TWO DERIVATIONS MUST NOT DISAGREE SILENTLY. `declaration_state` reads the
+    LINE and calls an intra-page anchor `declared`; `dependency_edges` resolves the
+    TARGET and yields nothing. Both are right about their own question. Before this,
+    the disagreement was invisible: `image-manager` reported 7 of 8 entries declared
+    and a graph with zero edges, so a renderer would draw a component that depends on
+    nothing while its roadmap declares seven.
+    """
+    repo = tmp_path / "im"
+    rm = repo / "docs" / "development" / "c" / "roadmap.md"
+    rm.parent.mkdir(parents=True)
+    rm.write_text(
+        "### One 🟠 PLANNED\n\n**Implementation:** [a](phase1_a.md)\n\n"
+        "**Depends on:** [Two](#two).\n\n"
+        "### Two 🟠 PLANNED\n\n**Implementation:** [b](phase2_b.md)\n\n"
+        "**Depends on:** NONE\n", encoding="utf-8")
+
+    found = {ph.split(" <a")[0]: st for _, ph, st in pa.unassessed_phases(repo)}
+    assert found == {"One": "inert"}, (
+        f"an anchor-only declaration must surface as `inert`, and a NONE must stay "
+        f"clean: {found}")
