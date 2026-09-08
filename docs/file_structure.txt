@@ -80,6 +80,23 @@ claude-dot-files/
 ├── scripts/                                         # ORGANIZING AXIS: *who invokes it?* — that one question explains every folder below
 │   ├── helpers/                                     # YOU run these. Pure bash, no AI, zero tokens
 │   │                                                #   (helpers/ = standalone executables you RUN; workflows/lib/ = bash you SOURCE. Different things, hence two folders)
+│   │   ├── standards_index.py         # Audits a standards corpus against the header
+│   │       #   contract — the three lines § Standards Corpus Organization requires, plus
+│   │       #   standards this repo's CLAUDE.md references nowhere. Built BEFORE the index
+│   │       #   generator on purpose: the generator had nothing to generate from, and
+│   │       #   building it first would have produced an index of blanks. Buckets VENDORED
+│   │       #   separately — a mirror's header is its owner's to write, and mixing them
+│   │       #   hands an operator findings they may not act on. Underscored, unlike its
+│   │       #   hyphenated siblings, so its predicates can be imported and driven.
+│   │       #   --generate renders one line per standard from the three header lines and
+│   │       #   NOTHING else, which is why it shrinks: today's hand-written entries are 1,403
+│   │       #   bytes at the median because most of each is a §-by-§ precis — the part that
+│   │       #   goes stale, and the part no header field can produce. Measured at 454b/entry.
+│   │       #   THREE REFUSALS make it safe to point at a live file: it will not render while
+│   │       #   any owned standard is incomplete (a partial index is shorter than the one it
+│   │       #   replaces, and the difference is unmoved work), it will not guess where the
+│   │       #   fenced block goes, and --check reports the committed block stale against what
+│   │       #   the headers now render — the gate that makes a committed artifact honest.
 │   │   ├── similar-candidates.py                     # Which existing items to READ before filing one. A COMMAND, not a prompt value:
 │   │   │                                            #   the ranking needs the finding's text, which exists only mid-run. Ranks; never rules
 │   │   ├── merge-pr.py                              # Land a reviewed PR SET and drain the intake — the
@@ -127,6 +144,12 @@ claude-dot-files/
 │   │           │                                    #   summary makes no MODEL_KEY claim, with yq it claims a NON-ZERO count, STRICT makes a skip fatal
 │   │           │                                    #   (and every spelling of OFF turns it off), a scan over an empty tree is a failure rather than a
 │   │           │                                    #   tick, and a prompt block whose closing ')' is never found fails instead of vanishing
+│   │           ├── test_standards_index_audit.py # The header audit's three distinctions, each
+│   │               #   driven by a mutation: a field inside a section is NOT a header (a substring
+│   │               #   search would call a header-less standard conformant), a VENDORED standard is
+│   │               #   the owner's to fix and never this repo's worklist, and a retired OLD_ file is
+│   │               #   NOT filtered away — skipping it reports the corpus clean while a session can
+│   │               #   still read it. Exit 2 on a corpus it cannot find, never 0.
 │   │           ├── test_replay_completion_predicate.py  # Guards the anchoring and strict-vs-loose gap E5's zero depends on (3 mutation-proven)
 │   │           ├── test_replay_convergence_predicate.py  # Guards both early-fire counters — the OBSERVED one (a later pass reopened work)
 │   │           │                                    #   and the circular self-reported one — plus comment-order sequencing, the pass-1
@@ -196,8 +219,9 @@ claude-dot-files/
 │           │                                        #   Ahead of the research step sits plan-candidates — an ACTIVITY, not a child: no
 │           │                                        #   prompt, no model, it scaffolds a research pool per shipped candidate and is what
 │           │                                        #   gave the research step a reachable input again. Also
-│           │                                        #   plan_revision (ported, NOT yet wired into plan_project — see its docstring);
-│           │                                        #   plan_revision/prompts/*.md are GENERATED from plan-revision.sh, never retyped
+│           │                                        #   plan_revision was REMOVED 2026-09-05: `plan` already revises a
+│           │                                        #   component's docs and refuses to rename/renumber/delete a phase doc,
+│           │                                        #   and plan_revision had neither a judge nor a path fence.
 │           │                                        #   plan_activities.py holds ONLY what more than one of them calls; a helper with
 │           │                                        #   one consumer lives in that workflow's own {name}_activities.py, per §10.1
 │           │                                        #   rule 3 — consumer count decides, never taste
@@ -359,6 +383,16 @@ claude-dot-files/
 │                   │                                #   it holds no copy of the list. States plainly that the obvious version of this
 │                   │                                #   check cannot fail: the code reads the array, so comparing it against the array
 │                   │                                #   compares a value with itself. The guard that CAN go red is the source scan
+│                   ├── test_the_dependency_graph_is_DERIVED_not_declared.py # Rule 9 says four facts
+│                       #   are derived — the reverse edge, the component rollup plan_sprint orders
+│                       #   on, satisfaction, and the graph. This holds the derivation, because a rule
+│                       #   asserting "derived" with nothing deriving is a promise. Built BEFORE the
+│                       #   corpus converted and found two silent bugs against workflow-decomposition's
+│                       #   real table: the owning-entry lookup matched any MENTION of a phase doc — the
+│                       #   loose predicate phase_sizing had already measured and rejected — and read a
+│                       #   prose section as a phase entry, reporting a COMPLETE phase unfinished; and
+│                       #   gated_on returned a component's own internal edges as inbound. Both mutations
+│                       #   are driven here rather than the happy path.
 │                   ├── test_the_dispatch_tool_enum_can_NAME_A_FIX_for_every_review_type.py  # disposition.md is SHARED by all three
 │                   │                                #   ReviewTypes and its dispatch_tool enum named build and planning tools only, so a
 │                   │                                #   research reviewer reached a mandatory REDISPATCH exit with no legal value to emit
@@ -642,7 +676,6 @@ claude-dot-files/
 │                   │                                #   watches the INSIDE of the one file the grant opens, where boundary_crossings is
 │                   │                                #   blind by construction. Its ordering fixture FOUND a defect: a dropped phase used
 │                   │                                #   to raise UNSIZED, whose suggested remedy leaves the phase dropped
-│                   ├── test_plan_revision.py        # plan-revision's pure logic (context block, completion URL) and its CLI contract
 │                   ├── test_triage_candidates_split.py # The triage/sprint seam: the `decision` column moved to triage-candidates and
 │                   │                                #   plan-sprint FAILS THE RUN if it wrote one. Six mutation shapes — four offend,
 │                   │                                #   two are entitled (markup reformat, a proposal placed unruled), and that second

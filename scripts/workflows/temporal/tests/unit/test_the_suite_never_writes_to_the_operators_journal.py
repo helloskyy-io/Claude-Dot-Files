@@ -4,7 +4,7 @@ HOW THIS WAS FOUND, because it is the reason the check is shaped the way it is:
 not by a failing assertion — every assertion passed throughout — but by looking
 at `~/.local/state/claude-dot-files/journal/` after a suite run and finding
 **twenty-four bags accumulated in one day**, one per `pytest` invocation. PR #99
-wired bag-open into all seventeen entrypoints, the unit modules that drive an
+wired bag-open into all sixteen entrypoints, the unit modules that drive an
 entrypoint's `main()` run it to test its preconditions, and nothing stood
 between the two. Three consequences, none of which could go red:
 
@@ -193,7 +193,7 @@ def test_the_population_this_sweeps_MATCHES_THE_TREE() -> None:
     # `main()` on EVERY bag-inspection entrypoint it discovers, which is the
     # point of it. Confirmed it cannot litter the operator's root: every case
     # passes a `tmp_path` child, and each tool returns before reaching a bag.
-    assert len(modules) == 8, (
+    assert len(modules) == 7, (
         f"{len(modules)} test module(s) under {UNIT_DIR} drive an entrypoint "
         f"`main()`; it was 7 when this was pinned. Found: "
         f"{[m.name for m in modules]}.\n"

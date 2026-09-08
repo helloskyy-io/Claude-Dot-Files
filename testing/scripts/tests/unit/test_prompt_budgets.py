@@ -229,8 +229,24 @@ BUDGETS: dict[str, int] = {
     # +10 on 2026-09-02: NOT new instruction. The nine loose standards moved
     # into topic folders, so every citation of one grew by the folder name.
     # Same words, longer paths.
-    "review_pr/prompts/disposition.md": 87_300,
-    "plan/plan_revision/prompts/stages_1_to_5.md": 22_506,
+    # 88_685 -> 90_050 for two instrument fixes, both from PM1's 2026-09-08
+    # handoff, and both about a run producing a CONFIDENT WRONG ANSWER rather
+    # than a slightly worse artifact — which is the class that earns bytes here.
+    # (a) ENSURE THE `tracked-intake` LABEL before the first `gh issue create`.
+    # A repo nobody has filed into has no such label, so the intake lands
+    # unlabelled and the harvest — which reads the label — never sees it. The
+    # finding is classified correctly and then silently ceases to exist, which
+    # is precisely what the conveyor was built to prevent.
+    # (b) NAME THE ANCHOR-RESOLUTION INSTRUMENT. The prompt demanded an anchor
+    # sweep and named no method; a real pass then burned two instruments that
+    # each produce 100% false breaks (a hand-rolled slugifier, and the
+    # `/markdown` API, which emits no heading anchors at all) before reaching
+    # the `contents` HTML render. Naming the one that works and the two that do
+    # not is strictly cheaper than the pass that rediscovers them.
+    # PARTLY FUNDED: both blocks were written 754 bytes longer and compressed
+    # before this number moved. 1_365 is the residue, on the file this dict
+    # still says most needs shrinking — that shrink pass remains owed.
+    "review_pr/prompts/disposition.md": 90_050,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-f0lfdhmm's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the
     # residue is 19 bytes. Worth stating because this is the mechanism working
@@ -472,7 +488,7 @@ BUDGETS: dict[str, int] = {
     # `skyy-command` cites its planning repo the same way, hundreds of times —
     # and it is the only form that resolves from a worktree of another repo.
     # NO INSTRUCTION WAS ADDED; the same sentences got longer.
-    "plan/plan_draft/prompts/plan_draft.md": 24_383,
+    "plan/plan_draft/prompts/plan_draft.md": 24_787,
     # 15_510 -> 13_204: the `research-analyst` re-dispatch is gone. The verify
     # child holds Write/Edit and applies the critic's findings itself, so the
     # rules that existed only to coordinate a second writing agent went with it
@@ -554,7 +570,7 @@ BUDGETS: dict[str, int] = {
     # `skyy-command` cites its planning repo the same way, hundreds of times —
     # and it is the only form that resolves from a worktree of another repo.
     # NO INSTRUCTION WAS ADDED; the same sentences got longer.
-    "plan/plan_refine/prompts/plan_refine.md": 18_761,
+    "plan/plan_refine/prompts/plan_refine.md": 18_776,
     # RATCHETED DOWN 14_437 -> 9_896, the other side of the same move. It stays
     # above the FLOOR, so it keeps its line rather than dropping off the table.
     # Then 9_896 -> 9_908, the same twelve substituted-away bytes as above.
@@ -719,7 +735,7 @@ BUDGETS: dict[str, int] = {
     # lives only in git history and in both draft workflows' Python comments,
     # which is where an editor is looking. Enforced by
     # `test_no_prompt_ships_EDITOR_COMMENTARY_to_the_model` below.
-    "prompts/mutation_discipline.md": 6_164,
+    "prompts/mutation_discipline.md": 6_525,
 }
 
 # A prompt below this is not worth a budget line; the total of all of them is

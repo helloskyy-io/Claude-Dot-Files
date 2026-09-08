@@ -224,7 +224,7 @@ def test_axis_CENSUS_no_selector_argument_is_unknown_to_the_cross_product(
 def test_the_derivation_found_every_selector() -> None:
     """VACUITY FLOOR, pinned by name so a vanished member is visible."""
     found = {p.parent.name for p in _selecting_workflows()}
-    assert found == {"build_draft", "build_draft_minor", "plan_revision"}, (
+    assert found == {"build_draft", "build_draft_minor"}, (
         f"the workflows choosing between creating and updating a PR are "
         f"{sorted(found)}. If a fourth was added it is now covered — extend this "
         f"expectation. If one vanished, the checks below assert over less than "

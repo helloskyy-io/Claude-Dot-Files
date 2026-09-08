@@ -61,7 +61,6 @@ PROMPT = (Path(__file__).resolve().parents[2]
 _TOOL_CHILDREN = {
     "build.sh":          ("build-draft", "build-refine"),
     "build_minor.sh":    ("build-draft-minor", "build-refine-minor"),
-    "plan_revision.sh":  ("plan-revision",),
     "research.sh":       ("research-draft", "research-refine"),
 }
 

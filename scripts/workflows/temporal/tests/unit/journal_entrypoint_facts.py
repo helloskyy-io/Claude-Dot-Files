@@ -35,7 +35,7 @@ BAG_OPEN = "open_run_bag"
 # run stops early*.
 SIDE_EFFECT_ATTRS = ("worktree_add",)
 
-# ⚠ THE ORDERING CHECK'S REAL COVERAGE IS 15 OF 17, AND STATING THE NUMBER IS THE
+# ⚠ THE ORDERING CHECK'S REAL COVERAGE IS 14 OF 16, AND STATING THE NUMBER IS THE
 # POINT. The first version of that check listed `worktree_add` alone, which made
 # the assertion bite on only the five entrypoints that cut their own worktree —
 # the other six had no detectable side effect, so `opens and effects` was False

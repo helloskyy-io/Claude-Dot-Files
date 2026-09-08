@@ -50,6 +50,8 @@ import hashlib
 import os
 import posixpath
 import re
+import shutil
+import tempfile
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -993,35 +995,28 @@ def open_bag(root: Path, run_id: str, *, info: dict[str, str] | None = None) -> 
     about a finished run; appending to it under the same `run_id` would make that
     statement false with nothing recording that it had been.
 
-    ⚠ WHAT IDEMPOTENT DOES NOT MEAN HERE: creating a bag is three syscalls, not
-    one, so a second caller that loses the `mkdir` race can observe the bag
-    directory between its creation and its tag files being written, and will
-    adopt a bag whose `bag-info.txt` does not exist yet. Sequential retry — the
-    case Temporal actually produces — is fully safe, because the first attempt
-    either finished or left a directory the second completes reading. A true
-    simultaneous race is not, and closing it needs a lock or a
-    create-then-rename, neither of which is worth building before anything writes
-    into a bag. Named rather than papered over.
+    SIMULTANEOUS OPENERS ARE SAFE VIA CREATE-THEN-RENAME — Phase 9 r7. The bag is
+    assembled COMPLETE in a hidden staging directory on the same filesystem and
+    `os.rename`d onto `<root>/<run_id>/` in one atomic syscall, so the run's
+    folder is never observable half-built: a concurrent opener sees it either
+    absent or fully formed. This closes the race the earlier mkdir-then-write
+    sequence left open, where a second caller could adopt a bag whose
+    `bag-info.txt` was not written yet, or append a record the winner's `O_TRUNC`
+    then destroyed. Sequential retry — the case Temporal produces — was always
+    safe; the rename makes the genuinely simultaneous case safe too, which
+    Workflow Decomposition Phase 3 made reachable by giving standalone children
+    that can be dispatched concurrently under one `--run-id` with no parent
+    opening the bag first.
 
-    ⚠ AND PHASE 9 IS WHAT MAKES THAT RACE REACHABLE, so the paragraph above is a
-    LIVE gap rather than a historical note. Phase 9 r4 makes sharing one run id
-    across concurrent invocations the DESIGNED CONTRACT: a person may dispatch
-    two children with the same `--run-id` and no parent having opened the bag
-    first, at which point both openers race here. It does not need Temporal —
-    the nearer clock is Workflow Decomposition Phase 3, which has none in it.
-
-    THE WRITE CASE IS WORSE THAN THE READ CASE. The loser of the `mkdir` race
-    adopts, appends a tag line through `_append_tag_line` — mode `"a"`, which
-    CREATES the file — and the winner's `_write_tag_file` then runs with
-    `O_TRUNC`, destroying it. A `Journal-Redaction` or `Journal-Gap` record lost
-    that way is precisely the silent loss this component exists to prevent.
-
-    MUTUAL EXCLUSION IS PHASE 9 r7 AND IS DELIBERATELY NOT DELIVERED HERE. Its
-    mechanism — a lock, a create-then-rename, or a compare-and-swap — is ruled
-    with the identity design, in whichever carrier candidate `C-zhdm5gh1`
-    resolves to; that carrier does not exist yet, so r7 cannot close and nothing
-    in this module should read as though it had. What r3 delivers, and what
-    `test_journal_bag.py` demonstrates, is the SEQUENTIAL property only.
+    WHAT THE RENAME DOES AND DOES NOT SETTLE. It is the local, always-correct
+    atomicity for bag creation and it does not depend on how a run is eventually
+    named. The separate, still-open question — whether the run id becomes the
+    orchestrator's own dispatch identity — is candidate `C-zhdm5gh1`, an operator
+    ruling; if the Temporal port later guarantees one open execution per run id,
+    this rename is harmless defence in depth rather than the sole guard. It is not
+    wasted either way, because the standalone-child race above has no Temporal in
+    it. `test_journal_concurrent_writers.py` demonstrates the simultaneous
+    property; `test_journal_bag.py` the sequential one.
     """
     # VALIDATED AGAINST THE STATED PERMITTED SET, not against a list of
     # separators (Phase 9 r6). What stood here refused `/`, `os.sep`, `.` and
@@ -1087,32 +1082,55 @@ def open_bag(root: Path, run_id: str, *, info: dict[str, str] | None = None) -> 
         _refuse_folded_value(label, str(value))
         entries[label] = value
 
-    # CREATE BY WINNING OR LOSING A `mkdir`, NEVER BY CHECK-THEN-CREATE. The
-    # `exists()` above is a fast path, not the guard: two concurrent calls for one
-    # `run_id` — precisely the duplicate delivery Temporal §7.1 idempotency exists
-    # for — both see it as False and race here. Without this catch the loser
-    # crashed with `FileExistsError` instead of adopting the winner's bag, which
-    # is the opposite of the idempotency this docstring promises. `writer_dir` and
-    # `root._create_with_mode` already use this pattern; this was the one place
-    # that did not.
+    # BUILT IN A STAGING DIRECTORY, THEN ATOMICALLY RENAMED INTO PLACE — Phase 9
+    # r7's create-then-rename. The bag is assembled COMPLETE under a hidden
+    # sibling on the same filesystem (so the rename is atomic, not a cross-device
+    # copy), then `os.rename`d onto `<root>/<run_id>/` in one syscall. The
+    # `exists()` fast path above is not the guard: two concurrent openers of one
+    # `run_id` both see it False and reach here, and the rename is what makes that
+    # safe — the loser's rename onto the winner's now-populated directory fails,
+    # so it adopts the winner's COMPLETE bag rather than observing a half-built
+    # one. `writer_dir` and `root._create_with_mode` win-or-lose an `os.mkdir` for
+    # the same reason one layer down.
+    #
+    # A crash between here and the rename leaves a hidden `.{run_id}.*` staging
+    # directory under the root. It is harmless — never a valid bag and never
+    # adopted (adoption keys on `<root>/<run_id>`) — and it is ACCEPTED litter,
+    # not a reclaimed resource: no retention pass exists yet to sweep it (that is
+    # unbuilt Phase 5 work), and the `rmtree` below is best-effort, so a hard
+    # crash or a failed cleanup can persist one. That is a deliberate trade
+    # against the mkdir-then-write sequence this replaces, which littered a
+    # HALF-BUILT bag AT the run id — one the `exists()` fast path then adopted
+    # forever after. A hidden temp dir cannot be mistaken for the run; a
+    # half-built one poisons it.
+    staging = Path(tempfile.mkdtemp(prefix=f".{run_id}.", dir=str(root)))
     try:
-        os.mkdir(str(bag_path), DIR_MODE)
-    except FileExistsError:
-        return _adopt()
-    try:
-        os.mkdir(str(bag_path / PAYLOAD_DIR), DIR_MODE)
-    except FileExistsError:
-        pass
-
-    # EXACTLY TWO LINES. RFC 8493 §2.1.1 requires it, and requirement 6 turns on
-    # it: anything else here makes the bag non-conforming, which is why the
-    # schema version goes in bag-info.txt instead.
-    _write_tag_file(bag_path / BAGIT_FILE, [
-        f"BagIt-Version: {BAGIT_VERSION}",
-        f"Tag-File-Character-Encoding: {TAG_FILE_ENCODING}",
-    ])
-
-    _write_tag_file(bag_path / BAG_INFO_FILE,
-                    [f"{label}: {value}" for label, value in entries.items()])
+        os.mkdir(str(staging / PAYLOAD_DIR), DIR_MODE)
+        # EXACTLY TWO LINES. RFC 8493 §2.1.1 requires it, and requirement 6 turns
+        # on it: anything else here makes the bag non-conforming, which is why the
+        # schema version goes in bag-info.txt instead.
+        _write_tag_file(staging / BAGIT_FILE, [
+            f"BagIt-Version: {BAGIT_VERSION}",
+            f"Tag-File-Character-Encoding: {TAG_FILE_ENCODING}",
+        ])
+        _write_tag_file(staging / BAG_INFO_FILE,
+                        [f"{label}: {value}" for label, value in entries.items()])
+        os.rename(str(staging), str(bag_path))
+    except OSError:
+        # A completed bag now standing at `bag_path` means another opener won the
+        # create race — discard this staging build and adopt its complete bag. If
+        # nothing is there, the rename (or a write) failed for a real reason — a
+        # full disk, a cross-device root, a permission change — and it must
+        # surface rather than be mistaken for a lost race.
+        shutil.rmtree(str(staging), ignore_errors=True)
+        if bag_path.exists():
+            return _adopt()
+        raise
+    except BaseException:
+        # Any other failure during the build leaves no partial bag at the run id,
+        # only the hidden staging dir — removed here so a crashed create does not
+        # litter the root.
+        shutil.rmtree(str(staging), ignore_errors=True)
+        raise
 
     return Bag(path=bag_path, run_id=run_id)

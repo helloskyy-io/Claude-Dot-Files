@@ -164,7 +164,7 @@ Apply all six dimensions to code changes. Focus weight on:
 
 These three are the most-skipped lenses in code review.
 
-### Planning Review (plan-revision, plan-new)
+### Planning Review (plan, plan-new)
 
 Apply the six dimensions to the PLAN itself — not yet-existing code:
 - Best-practices grounding: is the planned approach industry-best-practice?

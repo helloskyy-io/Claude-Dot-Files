@@ -63,3 +63,5 @@ Rules:
 - Always verify tests pass before committing
 - If tests cannot be made to pass, stop and clearly report the failure
 - At the end, briefly confirm what was done (1-2 sentences max — the commit message and PR description already convey the details)
+
+${OPEN_PR_FOR_THIS_WORK}

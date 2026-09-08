@@ -72,8 +72,6 @@ if [[ -f "$CONFIG_FILE" ]]; then
     GH_MONITOR_MAX_CONCURRENT="${GH_MONITOR_MAX_CONCURRENT:-$(cfg gh-monitor max-concurrent)}"
     GH_MONITOR_ENABLE_REVISION="${GH_MONITOR_ENABLE_REVISION:-$(cfg gh-monitor enable-revision)}"
     GH_MONITOR_ENABLE_REVISION_MINOR="${GH_MONITOR_ENABLE_REVISION_MINOR:-$(cfg gh-monitor enable-revision-minor)}"
-    GH_MONITOR_ENABLE_PLAN_REVISION="${GH_MONITOR_ENABLE_PLAN_REVISION:-$(cfg gh-monitor enable-plan-revision)}"
-    GH_MONITOR_ENABLE_BUILD_PHASE="${GH_MONITOR_ENABLE_BUILD_PHASE:-$(cfg gh-monitor enable-build-phase)}"
     GH_MONITOR_ENABLE_HELP="${GH_MONITOR_ENABLE_HELP:-$(cfg gh-monitor enable-help)}"
     GH_MONITOR_DRY_RUN="${GH_MONITOR_DRY_RUN:-$(cfg gh-monitor dry-run)}"
     GH_MONITOR_BACKLOG_DAYS="${GH_MONITOR_BACKLOG_DAYS:-$(cfg gh-monitor backlog-days)}"
@@ -361,22 +359,6 @@ parse_command() {
         return
     fi
 
-    if echo "$after_mention" | grep -qiE '^plan-revision:\s*'; then
-        local desc
-        desc=$(echo "$after_mention" | sed -E 's/^plan-revision:\s*//i')
-        [[ -z "$desc" && -n "$body_fallback" ]] && desc="$body_fallback"
-        printf "plan-revision\t%s" "$desc"
-        return
-    fi
-
-    if echo "$after_mention" | grep -qiE '^build-phase:\s*'; then
-        local desc
-        desc=$(echo "$after_mention" | sed -E 's/^build-phase:\s*//i')
-        [[ -z "$desc" && -n "$body_fallback" ]] && desc="$body_fallback"
-        printf "build-phase\t%s" "$desc"
-        return
-    fi
-
     # Unrecognized route
     printf "unknown\t%s" "$after_mention"
 }
@@ -390,8 +372,6 @@ generate_help_text() {
 |---------|------------|
 | `@claude revision: <description>` | Significant code rework (draft run, then a FRESH-context review run) |
 | `@claude revision-minor: <description>` | Minor single-pass code fix (no review cycle) |
-| `@claude plan-revision: <description>` | Revise planning docs (with architect + planner agents) |
-| `@claude build-phase: <description>` | Implement from a plan doc (requires plan path in description) |
 | `@claude help` | Show this help message |
 
 ### Examples
@@ -399,7 +379,6 @@ generate_help_text() {
 ```
 @claude revision-minor: fix the typo in the README header
 @claude revision: restructure the authentication module to use JWT
-@claude plan-revision: add detailed phase doc for the Harbor integration
 @claude help
 ```
 
@@ -425,7 +404,7 @@ HELPEOF
 # slots against max-concurrent.
 count_running_workflows() {
     local count
-    count=$(pgrep -cf "${GH_MONITOR_WORKFLOW_DIR}/(revision|revision-minor|plan-revision|build-phase)\.sh" 2>/dev/null) || count=0
+    count=$(pgrep -cf "${GH_MONITOR_WORKFLOW_DIR}/(build|build_minor|plan)\.sh" 2>/dev/null) || count=0
     echo "$count"
 }
 
@@ -440,7 +419,7 @@ count_running_workflows() {
 is_workflow_running_on_pr() {
     local target_pr="$1"
     [[ -z "$target_pr" ]] && return 1
-    pgrep -af "${GH_MONITOR_WORKFLOW_DIR}/(children/)?(revision|revision-minor|revision-draft|revision-refine|plan-revision|build-phase)\.sh" 2>/dev/null \
+    pgrep -af "${GH_MONITOR_WORKFLOW_DIR}/(children/)?(build|build_minor|plan)\.sh" 2>/dev/null \
         | grep -qE "[[:space:]]--pr([[:space:]]+|=)${target_pr}([[:space:]]|\$)"
 }
 
@@ -627,16 +606,6 @@ for REPO in $GH_MONITOR_REPOS; do
 
                 revision-minor)
                     run_workflow_route "revision-minor" "$GH_MONITOR_ENABLE_REVISION_MINOR" "revision-minor.sh" \
-                        "$REPO" "$PR_NUMBER" "$COMMENT_ID" "$DESCRIPTION"
-                    ;;
-
-                plan-revision)
-                    run_workflow_route "plan-revision" "${GH_MONITOR_ENABLE_PLAN_REVISION:-true}" "plan-revision.sh" \
-                        "$REPO" "$PR_NUMBER" "$COMMENT_ID" "$DESCRIPTION"
-                    ;;
-
-                build-phase)
-                    run_workflow_route "build-phase" "${GH_MONITOR_ENABLE_BUILD_PHASE:-true}" "build-phase.sh" \
                         "$REPO" "$PR_NUMBER" "$COMMENT_ID" "$DESCRIPTION"
                     ;;
 

@@ -45,7 +45,6 @@ import yaml
 from modules.assistant import assistant_activities as act
 from modules.assistant.build.build_draft import build_draft_workflow as draft
 from modules.assistant.build.build_refine import build_refine_workflow as refine
-from modules.assistant.plan.plan_revision import plan_revision_workflow as plan_revision
 from modules.assistant.review_pr import review_pr_activities as rpa
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
@@ -57,9 +56,6 @@ TURN_CAP_OWNERS = [
     pytest.param(draft, "build-draft", 250, id="build-draft"),
     pytest.param(refine, "build-refine", 300, id="build-refine"),
     pytest.param(rpa, "review-pr", 120, id="review-pr"),
-    # Top-level in V1, not a child of `children/` — both locations are covered
-    # by §2's bash-resolver test, which is where that distinction now lives.
-    pytest.param(plan_revision, "plan-revision", 300, id="plan-revision"),
 ]
 
 
@@ -213,7 +209,7 @@ def test_bash_resolution_exits_nonzero_rather_than_guessing(
     )
 
 
-@pytest.mark.parametrize("key", ["build-draft", "plan-revision"])
+@pytest.mark.parametrize("key", ["build-draft"])
 def test_bash_and_python_resolve_the_same_value(key: str) -> None:
     """The two readers must agree, which is the property that replaced derivation.
 

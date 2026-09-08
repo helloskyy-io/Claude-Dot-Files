@@ -1,0 +1,240 @@
+"""The header audit, driven on fixtures that discriminate rather than on the corpus.
+
+CI depends on this check, and a check that cannot fail is worse than none — it reports a
+corpus clean forever. Each predicate below is exercised on a case that must fire AND one
+that must not.
+
+THE THREE DISTINCTIONS THAT CARRY THE WEIGHT, each of which would silently ruin the audit:
+
+  * A `**Read when:**` written INSIDE a section is not a header. A substring search over the
+    file would count it and report a standard conformant that has no header at all.
+  * A VENDORED standard's header is its OWNER's to write. Mixing mirrors into this repo's
+    worklist hands an operator findings they are forbidden to act on — measured: MDC's audit
+    reports four such files, and all four are ours.
+  * A retired file is NOT filtered out. MDC carries two `OLD_*` standards that should be
+    deleted; skipping them would report the corpus clean while a session could still read
+    them.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+import standards_index as si
+
+HEAD = ("**Binding scope:** any chart under `deployments/`\n"
+        "**Read when:** writing a chart\n"
+        "**Breaking it looks like:** an image tag pinned to `latest`\n")
+
+
+def _std(root: Path, rel: str, body: str) -> Path:
+    p = root / "standards" / rel
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(body, encoding="utf-8")
+    return p
+
+
+def test_a_complete_header_is_READ(tmp_path: Path) -> None:
+    p = _std(tmp_path, "a/x.md", f"# X\n\n{HEAD}\n## Body\n")
+    s = si.read_standard(p)
+    assert s.missing == []
+    assert s.fields["Read when"].strip() == "writing a chart"
+
+
+@pytest.mark.parametrize("drop", si.REQUIRED)
+def test_EACH_required_line_is_reported_when_absent(tmp_path: Path, drop: str) -> None:
+    head = "".join(l + "\n" for l in HEAD.splitlines() if not l.startswith(f"**{drop}:**"))
+    p = _std(tmp_path, "a/x.md", f"# X\n\n{head}\n## Body\n")
+    assert si.read_standard(p).missing == [drop]
+
+
+def test_A_FIELD_INSIDE_A_SECTION_IS_NOT_A_HEADER(tmp_path: Path) -> None:
+    """The distinction between a parsed contract and a substring search.
+
+    The contract puts the header above the first `##`. A `Read when:` written in the body
+    is prose about when to read something, and counting it would report a standard with no
+    header at all as conformant.
+    """
+    p = _std(tmp_path, "a/x.md",
+             "# X\n\n**Binding scope:** everywhere\n\n"
+             "## Guidance\n\n**Read when:** you are curious\n"
+             "**Breaking it looks like:** nothing\n")
+    missing = si.read_standard(p).missing
+    assert "Read when" in missing and "Breaking it looks like" in missing
+    assert "Binding scope" not in missing
+
+
+def test_A_VENDORED_STANDARD_IS_NOT_THIS_REPOS_WORK(tmp_path: Path) -> None:
+    _std(tmp_path, "a/mine.md", "# Mine\n\n## Body\n")
+    _std(tmp_path, "b/theirs.md",
+         "<!-- VENDORED — DO NOT EDIT LOCALLY -->\n> *Vendored from `x/y`*\n\n# Theirs\n\n## Body\n")
+    items = si.standards_in(tmp_path)
+    owned = [s for s in items if not s.vendored]
+    mirrors = [s for s in items if s.vendored]
+    assert [s.path.name for s in owned] == ["mine.md"]
+    assert [s.path.name for s in mirrors] == ["theirs.md"]
+    assert mirrors[0].missing, "a mirror still HAS the gap — it is just not ours to close"
+
+
+def test_A_RETIRED_FILE_IS_NOT_FILTERED_AWAY(tmp_path: Path) -> None:
+    """It surfaces as a finding; DELETING it is the operator's call, not this script's."""
+    _std(tmp_path, "django/OLD_Thing.md", "# Old\n\n## Body\n")
+    assert [s.path.name for s in si.standards_in(tmp_path)] == ["OLD_Thing.md"]
+
+
+def test_A_README_IS_NOT_A_STANDARD(tmp_path: Path) -> None:
+    _std(tmp_path, "a/README.md", "# Readme\n")
+    _std(tmp_path, "a/real.md", f"# R\n\n{HEAD}\n## B\n")
+    assert [s.path.name for s in si.standards_in(tmp_path)] == ["real.md"]
+
+
+def test_AN_UNINDEXED_STANDARD_IS_UNREACHABLE(tmp_path: Path) -> None:
+    _std(tmp_path, "a/listed.md", f"# L\n\n{HEAD}\n## B\n")
+    _std(tmp_path, "a/orphan.md", f"# O\n\n{HEAD}\n## B\n")
+    (tmp_path / "CLAUDE.md").write_text(
+        "# Repo\n\n- [Listed](standards/a/listed.md) — **read when** ever\n", encoding="utf-8")
+    items = si.standards_in(tmp_path)
+    assert [s.path.name for s in si.unindexed(tmp_path, items)] == ["orphan.md"]
+
+
+def test_NO_CLAUDE_MD_REPORTS_NOTHING_RATHER_THAN_EVERYTHING(tmp_path: Path) -> None:
+    """A repo with no index has no unindexed-standard finding to make.
+
+    Reporting all of them would bury the header findings under noise in exactly the repos
+    least likely to have an index yet.
+    """
+    _std(tmp_path, "a/x.md", f"# X\n\n{HEAD}\n## B\n")
+    assert si.unindexed(tmp_path, si.standards_in(tmp_path)) == []
+
+
+def test_THE_EXIT_CODE_ONLY_FAILS_UNDER_CHECK(tmp_path: Path, capsys) -> None:
+    _std(tmp_path, "a/x.md", "# X\n\n## B\n")
+    assert si.main(["--repo-root", str(tmp_path)]) == 0
+    assert si.main(["--repo-root", str(tmp_path), "--check"]) == 1
+    out = capsys.readouterr().out
+    assert "MISSING HEADER LINES" in out
+
+
+def test_A_CLEAN_CORPUS_PASSES_CHECK(tmp_path: Path) -> None:
+    _std(tmp_path, "a/x.md", f"# X\n\n{HEAD}\n## B\n")
+    (tmp_path / "CLAUDE.md").write_text("- [X](standards/a/x.md)\n", encoding="utf-8")
+    assert si.main(["--repo-root", str(tmp_path), "--check"]) == 0
+
+
+def test_AN_EMPTY_CORPUS_IS_A_REFUSAL_NOT_A_PASS(tmp_path: Path) -> None:
+    """Exit 2, never 0: a corpus this cannot find is not a corpus with no findings."""
+    (tmp_path / "standards").mkdir()
+    assert si.main(["--repo-root", str(tmp_path), "--check"]) == 2
+
+
+# --- the generator, and the three refusals that make it safe -----------------------
+#
+# The hand-written index carries §-by-§ summaries of each standard — 1,403 bytes at the
+# median in MDC, against 454 for a generated entry. That difference is real work nobody
+# has moved yet, so every path that could overwrite it refuses instead.
+
+
+def _complete(root: Path, rel: str, title: str) -> Path:
+    return _std(root, rel, f"# {title}\n\n{HEAD}\n## Body\n")
+
+
+def test_a_COMPLETE_corpus_renders_one_line_per_standard(tmp_path: Path) -> None:
+    _complete(tmp_path, "a/one.md", "One Standard")
+    _complete(tmp_path, "b/two.md", "Two Standard")
+    block = si.render_index(si.standards_in(tmp_path), tmp_path)
+    assert block.startswith(si.BEGIN) and block.rstrip().endswith(si.END)
+    entries = [l for l in block.splitlines() if l.startswith("- ")]
+    assert len(entries) == 2
+    assert "One Standard" in entries[0] and "read when" in entries[0]
+
+
+def test_THE_ENTRY_USES_THE_STANDARDS_OWN_HEADING(tmp_path: Path) -> None:
+    """Not the filename — the reader lands on the `# ` title and must recognise it."""
+    _complete(tmp_path, "a/x_standard.md", "Deliberately Different Title")
+    assert "Deliberately Different Title" in si.render_index(si.standards_in(tmp_path), tmp_path)
+
+
+def test_GENERATION_REFUSES_WHILE_ANY_OWNED_STANDARD_IS_INCOMPLETE(tmp_path: Path) -> None:
+    """The refusal that protects the § summaries.
+
+    A partial index is SHORTER than the hand-written one it replaces, and the difference
+    is not noise — it is the work the backfill exists to move. Exit 2, never a partial
+    render.
+    """
+    _complete(tmp_path, "a/ok.md", "Ok")
+    _std(tmp_path, "a/bare.md", "# Bare\n\n## Body\n")
+    assert si.main(["--repo-root", str(tmp_path), "--generate"]) == 2
+
+
+def test_WRITING_REFUSES_WITHOUT_A_FENCE_rather_than_guessing(tmp_path: Path) -> None:
+    """Absent is not empty. A CLAUDE.md with no fence has a hand-written index."""
+    _complete(tmp_path, "a/x.md", "X")
+    (tmp_path / "CLAUDE.md").write_text("# R\n\n- **[X](x)** — hand written\n", encoding="utf-8")
+    assert si.main(["--repo-root", str(tmp_path), "--write"]) == 2
+    assert "hand written" in (tmp_path / "CLAUDE.md").read_text(encoding="utf-8")
+
+
+def test_WRITING_REPLACES_ONLY_BETWEEN_THE_FENCES(tmp_path: Path) -> None:
+    _complete(tmp_path, "a/x.md", "X")
+    (tmp_path / "CLAUDE.md").write_text(
+        f"# R\n\nkeep me above\n\n{si.BEGIN}\nold\n{si.END}\n\nkeep me below\n", encoding="utf-8")
+    assert si.main(["--repo-root", str(tmp_path), "--write"]) == 0
+    out = (tmp_path / "CLAUDE.md").read_text(encoding="utf-8")
+    assert "keep me above" in out and "keep me below" in out
+    assert "old" not in out and "read when" in out
+
+
+def test_A_STALE_BLOCK_IS_A_FINDING(tmp_path: Path) -> None:
+    """The gate that makes a committed artifact safe — without it, generation buys nothing."""
+    _complete(tmp_path, "a/x.md", "X")
+    (tmp_path / "CLAUDE.md").write_text(f"# R\n\n{si.BEGIN}\nstale\n{si.END}\n", encoding="utf-8")
+    assert si.stale_block(tmp_path, si.standards_in(tmp_path)) is not None
+    assert si.main(["--repo-root", str(tmp_path), "--check"]) == 1
+
+
+def test_A_FRESH_BLOCK_IS_NOT(tmp_path: Path) -> None:
+    _complete(tmp_path, "a/x.md", "X")
+    (tmp_path / "CLAUDE.md").write_text(f"# R\n\n{si.BEGIN}\n{si.END}\n", encoding="utf-8")
+    si.main(["--repo-root", str(tmp_path), "--write"])
+    assert si.stale_block(tmp_path, si.standards_in(tmp_path)) is None
+
+
+def test_STALENESS_IS_SILENT_WHILE_HEADERS_ARE_MISSING(tmp_path: Path) -> None:
+    """The missing headers are already the finding; stale-on-top is noise."""
+    _std(tmp_path, "a/bare.md", "# Bare\n\n## Body\n")
+    (tmp_path / "CLAUDE.md").write_text(f"# R\n\n{si.BEGIN}\nanything\n{si.END}\n", encoding="utf-8")
+    assert si.stale_block(tmp_path, si.standards_in(tmp_path)) is None
+
+
+# ── a field must not swallow the one below it ───────────────────────────────
+
+
+@pytest.mark.parametrize("filler", ["", "\n", "\n  - a.md\n  - b.md"])
+def test_AN_EMPTY_VALUED_FIELD_DOES_NOT_SWALLOW_THE_NEXT(tmp_path: Path, filler: str) -> None:
+    """THE REQUIREMENT. `\\s` matches a newline, so `\\s*` after the marker used to eat
+    the line break and capture the WHOLE NEXT FIELD LINE as this field's value —
+    `finditer` then resumed past it and the swallowed field was never seen.
+
+    THE AUDIT THEN REPORTS A FIELD MISSING FROM A FILE THAT HAS IT, which is worse
+    than a crash: the operator's remedy is to write a field they already wrote.
+    Found by MDC-PM3 on a real standard whose header carried `**Companion to:**`
+    above `**Read when:**` — one file in 46, and undetectable from the outside.
+
+    The parametrization is the mutation: an empty value, a blank line, and a
+    list-valued field are the three shapes that put a newline where the parser
+    expected a space.
+    """
+    s = tmp_path / "standards" / "x" / "s.md"
+    s.parent.mkdir(parents=True)
+    s.write_text(
+        f"# S\n\n**Binding scope:** everything\n**Companion to:**{filler}\n"
+        f"**Read when:** the trigger\n**Breaking it looks like:** the symptom\n",
+        encoding="utf-8")
+
+    got = si.read_standard(s)
+    assert not got.missing, (
+        f"a field between the required three swallowed one of them: {got.missing} "
+        f"reported missing from a file that declares all three")
+    assert got.fields["Read when"].strip() == "the trigger"

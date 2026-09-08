@@ -79,6 +79,7 @@ import re
 from collections import Counter
 from pathlib import Path
 from typing import NamedTuple
+from urllib.parse import urldefrag
 
 from .. import assistant_activities as shared
 from ..tracked import tracked_items
@@ -1591,3 +1592,306 @@ def sprint_state(sprint: Path, component_rel: Path) -> str:
             f"bullet(s)**. It is **{heads.index(hit) + 1} of {len(heads)}** in the "
             f"file. **Update it in place**: its position is the operator's and "
             f"nothing upstream of you changed it.")
+
+
+# --- rule 9: the dependency graph, derived -----------------------------------------
+#
+# `documentation_standard.md` § Development Planning Files rule 9 states one optional
+# `**Depends on:**` line per phase entry and rules that FOUR facts are derived rather
+# than written: the reverse edge, the component-level rollup `plan_sprint` orders on,
+# whether an edge is satisfied, and the graph itself. This is what derives them, and it
+# exists so that "derived" is a property of the corpus rather than a promise in prose.
+#
+# WHY IN CODE AND NOT IN A PROMPT. The rule's whole argument is that a computed value
+# written down a second time is correct on the day it is written and silently wrong
+# afterwards. A model asked to reconstruct the reverse edges of a corpus can miss one and
+# nothing catches it. This enumerates, the same reason `phase_sizing` sums in code.
+
+#: Rule 9's marker, anchored at the start of a line inside a phase entry's span.
+_DEPENDS_ON = re.compile(r"^\*\*Depends on:\*\*\s*(.*)$", re.M)
+#: A markdown link. Rule 9: the parser reads only the links and ignores the words, so
+#: prose around them survives without breaking either reader.
+_MD_LINK = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+#: Rule 9's standalone token, UNQUALIFIED — the word, then the end of the clause.
+#: A qualified form is a SCOPED declaration wearing the standalone one's clothes:
+#: `nothing internal` and `nothing inside this component` each mean *and something
+#: outside it*, so reading either as standalone silently deletes a real dependency.
+#: Both are live in the MDC corpus, which is what this anchor exists to refuse.
+_STANDALONE = re.compile(r"^NONE\s*(?:[.;,)\]]|$)")
+
+
+class DependencyEdge(NamedTuple):
+    """One forward edge, as declared. Everything else about it is computed."""
+    roadmap: Path            #: the declaring roadmap, absolute
+    phase: str               #: the declaring phase entry's name, marker stripped
+    text: str                #: the link text, as written
+    target: Path             #: resolved absolute path of the depended-on artifact
+    note: str                #: the rest of the line — prose the parser ignores
+    fragment: str = ""       #: the `#anchor` half, when the target is a phase INSIDE a roadmap
+
+
+def _entry_windows(text: list[str]) -> list[tuple[int, int, str]]:
+    """(start, end, heading-text) per `##`-`####` heading. Same spans `phase_sizing` uses.
+
+    Shared shape rather than a second walk: two parsers disagreeing about where an
+    entry ENDS would attribute a `Depends on:` line to the wrong phase, and the
+    disagreement would be invisible in both outputs.
+    """
+    at = [n for n, line in enumerate(text) if re.match(r"^#{2,4}\s", line)]
+    return [(n, next((k for k in at if k > n), len(text)),
+             re.sub(r"^#{2,4}\s+", "", text[n])) for n in at]
+
+
+def dependency_edges(roadmap: Path) -> list[DependencyEdge]:
+    """Every forward edge this roadmap declares, resolved against its own directory.
+
+    A LINK THAT DOES NOT RESOLVE IS STILL AN EDGE. Rule 9 distinguishes a broken
+    target from an unsatisfied one and says a renderer must not show them alike, so
+    resolution is `edge_state`'s job and never a filter here — dropping it would make
+    a typo indistinguishable from a dependency nobody declared.
+    """
+    if not roadmap.is_file():
+        return []
+    text = roadmap.read_text(encoding="utf-8").splitlines()
+    out: list[DependencyEdge] = []
+    for start, end, heading in _entry_windows(text):
+        phase = _PHASE_MARKER.sub("", heading).strip()
+        for line in text[start:end]:
+            m = _DEPENDS_ON.match(line)
+            if not m:
+                continue
+            body = m.group(1)
+            for label, href in _MD_LINK.findall(body):
+                if href.startswith(("http://", "https://")):
+                    continue          # an external link is not an edge in this graph
+                # `urldefrag`, never a split — `test_pr_url_address` holds the rule
+                # that a path segment is not derived by string surgery, and a link
+                # may legitimately carry `#section` after the file.
+                parts = urldefrag(href)
+                # A BARE `#anchor` ADDRESSES A PHASE IN THIS SAME ROADMAP, and used to be
+                # dropped here as "not an edge". Rule 9 (extended 2026-09-08) addresses a
+                # PHASE, however that phase can be addressed: its own doc where it has
+                # one, its anchor in a roadmap where it does not. A project small enough
+                # to be one component keeps its phases inline and is not an unfinished
+                # version of a larger one, so dropping these made its whole graph empty.
+                out.append(DependencyEdge(
+                    roadmap=roadmap, phase=phase, text=label,
+                    target=(roadmap.parent / parts.url).resolve() if parts.url else roadmap,
+                    note=_MD_LINK.sub("", body).strip(" ·—-"),
+                    fragment=parts.fragment,
+                ))
+    return out
+
+
+def declaration_state(roadmap: Path, phase: str) -> str:
+    """`declared` · `standalone` · `qualified` · `missing`, for ONE phase entry.
+
+    RULE 9 HAS THREE LEGAL STATES AND A BLANK IS NOT ONE OF THEM. Absence cannot
+    distinguish a declaration from damage: a sweep that skips a roadmap, an emitter that
+    throws, a hand-authored roadmap and a bad merge that deletes the line all produce the
+    same artifact. A mechanical rename pass has already mangled a `Depends on:` line in
+    the MDC corpus; one that deleted it instead would, under an absence rule, have
+    silently converted a real dependency into a conformant *"depends on nothing"*.
+
+    `qualified` is reported separately from `standalone` rather than folded into it —
+    *"nothing internal"* is a scoped claim, and calling it standalone is precisely the
+    silent deletion this distinguishes.
+    """
+    if not roadmap.is_file():
+        return "missing"
+    text = roadmap.read_text(encoding="utf-8").splitlines()
+    for start, end, heading in _entry_windows(text):
+        if _PHASE_MARKER.sub("", heading).strip() != phase:
+            continue
+        for line in text[start:end]:
+            m = _DEPENDS_ON.match(line)
+            if not m:
+                continue
+            body = m.group(1).strip()
+            if _MD_LINK.search(body):
+                return "declared"
+            if _STANDALONE.match(body):
+                return "standalone"
+            return "qualified"          # includes a bare marker: a truncation, not a claim
+        return "missing"
+    return "missing"
+
+
+def development_root(repo_root: Path) -> Path:
+    """Where component roadmaps live, DERIVED FROM REPO CLASS — never probed.
+
+    Same rule as `vendor-standards.sh`, and here for the same reason: a planning
+    repo's root IS its documentation tree, so it hoists the buckets; every other
+    repo keeps them under `docs/`. See
+    `skyynet-master-planning/standards/documentation/documentation_standard.md`
+    § *A repo that CONSUMES standards*, rule 1.
+
+    IT REFUSES RATHER THAN RETURNING AN EMPTY GLOB, and that is the whole point.
+    Globbing `development/` in a repo that keeps roadmaps at `docs/development/`
+    yields nothing, and nothing is indistinguishable from a corpus with no
+    dependencies to report. Measured 2026-09-08 on `image-manager`: the deriver
+    reported **0 edges and 0 unassessed phases** — a perfect score — for a roadmap
+    carrying eight declarations it never opened. A vacuous sweep is an ABSENT
+    test, not a passing one.
+
+    PROBING FOR WHICHEVER LAYOUT EXISTS IS THE WRONG FIX, and is refused here on
+    purpose. `vendor-standards.sh` used to do exactly that, and tolerating both
+    shapes is how the divergence survived: the one tool that could have caught it
+    was built to accommodate it.
+    """
+    planning = repo_root.name.endswith("-master-planning")
+    rel = "development" if planning else "docs/development"
+    root = repo_root / rel
+    if not root.is_dir():
+        raise FileNotFoundError(
+            f"{repo_root} is {'a planning repo' if planning else 'a non-planning repo'}, "
+            f"so its component roadmaps belong at {rel}/ — and that directory does not "
+            f"exist. Refusing rather than reporting an empty graph, which would read as "
+            f"a corpus with no dependencies.")
+    return root
+
+
+def unassessed_phases(repo_root: Path) -> list[tuple[Path, str, str]]:
+    """Every phase entry whose dependency declaration is absent or qualified.
+
+    This is the finding rule 9's third state exists to produce, and the worklist a
+    conversion sweep is measured against — *the corpus telling you what it does not know
+    about itself*.
+    """
+    out = []
+    for rm in sorted(development_root(repo_root).rglob("roadmap.md")):
+        text = rm.read_text(encoding="utf-8").splitlines()
+        by_phase: dict[str, list] = {}
+        for e in dependency_edges(rm):
+            by_phase.setdefault(e.phase, []).append(e)
+        for _, _, heading in _entry_windows(text):
+            if not _PHASE_MARKER.search(heading):
+                continue                # not a rule-8 phase entry; nothing is claimed
+            phase = _PHASE_MARKER.sub("", heading).strip()
+            state = declaration_state(rm, phase)
+            if state == "declared" and not by_phase.get(phase):
+                # DECLARED AND YET CONTRIBUTES NOTHING TO THE GRAPH. The only way
+                # to reach here is a line whose every link `dependency_edges`
+                # skips — today that means intra-page anchors (`#the-substrate`)
+                # and external URLs. `declaration_state` reads the LINE and calls
+                # it declared; the graph resolves the TARGETS and yields no edge.
+                # Both are right about their own question, and the disagreement
+                # is the finding: a renderer draws a component with no
+                # dependencies while its roadmap declares seven.
+                # Measured 2026-09-08 on `image-manager`: 7 of 8 entries.
+                state = "inert"
+            if state in ("missing", "qualified", "inert"):
+                out.append((rm, phase, state))
+    return out
+
+
+def dependency_graph(repo_root: Path) -> list[DependencyEdge]:
+    """Every forward edge in the corpus. Rule 9: this is the whole input."""
+    return [e for rm in sorted(development_root(repo_root).rglob("roadmap.md"))
+            for e in dependency_edges(rm)]
+
+
+def edge_state(edge: DependencyEdge, repo_root: Path) -> str:
+    """`satisfied` · `unsatisfied` · `broken`, derived from what the TARGET IS.
+
+    Rule 9, corrected 2026-09-06 after the phase-6 row of `workflow-decomposition`'s
+    table failed to derive: a PHASE resolves to its rule-8 status marker, while a
+    STANDARD or other non-phase artifact has none and is satisfied by resolving —
+    plus its vendoring banner, which is what makes *"vendored and ratified, amendments
+    go upstream"* a computed fact.
+
+    **`broken` is not a flavour of `unsatisfied`.** A target that does not exist is a
+    typo or a deletion; a target that exists and is unfinished is the graph working.
+    """
+    if not edge.target.exists():
+        return "broken"
+    if edge.fragment:
+        # THE ANCHOR NAMES A PHASE INSIDE A ROADMAP, so its state is that entry's rule-8
+        # marker — the same fact a phase doc's state comes from, read from the other
+        # place a phase can live. An anchor nothing declares is `broken` for the same
+        # reason a missing file is: it addresses nothing, and the author believes it does.
+        marker = _marker_for_anchor(edge.target, edge.fragment)
+        if marker is None:
+            return "broken"
+        return "satisfied" if "COMPLETE" in marker else "unsatisfied"
+    if re.match(r"phase\d", edge.target.name):
+        marker = _phase_marker_for(edge.target)
+        if marker is None:
+            return "unsatisfied"      # a doc no roadmap entry claims
+        return "satisfied" if "COMPLETE" in marker else "unsatisfied"
+    return "satisfied"                # a standard or other artifact: it resolves
+
+
+def _marker_for_anchor(roadmap: Path, anchor: str) -> str | None:
+    """The rule-8 marker on the phase entry carrying `<a id="anchor">`, or None.
+
+    THE ID IS AUTHOR-WRITTEN AND THAT IS WHY THIS READS IT RATHER THAN SLUGIFYING THE
+    HEADING. A generated slug changes when the heading is reworded and every inbound
+    link dies silently — a dead in-page anchor renders as a working link and resolves
+    to nothing. Measured 2026-09-08 on `temporal-integration/roadmap.md`: nine links
+    pointing at anchors that had never existed, none of which failed visibly.
+    """
+    if not roadmap.is_file():
+        return None
+    needle = f'<a id="{anchor}">'
+    for line in roadmap.read_text(encoding="utf-8").splitlines():
+        if line.startswith("#") and needle in line:
+            m = _PHASE_MARKER.search(line)
+            return m.group(0) if m else None
+    return None
+
+
+def _phase_marker_for(phase_doc: Path) -> str | None:
+    """The rule-8 marker on the entry that OWNS this phase doc.
+
+    The marker lives on the roadmap entry, never in the phase doc, so satisfaction is
+    read where rule 8 put it rather than from a second place the doc might restate it.
+    """
+    roadmap = phase_doc.parent / "roadmap.md"
+    if not roadmap.is_file():
+        return None
+    text = roadmap.read_text(encoding="utf-8").splitlines()
+    for start, end, heading in _entry_windows(text):
+        # THE `**Implementation:**` LINE, NEVER "the name appears in this span" —
+        # rule 8's exact anchor, and the looser predicate is one this repo has
+        # already measured and rejected: *"a section that CITES a phase doc is not a
+        # phase section"*, which miscounted 5 -> 7 here and 5 -> 12 in MDC. It was
+        # written the loose way first and read PMP's OPENING PARAGRAPH — which
+        # mentions `phase1_the_run_bag.md` in prose — as the owning entry, returning
+        # its marker instead of the real one twelve headings down.
+        owning = [l for l in text[start:end] if _IMPLEMENTATION.match(l)
+                  and phase_doc.name in l]
+        if owning:
+            m = _PHASE_MARKER.search(heading)
+            return m.group(0).strip() if m else None
+    return None
+
+
+def gated_on(component: Path, graph: list[DependencyEdge]) -> list[DependencyEdge]:
+    """The REVERSE edges — what depends on this component. Derived, never declared.
+
+    Rule 9 forbids declaring these: one fact in two files disagrees eventually, and
+    `memory-management-framework` carried a reverse list whose every derivable member
+    was already declared forward by the component itself.
+    """
+    here = component.resolve()
+    # A COMPONENT'S OWN PHASE-TO-PHASE EDGES ARE NOT REVERSE DEPENDENCIES. Rule 9's
+    # reverse edge answers *what OTHER work is gated on this*; an internal edge is
+    # sequencing inside one plan and rendering it as inbound would show every
+    # component gated on itself.
+    return [e for e in graph
+            if (here in e.target.parents or e.target.parent == here)
+            and e.roadmap.parent.resolve() != here]
+
+
+def component_dependencies(graph: list[DependencyEdge]) -> dict[Path, set[Path]]:
+    """Component -> the components it depends on. What `plan_sprint` orders on.
+
+    Rule 9: a component depends on X if ANY of its phases does. Declared at the phase
+    and rolled up here, because the rollup is computable from the finer grain and the
+    finer grain is not computable from the rollup.
+    """
+    out: dict[Path, set[Path]] = {}
+    for e in graph:
+        out.setdefault(e.roadmap.parent, set()).add(e.target.parent)
+    return {k: {t for t in v if t != k} for k, v in out.items()}

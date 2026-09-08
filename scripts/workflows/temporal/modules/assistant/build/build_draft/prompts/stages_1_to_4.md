@@ -29,6 +29,9 @@ ${VERIFY_THE_TASKS_ASSERTED_FACTS}
 ${VERIFICATION_IS_BY_FETCH}
 
 
+${OPEN_PR_FOR_THIS_WORK}
+
+
 ## Stage 2: PLAN
 Create a focused plan for the changes. Reference existing requirements or documentation if available in docs/. Identify what files need to change, what the dependencies are between changes, and what risks exist. Keep the plan specific and actionable.
 

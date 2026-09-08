@@ -62,6 +62,10 @@ def run_draft(*, description: str, repo_root: Path, prefer_repo: str | None = No
         template = act.load_prompt(PROMPTS / wrapper)
         stages_body = act.load_prompt(PROMPTS / "stages_1_to_4.md")
 
+    # SUPPLIED ONLY ON THE ARMS THAT CREATE A PR. A run already pointed at one by
+    # `--pr` is correcting a known PR, and searching for open PRs there is noise on
+    # every correction pass. The duplication this guards against happens at branch
+    # creation — two dispatches for one phase, neither told about the other.
     values = {
         "DESCRIPTION": description,
         # TIER IDENTITY, DERIVED FROM `WORKFLOW_KEY` AND NEVER RE-TYPED. The
@@ -90,6 +94,7 @@ def run_draft(*, description: str, repo_root: Path, prefer_repo: str | None = No
         # `evidence-discipline` is TIER_INVARIANT, so a path without it is a
         # dispatch running a different rule.
         "CHARACTERIZE_BY_EXECUTION": act.shared_prompt("characterize_by_execution"),
+        "OPEN_PR_FOR_THIS_WORK": act.shared_prompt("open_pr_for_this_work"),
         "STAGE_ORDER_IS_MANDATORY": act.shared_prompt("stage_order_is_mandatory"),
         "VERIFICATION_IS_BY_FETCH": act.shared_prompt("verification_is_by_fetch"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),

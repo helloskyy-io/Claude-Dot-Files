@@ -142,7 +142,7 @@ def test_no_doc_names_a_workflow_that_does_not_exist(path: Path) -> None:
     "text,expected",
     [
         ("dispatch build-minor.sh --pr 1", ["build-minor.sh (renamed: build_minor.sh)"]),
-        ("dispatch plan-revision.sh now", ["plan-revision.sh (renamed: plan_revision.sh)"]),
+        ("dispatch build-minor.sh --pr 2", ["build-minor.sh (renamed: build_minor.sh)"]),
         # THE ONE THAT GOT PAST THE FIRST DRAFT — no same-stem twin exists.
         ("dispatch build-phase.sh plan.md", ["build-phase.sh (now: build.sh --phase)"]),
         # SURVIVORS — no Python successor, so naming them is correct.
@@ -154,10 +154,10 @@ def test_no_doc_names_a_workflow_that_does_not_exist(path: Path) -> None:
         ("testing/run-all.sh and block-dangerous.sh", []),
         # A RETIREMENT NOTE names the dead script AND its successor — allowed.
         ("`build-phase.sh` no longer exists; use `build.sh --phase <plan>`.", []),
-        ("plan-revision.sh was renamed to plan_revision.sh.", []),
+        ("build-minor.sh was renamed to build_minor.sh.", []),
         # ...but only when the successor is actually there to be read.
-        ("plan-revision.sh was renamed.\n\nplan_revision.sh is elsewhere.",
-         ["plan-revision.sh (renamed: plan_revision.sh)"]),
+        ("build-minor.sh was renamed.\n\nbuild_minor.sh is elsewhere.",
+         ["build-minor.sh (renamed: build_minor.sh)"]),
     ],
 )
 def test_the_RESOLUTION_PREDICATE_discriminates(text: str, expected: list[str]) -> None:

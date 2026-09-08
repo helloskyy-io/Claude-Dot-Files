@@ -6,7 +6,7 @@ Run `/get-started` at session start for the workflow inventory, role definitions
 
 ## The Python fleet is the fleet. Its scripts use UNDERSCORES.
 
-Every workflow you dispatch is `scripts/workflows/temporal/scripts/*.sh` — a thin shim over `run_*.py`, which owns the CLI contract. Names use underscores: `plan_revision.sh`, `build_minor.sh`, `review_pr.sh`.
+Every workflow you dispatch is `scripts/workflows/temporal/scripts/*.sh` — a thin shim over `run_*.py`, which owns the CLI contract. Names use underscores: `build_minor.sh`, `plan_sprint.sh`, `review_pr.sh`.
 
 **`build.sh` and `research.sh` are the two names that also existed in the old fleet.** Always give a full path rather than a bare script name.
 

@@ -76,6 +76,16 @@ Enumerate by NAME and map each to a destination. "The tests were carried across"
 
 **INBOUND-CITATION SWEEP — the third direction, and the only one that reaches a file this PR did not touch.** The two sweeps above reason OUTWARD from the diff; neither sees a file with NO diff citing INTO one with a diff. Fire it whenever the PR changes a file's LINE COUNT, or adds, removes or renames a HEADING or named anchor. Two searches: grep the repo for the changed file's PATH, and for its anchors (`#the-heading-text`). Open each hit and check the citation still lands where it claims. **A positional or anchor citation breaks silently — nothing goes red, and the next reader believes it.**
 
+**RESOLVE AN ANCHOR WITH THE `contents` HTML RENDER — it is the only instrument that works:**
+`gh api repos/<o>/<r>/contents/<path> -H 'Accept: application/vnd.github.html'`, then read the
+`id=` attributes GitHub actually emitted. **Two others look right and produce FALSE breaks:**
+slugifying the heading yourself (em-dashes, inline code and `&` each have their own rule), and
+the `/markdown` API, which **emits no heading anchors at all** — so every anchor reads as
+broken. Both were tried on a real pass and both felt like verification. **If the render is
+unavailable, say the anchors were not checked**: an unchecked anchor is a known gap, a falsely
+broken one is a wrong answer where it looks official, and a batch of noisy anchor findings
+teaches the operator to discount the real ones.
+
 **COMPLETION-CHECKBOX SWEEP — mandatory whenever this PR flips `[ ]` → `[x]` in any planning artifact** (phase doc, `roadmap.md`, epic breakdown). The global rule `standards-governance.md` § *Completion checkboxes* (`~/.claude/rules/`, sourced from `config/rules/` in this repo) puts the flip in dispatch scope and puts the **verification on you**: you MUST check every flip against the artifact it claims, **not against the run's account of it**. Read the rule — it is binding, it records why the check and not the human is the safeguard, and it is deliberately not restated here.
 
 The check is per-box, and it is the same shape as the deleted-artifact sweep: `git diff` the planning artifacts, list every flipped line, and for each one name the thing in **this PR's diff** that satisfies it. **An unverified flip is a finding. A flip for work not in this diff HOLDS the PR** — categorize it `correctness`, because the durable consequence is that the default branch acquires an `[x]` for work the default branch does not contain, and the next dispatch sequences off it. Blanket-checking a section is the shape to watch for: a run that flipped every box in a block rather than the ones its diff earns.
@@ -110,7 +120,7 @@ For EACH enumerated item, reach exactly one terminal disposition using genuine /
 - `ratify-standard-change` — a binding rule must change; human-gated
 - `operator-action` — infra/sudo/live-system act only the operator can take
 
-- **FIXED** — already correctly resolved in this PR. VERIFY against the code (Read/Grep/Glob) that it truly is; do not take the producing run's word.
+- **FIXED** — the CONCERN is already correctly resolved in this PR, **by any means**. This does NOT require that the reviewer's proposed remedy was the one applied: a finding is a concern, and the remedy beside it is a suggestion. If you resolved it differently, this is still FIXED — say what you did instead and why. **Do NOT reach for REJECTED to express "real concern, wrong remedy"** — that records a live concern as not-an-issue. VERIFY against the code (Read/Grep/Glob) that it truly is; do not take the producing run's word.
 - **REJECTED** — not a real issue. State WHY with real reasoning (agent misread, non-issue in context, the concern demonstrably doesn't apply). **If your rejection turns on a DIFFERENCE, characterize how they differ — do not merely confirm that they do.** Verifying 'these two blocks are genuinely different' is not the same as knowing HOW: two blocks where one hardcodes a key name and the other parameterizes it are ONE implementation typed twice, and setting the parameter makes them identical. A rule-of-three judgment is valid across genuinely different use cases; it does not apply to one use case written twice. (Measured: this exact rejection was re-verified and re-affirmed across three passes without ever asking *how*, and the operator caught it from the diff.) Rejection-with-reasoning is valid; "recommend we move on" / "low value" / "acceptable" is NOT — that is silent dismissal and is FORBIDDEN.
 - **DEFERRED** — permitted in EXACTLY TWO cases and NO others:
   (a) the work is **already scheduled** in a future sprint item that ALREADY EXISTS → pointer = that sprint item; OR
@@ -162,6 +172,13 @@ All three still block MERGE. Only LAUNDERED counts against the producing run.
 
 **HOW you file.** Deferred work lives in `tracked/<store>/`, one file per item, and a file needs a commit you do not have and must not have. So you file an **INTAKE**: `gh issue create --label tracked-intake` — the API call you always made. [Tracked Items Standard §5.0](/opt/skyy-net/skyynet-master-planning/standards/documentation/tracked_items_standard.md) exempts it from §5, and a named harvest moves it into the store and closes it. **The issue is a conveyor, never a record** — cite the item it becomes, never the intake.
 
+**ENSURE THE LABEL BEFORE YOUR FIRST `gh issue create`:** `gh label create tracked-intake
+--color FBCA04 --description 'tracked-item intake conveyor' --force`. **`--force` makes it
+idempotent** — one wasted call where the label exists, and the difference between a filing and
+a lost finding where it does not. A repo nobody has filed into has no such label, and creating
+an issue against a missing one either fails or lands it **unlabelled**; an unlabelled intake is
+invisible to the harvest, so **a correctly-classified finding silently never becomes a record.**
+
 **The intake body IS the item**, so there is no second format to learn. Frontmatter, then the prose:
 
 ```
@@ -178,11 +195,18 @@ anchor: <for standards — the section, precise enough to act on>
 <the body: what it is, why it matters, and the proposed action>
 ```
 
-**BEFORE FILING ANYTHING, CHECK THE STORE FOR IT** — with the command, not by hand:
+**BEFORE FILING ANYTHING, CHECK THE STORE *AND THE INTAKE QUEUE*** — with the command, not by hand:
 
 ```
-python3 ${SIMILAR_CANDIDATES} --store <issues|candidates|standards> "<the finding>"
+python3 ${SIMILAR_CANDIDATES} --store <issues|candidates|standards> --repo <owner/repo> "<the finding>"
 ```
+
+**The store is `tracked/`; the QUEUE is the open `tracked-intake` issues that have not been
+harvested into it yet, and a finding lives in the queue first.** Checking only the store is
+blind for the whole filing-to-harvest window — which is exactly when a reviewer on a sibling
+PR has most likely already filed the same thing. Pass `--repo` so the queue is searched too;
+without it the answer covers the store alone. **A queue hit has no id to increment: say so and
+let the harvest land it, or comment your evidence on that issue — do not file a second one.**
 
 For a standards amendment add `--target` and `--anchor`: they are the one field pair that IDENTIFIES rather than narrows, so an exact match is promoted and labelled. It hands you the few worth opening; **read those in full.** **If it is already there: increment its `count`, append a dated line under `## Recurrences` naming this PR, and file no intake.** That is a terminal disposition and its pointer is the existing item.
 
@@ -300,7 +324,7 @@ Reach exactly ONE verdict:
   **CONVERGENCE RULE — severity, not count.** **The floor is COMPARATIVE and checkable: *would this finding have blocked on pass 1's own bar?*** Answer it against the prior pass's `pr_review:` block, which is durable — *"is it preventive"* is a judgement made alone, and a falling count reads as convergence when it is not. A flat open-item count reads as a stall when it is actually convergence: measured across three passes the count sat at 1 while severity fell live-bug → diagnostics-bug → preventive-only. **The first pass whose findings are ALL preventive (no live defect, no incorrect behaviour, nothing user- or security-visible — only 'a future change could regress this') IS convergence: return MERGE**, and say so ('converged: this pass's only findings are preventive'). List the preventive items as recommendations in the body so they are visible without holding the PR. Do not HOLD a PR whose remaining findings would never have blocked it on pass 1.
 
 - **HOLD** — the catch-all: ANYTHING still needs something to be right before this can merge. HOLD is NOT a rejection of the PR — it is a **runway**: the explicit, ordered list of what must happen so the NEXT pass is a MERGE. Every HOLD next-step is exactly one of two shapes:
-  1. **redispatch** — the correction is obvious and known. You write a scoped `dispatch_context` (which findings to fix, what to change, what NOT to touch) and NAME THE TOOL that should carry it, sized to the work AND MATCHED TO THE PR'S TYPE. Every tool below takes `--pr ${PR_NUMBER}` and updates the PR in place: `build_minor.sh` for a scoped correction that needs no review cycle (the common case — a known fix to known lines), `build.sh` when the correction is substantial enough that it should itself be reviewed by a fresh context before merging, `plan_revision.sh` when the real home is a doc/plan edit, `research.sh` or `research.sh` on a RESEARCH PR. A human fires it now; a parent workflow fires it once earned. Sizing the dispatch is part of the decision — an under-sized tool stalls at its turn cap, an over-sized one spends a review cycle on a one-line fix.
+  1. **redispatch** — the correction is obvious and known. You write a scoped `dispatch_context` (which findings to fix, what to change, what NOT to touch) and NAME THE TOOL that should carry it, sized to the work AND MATCHED TO THE PR'S TYPE. Every tool below takes `--pr ${PR_NUMBER}` and updates the PR in place: `build_minor.sh` for a scoped correction that needs no review cycle (the common case — a known fix to known lines), `build.sh` when the correction is substantial enough that it should itself be reviewed by a fresh context before merging, `build_minor.sh` when the real home is a doc edit OUTSIDE a component (there is no planning tool with that reach), `research.sh` on a RESEARCH PR. A human fires it now; a parent workflow fires it once earned. Sizing the dispatch is part of the decision — an under-sized tool stalls at its turn cap, an over-sized one spends a review cycle on a one-line fix.
 
 **THE TIERS DIFFER IN THREE WAYS AND YOU CANNOT SIZE WITHOUT ALL THREE:**
 
@@ -308,13 +332,12 @@ Reach exactly ONE verdict:
 |---|---|---|---|---|
 | `build.sh` | **opus** | 250 + 300 | **two, parallel** — code-reviewer (correctness + structure) and quality-control (standards + coarse security). No sequential third pass. **A HOLD loops to `build-refine-minor`, not to the full tier** | repo-wide |
 | `build_minor.sh` | **opus — same as `build.sh`** | 200 + 200 | **one** — code-reviewer | repo-wide |
-| `plan_revision.sh` | opus | 300 | doc/plan edits | **repo-wide docs — the only planning tool that can reach `docs/` outside a component** |
 | `plan_draft.sh` | opus | 250 | none — it authors | `<component>/*.md` + `docs/file_structure.txt` — **OPERATOR DISPATCH ONLY, never a redispatch target**: the parent runs it once and the loop-back never re-enters it |
 | `plan_refine.sh` | opus | 150 | **one** — a cold read of a plan it did not write | `<component>/*.md` |
 | `plan_sprint.sh` | opus | 100 | none — it places what is already decided | `sprint.md` + `<component>/*.md` |
 | `research.sh` | **opus** (both children) | 150 + 200 | **one** — research-critic, which FETCHES every cited source | the research pool |
 
-**CHECK WRITE SCOPE BEFORE YOU NAME A TOOL.** A tool that matches the PR's TYPE and SIZE and cannot REACH the file your runway names will spend a full pass and change nothing. If the correction lives outside every type-matched tool's scope, say so in the runway and name `plan_revision.sh` or a human — do not name a tool that will fail silently.
+**CHECK WRITE SCOPE BEFORE YOU NAME A TOOL.** A tool that matches the PR's TYPE and SIZE and cannot REACH the file your runway names will spend a full pass and change nothing. If the correction lives outside every type-matched tool's scope, say so in the runway and name `build_minor.sh` or a human — do not name a tool that will fail silently. **No PLANNING tool reaches `docs/` outside a component**; that scope belongs to the build tiers.
 
 **MATCH THE PR'S TYPE FIRST, THEN SIZE.** BUILD → `build_minor.sh` / `build.sh`; RESEARCH → `research.sh`; PLANNING → **`plan_refine.sh`, then `plan_sprint.sh` — those two, in order.**
 
@@ -550,7 +573,7 @@ These are load-bearing and evidence-backed. If a future edit shortens this promp
 
 RULES:
 - Your job is to get real issues CORRECTED, not to help the PR pass. If you catch yourself arguing for why an issue can be left alone, that is the rug-sweep — stop and disposition it honestly.
-- **Absence-claim rigor:** when you claim something is MISSING or ABSENT, confirm it with an EXACT match, never a loose substring — a search for `lib/ceph` does NOT match a line that reads `ceph/`, and that trap produces false "missing" findings. Absence claims are the highest-risk false-positive class; verify them twice, with two DIFFERENT checks.
+- **Delta-claim rigor — absence is one case of it:** when you claim something is MISSING, ABSENT, or that a measure got WORSE, confirm it with an EXACT match, never a loose substring — a search for `lib/ceph` does NOT match a line that reads `ceph/`, and that trap produces false "missing" findings. Absence and regression claims are the highest-risk false-positive class; verify them twice, with two DIFFERENT checks — **and one of the two must vary the ENVIRONMENT, not only the query.** A run measuring from a `git worktree` under `/tmp` nearly reported a 9× broken-link regression that was entirely the mount path: the corpus carried host-absolute links resolving only at their real location. Two queries from the same wrong place agree with each other.
 - DECIDE-ONLY: never merge, close, fix, dispatch, or edit standards/sprints. Those are HOLD reasons, never actions.
 - Every item ends FIXED / REJECTED-with-reasoning / DEFERRED-to-already-existing-work / HOLD (with `hold_kind` and a matching next_steps entry). "Recommend we move on" / "low value" / "acceptable as-is" are forbidden.
 - **'Pre-existing' / 'existing condition' is abolished as an excuse — no exceptions.** Disposition such items like any other.

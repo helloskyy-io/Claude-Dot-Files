@@ -244,7 +244,7 @@ def resolve_identity(argv: list[str] | None = None, *, announce: bool = True) ->
     """Turn the two identity inputs into this invocation's identity.
 
     TAKES `argv`, NOT THE ENTRYPOINT'S PARSED NAMESPACE, and the reason is
-    uniformity rather than convenience. The seventeen entrypoints do not agree on
+    uniformity rather than convenience. The sixteen entrypoints do not agree on
     what a parse produces — four return a typed workflow input, one returns a
     `(task, dry_run)` pair, one returns a bare `Namespace`, the rest keep it
     local to `main` — and threading a namespace through each would mean four

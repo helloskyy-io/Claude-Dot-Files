@@ -39,7 +39,7 @@ from pathlib import Path
 
 import pytest
 
-from modules.journal.bag import open_bag
+from modules.journal.bag import Bag, open_bag
 from modules.journal.validate import validate_bag
 
 WRITERS = 16
@@ -132,3 +132,51 @@ def test_no_two_writers_share_a_FILE_which_is_the_actual_requirement(root: Path)
         owners[target] = index
 
     assert len(owners) == WRITERS
+
+
+def test_racing_openers_of_ONE_run_id_all_adopt_ONE_COMPLETE_bag(root: Path) -> None:
+    """The simultaneous-OPEN case, forced — Phase 9 r7 (create-then-rename).
+
+    Distinct from the writer_dir races above: this contends on bag CREATION, not
+    on subfolder allocation. WRITERS threads open the SAME run id, released
+    together by a barrier so the create is genuinely contended. Each opener then
+    reads `.state`, which reads `bag-info.txt` — the file a loser of the old
+    mkdir-then-write race could adopt BEFORE it existed, raising
+    `FileNotFoundError`. The properties: nobody crashes, every opener came back
+    pointing at the one bag path, that bag is COMPLETE, and no opener left a
+    staging directory behind.
+
+    Under create-then-rename this passes deterministically, because the run's
+    folder only ever appears fully formed. Under the mkdir-then-write sequence it
+    replaced, a barrier-forced race adopts a bag whose tag files are not written
+    yet and `.state` raises.
+    """
+    barrier = threading.Barrier(WRITERS, timeout=_BARRIER_TIMEOUT_S)
+    opened: list[Bag] = []
+    failures: list[BaseException] = []
+    lock = threading.Lock()
+
+    def opener() -> None:
+        try:
+            barrier.wait()
+            bag = open_bag(root, "raced-open")
+            state = bag.state  # reads bag-info.txt; raises if a half-built bag was adopted
+            with lock:
+                opened.append(bag)
+                assert state.lifecycle == "open"
+        except BaseException as exc:  # noqa: BLE001 — reported, not swallowed
+            with lock:
+                failures.append(exc)
+
+    threads = [threading.Thread(target=opener) for _ in range(WRITERS)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=_BARRIER_TIMEOUT_S)
+
+    assert not failures, f"an opener crashed or adopted a half-built bag: {failures}"
+    assert len(opened) == WRITERS
+    assert all(bag.path == root / "raced-open" for bag in opened)
+    assert (root / "raced-open" / "bag-info.txt").is_file()
+    leftovers = [p.name for p in root.iterdir() if p.name.startswith(".raced-open.")]
+    assert not leftovers, f"a losing opener left staging directories behind: {leftovers}"

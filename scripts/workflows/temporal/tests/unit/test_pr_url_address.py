@@ -412,6 +412,36 @@ def test_every_production_caller_of_pr_number_from_url_states_its_expected_repo(
                     f"which one; passing None there is the pre-Phase-4 gap "
                     f"under a new name."
                 )
+            else:
+                # ⚠ PRESENCE IS NOT KIND, AND THIS `else` IS THAT GAP CLOSED.
+                # Until 2026-09-08 the assertion above was the whole gate: it
+                # required the argument to be STATED and never looked at what was
+                # in it. `plan_workflow.py` stated `expected_repo=repo_target` —
+                # the `--repo` FILESYSTEM PATH — against a guard that compares it
+                # with `!=` to an `owner/name` slug. The comparison could never
+                # match, so EVERY `plan.sh` run that opened its own PR raised at
+                # the handoff, after plan-draft had spent, committed and opened the
+                # PR. Observed live at $14.01 with three of four stages skipped and
+                # `exit 0` reported. This test was green throughout.
+                #
+                # The predicate is deliberately about the NAME rather than the
+                # value: the value is a runtime string this walk cannot see, and
+                # every correct call site already reads its slug into a variable
+                # whose name says so. A caller doing something genuinely different
+                # states it here, which is a two-line diff and a sentence of
+                # reasoning rather than a silent path-shaped argument.
+                name = (value.id if isinstance(value, ast.Name)
+                        else getattr(value, "attr", None) if isinstance(value, ast.Attribute)
+                        else value.func.attr if isinstance(value, ast.Call)
+                        and isinstance(value.func, ast.Attribute) else None)
+                assert name in {"slug", "repo_slug"}, (
+                    f"{path.name}:{node.lineno} passes expected_repo={ast.unparse(value)}, "
+                    f"which is not a repo SLUG. This guard compares its argument to an "
+                    f"`owner/name` string with `!=`, so a filesystem path — `repo_target` "
+                    f"and `repo_root` are both in scope at most call sites and both read "
+                    f"plausibly — can never match and the call always raises. Read the "
+                    f"slug with `repo_slug(repo_root)` before the child runs."
+                )
             callers.append(f"{path.name}:{node.lineno}")
 
     assert scanned > 20, f"the scan visited only {scanned} files — it read nothing"

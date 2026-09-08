@@ -238,8 +238,19 @@ _SLUG_STRIP = re.compile(r"[^a-z0-9 -]")
 
 
 def _slugs(md: Path) -> set[str]:
-    out = set()
-    for h in re.findall(r"^#{1,6}\s+(.*?)\s*$", md.read_text(errors="replace"), re.M):
+    """Every anchor this file offers: the generated slugs AND the explicit ids.
+
+    AN EXPLICIT `<a id="...">` IS AN ANCHOR AND THIS USED TO MISS IT. Documentation
+    Standard rule 9 requires a roadmap that keeps its phases inline to give every phase
+    heading an author-written id, precisely because a generated slug changes when the
+    heading is reworded and the inbound links then die silently. A checker that read
+    only generated slugs called those correct links broken — which is the same class
+    of wrong answer, pointed the other way.
+    """
+    text = md.read_text(errors="replace")
+    out = set(re.findall(r'<a\s+id="([^"]+)"', text))
+    for h in re.findall(r"^#{1,6}\s+(.*?)\s*$", text, re.M):
+        h = re.sub(r"<a\s+id=\"[^\"]*\"\s*>\s*</a>", "", h)
         out.add(_SLUG_STRIP.sub("", h.lower()).strip().replace(" ", "-"))
     return out
 

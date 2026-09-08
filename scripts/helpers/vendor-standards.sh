@@ -118,22 +118,33 @@ fi
 DEST_REPO="${TARGET:-$SN_SRC}"
 [[ -d "$DEST_REPO" ]] || { echo "Error: target not found: $DEST_REPO" >&2; exit 1; }
 
-# THE TARGET'S OWN LAYOUT DECIDES, because two are live in this ecosystem and
-# neither is wrong. A planning repo mirrors MDC's shape and keeps `standards/` at
-# the root; a product repo built by `init-project.sh` keeps `docs/standards/`.
-# Probing for the one that EXISTS is what lets one tool serve both without
-# settling a layout question that belongs to the operator, not to a vendoring
-# script. If neither exists the target has never held standards, and the caller
-# is told which two paths were looked for rather than left with an exit code —
-# this returned a bare `exit 2` under `set -e` on the first real `--target` run,
-# which is precisely the silent failure this repo keeps paying for.
-if [[ -d "${DEST_REPO}/standards" ]]; then
-    DEST="${DEST_REPO}/standards"
-elif [[ -d "${DEST_REPO}/docs/standards" ]]; then
-    DEST="${DEST_REPO}/docs/standards"
+# THE REPO CLASS DECIDES, AND THIS CHECKS RATHER THAN PROBES. Documentation Standard
+# § *A repo that CONSUMES standards* rule 1 settles it: a planning repo
+# (`<ecosystem>-master-planning`) keeps the four buckets at its ROOT, because its root IS
+# the documentation tree; every other repo keeps them under `docs/`.
+#
+# THIS USED TO PROBE FOR WHICHEVER EXISTED, and said so — *"two are live in this ecosystem
+# and neither is wrong… a layout question that belongs to the operator, not to a vendoring
+# script."* True while nothing had ruled it, and exactly how a divergence survives: the one
+# tool that could have caught it was written to tolerate it. Serving both shapes was not
+# neutrality, it was carrying the drift.
+case "$(basename "$DEST_REPO")" in
+    *-master-planning) EXPECT="standards";      CLASS="a planning repo" ;;
+    *)                 EXPECT="docs/standards"; CLASS="a non-planning repo" ;;
+esac
+if [[ "$EXPECT" == "standards" ]]; then WRONG="docs/standards"; else WRONG="standards"; fi
+
+if [[ -d "${DEST_REPO}/${EXPECT}" ]]; then
+    DEST="${DEST_REPO}/${EXPECT}"
+elif [[ -d "${DEST_REPO}/${WRONG}" ]]; then
+    echo "✗ ${DEST_REPO} keeps standards in ${WRONG}/, and it is ${CLASS} — so they belong" >&2
+    echo "  in ${EXPECT}/. Documentation Standard § A repo that CONSUMES standards, rule 1." >&2
+    echo "  Move the tree, then re-run. Refusing to mirror into a layout the standard does" >&2
+    echo "  not permit: writing there makes the divergence permanent and invisible." >&2
+    exit 1
 else
-    echo "Error: ${DEST_REPO} has neither standards/ nor docs/standards/." >&2
-    echo "       Create the one its layout uses, then re-run." >&2
+    echo "Error: ${DEST_REPO} has no ${EXPECT}/ — the layout expected for ${CLASS}." >&2
+    echo "       Create it, then re-run." >&2
     exit 1
 fi
 

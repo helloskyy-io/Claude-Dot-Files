@@ -49,6 +49,10 @@ def run_draft_minor(*, description: str, repo_root: Path, worktree: Path,
         wrapper = "update_pr.md" if pr_number else "new_branch.md"
         template = act.load_prompt(PROMPTS / wrapper)
         stages_body = None
+    # SUPPLIED ONLY ON THE ARMS THAT CREATE A PR. A run already pointed at one by
+    # `--pr` is correcting a known PR, and searching for open PRs there is noise on
+    # every correction pass. The duplication this guards against happens at branch
+    # creation — two dispatches for one phase, neither told about the other.
     values = {
         "DESCRIPTION": description,
         # Tier identity, derived from `WORKFLOW_KEY` — see the sibling tier.
@@ -67,6 +71,7 @@ def run_draft_minor(*, description: str, repo_root: Path, worktree: Path,
         # `operational-safety`, the second of which reads "a cheaper run is not a
         # run permitted to be less careful".
         "CHARACTERIZE_BY_EXECUTION": act.shared_prompt("characterize_by_execution"),
+        "OPEN_PR_FOR_THIS_WORK": act.shared_prompt("open_pr_for_this_work"),
         "GITIGNORE_COLLISION_CHECK": act.shared_prompt("gitignore_collision_check"),
     }
     if stages_body:

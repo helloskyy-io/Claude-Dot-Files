@@ -10,6 +10,16 @@ Do NOT propose creating `docs/standards/architecture/adr-NNN.md` files when addi
 
 Standards documents (`docs/standards/`, `docs/standards/architecture/`) are a curated product with human-in-the-loop control. Autonomous workflows and agents may SURFACE standards implications (gaps, drift, deviations, ADR candidates) but must NOT auto-create, auto-modify, or auto-stub standards artifacts. All standards changes flow through the interactive session for human review before merge.
 
+### `CLAUDE.md` is human-in-the-loop too, and the omission is why it drifted (binding, ruled 2026-09-07)
+
+**A `CLAUDE.md` is not a planning artifact and an autonomous dispatch does not write one.** It may SURFACE that a file needs an entry — a new standard whose binding scope covers the repo, a layout that moved — in its PR body or a handoff. It does not edit the file.
+
+**This rule exists because its ABSENCE was the whole mechanism.** The paragraph above protects standards; the carve-out below makes planning artifacts explicitly dispatch-scope; `sprints.md` is named as the exception. **`CLAUDE.md` was in none of the three**, so a dispatch enumerating what it may touch found standards forbidden, planning permitted, and `CLAUDE.md` unmentioned — and read the silence as permission. Measured on `image-manager`: successive dispatches grew a defining-constraint section and a principles list into a file meant to carry pointers, and the operator learned of it when two runs began disagreeing about which copy governed. **The content was correct and already lived in the roadmap and two phase docs** — so it was a second carrier of one fact, which is the class this repo has spent the week deleting.
+
+**Why a CLAUDE.md is closer to a standard than to a plan.** A phase doc is the work; a `CLAUDE.md` is what tells every future session which rules bind. Getting it wrong misroutes readers rather than misstating a task, and nothing downstream re-derives it — the same property that makes standards human-only.
+
+**What it does NOT forbid.** Reading one, quoting one, or reporting that one is stale. The `documentation_standard.md` § CLAUDE.md Governance inclusion rule still binds: a repo's file must reference a standard whose binding scope covers it. **Satisfying that rule is an operator edit, and a dispatch that notices the gap says so rather than closing it.**
+
 ### `docs/standards/architecture/research/` is a WORKING SURFACE, not a standards artifact (binding)
 
 **Everything under that directory is exempt from the paragraph above.** `synthesis.md`, `topics.md` and `raw/` are **queues and evidence**, not curated binding product: they are appended to continuously, they carry no rules anyone conforms to, and their whole purpose is to accumulate what has *not* yet been ratified.

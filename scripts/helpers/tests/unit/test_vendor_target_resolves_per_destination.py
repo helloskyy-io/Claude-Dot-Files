@@ -44,12 +44,19 @@ def nested_target(tmp_path: Path) -> Path:
     """
     if not (SMP / "standards").is_dir():
         pytest.skip(f"no planning repo at {SMP}; this drives the real script")
-    dst = tmp_path / "standards" / "development" / "testing"
+    # PLANNING-CLASS BY NAME, so root-level `standards/` is the layout the standard
+    # requires of it. This fixture is about the SUB-layout — MDC nests development
+    # standards one tier deeper — and that subject is unchanged. It previously used a
+    # bare `tmp_path`, which the script now refuses: Documentation Standard § A repo
+    # that CONSUMES standards rule 1 gives root-level `standards/` to planning repos
+    # only, and the script checks the class rather than probing for either shape.
+    root = tmp_path / "other-master-planning"
+    dst = root / "standards" / "development" / "testing"
     dst.mkdir(parents=True)
-    (tmp_path / "standards" / "documentation").mkdir(parents=True)
+    (root / "standards" / "documentation").mkdir(parents=True)
     src = (SMP / "standards" / "testing" / "testing_standard.md").read_text()
     (dst / "testing_standard.md").write_text(src.split("\n---\n", 1)[1])
-    return tmp_path
+    return root
 
 
 def test_check_REPORTS_on_a_bannerless_destination(nested_target: Path) -> None:

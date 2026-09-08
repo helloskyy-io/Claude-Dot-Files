@@ -156,10 +156,10 @@ def test_there_are_shims_to_check() -> None:
     eleven and passed, so the guard advertised protection for the population the
     phase added and provided none. The floor has to be the measured count for the
     sentence to be true, which is how the sibling floor in `test_preflight.py`
-    (`>= 17`, "there were 17 when this floor was set") is written.
+    (`>= 16`, "there were 16 when this floor was set") is written.
     """
     found = _shims()
-    assert len(found) >= 17, (
+    assert len(found) >= 16, (
         f"only {len(found)} shims found under {SCRIPTS} — the glob is not "
         f"reading the fleet: {[p.name for p in found]}")
 

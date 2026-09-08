@@ -63,7 +63,6 @@ from modules.assistant.build.build import build_workflow as parent
 from modules.assistant.build.build_draft import build_draft_workflow as draft
 from modules.assistant.build.build_minor import build_minor_workflow as parent_minor
 from modules.assistant.build.build_refine import build_refine_workflow as refine
-from modules.assistant.plan.plan_revision import plan_revision_workflow as plan_revision
 
 # AUTO-DISCOVERED. The previous hand-maintained lists covered 3 of the 10
 # modules that fit this file's own definition of a child and 2 of the 5 parents

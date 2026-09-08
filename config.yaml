@@ -28,7 +28,7 @@ gh-monitor:
   repo-folders: "~/Repos /opt/skyy-net"
 
   # Global safety cap on concurrent TOP-LEVEL workflow processes (build.sh,
-  # build-minor.sh, plan-revision.sh, build-phase.sh). build.sh's own
+  # build_minor.sh, plan.sh). build.sh's own
   # children (children/) are NOT counted separately — one logical run, one slot.
   # Counts BOTH manual
   # terminal invocations AND gh-monitor dispatches. Does NOT count interactive
@@ -45,8 +45,6 @@ gh-monitor:
   # `build`); no key remains for it.
   enable-build: true
   enable-build-minor: true
-  enable-plan-revision: true
-  enable-build-phase: true
   enable-help: true
 
   # Dry run mode (detect comments and log, but don't run workflows)
@@ -90,9 +88,7 @@ models:
   build-refine-minor: opus   # minor tier, child 2: FRESH context, ONE review lens (code-reviewer)
   build-draft: opus          # parent step 1: writes the change, opens an unreviewed PR
   build-refine: opus         # parent step 2: FRESH context — fidelity, review, corrections
-  build-phase: opus             # phase implementation — the default engineer
   plan-new: opus                # 14-stage project planning (was fable — see 2026-07-27 economics retier)
-  plan-revision: opus           # planning build (was fable — see 2026-07-27 economics retier)
   triage-candidates: opus       # rules every untriaged research candidate — ship / requires review /
                                 #   reject — a `requires review` ruling stays on the candidate. Opus
                                 #   deliberately: this decides what the project builds next, reading a
@@ -216,9 +212,7 @@ max_turns:
   # `build-draft-minor` writes scoped changes that have grown with the fleet.
   build-draft-minor: 200      # minor tier, child 1
   build-refine-minor: 200     # minor tier, child 2 — one review lens, and build's corrector
-  build-phase: 300            # phase implementation — the default engineer
   plan-new: 500               # 14-stage project planning
-  plan-revision: 300          # planning build
   plan-sprint: 100            # MEASURED at last: 11 turns on the first live run — one
                               #   component, an existing section updated, five bullets
                               #   rewritten and a total inserted. Was 250, an explicit
