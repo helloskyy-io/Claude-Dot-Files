@@ -60,6 +60,11 @@ def run_plan(*, component: Path, repo_root: Path, worktree_name: str,
     """
     notes: list[str] = []
     pr = pr_number
+    # READ BEFORE THE CUT. `repo_slug` shells out and can refuse, and a refusal
+    # after `worktree_add` strands a registered worktree and a completed fetch —
+    # which is what `test_no_GATING_READ_happens_after_the_worktree_is_cut` holds.
+    # `plan_project` reads its slug in the same position for the same reason.
+    slug = act.repo_slug(repo_root)
     ref = act.base_ref(pr_number, repo_root)
     worktree = act.worktree_add(repo_root, worktree_name, ref)
 
@@ -74,7 +79,14 @@ def run_plan(*, component: Path, repo_root: Path, worktree_name: str,
         context=context, verbose=verbose,
     )
     if pr is None:
-        pr = routing.pr_number_from_url(pr_url, expected_repo=repo_target)
+        # `slug`, NOT `repo_target`. They are both "the repo" and they are not the
+        # same kind of thing: `--repo` is a FILESYSTEM PATH, and this guard compares
+        # against an `owner/name` slug with `!=`. Passing the path made the comparison
+        # unsatisfiable, so every `plan.sh` run that opened its own PR raised here —
+        # after plan-draft had already spent, committed and opened it. `ci_gate` and
+        # `ReviewInput` below DO want the path; only this one wants the slug, which is
+        # why the wrong one reads as plausible at the call site.
+        pr = routing.pr_number_from_url(pr_url, expected_repo=slug)
         notes.append(f"plan-draft opened PR #{pr}.")
 
     verdict = _refine_size_and_dispose(
