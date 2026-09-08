@@ -796,6 +796,22 @@ claude-dot-files/
 │                                                    #   Placement covers RunContext.build as well as open_run_bag — both raise a
 │                                                    #   RuntimeError carrying an operator remedy, and a guard watching only the older of
 │                                                    #   the two was measured blind to the newer one
+│                   ├── test_every_reach_into_the_content_store_CROSSES_THE_BOUNDARY.py
+│                   │                                # PMP Phase 2 r8, the same shape as the r11 sweep above and for the same reason: the
+│                   │                                #   activities layer makes capture and resolve TIDY, not mandatory, so nothing stops a
+│                   │                                #   later module importing content_store.load_object and reading an object without the
+│                   │                                #   re-hash r7(d) requires. Walks every fleet module by AST — modules/ and scripts/,
+│                   │                                #   the journal package itself exempt — and flags three reaches: the store modules by
+│                   │                                #   import, the store I/O NAMES by import (modules/journal/__init__.py re-exports
+│                   │                                #   load_object, so `from modules.journal import load_object` is the shortest bypass
+│                   │                                #   and names no module a path check would see), and a module composing
+│                   │                                #   data/content-store/ itself, which is the reach no import check can reach.
+│                   │                                #   Docstrings are exempt or the guard fires on its own documentation. Delivers the
+│                   │                                #   NEGATIVE half ONLY and says so: it proves nobody reaches PAST the boundary, never
+│                   │                                #   that anybody reaches it — a fleet capturing nothing passes every assertion, which
+│                   │                                #   is today's fleet. Its vacuity control asserts a floor PER swept directory after a
+│                   │                                #   mutation showed a single total floor of fifty stayed green with all 21 entrypoints
+│                   │                                #   under scripts/ dropped from the population, modules/ alone holding 59 of the 80
 │                   ├── test_content_store.py        # PMP Phase 2 r7(b)/r7(d) — the on-disk path is a function of the COMPUTED DIGEST and
 │                   │                                #   of nothing else (asserted on the signature, not only the output: a URL, a filename
 │                   │                                #   or a Content-Disposition header has nowhere to enter), and every read re-hashes and
