@@ -124,6 +124,18 @@ _DECLARED: dict[str, str] = {
         "why the config digest stopped keying on `SYMLINK_TARGETS+=(`; naming "
         "the pattern that lost IS the explanation, and blanking it would leave "
         "the reasoning without a subject.",
+    "_read_task_file":
+        "a DELETED function, narrated as history at two sites — same shape as "
+        "`_APPEND_RE` above. It was `run_plan_revision.py`'s task-source reader "
+        "until `main` deleted that runner on 2026-09-05. "
+        "`test_a_task_SOURCE_path_is_anchored_to_the_repo.py` records it as one "
+        "of the nine read sites a past sweep FOUND, and "
+        "`test_journal_prose_figures_are_DERIVED.py` names it as the unrelated "
+        "handler that made a deriver read 9 against a correct prose figure of "
+        "10. Both sentences are about what was true then, and naming the site "
+        "IS the explanation. The one site that made a LIVE claim — "
+        "`anchor_task_source`'s docstring, which justified its own existence by "
+        "this consumer — was corrected rather than declared.",
     "_MUTATION_RE":
         "a pattern that NEVER SHIPPED — the second failed attempt at the same "
         "guard. Named in `test_journal_regex_anchors.py` precisely so a reader "
