@@ -88,6 +88,15 @@ claude-dot-files/
 │   │       #   separately — a mirror's header is its owner's to write, and mixing them
 │   │       #   hands an operator findings they may not act on. Underscored, unlike its
 │   │       #   hyphenated siblings, so its predicates can be imported and driven.
+│   │       #   --generate renders one line per standard from the three header lines and
+│   │       #   NOTHING else, which is why it shrinks: today's hand-written entries are 1,403
+│   │       #   bytes at the median because most of each is a §-by-§ precis — the part that
+│   │       #   goes stale, and the part no header field can produce. Measured at 454b/entry.
+│   │       #   THREE REFUSALS make it safe to point at a live file: it will not render while
+│   │       #   any owned standard is incomplete (a partial index is shorter than the one it
+│   │       #   replaces, and the difference is unmoved work), it will not guess where the
+│   │       #   fenced block goes, and --check reports the committed block stale against what
+│   │       #   the headers now render — the gate that makes a committed artifact honest.
 │   │   ├── similar-candidates.py                     # Which existing items to READ before filing one. A COMMAND, not a prompt value:
 │   │   │                                            #   the ranking needs the finding's text, which exists only mid-run. Ranks; never rules
 │   │   ├── merge-pr.py                              # Land a reviewed PR SET and drain the intake — the

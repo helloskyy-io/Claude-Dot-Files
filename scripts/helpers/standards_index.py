@@ -98,6 +98,55 @@ def unindexed(root: Path, items: list[Standard]) -> list[Standard]:
     return [s for s in items if s.path.name not in text]
 
 
+#: The generated block's fence. Everything between these two lines is rendered from
+#: the headers and is replaced wholesale; everything outside is hand-written and is
+#: never touched. Committed rather than built at read time, per Repository Layout §1.1 —
+#: a viewer over the repo's own corpus, with staleness gated by `--check`.
+BEGIN = "<!-- BEGIN GENERATED STANDARDS INDEX — edit the standards' headers, not this -->"
+END = "<!-- END GENERATED STANDARDS INDEX -->"
+
+
+def _title(path: Path) -> str:
+    """The standard's own `# ` heading, which is what a reader will see when they land."""
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if line.startswith("# "):
+            return line[2:].strip()
+    return path.stem.replace("_", " ").title()
+
+
+def render_index(items: list[Standard], root: Path) -> str:
+    """One line per standard, from its three header lines and nothing else.
+
+    THE ENTRY CANNOT CARRY A SECTION SUMMARY, and that is the point rather than a
+    limitation. Today's hand-written entries are 1,403 bytes at the median because most
+    of each is a §-by-§ précis of the standard — neither a trigger nor a symptom, and the
+    part that goes stale: the measured drift instance was a summary of a §2.3 model the
+    standard had moved past. There is no header field to render one from, so generation
+    deletes the class. Measured against real headers: 454 bytes per entry.
+    """
+    out = [BEGIN, ""]
+    for s in sorted(items, key=lambda x: x.path.as_posix()):
+        out.append(f"- **[{_title(s.path)}]({(root / s.path).resolve()})** — "
+                   f"**read when** {s.fields['Read when'].strip()} "
+                   f"*Breaking it looks like:* {s.fields['Breaking it looks like'].strip()}")
+    out += ["", END]
+    return "\n".join(out)
+
+
+def splice(index_text: str, block: str) -> str | None:
+    """Replace the fenced block, or None if the fence is absent.
+
+    ABSENT IS NOT EMPTY. A CLAUDE.md with no fence has a hand-written index that this
+    would otherwise silently replace with a shorter one — destroying the § summaries
+    nobody has moved yet. The caller refuses; it does not guess where the block goes.
+    """
+    if BEGIN not in index_text or END not in index_text:
+        return None
+    head = index_text[: index_text.index(BEGIN)]
+    tail = index_text[index_text.index(END) + len(END):]
+    return head + block + tail
+
+
 def _default_root() -> tuple[Path | None, tuple]:
     """The repo that owns `standards/`, when the caller did not say.
 
@@ -117,6 +166,61 @@ def _default_root() -> tuple[Path | None, tuple]:
     return None, tuple(siblings)
 
 
+def stale_block(root: Path, items: list[Standard]) -> str | None:
+    """The committed block versus what the headers render now, or None if in step.
+
+    THE ARTIFACT IS COMMITTED, SO IT CAN GO STALE — that is the trade Repository Layout
+    §1.1 makes for a viewer that costs nothing to read. The staleness gate is what makes
+    the trade safe, and without it a generated index is exactly the hand-maintained one
+    it replaced, with an extra step.
+
+    Silent when the corpus is incomplete: the missing headers are already the finding,
+    and reporting a block as stale when it cannot yet be rendered is noise on top of it.
+    """
+    index = root / "CLAUDE.md"
+    if not index.is_file() or any(s.missing for s in items if not s.vendored):
+        return None
+    text = index.read_text(encoding="utf-8", errors="replace")
+    if BEGIN not in text or END not in text:
+        return None
+    committed = text[text.index(BEGIN): text.index(END) + len(END)]
+    fresh = render_index([s for s in items if not s.missing], root)
+    return None if committed.strip() == fresh.strip() else (
+        f"the committed index block is {len(committed.encode()):,} bytes and the headers "
+        f"now render {len(fresh.encode()):,} — regenerate with --write")
+
+
+def _emit(a, root: Path, items: list[Standard], owned: list[Standard],
+          gaps: list[Standard]) -> int:
+    """Render, and write only onto a corpus that can be rendered completely."""
+    if gaps:
+        print(f"REFUSING: {len(gaps)} of {len(owned)} owned standards are missing header "
+              f"lines, so a generated index would be shorter than the hand-written one it "
+              f"replaces — and the difference is work nobody has moved yet. Run without "
+              f"--generate to see the list, backfill the headers, then generate.",
+              file=sys.stderr)
+        return 2
+    block = render_index([s for s in items if not s.missing], root)
+    if not a.write:
+        print(block)
+        return 0
+    index = root / "CLAUDE.md"
+    if not index.is_file():
+        print(f"no {index} to write into.", file=sys.stderr)
+        return 2
+    spliced = splice(index.read_text(encoding="utf-8"), block)
+    if spliced is None:
+        print(f"{index} carries no generated-block fence. Add these two lines around the "
+              f"standards list, keeping the list between them, then re-run:\n"
+              f"  {BEGIN}\n  {END}\n"
+              f"Refusing to guess where the block belongs — the text already there is "
+              f"hand-written and is not this tool's to relocate.", file=sys.stderr)
+        return 2
+    index.write_text(spliced, encoding="utf-8")
+    print(f"wrote {len(block.encode()):,} bytes of generated index into {index}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         prog="standards_index",
@@ -125,6 +229,13 @@ def main(argv: list[str] | None = None) -> int:
                     help="the repo owning `standards/` — a FILESYSTEM PATH")
     ap.add_argument("--check", action="store_true",
                     help="exit 1 on findings, for CI; without it this only reports")
+    ap.add_argument("--generate", action="store_true",
+                    help="render the index block from the headers and print it")
+    ap.add_argument("--write", action="store_true",
+                    help="splice the rendered block into the repo's CLAUDE.md, between "
+                         "its fence markers. REFUSES while any owned standard is "
+                         "incomplete — a partial index would replace a complete "
+                         "hand-written one and delete work nobody has moved yet.")
     a = ap.parse_args(argv)
 
     root, ambiguous = (a.repo_root, ()) if a.repo_root else _default_root()
@@ -143,6 +254,9 @@ def main(argv: list[str] | None = None) -> int:
     stray = unindexed(root, owned)
     mirror_gaps = [s for s in mirrors if s.missing]
 
+    if a.generate or a.write:
+        return _emit(a, root, items, owned, gaps)
+
     print(f"{root}: {len(items)} standards — {len(owned)} owned, {len(mirrors)} vendored\n")
     if gaps:
         print(f"MISSING HEADER LINES — {len(gaps)} of {len(owned)} owned standards:")
@@ -156,6 +270,9 @@ def main(argv: list[str] | None = None) -> int:
         for s in stray:
             print(f"  {s.path.relative_to(root)}")
         print()
+    drift = stale_block(root, items)
+    if drift:
+        print(f"INDEX BLOCK IS STALE — {drift}\n")
     if mirror_gaps:
         print(f"VENDORED, AND THE OWNER'S TO FIX — not this repo's work ({len(mirror_gaps)}):")
         for s in mirror_gaps:
@@ -163,7 +280,7 @@ def main(argv: list[str] | None = None) -> int:
         print()
     if not (gaps or stray):
         print("clean: every owned standard carries the three header lines and is indexed.")
-    return 1 if (a.check and (gaps or stray)) else 0
+    return 1 if (a.check and (gaps or stray or drift)) else 0
 
 
 if __name__ == "__main__":

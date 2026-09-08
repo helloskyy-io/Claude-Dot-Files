@@ -127,3 +127,82 @@ def test_AN_EMPTY_CORPUS_IS_A_REFUSAL_NOT_A_PASS(tmp_path: Path) -> None:
     """Exit 2, never 0: a corpus this cannot find is not a corpus with no findings."""
     (tmp_path / "standards").mkdir()
     assert si.main(["--repo-root", str(tmp_path), "--check"]) == 2
+
+
+# --- the generator, and the three refusals that make it safe -----------------------
+#
+# The hand-written index carries §-by-§ summaries of each standard — 1,403 bytes at the
+# median in MDC, against 454 for a generated entry. That difference is real work nobody
+# has moved yet, so every path that could overwrite it refuses instead.
+
+
+def _complete(root: Path, rel: str, title: str) -> Path:
+    return _std(root, rel, f"# {title}\n\n{HEAD}\n## Body\n")
+
+
+def test_a_COMPLETE_corpus_renders_one_line_per_standard(tmp_path: Path) -> None:
+    _complete(tmp_path, "a/one.md", "One Standard")
+    _complete(tmp_path, "b/two.md", "Two Standard")
+    block = si.render_index(si.standards_in(tmp_path), tmp_path)
+    assert block.startswith(si.BEGIN) and block.rstrip().endswith(si.END)
+    entries = [l for l in block.splitlines() if l.startswith("- ")]
+    assert len(entries) == 2
+    assert "One Standard" in entries[0] and "read when" in entries[0]
+
+
+def test_THE_ENTRY_USES_THE_STANDARDS_OWN_HEADING(tmp_path: Path) -> None:
+    """Not the filename — the reader lands on the `# ` title and must recognise it."""
+    _complete(tmp_path, "a/x_standard.md", "Deliberately Different Title")
+    assert "Deliberately Different Title" in si.render_index(si.standards_in(tmp_path), tmp_path)
+
+
+def test_GENERATION_REFUSES_WHILE_ANY_OWNED_STANDARD_IS_INCOMPLETE(tmp_path: Path) -> None:
+    """The refusal that protects the § summaries.
+
+    A partial index is SHORTER than the hand-written one it replaces, and the difference
+    is not noise — it is the work the backfill exists to move. Exit 2, never a partial
+    render.
+    """
+    _complete(tmp_path, "a/ok.md", "Ok")
+    _std(tmp_path, "a/bare.md", "# Bare\n\n## Body\n")
+    assert si.main(["--repo-root", str(tmp_path), "--generate"]) == 2
+
+
+def test_WRITING_REFUSES_WITHOUT_A_FENCE_rather_than_guessing(tmp_path: Path) -> None:
+    """Absent is not empty. A CLAUDE.md with no fence has a hand-written index."""
+    _complete(tmp_path, "a/x.md", "X")
+    (tmp_path / "CLAUDE.md").write_text("# R\n\n- **[X](x)** — hand written\n", encoding="utf-8")
+    assert si.main(["--repo-root", str(tmp_path), "--write"]) == 2
+    assert "hand written" in (tmp_path / "CLAUDE.md").read_text(encoding="utf-8")
+
+
+def test_WRITING_REPLACES_ONLY_BETWEEN_THE_FENCES(tmp_path: Path) -> None:
+    _complete(tmp_path, "a/x.md", "X")
+    (tmp_path / "CLAUDE.md").write_text(
+        f"# R\n\nkeep me above\n\n{si.BEGIN}\nold\n{si.END}\n\nkeep me below\n", encoding="utf-8")
+    assert si.main(["--repo-root", str(tmp_path), "--write"]) == 0
+    out = (tmp_path / "CLAUDE.md").read_text(encoding="utf-8")
+    assert "keep me above" in out and "keep me below" in out
+    assert "old" not in out and "read when" in out
+
+
+def test_A_STALE_BLOCK_IS_A_FINDING(tmp_path: Path) -> None:
+    """The gate that makes a committed artifact safe — without it, generation buys nothing."""
+    _complete(tmp_path, "a/x.md", "X")
+    (tmp_path / "CLAUDE.md").write_text(f"# R\n\n{si.BEGIN}\nstale\n{si.END}\n", encoding="utf-8")
+    assert si.stale_block(tmp_path, si.standards_in(tmp_path)) is not None
+    assert si.main(["--repo-root", str(tmp_path), "--check"]) == 1
+
+
+def test_A_FRESH_BLOCK_IS_NOT(tmp_path: Path) -> None:
+    _complete(tmp_path, "a/x.md", "X")
+    (tmp_path / "CLAUDE.md").write_text(f"# R\n\n{si.BEGIN}\n{si.END}\n", encoding="utf-8")
+    si.main(["--repo-root", str(tmp_path), "--write"])
+    assert si.stale_block(tmp_path, si.standards_in(tmp_path)) is None
+
+
+def test_STALENESS_IS_SILENT_WHILE_HEADERS_ARE_MISSING(tmp_path: Path) -> None:
+    """The missing headers are already the finding; stale-on-top is noise."""
+    _std(tmp_path, "a/bare.md", "# Bare\n\n## Body\n")
+    (tmp_path / "CLAUDE.md").write_text(f"# R\n\n{si.BEGIN}\nanything\n{si.END}\n", encoding="utf-8")
+    assert si.stale_block(tmp_path, si.standards_in(tmp_path)) is None
