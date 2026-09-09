@@ -375,6 +375,21 @@ def _every_way_a_config_can_fail(tmp_path: Path):
     unreadable.write_text("journal:\n  deployment: user\n")
     os.chmod(unreadable, 0o000)
 
+    # THE FOURTH BRANCH, AND IT WAS FOUND FROM ONE IMPORT AWAY RATHER THAN HERE.
+    # `read_text(encoding="utf-8")` raises `UnicodeDecodeError` — a `ValueError`,
+    # not an `OSError` — so it escaped the same handler the `PermissionError`
+    # escaped, one row above. The identical shape was fixed in
+    # `config_digest.installer_targets` first; this row is what makes the
+    # enumeration catch the next one instead of a sibling module doing it.
+    #
+    # ⚠ AND AN ENUMERATION IS STILL AN ENUMERATION, which is why the CLASS is
+    # now held by `test_journal_decode_handlers.py` — an AST sweep over every
+    # `read_text(encoding=…)` in the package whose handler names some of that
+    # call's failures and not the decode one. It found a FIFTH site the same day
+    # this row was written, in `validate.py`, which no row here would ever reach.
+    undecodable = tmp_path / "undecodable.yaml"
+    undecodable.write_bytes(b"journal:\n  deployment: \xff\xfeuser\n")
+
     return [
         ("unparseable YAML", unparseable),
         ("parses to a scalar", not_a_mapping),
@@ -384,6 +399,7 @@ def _every_way_a_config_can_fail(tmp_path: Path):
         # question the enumeration exists to answer.
         ("a directory where the file should be", a_directory),
         ("exists but is not readable", unreadable),
+        ("exists but is not valid UTF-8", undecodable),
     ]
 
 

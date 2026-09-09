@@ -11,6 +11,9 @@ rather than where it lands and how it is read, it is in the wrong phase.
   `bag.py`                 — the bag itself: layout, manifest, lifecycle, redaction
   `validate.py`            — re-hash the payload; report integrity and all three states
   `journal_activities.py`  — the activity a run invokes before anything else
+  `config_digest.py`       — what configuration a run absorbed, over the
+                             installer's own symlink set (Workflow
+                             Decomposition Phase 5)
 
 PHASE 2 ADDS THE CONTENT STORE, and it is five more files under this same package
 rather than a new child of `modules/`. That placement is a deliberate answer to a
@@ -80,6 +83,17 @@ from .citations import (CAPTURE_HARVEST, CAPTURE_READ_TIME, Citation,
                         CitationError, evidence_set_hash, new_citation,
                         read_citations, record_citation,
                         stage_evidence_hashes)
+# ⚠ THE FUNCTION `config_digest` IS DELIBERATELY NOT RE-EXPORTED HERE, and it is
+# the only public name in this package that is not. It shares its name with its
+# own submodule, and `from .config_digest import config_digest` REBINDS the
+# package attribute the import machinery just set to the module — so
+# `import modules.journal as j; j.config_digest.ConfigDigestError` would raise
+# `AttributeError` on a function object, which is how every other submodule in
+# this package can be reached. Callers take it by its full path:
+# `from modules.journal.config_digest import config_digest`.
+from .config_digest import (LABEL_CONFIG_DIGEST, ConfigDigest,
+                            ConfigDigestError, installer_targets,
+                            parse_tag_value, unavailable_tag_value)
 from .content_activities import (capture_code_citation, capture_fetched_source,
                                  capture_source, resolve_citation)
 from .content_store import (ContentStoreError, digest_of_bytes, load_object,
@@ -92,14 +106,16 @@ from .validate import BagReport, render_report, validate_bag
 from .verify import CitationResult, VerifyReport, verify_bag, verify_citation
 
 __all__ = [
-    "CAPTURE_HARVEST", "CAPTURE_READ_TIME", "JOURNAL_SCHEMA_VERSION", "Bag",
-    "BagError", "BagReport", "Citation", "CitationError", "CitationResult",
+    "CAPTURE_HARVEST", "CAPTURE_READ_TIME", "JOURNAL_SCHEMA_VERSION",
+    "LABEL_CONFIG_DIGEST", "Bag", "BagError", "BagReport", "Citation",
+    "CitationError", "CitationResult", "ConfigDigest", "ConfigDigestError",
     "ContentStoreError", "FetchPolicy", "FetchRefused", "JournalRootError",
     "VerifyReport", "capture_code_citation", "capture_fetched_source",
     "capture_source", "digest_of_bytes", "evidence_set_hash", "fetch_source",
-    "load_journal_config", "load_object", "mint_run_id", "new_citation",
-    "object_relpath", "open_bag", "open_run_bag", "read_citations",
-    "read_tag_file", "record_citation", "render_report", "resolve_citation",
-    "resolve_journal_root", "stage_evidence_hashes", "store_bytes", "utc_now",
+    "installer_targets", "load_journal_config", "load_object", "mint_run_id",
+    "new_citation", "object_relpath", "open_bag", "open_run_bag",
+    "parse_tag_value", "read_citations", "read_tag_file", "record_citation",
+    "render_report", "resolve_citation", "resolve_journal_root",
+    "stage_evidence_hashes", "store_bytes", "unavailable_tag_value", "utc_now",
     "validate_bag", "verify_bag", "verify_citation",
 ]

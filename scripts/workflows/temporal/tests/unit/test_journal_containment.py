@@ -55,7 +55,6 @@ PACKAGE = REPO_ROOT / "scripts" / "workflows" / "temporal" / "modules" / "journa
 
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "workflows" / "temporal"))
 
-from modules.journal import bag as bagmod           # noqa: E402
 from modules.journal.bag import (BagError, PAYLOAD_DIR, contained_relpath,   # noqa: E402
                                  open_bag)
 from modules.journal.validate import validate_bag   # noqa: E402
@@ -93,6 +92,26 @@ _TRUSTED_JOINS = {
         "existing directory and the caller took the next ordinal, which is luck "
         "rather than the stated rule. Found when the content store needed the "
         "same rule and `contained_relpath` refused the result.",
+    # ── config_digest.py ──────────────────────────────────────────────────
+    # NONE OF THESE ADDRESSES A BAG, which is what this sweep is about. They
+    # walk `~/.claude/` to hash it; nothing they compose is ever written, and a
+    # value that escaped would at worst hash a file outside the tree rather than
+    # place one inside a bag. Both inputs are nonetheless closed sets:
+    ("config_digest.py", "target"):
+        "every element of `installer_targets()`, each of which "
+        "`parse_symlink_targets` has already proven matches `_SEGMENT_RE` — an "
+        "ALLOWLIST of [A-Za-z0-9._-] anchored `\\A`/`\\Z` so a trailing newline "
+        "cannot slip through. A leading dot IS admitted (`.mcp.json` is a "
+        "plausible target and does not escape a segment) and `.` and `..` are "
+        "refused by name, so the traversal case is closed by an explicit rule "
+        "rather than as a side effect of the first character class. `/` and "
+        "every separator are refused there, and the refusal is a raise rather "
+        "than a skip, so an installer declaring an escaping target stops the "
+        "digest instead of widening it.",
+    ("config_digest.py", "name"):
+        "an entry name from `os.walk` over the target directory itself — it comes "
+        "off the filesystem, not off a caller, exactly as `seal()` and "
+        "`validate.py` do below. `os.walk` yields bare segments, never paths.",
     ("bag.py", "rel"):
         "seal() joins paths that payload_files() derived by walking the bag's "
         "own data/ directory — they come off the filesystem, not off a caller.",
