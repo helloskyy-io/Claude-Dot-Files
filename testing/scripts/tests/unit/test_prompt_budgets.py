@@ -736,6 +736,62 @@ BUDGETS: dict[str, int] = {
     # which is where an editor is looking. Enforced by
     # `test_no_prompt_ships_EDITOR_COMMENTARY_to_the_model` below.
     "prompts/mutation_discipline.md": 6_525,
+
+    # ── THE OTHER 43, SEEDED 2026-09-09 AT THEIR CURRENT SIZE ──────────────────
+    # The dict covered 14 of 57 prompt files. The 14 were the big ones, so the
+    # ratchet this test exists to stop was unconstrained across the remaining
+    # 66 KB — and two of those files were grown the same day this was noticed,
+    # by the session that owns the test. A budget nobody set is not a small
+    # budget; it is no budget, and the growth it permits is invisible for the
+    # same reason the original 224 KB -> 317 KB drift was.
+    #
+    # Seeded at current size on the same principle as the original 14: this
+    # passes on the day it lands and constrains only what happens next. Raising
+    # any one of them is a normal decision that says why in the commit.
+    # `test_EVERY_PROMPT_HAS_A_BUDGET` below stops a 58th arriving unbudgeted.
+    "build/build_draft/prompts/new_branch.md": 1_391,
+    "build/build_draft/prompts/update_pr.md": 1_397,
+    "build/build_draft_minor/prompts/new_branch.md": 7_840,
+    "build/build_refine/prompts/refine.md": 737,
+    "build/build_refine_minor/prompts/refine.md": 748,
+    "prompts/agents_have_no_shell.md": 667,
+    "prompts/build_from_plan.md": 1_148,
+    "prompts/can_it_fail_light_tier.md": 464,
+    "prompts/characterize_by_execution.md": 696,
+    "prompts/depends_on_line.md": 2_508,
+    "prompts/fidelity_evidence_discipline.md": 2_958,
+    "prompts/fidelity_mutate_what_you_added.md": 2_527,
+    "prompts/fidelity_needs_a_separate_run.md": 393,
+    "prompts/fidelity_premise.md": 293,
+    "prompts/fidelity_read_and_compare.md": 2_810,
+    "prompts/filing_a_candidate_row.md": 2_349,
+    "prompts/gitignore_collision_check.md": 1_590,
+    "prompts/headless_execution_guard.md": 1_374,
+    "prompts/open_pr_for_this_work.md": 1_615,
+    "prompts/orchestrator_executes_agents_read.md": 222,
+    "prompts/research_stage_1_verify_and_discover.md": 398,
+    "prompts/resolve_apply_the_remedy_you_wrote.md": 879,
+    "prompts/resolve_closed_disposition_list.md": 1_282,
+    "prompts/resolve_disposition_authority.md": 292,
+    "prompts/resolve_disposition_definitions.md": 1_798,
+    "prompts/resolve_fix_by_default_and_summary.md": 2_100,
+    "prompts/resolve_rejecting_is_legitimate.md": 172,
+    "prompts/resolve_rejections_must_be_executed.md": 398,
+    "prompts/resolve_sweep_the_class.md": 2_907,
+    "prompts/resolve_your_own_dispositions_too.md": 230,
+    "prompts/stage_order_is_mandatory.md": 292,
+    "prompts/stage_order_skipped_marker.md": 179,
+    "prompts/stages_1_to_4_from_plan.md": 6_180,
+    "prompts/submit_and_push.md": 3_606,
+    "prompts/tell_each_agent_what_it_can_run.md": 368,
+    "prompts/verification_is_by_fetch.md": 555,
+    "prompts/verify_and_ci_gate.md": 1_207,
+    "prompts/verify_the_tasks_asserted_facts.md": 1_397,
+    "prompts/worktree_is_compared_to_a_snapshot.md": 136,
+    "review_pr/prompts/core_corpus_rule.md": 1_112,
+    "review_pr/prompts/criteria_build.md": 1_388,
+    "review_pr/prompts/criteria_planning.md": 2_328,
+    "review_pr/prompts/criteria_research.md": 3_162,
 }
 
 # A prompt below this is not worth a budget line; the total of all of them is
@@ -857,3 +913,32 @@ def test_the_fleets_TOTAL_prompt_weight_is_reported() -> None:
         f"only {budgeted / total * 100:.0f}% of prompt bytes are under a budget, so the "
         f"total can grow freely in the unbudgeted remainder. Lower FLOOR or add lines."
     )
+
+
+def test_EVERY_PROMPT_HAS_A_BUDGET() -> None:
+    """A PROMPT WITH NO BUDGET IS NOT A SMALL BUDGET — IT IS NO BUDGET.
+
+    The dict covered 14 of 57 files. The 14 were the largest, which is why nobody
+    noticed: the total looked governed while 43 files and 66 KB grew unchecked, and
+    two of them were grown on the day this was found, by the session that owns this
+    test. That is the same invisibility as the original drift this file was written
+    against — 224 KB -> 317 KB in seven days, every byte a correct lesson.
+
+    THE POPULATION IS READ FROM DISK, never from the dict, because a dict checked
+    against itself cannot see the entry that was never added to it.
+    """
+    on_disk = {p.relative_to(PROMPTS).as_posix()
+               for p in PROMPTS.rglob("*.md") if "prompts" in p.parts}
+    assert on_disk, "the sweep found no prompt files — it read nothing"
+
+    unbudgeted = sorted(on_disk - set(BUDGETS))
+    assert not unbudgeted, (
+        f"{len(unbudgeted)} prompt file(s) carry no byte budget, so nothing makes an "
+        f"addition to them compete with what it displaces:\n  "
+        + "\n  ".join(unbudgeted)
+        + "\nAdd each with its current size and say why in the commit.")
+
+    stale = sorted(set(BUDGETS) - on_disk)
+    assert not stale, (
+        f"{len(stale)} budget(s) name a prompt that no longer exists, so the dict is "
+        f"asserting a limit on nothing:\n  " + "\n  ".join(stale))
