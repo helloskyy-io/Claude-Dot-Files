@@ -735,7 +735,16 @@ BUDGETS: dict[str, int] = {
     # lives only in git history and in both draft workflows' Python comments,
     # which is where an editor is looking. Enforced by
     # `test_no_prompt_ships_EDITOR_COMMENTARY_to_the_model` below.
-    "prompts/mutation_discipline.md": 6_525,
+    # RAISED for two mutation-miss causes SN-PM2 measured recurring ~4x across two PRs.
+    # The taxonomy already HELD the third cause and announced itself as covering
+    # "TWO things" while listing three — so a run under a turn cap read "two",
+    # picked from the first two, and either lowered its prediction to match or added
+    # a redundant assertion to force the mutation to fire. That second move is the
+    # belt-and-braces this same prompt forbids, arrived at by trying to obey it.
+    # Fixing the count is most of the value; the additions are the test-population
+    # variant (assertion and subject sharing one text surface) and a name for a
+    # DECLARED blind spot, which until now read identically to an oversight.
+    "prompts/mutation_discipline.md": 7_405,
 
     # ── THE OTHER 43, SEEDED 2026-09-09 AT THEIR CURRENT SIZE ──────────────────
     # The dict covered 14 of 57 prompt files. The 14 were the big ones, so the
@@ -771,7 +780,13 @@ BUDGETS: dict[str, int] = {
     "prompts/orchestrator_executes_agents_read.md": 222,
     "prompts/research_stage_1_verify_and_discover.md": 398,
     "prompts/resolve_apply_the_remedy_you_wrote.md": 879,
-    "prompts/resolve_closed_disposition_list.md": 1_282,
+    # RAISED for one sentence: rejecting a REMEDY is not rejecting the CONCERN.
+    # SN-PM2 measured this 3x on one PR. A new disposition was NOT added — the enum
+    # is closed on purpose and recurrence mining keys on it — because the answer
+    # already existed: a live concern with a wrong fix is a HOLD. The gap was that
+    # nothing named that shape, so a run spent a paragraph building the framing each
+    # time, and one with less headroom picked a side and buried the other half.
+    "prompts/resolve_closed_disposition_list.md": 1_810,
     "prompts/resolve_disposition_authority.md": 292,
     "prompts/resolve_disposition_definitions.md": 1_798,
     "prompts/resolve_fix_by_default_and_summary.md": 2_100,
@@ -782,6 +797,9 @@ BUDGETS: dict[str, int] = {
     "prompts/stage_order_is_mandatory.md": 292,
     "prompts/stage_order_skipped_marker.md": 179,
     "prompts/stages_1_to_4_from_plan.md": 6_180,
+    # RAISED for the merge-and-re-run step and the PR-head check (SN-PM2 items 4, 5).
+    # Partly funded: the weaker `git log <base>..origin/main` bullet it supersedes was
+    # REPLACED, not joined — two pre-push checks drift and a run satisfies the cheaper.
     "prompts/submit_and_push.md": 3_606,
     "prompts/tell_each_agent_what_it_can_run.md": 368,
     "prompts/verification_is_by_fetch.md": 555,
@@ -790,6 +808,7 @@ BUDGETS: dict[str, int] = {
     "prompts/worktree_is_compared_to_a_snapshot.md": 136,
     "review_pr/prompts/core_corpus_rule.md": 1_112,
     "review_pr/prompts/criteria_build.md": 1_388,
+    # RAISED for the `plan_sprint` exception, which the prompt contradicted itself about.
     "review_pr/prompts/criteria_planning.md": 2_328,
     "review_pr/prompts/criteria_research.md": 3_162,
 }
