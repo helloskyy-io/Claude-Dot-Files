@@ -45,11 +45,26 @@ enumerating test is only as good as its discovery predicate:
     somebody writes by accident, and this one is not.
   * WHETHER THE BOUNDARY'S OWN FUNCTIONS ARE CORRECT. `test_content_activities`
     and `test_verify_citations` own that; this file only asks who calls them.
+  * WHETHER A `content-store` STRING IS A PATH AT ALL — AND THIS ONE OVER-FIRES
+    RATHER THAN MISSING. Any non-docstring literal holding the segment is
+    reported, so a log line (`f"checking {run_id}'s content-store health"`)
+    would be flagged as a composition. No such line exists in the swept tree
+    today. Left as-is deliberately: telling a path join from a message needs the
+    dataflow the bullet above declines, and the failure direction here is a
+    reader being asked about a string they wrote rather than a reach going
+    unseen.
+  * A STORE NAME IMPORTED FROM A MODULE THAT IS NOT THE PACKAGE. The name checks
+    match a spelling, so they are gated on the statement importing FROM the
+    journal — `from modules.plan import store_dir` is not this store. The cost
+    is that a re-export chain's second hop is unflagged, and it costs nothing:
+    the first hop crosses the boundary and is flagged there.
 
-SEVEN SHAPES REACH THE STORE WITHOUT A DOTTED PATH THAT NAMES IT, in two
-families, and each family was shipped blind to in turn. `modules/journal/`'s
-`__init__.py` re-exports the raw store functions and the package is a package,
-so all seven work and none contains the string `modules.journal.content_store`.
+TEN SHAPES REACH THE STORE WITHOUT A DOTTED PATH THAT NAMES IT, in three
+families, and every family was shipped blind to in turn — family 3 by the
+correction pass that closed family 2, which is why the count is asserted below
+rather than restated. `modules/journal/`'s `__init__.py` re-exports the raw store
+functions and the package is a package, so all ten work and none contains the
+string `modules.journal.content_store`.
 
 FAMILY 1 — THE IMPORT STATEMENT ITSELF BINDS A STORE NAME. Checking the imported
 NAMES rather than only the dotted module path is what closes these:
@@ -67,10 +82,32 @@ so a detector reading imports alone is blind to every one of them:
     from modules import journal     →  journal.load_object(…)
     from .. import journal          →  journal.content_store.load_object(…)
 
-⚠ EACH FAMILY CONTAINS THE FLEET'S OWN IDIOM, WHICH IS WHY NEITHER IS EXOTIC.
-Eighteen fleet modules import a journal submodule as a name — every entrypoint
-takes `journal_activities as journal`, and `verify_citations.py` and
-`validate_bag.py` take `verify` and `validate`. `from .. import journal` is the
+FAMILY 3 — THE IMPORT BINDS AN ANCESTOR OF THE PACKAGE, and the statement names
+neither the package nor a store name. A plain `import` binds its ROOT segment,
+whatever depth it names, so the journal is reachable through the parent it lives
+in — which the family-2 fix missed by asking whether the dotted path ENDED at
+the package:
+
+    import modules                  →  modules.journal.load_object(…)
+    import modules as m             →  m.journal.content_store.load_object(…)
+    import modules.assistant        →  modules.journal.load_object(…)
+
+⚠ FAMILY 3 RESOLVES ONLY ONCE SOMETHING IN THE PROCESS HAS IMPORTED THE PACKAGE,
+and in this fleet the first line of every entrypoint is that something. Measured:
+in a fresh interpreter `import modules` then `modules.journal` raises
+AttributeError, and after any `from modules.journal import …` — which all sixteen
+entrypoints run — `modules.journal.content_store.load_object` resolves. So the
+condition is met by the fleet's own imports, and stating it is not the same as
+excusing it.
+
+⚠ FAMILIES 1 AND 2 EACH CONTAIN THE FLEET'S OWN IDIOM, WHICH IS WHY NEITHER IS
+EXOTIC.
+Eighteen swept modules import a journal submodule as a name: the sixteen
+entrypoints take `journal_activities as journal`, and `verify_citations.py` and
+`validate_bag.py` take `verify` and `validate` — those two are operator tools
+that READ a finished bag rather than entrypoints, per
+`journal_entrypoint_facts.py`'s own classification, so this file says *call
+sites* wherever the eighteen are meant. `from .. import journal` is the
 dominant relative-import spelling across the workflow tree (`from .. import
 routing`, `from .. import plan_activities as act`, `from . import
 tracked_items as ti`). So both are what a real bypass looks like: a line copied
@@ -88,7 +125,7 @@ attributed the whole job to one of them and MEASUREMENT SAID OTHERWISE:
     `from modules.assistant import journal`, a sibling exporting a colliding
     name.
 
-The eighteen entrypoints are excluded REDUNDANTLY, by both at once, which is
+The eighteen call sites are excluded REDUNDANTLY, by both at once, which is
 why neither mechanism can be controlled through them: each shape above isolates
 exactly one, and the control below uses those rather than the idiom.
 
@@ -97,23 +134,35 @@ Deleting the parent check outright leaves every test in this file green and
 flags no fleet module: those eighteen only ever reach `journal.open_run_bag`,
 which is in neither `STORE_MODULES` nor `STORE_IO_NAMES`, so a reach-based
 matcher never looks at them. The trap is structurally unreachable rather than
-narrowly avoided — and the guard against it is therefore UNTESTABLE THROUGH THE
-SWEEP, because the tree contains no module the mistake would break. That is why
+narrowly avoided — and the guard against it is therefore untestable through the
+sweep OVER THIS TREE, because no module here writes the line the mistake would
+break. That is why
 `test_the_FLEET_IDIOM_binding_journal_to_the_activities_module_is_NOT_flagged`
-asserts on `_package_bindings` DIRECTLY: a sweep-routed control would begin
-discriminating only once some module writes `journal.load_object` off the
-activities alias — the moment the guard matters most, and the worst possible
-moment to learn its control never worked.
+asserts on `_package_bindings` DIRECTLY. It ALSO carries a synthetic module that
+writes that line, which is the half the first version of it was missing: a
+fixture can say what the tree does not, and reading "the tree has no instance" as
+"no control can express it" is the mistake that left family 3 unenumerated too.
 
-Controls for all seven live below, one per shape. The `_package_bindings` walk
-is the direct application of `test_every_subprocess_the_fleet_launches_is_bounded`'s
-`visit_Import`, which closed this identical hole for `import subprocess as sp`.
+Controls for all ten live below, one per shape. `_package_bindings` closes the
+same HOLE that
+`test_every_subprocess_the_fleet_launches_is_bounded`'s `visit_Import` closed for
+`import subprocess as sp` — an alias evading a matcher keyed on the spelling —
+by a different mechanism: that guard refuses an aliased import outright, while
+this one follows the binding into the attribute chain, because an alias of this
+package is legitimate and only the reach through it is not.
 """
 
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
+
+# Shared with the two prose-figure sweeps rather than copied. `prose_number_words`
+# exists BECAUSE two guards each kept their own mapping and the copies diverged
+# silently, so a figure written with a word one of them lacked was invisible
+# rather than merely unregistered.
+from prose_number_words import NUMBER_WORDS  # noqa: E402
 
 # Derived locally rather than imported from `journal_entrypoint_facts`, which is
 # the dominant idiom in this suite: that helper exists to share the ENTRYPOINT
@@ -159,6 +208,21 @@ STORE_IO_NAMES = frozenset({
     "store_bytes", "load_object", "has_object", "stored_digests",
     "object_path", "object_relpath", "store_dir", "fetch_source",
 })
+
+# This file's own source, bound BEFORE it is parsed and deliberately not inlined
+# into the `ast.parse` call. `test_a_census_guard_proves_its_own_predicate`
+# recognises its population by the inlined `ast.parse(<expr>.read_text(…))`
+# shape, and its own docstring rules that a guard reshaped to satisfy that
+# matcher is how a population stops meaning anything. So this file stays outside
+# by keeping the shape `_reaches` already had, and is NAMED in that file's list
+# of modules that walk the tree without being recognised.
+_SOURCE = Path(__file__).read_text(encoding="utf-8")
+
+# The name of the figure check below, so it can exclude its own text from the
+# prose it sweeps. Without that, the sentences it builds would match themselves.
+_FIGURE_CHECK = "test_the_FIGURES_this_files_prose_rests_on_are_DERIVED"
+
+_WORD_OF = {value: word for word, value in NUMBER_WORDS.items()}
 
 # The on-disk segment a module would compose to reach an object by path. Only
 # this one: `sha256` is the other segment and it is not discriminating — the
@@ -224,6 +288,18 @@ def _package_bindings(tree: ast.AST) -> dict[str, int]:
         import modules.journal as j   -> "j"
         from modules import journal   -> "journal"
         from .. import journal        -> "journal"
+        import modules                -> "modules.journal"
+        import modules as m           -> "m.journal"
+        import modules.assistant      -> "modules.journal"   (binds `modules`)
+
+    THE LAST THREE ARE THE ANCESTOR SHAPES, AND THIS FUNCTION SHIPPED BLIND TO
+    THEM. The first version asked whether the imported dotted path ENDED at the
+    package, which is not the rule Python uses: an import without an asname
+    binds its ROOT, so any `import modules.<anything>` makes `modules.journal`
+    reachable, and `import modules as m` makes `m.journal` reachable. An asname
+    is the opposite — it binds exactly the module named, so `import
+    modules.assistant as ma` reaches nothing and must stay out. Both halves are
+    controlled below, in each direction.
 
     Two independent checks keep a non-package binding out, and the eighteen
     `journal_activities as journal` entrypoints happen to trip both — so neither
@@ -237,10 +313,32 @@ def _package_bindings(tree: ast.AST) -> dict[str, int]:
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
-                # `import a.b.journal` binds `a`, and reaches through the full
-                # dotted path; `as j` collapses that to the one name.
-                if alias.name.split(".")[-1] == BOUNDARY_PACKAGE:
-                    bindings.setdefault(alias.asname or alias.name, node.lineno)
+                parts = alias.name.split(".")
+                if alias.asname is None:
+                    # NO ASNAME BINDS THE ROOT SEGMENT, whatever the depth —
+                    # which is why `import modules.assistant` reaches the store
+                    # and shipping this branch as "does the dotted path END at
+                    # the package" left three shapes green. `import
+                    # modules.journal` is the same rule with the path already
+                    # ending there; anything else rooted at the package's parent
+                    # reaches it through the parent's own attribute.
+                    if parts[-1] == BOUNDARY_PACKAGE:
+                        bindings.setdefault(alias.name, node.lineno)
+                    elif parts[0] == BOUNDARY_PARENT:
+                        bindings.setdefault(
+                            f"{BOUNDARY_PARENT}.{BOUNDARY_PACKAGE}", node.lineno)
+                # AN ASNAME BINDS EXACTLY THE MODULE NAMED, so only that
+                # module's identity matters and the root is irrelevant.
+                # `import modules.journal as j` binds the package; `import
+                # modules as m` binds its parent, one attribute away; and
+                # `import modules.assistant as ma` binds a SIBLING, through
+                # which the package is not reachable at all — treating that as
+                # a binding is the identifier-text bug in its other dress.
+                elif parts[-1] == BOUNDARY_PACKAGE:
+                    bindings.setdefault(alias.asname, node.lineno)
+                elif alias.name == BOUNDARY_PARENT:
+                    bindings.setdefault(f"{alias.asname}.{BOUNDARY_PACKAGE}",
+                                        node.lineno)
         elif isinstance(node, ast.ImportFrom):
             named = (node.module or "").split(".")[-1]
             if node.module is not None and named != BOUNDARY_PARENT:
@@ -294,6 +392,23 @@ def _reaches(path: Path, root: Path) -> list[str]:
             parts = set((node.module or "").split("."))
             if parts & STORE_MODULES:
                 found.append(f"{where}:{node.lineno}: imports from {node.module}")
+            # ⚠ THE NAME CHECKS BELOW ARE GATED ON THE STATEMENT NAMING THE
+            # PACKAGE, and the gate is `_package_bindings`' own doctrine applied
+            # where it was missing: match by what the statement imports FROM,
+            # never by the spelling of the name alone. `store_dir` and
+            # `fetch_source` are ordinary names, and an unrelated module
+            # exporting one reaches nothing — `from modules.plan import
+            # store_dir` reported as a store bypass is precisely the false
+            # positive that teaches a reader the guard is noisy.
+            #
+            # WHAT THE GATE COSTS, stated because it is a real narrowing: the
+            # SECOND hop of a re-export chain is no longer flagged. It costs
+            # nothing, because the first hop is a module importing the name from
+            # the journal and is flagged where it happens — the property is
+            # enforced at the boundary crossing, which is the only place it can
+            # be crossed.
+            if (node.module or "").split(".")[-1] != BOUNDARY_PACKAGE:
+                continue
             for alias in node.names:
                 if alias.name in STORE_MODULES:
                     found.append(
@@ -320,7 +435,11 @@ def _reaches(path: Path, root: Path) -> list[str]:
                 rest = parts[len(head):]
                 if not rest or rest[0] not in (STORE_MODULES | STORE_IO_NAMES):
                     continue
-                key = (node.lineno, rest[0])
+                # KEYED ON THE PREFIX AS WELL AS THE NAME. Two bindings reaching
+                # the same store name on one line are two reaches, and a key of
+                # (line, name) alone reported one of them — so a reader fixed
+                # what they were shown, re-ran, and met the second.
+                key = (node.lineno, prefix, rest[0])
                 if key in seen:
                     continue
                 seen.add(key)
@@ -648,6 +767,128 @@ def test_the_RELATIVE_package_binding_bypass_is_caught(tmp_path) -> None:
         f"the sweep must name exactly the non-conforming module; it named {flagged}")
 
 
+def test_the_ANCESTOR_package_binding_bypass_is_caught(tmp_path) -> None:
+    """`import modules` -> `modules.journal.load_object(…)`, and its two siblings.
+
+    THE SHAPES THE FAMILY-2 FIX ITSELF SHIPPED BLIND TO, which is why they get a
+    control rather than a line in the scope list. The first version asked whether
+    an import's dotted path ENDED at the package — but a plain `import` binds its
+    ROOT, so `import modules`, `import modules as m` and `import
+    modules.assistant` all put the store one or two attributes away while naming
+    it nowhere. Measured before the fix: all three returned `[]`.
+
+    ⚠ THE REACH RESOLVES ONLY IF SOMETHING IN THE PROCESS HAS IMPORTED THE
+    PACKAGE, and in this fleet something always has. Measured: with a fresh
+    interpreter, `import modules` then `modules.journal` raises AttributeError —
+    but after any module runs `from modules.journal import …`, which all sixteen
+    entrypoints do, `modules.journal.content_store.load_object` resolves. So the
+    conditionality is satisfied by the fleet's own first line, not by an
+    attacker.
+
+    THREE FIXTURES, TWO CONFORMING, AND THE SECOND CONFORMER IS THE POINT.
+    `import modules.assistant as ma` binds `ma` to the SIBLING package, so
+    `ma.journal` is not a path at all — flagging it would be the identifier-text
+    bug wearing an asname, and it is the false positive a fix that keyed on
+    "does this statement mention `modules`" would produce.
+    """
+    modules = tmp_path / "modules"
+    modules.mkdir()
+    (modules / "ancestor_bad.py").write_text(
+        "import modules\n"
+        "def run(bag, digest):\n"
+        "    return modules.journal.load_object(bag, digest)\n",
+        encoding="utf-8")
+    (modules / "ancestor_aliased_bad.py").write_text(
+        "import modules as m\n"
+        "def run(bag, digest):\n"
+        "    return m.journal.content_store.load_object(bag, digest)\n",
+        encoding="utf-8")
+    (modules / "ancestor_sibling_bad.py").write_text(
+        "import modules.assistant\n"
+        "def run(bag, digest):\n"
+        "    return modules.journal.load_object(bag, digest)\n",
+        encoding="utf-8")
+    (modules / "ancestor_good.py").write_text(
+        "import modules\n"
+        "def run(run_id, writer):\n"
+        "    return modules.journal.journal_activities.open_run_bag(run_id, writer)\n",
+        encoding="utf-8")
+    (modules / "ancestor_asname_good.py").write_text(
+        "import modules.assistant as ma\n"
+        "def run(bag, digest):\n"
+        "    return ma.journal.load_object(bag, digest)\n",
+        encoding="utf-8")
+
+    assert len(_swept_modules(tmp_path)) == 5, "the fixture itself must be discovered"
+    flagged = {reach.split(":")[0] for reach in _sweep(tmp_path)}
+    assert flagged == {"modules/ancestor_bad.py",
+                       "modules/ancestor_aliased_bad.py",
+                       "modules/ancestor_sibling_bad.py"}, (
+        f"the sweep must name exactly the three non-conforming modules; it "
+        f"named {flagged}")
+
+
+def test_a_store_NAME_imported_from_SOMEWHERE_ELSE_is_not_flagged(tmp_path) -> None:
+    """The name checks match a spelling, so they are gated on the import's SOURCE.
+
+    `store_dir`, `object_path` and `fetch_source` are ordinary names. A module
+    importing one from anywhere else has not touched this store, and reporting it
+    is the false positive that gets a guard exempted rather than obeyed — the
+    same failure `BOUNDARY_PARENT` exists to prevent one function up, which this
+    branch was not applying.
+
+    THE GATE IS A NARROWING AND THE CONFORMER PROVES IT DISCRIMINATES: the same
+    name imported from the package is still flagged, so what was removed is the
+    spelling coincidence and not the property.
+    """
+    modules = tmp_path / "modules"
+    modules.mkdir()
+    (modules / "elsewhere_good.py").write_text(
+        "from modules.plan import store_dir\n"
+        "from modules.assistant.helpers import fetch_source\n"
+        "def run(bag, url):\n"
+        "    return store_dir(bag), fetch_source(url)\n",
+        encoding="utf-8")
+    (modules / "from_the_package_bad.py").write_text(
+        "from modules.journal import object_relpath\n"
+        "def run(digest):\n"
+        "    return object_relpath(digest)\n",
+        encoding="utf-8")
+
+    assert len(_swept_modules(tmp_path)) == 2, "the fixture itself must be discovered"
+    flagged = {reach.split(":")[0] for reach in _sweep(tmp_path)}
+    assert flagged == {"modules/from_the_package_bad.py"}, (
+        f"the sweep must name exactly the module that imported the name FROM "
+        f"the journal package; it named {flagged}")
+
+
+def test_TWO_reaches_on_ONE_LINE_are_reported_as_TWO(tmp_path) -> None:
+    """The de-duplicating step is per reach, not per line — asserted, not assumed.
+
+    `j.content_store.load_object(…)` is two nested `Attribute` nodes describing
+    ONE reach, so pass 2 collapses them. Keyed on the line and the name alone,
+    that collapse also swallowed a second reach through a DIFFERENT binding on
+    the same line: a reader fixed what they were shown, re-ran, and met the rest.
+
+    A `set()` anywhere near a count is the shape that lets one case stand in for
+    two things that fail separately, so the count is what is asserted here.
+    """
+    modules = tmp_path / "modules"
+    modules.mkdir()
+    (modules / "two_on_one_line.py").write_text(
+        "import modules.journal as j\n"
+        "from .. import journal\n"
+        "def run(bag, digest):\n"
+        "    return j.load_object(bag, digest), journal.load_object(bag, digest)\n",
+        encoding="utf-8")
+
+    reaches = _sweep(tmp_path)
+    assert len(reaches) == 2, (
+        f"both bindings reach the store on that line and both must be named; "
+        f"reported {reaches}")
+    assert {"through j," in reach for reach in reaches} == {True, False}, reaches
+
+
 def test_the_FLEET_IDIOM_binding_journal_to_the_activities_module_is_NOT_flagged(
         tmp_path) -> None:
     """THE FALSE-POSITIVE TRAP THE FAMILY-2 FIX HAD TO AVOID — ASSERTED ON THE
@@ -660,16 +901,25 @@ def test_the_FLEET_IDIOM_binding_journal_to_the_activities_module_is_NOT_flagged
     apart once the asname has been ruled out — and ruling the asname out is a
     separate mechanism, which is the distinction the docstring below draws.
 
-    ⚠ WHY THIS DOES NOT GO THROUGH `_sweep`, WHICH IS WHERE IT WAS FIRST
-    WRITTEN. Deleting the parent check was expected to fail this file loudly and
-    to flag eighteen fleet modules. MEASURED, IT DOES NEITHER: every test stayed
-    green and the real-tree sweep named nothing, because those eighteen modules
-    only reach `journal.open_run_bag`, which is in neither name set. A control
-    routed through the sweep is therefore VACUOUS for this property today. It
-    would begin discriminating only once some module writes `journal.load_object`
-    off the activities alias — the moment the guard matters most, and the worst
-    possible moment to learn its control never worked. So the assertion is moved
-    onto `_package_bindings`, where the semantic claim actually lives.
+    ⚠ WHY THE PRIMARY ASSERTION IS ON THE FUNCTION AND NOT ON THE SWEEP, WHICH
+    IS WHERE IT WAS FIRST WRITTEN. Deleting the parent check was expected to fail
+    this file loudly and to flag eighteen fleet modules. MEASURED, IT DOES
+    NEITHER: every test stayed green and the real-tree sweep named nothing,
+    because those eighteen call sites only reach `journal.open_run_bag`, which is
+    in neither name set. So a control routed through the sweep over THE REAL TREE
+    is vacuous — it would begin discriminating only once some module writes
+    `journal.load_object` off the activities alias, which is the moment the guard
+    matters most and the worst possible moment to learn its control never worked.
+
+    ⚠ AND THAT IS A FACT ABOUT THE TREE, NOT ABOUT THE TECHNIQUE — THE FIRST
+    VERSION OF THIS DOCSTRING CONFLATED THEM. A `tmp_path` fixture can write the
+    line the fleet does not, which is what every other control in this file
+    relies on. Both are asserted below: the direct call on `_package_bindings`,
+    where the semantic claim lives, AND a synthetic module binding the activities
+    alias and reaching a name that IS in the store sets. The conflation is worth
+    naming because it is the same one that left the ancestor shapes unenumerated:
+    twice, "the tree holds no instance of this" was read as "no control can
+    express it".
     """
     idiom = ast.parse(
         "from modules.journal import journal_activities as journal\n"
@@ -709,8 +959,20 @@ def test_the_FLEET_IDIOM_binding_journal_to_the_activities_module_is_NOT_flagged
         "the ASNAME is not what says which module was imported; matching it "
         "binds `journal_activities` as if it were the package")
 
-    # And the end-to-end half, which is real but — per the docstring above —
-    # cannot discriminate on its own.
+    # AND THE END-TO-END HALF, IN BOTH ITS FORMS, WITH DIFFERENT SPELLINGS ON
+    # PURPOSE. The first fixture is the entrypoint idiom verbatim; it cannot
+    # discriminate anything, because `open_run_bag` is in neither name set. The
+    # second is what the paragraph above said the TREE could not supply and a
+    # FIXTURE can — an activities alias reaching a name that IS in the sets.
+    #
+    # ⚠ AND IT HAD TO CHANGE SPELLING TO BE WORTH ANYTHING, which is the trap in
+    # miniature: written `from modules.journal import journal_activities as
+    # journal`, the fixture is REDUNDANTLY excluded — the parent check drops the
+    # statement before the asname rule is consulted — so matching the asname
+    # would not have flagged it and the control would have been green whatever
+    # the code did. `from modules import journal_activities as journal` clears
+    # the parent check and leaves only the asname rule holding it, so this
+    # fixture goes red the moment that rule is matched on the wrong name.
     modules = tmp_path / "modules"
     modules.mkdir()
     (modules / "entrypoint_shaped.py").write_text(
@@ -718,8 +980,13 @@ def test_the_FLEET_IDIOM_binding_journal_to_the_activities_module_is_NOT_flagged
         "def run(run_id, writer):\n"
         "    return journal.open_run_bag(run_id=run_id, writer=writer)\n",
         encoding="utf-8")
+    (modules / "aliased_sibling_reaching_a_store_name.py").write_text(
+        "from modules import journal_activities as journal\n"
+        "def run(bag, digest):\n"
+        "    return journal.load_object(bag, digest)\n",
+        encoding="utf-8")
 
-    assert len(_swept_modules(tmp_path)) == 1, "the fixture itself must be discovered"
+    assert len(_swept_modules(tmp_path)) == 2, "the fixture itself must be discovered"
     assert _sweep(tmp_path) == []
 
 
@@ -760,3 +1027,150 @@ def test_a_module_that_only_TALKS_about_the_store_is_not_flagged(tmp_path) -> No
         encoding="utf-8")
 
     assert _sweep(tmp_path) == []
+
+
+# --- the file's OWN prose: every figure it rests on is derived --------------------
+#
+# WHY THIS IS HERE AND NOT IN `test_journal_prose_figures_are_DERIVED`, which
+# owns this class for the journal package. That sweep's population is the journal
+# package plus a named list, and its recogniser sees `<N> entrypoint(s)` and `<N>
+# of <derived total>` — so this file is outside the list and most of its figures
+# are outside the two surface forms. The figures below were therefore written in
+# nine places with nothing on the other end of them, which is verbatim the defect
+# that sweep exists to catch, one directory over. Bound here rather than by
+# widening a corpus, because the counts are THIS file's own derivations.
+
+
+def _prose() -> str:
+    """Every line of this file except the figure check's own, whitespace-normalised.
+
+    ⚠ THE EXCLUSION IS WHAT KEEPS THE CHECK FROM PASSING VACUOUSLY. The expected
+    sentences are BUILT below from derived numbers, so a sweep over the whole
+    source would find them in the builder and report a green that says nothing
+    about the prose above. `test_journal_prose_figures_are_DERIVED` excludes
+    itself from its own `_PROSE` list for the same reason, and says so.
+
+    Normalised because these figures routinely span a line break: keying on raw
+    text would lapse the binding the first time a paragraph reflowed.
+    """
+    skip: range = range(0)
+    for node in ast.walk(ast.parse(_SOURCE)):
+        if isinstance(node, ast.FunctionDef) and node.name == _FIGURE_CHECK:
+            skip = range(node.lineno - 1, node.end_lineno or node.lineno)
+    kept = [line for number, line in enumerate(_SOURCE.splitlines())
+            if number not in skip]
+    return " ".join(" ".join(kept).split()).lower()
+
+
+def _enumerated_shapes() -> list[str]:
+    """The import statement of every shape the module docstring enumerates.
+
+    The enumeration is the four-space-indented `import`/`from` lines in the
+    module docstring; the reach after `→` and the trailing `#` comment are not
+    part of the statement.
+    """
+    docstring = ast.get_docstring(ast.parse(_SOURCE)) or ""
+    shapes = []
+    for line in docstring.splitlines():
+        if re.match(r"^ {4}(?:import|from) ", line):
+            shapes.append(" ".join(re.split(r"→|#", line)[0].split()))
+    return shapes
+
+
+def _fixture_sources() -> list[str]:
+    """Every module source the controls below WRITE into a fixture tree.
+
+    The multi-line string literals that are not docstrings, which is what a
+    fixture is in this file.
+
+    ⚠ THIS FUNCTION EXISTS BECAUSE THE CHECK BELOW SHIPPED VACUOUS AND A MUTATION
+    CAUGHT IT. It first searched the whole file for each enumerated shape — and
+    the enumeration is IN the file, so every shape matched its own prose and a
+    shape with no fixture came back green. Predicted one red, observed zero. The
+    population has to exclude the text making the claim, which is the same
+    exclusion `_prose` needs one function up, for the same reason.
+    """
+    tree = ast.parse(_SOURCE)
+    skip = _docstring_ids(tree)
+    return [node.value for node in ast.walk(tree)
+            if isinstance(node, ast.Constant) and isinstance(node.value, str)
+            and id(node) not in skip and "\n" in node.value]
+
+
+def _journal_submodule_call_sites() -> dict[str, set[str]]:
+    """Swept modules importing a journal submodule AS A NAME, by submodule.
+
+    `from modules.journal import journal_activities as journal` and its two
+    cousins. Derived rather than remembered: this file's prose rests on "the
+    eighteen call sites" and "the sixteen entrypoints", and a count with nothing
+    on the other end of it is what shipped wrong four times in this package.
+    """
+    submodules = {path.stem for path in BOUNDARY_DIR.glob("*.py")} - {"__init__"}
+    sites: dict[str, set[str]] = {}
+    for path in _swept_modules(FLEET_ROOT):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if not isinstance(node, ast.ImportFrom):
+                continue
+            if (node.module or "").split(".")[-1] != BOUNDARY_PACKAGE:
+                continue
+            for alias in node.names:
+                if alias.name in submodules:
+                    sites.setdefault(alias.name, set()).add(path.name)
+    return sites
+
+
+def test_the_FIGURES_this_files_prose_rests_on_are_DERIVED() -> None:
+    """A count written here is bound to something that computes it, or it fails.
+
+    THE ENUMERATION IS THE FIGURE THAT MATTERS MOST, and it is the one this file
+    got wrong twice. Both holds against this PR were an enumeration presented as
+    complete that was not — three shapes missing, then three more — so the header
+    count is asserted against the shapes listed under it, AND every listed shape
+    is asserted to have a fixture somewhere in this file. Adding a shape to the
+    prose without a control now goes red, which is the failure the two review
+    passes had to supply by hand.
+    """
+    prose = _prose()
+    shapes = _enumerated_shapes()
+    swept = _swept_modules(FLEET_ROOT)
+    under = {name: len([p for p in swept if (FLEET_ROOT / name) in p.parents])
+             for name in SWEPT_DIRS}
+    sites = _journal_submodule_call_sites()
+    all_sites = set().union(*sites.values())
+
+    shape_word = _WORD_OF[len(shapes)]
+    expected = {
+        f"{shape_word} shapes reach the store without a dotted path that names it":
+            "the header count over the enumeration below it",
+        f"so all {shape_word} work": "the same count, restated",
+        f"controls for all {shape_word} live below": "the same count, restated",
+        f"{_WORD_OF[len(all_sites)]} swept modules import a journal submodule "
+        f"as a name": "every module binding a journal submodule by name",
+        f"the {_WORD_OF[len(all_sites)]} call sites are excluded redundantly":
+            "the same population, in the false-positive argument",
+        f"the {_WORD_OF[len(sites['journal_activities'])]} entrypoints take":
+            "the modules taking the activities alias",
+        f"which all {_WORD_OF[len(sites['journal_activities'])]} entrypoints run":
+            "the same population, in family 3's reachability argument",
+        f"{under['modules']} of the {len(swept)}":
+            "the swept population, in the per-directory floor argument",
+        f"{under['modules']} under modules/": "the same, in the failure text",
+        f"{under['scripts']} under scripts/": "the same, for the other directory",
+    }
+    missing = {sentence: why for sentence, why in expected.items()
+               if sentence not in prose}
+    assert not missing, (
+        f"these DERIVED figures are not what this file's prose says, so a "
+        f"sentence here is either stale or unbound:\n  "
+        + "\n  ".join(f"{sentence!r} — {why}" for sentence, why in missing.items())
+        + f"\nderived now: {len(shapes)} enumerated shapes, "
+        f"{len(all_sites)} submodule-as-a-name call sites "
+        f"({sorted((k, len(v)) for k, v in sites.items())}), "
+        f"{under} swept per directory, {len(swept)} total.")
+
+    fixtures = "\n".join(_fixture_sources())
+    unfixtured = [shape for shape in shapes if shape not in fixtures]
+    assert not unfixtured, (
+        f"the docstring enumerates shapes that no fixture in this file writes, "
+        f"so the enumeration is prose rather than a controlled claim: "
+        f"{unfixtured}")

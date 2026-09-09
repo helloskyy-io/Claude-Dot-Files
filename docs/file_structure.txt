@@ -801,31 +801,42 @@ claude-dot-files/
 │                   │                                #   activities layer makes capture and resolve TIDY, not mandatory, so nothing stops a
 │                   │                                #   later module importing content_store.load_object and reading an object without the
 │                   │                                #   re-hash r7(d) requires. Walks every fleet module by AST — modules/ and scripts/,
-│                   │                                #   the journal package itself exempt — and flags SEVEN reaches in two families, plus
+│                   │                                #   the journal package itself exempt — and flags TEN reaches in three families, plus
 │                   │                                #   the path composition no import check can see. FAMILY 1, where the import statement
 │                   │                                #   itself binds a store name: the store modules by dotted path, the re-exported
 │                   │                                #   function, the submodule bound as a name, a star import. FAMILY 2, where the import
 │                   │                                #   binds the PACKAGE and the reach is an ATTRIBUTE — import modules.journal, …as j,
-│                   │                                #   from modules import journal, from .. import journal — so the statement names no
-│                   │                                #   store module and no store function at all and an import-only check is blind to
-│                   │                                #   every one. Each family holds a fleet idiom and each shipped blind to in turn:
-│                   │                                #   content_store imported as a name is the entrypoints' spelling in 18 places, and
-│                   │                                #   from .. import journal is the workflow tree's dominant relative import. The
-│                   │                                #   family-2 matcher binds by import SEMANTICS, never by the identifier text
-│                   │                                #   `journal`: `alias.name` is matched and never the asname, and BOUNDARY_PARENT
-│                   │                                #   rejects a `journal` imported from a sibling. The 18 trip BOTH at once, so neither
-│                   │                                #   can be observed through them and neither costs a false positive — measured,
-│                   │                                #   deleting either flags nothing on a clean tree, because the 18 only reach
-│                   │                                #   open_run_bag. Both are therefore controlled directly on _package_bindings, by the
-│                   │                                #   two shapes that isolate one check each; a sweep-routed control would first
-│                   │                                #   discriminate only once some module writes journal.load_object, which is the worst
-│                   │                                #   moment to learn it never worked. Docstrings are exempt or the guard fires on its
+│                   │                                #   from modules import journal, from .. import journal. FAMILY 3, where it binds an
+│                   │                                #   ANCESTOR of the package — import modules, …as m, import modules.assistant — since a
+│                   │                                #   plain import binds its ROOT segment, so the store is reachable through the parent
+│                   │                                #   and the family-2 fix, which asked whether the dotted path ENDED at the package,
+│                   │                                #   shipped blind to all three. In families 2 and 3 the statement names no store module
+│                   │                                #   and no store function at all, so an import-only check is blind to every one.
+│                   │                                #   Families 1 and 2 each hold a fleet idiom, which is what makes them likely rather
+│                   │                                #   than exotic: a journal submodule bound as a name (journal_activities as journal in
+│                   │                                #   every entrypoint, verify and validate in the two operator tools — eighteen call
+│                   │                                #   sites, and content_store is not among them) and from .. import journal, the workflow
+│                   │                                #   tree's dominant relative import. The package matcher binds by import SEMANTICS,
+│                   │                                #   never by the identifier text `journal`: `alias.name` is matched and never the asname,
+│                   │                                #   BOUNDARY_PARENT rejects a `journal` imported from a sibling, and an asname binds
+│                   │                                #   exactly the module named, so import modules.assistant as ma reaches nothing. The
+│                   │                                #   eighteen call sites trip the first two at once, so neither can be observed through
+│                   │                                #   them and neither costs a false positive — measured, deleting either flags nothing on
+│                   │                                #   a clean tree, because those call sites only reach open_run_bag. Both are therefore
+│                   │                                #   asserted directly on _package_bindings, by the shapes that isolate one check each,
+│                   │                                #   plus a synthetic module the tree does not contain: reading "no instance here" as "no
+│                   │                                #   control can express it" is what left family 3 unenumerated, twice. The name checks
+│                   │                                #   are gated on the statement importing FROM the package, so from modules.plan import
+│                   │                                #   store_dir is not this store. Docstrings are exempt or the guard fires on its
 │                   │                                #   own documentation. Delivers the NEGATIVE half ONLY and says so: it proves nobody
 │                   │                                #   reaches PAST the boundary, never that anybody reaches it — a fleet capturing
 │                   │                                #   nothing passes every assertion, which is today's fleet. Its vacuity control
 │                   │                                #   asserts a floor PER swept directory after a mutation showed a single total floor
 │                   │                                #   of fifty stayed green with all 21 modules under scripts/ dropped from the
-│                   │                                #   population, modules/ alone holding 59 of the 80
+│                   │                                #   population, modules/ alone holding 59 of the 80. EVERY FIGURE IN ITS OWN PROSE IS
+│                   │                                #   DERIVED and asserted — the ten shapes, the eighteen call sites, 59/21/80 — and each
+│                   │                                #   enumerated shape must have a fixture that writes it, so a shape added to the prose
+│                   │                                #   without a control goes red rather than reading as covered
 │                   ├── test_content_store.py        # PMP Phase 2 r7(b)/r7(d) — the on-disk path is a function of the COMPUTED DIGEST and
 │                   │                                #   of nothing else (asserted on the signature, not only the output: a URL, a filename
 │                   │                                #   or a Content-Disposition header has nowhere to enter), and every read re-hashes and
