@@ -76,14 +76,34 @@ routing`, `from .. import plan_activities as act`, `from . import
 tracked_items as ti`). So both are what a real bypass looks like: a line copied
 from the one above it.
 
-⚠ AND THE FIX FOR FAMILY 2 MUST BIND BY SEMANTICS, NEVER BY THE SPELLING
-`journal`. Those eighteen modules bind the name `journal` to
-`journal_activities` — a DIFFERENT module, which reaches nothing — so a matcher
-keyed on the identifier text produces eighteen false positives on the
-unmodified tree. `_package_bindings` therefore collects only the names an
-import statement binds to the PACKAGE, and
+⚠ THE FIX FOR FAMILY 2 BINDS BY SEMANTICS, NEVER BY THE SPELLING `journal`, AND
+TWO SEPARATE MECHANISMS HOLD THAT — which is worth stating because a review
+attributed the whole job to one of them and MEASUREMENT SAID OTHERWISE:
+
+  * MATCHING `alias.name` AND NEVER THE ASNAME. `from modules import
+    journal_activities as journal` binds the identifier `journal` to a module
+    that reaches no store; only the ORIGINAL name says which module that is.
+  * `BOUNDARY_PARENT`, which rejects a name genuinely spelled `journal`
+    imported from somewhere that is not the package's parent —
+    `from modules.assistant import journal`, a sibling exporting a colliding
+    name.
+
+The eighteen entrypoints are excluded REDUNDANTLY, by both at once, which is
+why neither mechanism can be controlled through them: each shape above isolates
+exactly one, and the control below uses those rather than the idiom.
+
+⚠ AND NEITHER COSTS THE EIGHTEEN FALSE POSITIVES THEY WERE PREDICTED TO COST.
+Deleting the parent check outright leaves every test in this file green and
+flags no fleet module: those eighteen only ever reach `journal.open_run_bag`,
+which is in neither `STORE_MODULES` nor `STORE_IO_NAMES`, so a reach-based
+matcher never looks at them. The trap is structurally unreachable rather than
+narrowly avoided — and the guard against it is therefore UNTESTABLE THROUGH THE
+SWEEP, because the tree contains no module the mistake would break. That is why
 `test_the_FLEET_IDIOM_binding_journal_to_the_activities_module_is_NOT_flagged`
-is the control that pins it.
+asserts on `_package_bindings` DIRECTLY: a sweep-routed control would begin
+discriminating only once some module writes `journal.load_object` off the
+activities alias — the moment the guard matters most, and the worst possible
+moment to learn its control never worked.
 
 Controls for all seven live below, one per shape. The `_package_bindings` walk
 is the direct application of `test_every_subprocess_the_fleet_launches_is_bounded`'s
@@ -205,9 +225,13 @@ def _package_bindings(tree: ast.AST) -> dict[str, int]:
         from modules import journal   -> "journal"
         from .. import journal        -> "journal"
 
-    The last two are told apart from the eighteen by `node.module`: a package
-    binding names the package's PARENT (or is relative and names nothing), while
-    the idiom names the package itself.
+    Two independent checks keep a non-package binding out, and the eighteen
+    `journal_activities as journal` entrypoints happen to trip both — so neither
+    can be observed through them. `alias.name` (never the asname) rejects
+    `from modules import journal_activities as journal`; `node.module` rejects
+    `from modules.assistant import journal`. Each shape isolates one check, and
+    both are asserted directly on this function rather than through the sweep —
+    see that control's docstring for why the sweep cannot see either.
     """
     bindings: dict[str, int] = {}
     for node in ast.walk(tree):
@@ -626,19 +650,67 @@ def test_the_RELATIVE_package_binding_bypass_is_caught(tmp_path) -> None:
 
 def test_the_FLEET_IDIOM_binding_journal_to_the_activities_module_is_NOT_flagged(
         tmp_path) -> None:
-    """THE FALSE-POSITIVE TRAP THE FAMILY-2 FIX HAD TO AVOID, pinned as a control.
+    """THE FALSE-POSITIVE TRAP THE FAMILY-2 FIX HAD TO AVOID — ASSERTED ON THE
+    FUNCTION THAT MAKES THE CLAIM, BECAUSE THE SWEEP CANNOT SEE IT.
 
     `from modules.journal import journal_activities as journal` binds the name
-    `journal` to the ACTIVITIES module, which reaches no store. Eighteen fleet
-    modules — every entrypoint under `scripts/` — open with exactly that line
-    and then call `journal.open_run_bag(...)`. A detector keyed on the
-    IDENTIFIER TEXT `journal` rather than on what the import semantically binds
-    would fail all eighteen on the unmodified tree, and the obvious repair
-    would be to exempt the name — which reopens the whole family.
+    `journal` to the ACTIVITIES module, which reaches no store; `from modules
+    import journal` and `from .. import journal` bind the PACKAGE, which does.
+    All three spell the bound name `journal`, so only `node.module` tells them
+    apart once the asname has been ruled out — and ruling the asname out is a
+    separate mechanism, which is the distinction the docstring below draws.
 
-    The real-tree half of this is `test_no_fleet_module_reaches_the_content_store_directly`,
-    which stays green. This fixture is the isolated statement of why.
+    ⚠ WHY THIS DOES NOT GO THROUGH `_sweep`, WHICH IS WHERE IT WAS FIRST
+    WRITTEN. Deleting the parent check was expected to fail this file loudly and
+    to flag eighteen fleet modules. MEASURED, IT DOES NEITHER: every test stayed
+    green and the real-tree sweep named nothing, because those eighteen modules
+    only reach `journal.open_run_bag`, which is in neither name set. A control
+    routed through the sweep is therefore VACUOUS for this property today. It
+    would begin discriminating only once some module writes `journal.load_object`
+    off the activities alias — the moment the guard matters most, and the worst
+    possible moment to learn its control never worked. So the assertion is moved
+    onto `_package_bindings`, where the semantic claim actually lives.
     """
+    idiom = ast.parse(
+        "from modules.journal import journal_activities as journal\n"
+        "def run(run_id, writer):\n"
+        "    return journal.open_run_bag(run_id=run_id, writer=writer)\n")
+    assert _package_bindings(idiom) == {}, (
+        "`journal_activities as journal` binds the ACTIVITIES module, not the "
+        "package; treating it as a package binding is the identifier-text bug")
+
+    for binds_the_package in ("from modules import journal\n",
+                              "from .. import journal\n",
+                              "import modules.journal as journal\n"):
+        assert _package_bindings(ast.parse(binds_the_package)), (
+            f"{binds_the_package.strip()!r} binds the package and must be "
+            f"collected; a check that rejects it also rejects the bypass")
+
+    # AND THE ONE THE PARENT CHECK ALONE HOLDS. A sibling package exporting a
+    # colliding name binds the identifier `journal` to something that is not
+    # this package; treating it as one would flag `journal.load_object` in a
+    # module that never touched the journal at all. No such export exists today,
+    # which is exactly why it is asserted here and cannot be asserted anywhere
+    # else — the sweep has nothing to sweep.
+    collision = ast.parse("from modules.assistant import journal\n")
+    assert _package_bindings(collision) == {}, (
+        "`journal` imported from a sibling package is not THIS package; "
+        "collecting it makes every `journal.<store name>` in that module a "
+        "false positive")
+
+    # AND THE ONE `alias.name` ALONE HOLDS. This clears the parent check —
+    # `modules` IS the package's parent — so only matching the original name
+    # rather than the asname keeps it out. It is the isolated form of the
+    # eighteen entrypoints, which trip both checks at once and therefore
+    # demonstrate neither.
+    aliased_sibling = ast.parse(
+        "from modules import journal_activities as journal\n")
+    assert _package_bindings(aliased_sibling) == {}, (
+        "the ASNAME is not what says which module was imported; matching it "
+        "binds `journal_activities` as if it were the package")
+
+    # And the end-to-end half, which is real but — per the docstring above —
+    # cannot discriminate on its own.
     modules = tmp_path / "modules"
     modules.mkdir()
     (modules / "entrypoint_shaped.py").write_text(

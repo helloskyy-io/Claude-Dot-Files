@@ -812,15 +812,20 @@ claude-dot-files/
 │                   │                                #   content_store imported as a name is the entrypoints' spelling in 18 places, and
 │                   │                                #   from .. import journal is the workflow tree's dominant relative import. The
 │                   │                                #   family-2 matcher binds by import SEMANTICS, never by the identifier text
-│                   │                                #   `journal`, because those same 18 modules bind `journal` to journal_activities — a
-│                   │                                #   matcher reading the spelling fails all 18 on a clean tree, and a control pins
-│                   │                                #   that. Docstrings are exempt or the guard fires on its own documentation. Delivers
-│                   │                                #   the NEGATIVE half ONLY and says so: it proves nobody reaches PAST the boundary,
-│                   │                                #   never that anybody reaches it — a fleet capturing nothing passes every assertion,
-│                   │                                #   which is today's fleet. Its vacuity control asserts a floor PER swept directory
-│                   │                                #   after a mutation showed a single total floor of fifty stayed green with all 21
-│                   │                                #   modules under scripts/ dropped from the population, modules/ alone holding 59 of
-│                   │                                #   the 80
+│                   │                                #   `journal`: `alias.name` is matched and never the asname, and BOUNDARY_PARENT
+│                   │                                #   rejects a `journal` imported from a sibling. The 18 trip BOTH at once, so neither
+│                   │                                #   can be observed through them and neither costs a false positive — measured,
+│                   │                                #   deleting either flags nothing on a clean tree, because the 18 only reach
+│                   │                                #   open_run_bag. Both are therefore controlled directly on _package_bindings, by the
+│                   │                                #   two shapes that isolate one check each; a sweep-routed control would first
+│                   │                                #   discriminate only once some module writes journal.load_object, which is the worst
+│                   │                                #   moment to learn it never worked. Docstrings are exempt or the guard fires on its
+│                   │                                #   own documentation. Delivers the NEGATIVE half ONLY and says so: it proves nobody
+│                   │                                #   reaches PAST the boundary, never that anybody reaches it — a fleet capturing
+│                   │                                #   nothing passes every assertion, which is today's fleet. Its vacuity control
+│                   │                                #   asserts a floor PER swept directory after a mutation showed a single total floor
+│                   │                                #   of fifty stayed green with all 21 modules under scripts/ dropped from the
+│                   │                                #   population, modules/ alone holding 59 of the 80
 │                   ├── test_content_store.py        # PMP Phase 2 r7(b)/r7(d) — the on-disk path is a function of the COMPUTED DIGEST and
 │                   │                                #   of nothing else (asserted on the signature, not only the output: a URL, a filename
 │                   │                                #   or a Content-Disposition header has nowhere to enter), and every read re-hashes and
