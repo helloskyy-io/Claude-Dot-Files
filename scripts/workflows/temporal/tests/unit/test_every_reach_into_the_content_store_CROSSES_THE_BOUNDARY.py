@@ -492,8 +492,8 @@ def test_the_sweep_is_not_vacuous() -> None:
     """A sweep that examined nothing satisfies the assertion above exactly.
 
     THE FLOOR IS PER DIRECTORY, AND A SINGLE AGGREGATE FLOOR IS WHAT THIS FILE
-    SHIPPED FIRST. `modules/` alone holds 59 of the 80, so a total-only floor of
-    fifty stayed green with `scripts/` — all 21 fleet entrypoints — dropped from
+    SHIPPED FIRST. `modules/` alone holds 59 of the 81, so a total-only floor of
+    fifty stayed green with `scripts/` — all 22 of its modules — dropped from
     the population entirely. That is the failure this control exists to catch,
     passing the control: a guard whose SCOPE has halved reports the same green
     as one that swept everything. Measured by mutation, not reasoned about.
@@ -508,7 +508,7 @@ def test_the_sweep_is_not_vacuous() -> None:
         assert len(found) >= floor, (
             f"only {len(found)} modules discovered under {FLEET_ROOT / name}; "
             f"this fleet has 59 under modules/ (outside the journal package) "
-            f"and 21 under scripts/. The predicate has drifted from the tree "
+            f"and 22 under scripts/. The predicate has drifted from the tree "
             f"and the absence above proves nothing about this half of it.")
 
 
@@ -1097,6 +1097,22 @@ def _fixture_sources() -> list[str]:
             and id(node) not in skip and "\n" in node.value]
 
 
+def _map_annotation() -> str:
+    """This file's entry in `docs/file_structure.txt`, as flowing lowercase prose.
+
+    The tree characters and the `#` comment marker are stripped before the
+    whitespace is normalised, because every figure in that annotation wraps
+    across lines and a phrase would otherwise carry `│ │ #` through its middle.
+    """
+    annotation = (REPO_ROOT / "docs" / "file_structure.txt").read_text(
+        encoding="utf-8")
+    entry = annotation[annotation.index(Path(__file__).name):]
+    entry = entry[:entry.index("├── test_content_store.py")]
+    spoken = [line.split("#", 1)[1] if "#" in line else line
+              for line in entry.splitlines()]
+    return " ".join(" ".join(spoken).split()).lower()
+
+
 def _journal_submodule_call_sites() -> dict[str, set[str]]:
     """Swept modules importing a journal submodule AS A NAME, by submodule.
 
@@ -1167,6 +1183,35 @@ def test_the_FIGURES_this_files_prose_rests_on_are_DERIVED() -> None:
         f"{len(all_sites)} submodule-as-a-name call sites "
         f"({sorted((k, len(v)) for k, v in sites.items())}), "
         f"{under} swept per directory, {len(swept)} total.")
+
+    # AND THE MAP'S COPY OF THE SAME FIGURES, because that is the surface where
+    # one of them shipped FALSE — `docs/file_structure.txt` said `content_store`
+    # was the entrypoints' spelling in eighteen places, and no fleet module
+    # imports `content_store` as a name at all. `test_journal_prose_figures_are_
+    # DERIVED` sweeps that file but recognises only entrypoint-population forms,
+    # so these figures sit in the one gap between the two guards.
+    # ⚠ EVERY OCCURRENCE, NOT THE FIGURE'S PRESENCE SOMEWHERE. This assertion
+    # first asked whether `"eighteen call"` appeared in the annotation, and a
+    # mutation falsifying ONE of its three copies stayed green because the other
+    # two still matched — predicted one red, observed zero. A presence check over
+    # a repeated figure is exactly the vacuity this file is about, so each
+    # occurrence is named, the way the sentences above are.
+    entry = _map_annotation()
+    stale = [sentence for sentence in (
+        f"{_WORD_OF[len(all_sites)]} call sites, and content_store is not among",
+        f"the {_WORD_OF[len(all_sites)]} call sites trip the first two at once",
+        f"holding {under['modules']} of the {len(swept)}",
+        f"all {under['scripts']} modules under scripts/",
+        f"the {shape_word} shapes, the {_WORD_OF[len(all_sites)]} call sites, "
+        f"{under['modules']}/{under['scripts']}/{len(swept)}",
+    ) if sentence not in entry]
+    assert not stale, (
+        f"docs/file_structure.txt's annotation for this file no longer states "
+        f"the derived figures — these sentences are missing or stale:\n  "
+        + "\n  ".join(repr(sentence) for sentence in stale)
+        + "\nThe map is where a reader is SENT for ground truth, so a stale "
+        "figure there is worse than one here — and the false claim this check "
+        "was written for lived in that file, not in this one.")
 
     fixtures = "\n".join(_fixture_sources())
     unfixtured = [shape for shape in shapes if shape not in fixtures]

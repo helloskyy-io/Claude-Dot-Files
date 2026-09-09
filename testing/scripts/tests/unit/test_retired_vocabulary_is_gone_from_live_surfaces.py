@@ -529,7 +529,7 @@ def test_the_file_structure_map_is_scoped_by_LINE_and_not_exempted_whole() -> No
 def test_the_map_scope_still_reaches_the_lines_that_must_keep_the_label() -> None:
     """The line scoping is only worth anything if it also EXEMPTS correctly.
 
-    If `_map_lines_describing_live_paths` silently returned every line, the
+    If `_map_entries_describing_live_paths` silently returned every line, the
     assertion above would go red on the three retired-component annotations and
     someone would allowlist the whole file to make it stop — which is the
     outcome this scoping exists to avoid.
@@ -735,7 +735,7 @@ def test_the_UNSTRIPPED_MARKERS_are_the_residual_and_are_NOT_seen(
     bullet immediately above it got a sentence. Two reviewers found that
     asymmetry independently, which is the evidence that a prose-only claim in
     this file is the shape that drifts: in the same pass, one such claim about
-    `_ends_the_table` in the sibling module turned out to be factually
+    `ends_the_table` in the sibling module turned out to be factually
     BACKWARDS and had gone a full review round undetected.
 
     So each marker the bullet names is asserted invisible here. These are not

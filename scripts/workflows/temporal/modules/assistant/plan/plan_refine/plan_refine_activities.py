@@ -201,15 +201,24 @@ def sizing_floor(component: Path, docs: dict[str, str]) -> int:
       * `roadmap_phase_links` cannot supply it — a GATED phase has no doc, so
         there is no `phaseN_*.md` for the roadmap to link, and it counts
         CROSS-COMPONENT links besides.
-      * Counting roadmap HEADINGS needs a heading grammar the Documentation
-        Standard does not fix, and would fail correct runs written to a spelling
-        it did not anticipate.
+      * Counting roadmap HEADINGS needed a heading grammar the Documentation
+        Standard did not fix — ⚠ AND THAT REASON EXPIRED. Rule 8 made every
+        phase heading carry a status marker, and `phase_sizing` enumerates on
+        exactly that marker, so the grammar this paragraph said did not exist is
+        now binding and already parsed. The floor takes that count.
 
-    So this closes the TOTAL collapse (a run that sized nothing) and not the
-    PARTIAL one (an all-gated component with six phases still passes on one
-    estimate). That residual is real, is narrower than what it replaces, and is
-    pinned by a test rather than assumed. The sufficient check remains the
-    reviewer reading the report, which the guard's message says outright.
+    SO THE PARTIAL COLLAPSE IS CLOSED TOO, and it was real: an all-gated
+    component with six phases used to pass on ONE estimate, because `docs` counts
+    FILES ON DISK and a gated phase has none. Reported 2026-09-08 from a live
+    `plan.sh` chain, whose run observed that the check "compares two totals" and
+    passes while a phase is unsized.
+
+    IT IS A `max`, NEVER A REPLACEMENT, BECAUSE THE HEADING COUNT CAN VACUOUSLY
+    BE ZERO. A roadmap written without status markers enumerates no phases, and
+    swapping `len(docs)` for the heading count would hand that roadmap a floor of
+    zero — the exact collapse this function was rewritten to remove, reintroduced
+    through the other input. Each of the three terms covers where another can go
+    blind, and the floor is the largest.
 
     NO ROADMAP MEANS NO FLOOR, and that is not a loophole: `plan_inventory` tells
     a run that finds no roadmap to size nothing and stop, `run_plan_refine`
@@ -218,7 +227,7 @@ def sizing_floor(component: Path, docs: dict[str, str]) -> int:
     """
     if not (component / ROADMAP).is_file():
         return 0
-    return max(len(docs), 1)
+    return max(len(docs), len(act.phase_sizing(component).rows), 1)
 
 
 def plan_inventory(component: Path, tree: Path) -> str:

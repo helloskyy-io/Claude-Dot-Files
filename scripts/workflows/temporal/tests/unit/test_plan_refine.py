@@ -832,24 +832,38 @@ def test_a_component_with_NO_phase_docs_at_all_still_fails_as_UNSIZED(
         f"phase docs, or it reads as an off-by-one; got {message!r}")
 
 
-def test_ONE_estimate_clears_the_floor_on_an_all_gated_component(
+def test_EVERY_GATED_PHASE_IS_SIZED_not_just_one_of_them(
         tree: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """THE RESIDUAL, PINNED RATHER THAN ASSUMED — and it is deliberately GREEN.
+    """THE RESIDUAL, NOW CLOSED — and this test is the rewrite its predecessor asked for.
 
-    The floor closes the TOTAL collapse (a run that sized nothing) and not the
-    PARTIAL one: a six-phase all-gated component still passes on one estimate,
-    because the true phase count is not derivable — a gated phase has no doc for
-    the roadmap to link, and roadmap headings have no binding grammar.
+    It used to be `test_ONE_estimate_clears_the_floor_on_an_all_gated_component`
+    and it was deliberately GREEN: a six-phase all-gated component passed on ONE
+    estimate, because `docs` counts FILES ON DISK and a gated phase has none. Its
+    docstring said the true phase count "is not derivable — roadmap headings have
+    no binding grammar", and instructed that if a later change made it fail, the
+    floor got tighter and the right response was to REWRITE it to the new bound
+    rather than restore the old behaviour. This is that rewrite.
 
-    NOT AN `xfail`, which would read as *known bug, someone will fix it*. This is
-    a checked limit with a stated reason. If a later change makes this test FAIL,
-    the floor got tighter and the right response is to REWRITE this test to the
-    new bound — not to restore the old behaviour to keep it green.
+    WHAT CHANGED IS THE CORPUS, NOT THE ARITHMETIC. Rule 8 gave every phase
+    heading a status marker and `phase_sizing` enumerates on it, so the grammar
+    that paragraph said did not exist is now binding and already parsed. Measured
+    across the four live components: 7/9/10/6 phases against 5/7/10/6 phase docs
+    — the floor rises exactly where phases are gated, which is where the hole was.
+
+    Reported 2026-09-08 from a live `plan.sh` chain whose own run observed the
+    check "compares two totals" and passes while a phase is unsized.
     """
     c = _component(tree)
     _write(c, own.ROADMAP, "# Alpha\n\n## Phase 1 — gated\n## Phase 2 — also gated\n")
+    message = _drive(monkeypatch, tree, lambda: (c / own.ROADMAP).write_text(
+        "# Alpha\n\n## Phase 1 — gated (~8 hrs)\n## Phase 2 — also gated\n"))
+    assert "UNSIZED" in message and "floor of 2" in message, (
+        f"one estimate must no longer clear a two-phase component; got {message!r}")
+
+    # AND THE POSITIVE ARM: sizing BOTH clears it. Without this the test passes
+    # for a floor of any size, including one nothing can satisfy.
     url = _harness(monkeypatch, tree, lambda: (c / own.ROADMAP).write_text(
-        "# Alpha\n\n## Phase 1 — gated (~8 hrs)\n## Phase 2 — also gated\n"))()
+        "# Alpha\n\n## Phase 1 — gated (~8 hrs)\n## Phase 2 — also gated (~3 hrs)\n"))()
     assert url == "https://github.com/o/r/pull/9"
 
 

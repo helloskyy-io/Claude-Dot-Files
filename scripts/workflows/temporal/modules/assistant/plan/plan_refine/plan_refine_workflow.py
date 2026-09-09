@@ -657,7 +657,7 @@ def run_plan_refine(*, repo_root: Path, worktree: Path, component: Path,
         found = own.hour_citations(wt_component, worktree) or ["(none)"]
         basis = (f"{len(before_phases)} phase doc(s)" if before_phases else
                  "a `roadmap.md` whose phases are ALL GATED — every one of them "
-                 "still gets an estimate, and one is the least this can prove")
+                 "still gets an estimate, and the roadmap says how many there are")
         raise RuntimeError(
             f"plan-refine left `{rel_component}` UNSIZED: its `roadmap.md` carries "
             f"{sum(hours.values())} hour estimate(s) against a floor of {floor}, "

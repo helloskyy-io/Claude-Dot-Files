@@ -14,9 +14,11 @@ context, so the run that wrote the decomposition is the run that reviews it.
 
 **This is the WRITE half of that split, and `plan-refine` — the read half — NOW
 EXISTS.** This paragraph used to say it did not, and that stopped being true the
-day `plan_refine_workflow` landed: `plan_project._plan_one` calls
-`plan_refine.run_plan_refine` immediately after this workflow, so a reference to
-it here IS a dependency at the parent's altitude. It still is not one at THIS
+day `plan_refine_workflow` landed: `plan._refine_size_and_dispose` calls
+`plan_refine.run_plan_refine` immediately after `run_plan` calls this workflow,
+so a reference to it here IS a dependency at the parent's altitude. (The parent
+is `plan`, not `plan-project` — `plan-project` rules candidates and scaffolds
+them; planning a scaffolded component is a separate dispatch.) It still is not one at THIS
 module's — nothing in this file imports it, and this workflow remains separately
 dispatchable with `review-pr --type planning` as its judge on that path.
 

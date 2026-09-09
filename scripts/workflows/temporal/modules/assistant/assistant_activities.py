@@ -348,15 +348,25 @@ def anchor_task_source(repo_root: Path, arg: str) -> Path:
 
     Absolute in, absolute out. Relative in, resolved against the REPO ROOT — never
     against `Path.cwd()`, which is the whole defect. Split out from
-    `resolve_task_source` because `run_plan_revision._read_task_file` needs the
-    anchoring and NOT the diagnostic: it distinguishes "not found" from "not
-    readable" as V1 did, and `test_plan_revision.py` pins both messages. Without
-    this split that runner would have to restate the rule, which is the one thing
-    a rule with six consumers must not permit.
+    `resolve_task_source` for the caller that needs the ANCHORING and NOT the
+    diagnostic. Today that is `build_activities.path_for_the_model`, which anchors
+    an operator `--phase` only to decide whether it is inside the repo, and must
+    NOT raise on a path that does not exist. Without the split it would have to
+    restate the rule, which is the one thing a rule with this many consumers must
+    not permit — `test_the_anchoring_helper_HAS_CONSUMERS` derives the population
+    and floors it at six; it stands at SEVEN today (`build_activities` plus six
+    runners), so re-derive from that guard rather than copying this sentence.
+
+    THE ORIGINAL SPLIT WAS MADE FOR `run_plan_revision`, WHICH `main` DELETED on
+    2026-09-05. The split outlived it because a second caller had already taken
+    the same shape — recorded so the next reader does not conclude the split has
+    no remaining purpose and inline it back, taking the anchoring rule's only
+    statement with it.
 
     PURE — no filesystem access beyond `Path.resolve()`'s symlink walk, no
     existence check. What to do about a path that does not exist is the caller's
-    to decide, and the two callers decide differently.
+    to decide, and the two callers decide differently: `resolve_task_source`
+    raises with a diagnostic, `path_for_the_model` relativises and passes through.
     """
     supplied = Path(arg)
     return (supplied if supplied.is_absolute() else repo_root / supplied).resolve()
