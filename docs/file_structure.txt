@@ -80,6 +80,7 @@ claude-dot-files/
 ├── scripts/                                         # ORGANIZING AXIS: *who invokes it?* — that one question explains every folder below
 │   ├── helpers/                                     # YOU run these. Pure bash, no AI, zero tokens
 │   │                                                #   (helpers/ = standalone executables you RUN; workflows/lib/ = bash you SOURCE. Different things, hence two folders)
+│   │   ├── file_structure_check.py     # Holds docs/file_structure.txt to one line per entry, and refuses to grade a map it cannot read
 │   │   ├── standards_index.py         # Audits a standards corpus against the header
 │   │       #   contract — the three lines § Standards Corpus Organization requires, plus
 │   │       #   standards this repo's CLAUDE.md references nowhere. Built BEFORE the index
@@ -144,6 +145,7 @@ claude-dot-files/
 │   │           │                                    #   summary makes no MODEL_KEY claim, with yq it claims a NON-ZERO count, STRICT makes a skip fatal
 │   │           │                                    #   (and every spelling of OFF turns it off), a scan over an empty tree is a failure rather than a
 │   │           │                                    #   tick, and a prompt block whose closing ')' is never found fails instead of vanishing
+│   │           ├── test_file_structure_check.py # The map check's two arms and its vacuity control, each driven by a mutation
 │   │           ├── test_standards_index_audit.py # The header audit's three distinctions, each
 │   │               #   driven by a mutation: a field inside a section is NOT a header (a substring
 │   │               #   search would call a header-less standard conformant), a VENDORED standard is

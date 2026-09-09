@@ -19,6 +19,13 @@ WHAT IT ENFORCES, and each maps to a prohibition in the Documentation Standard
   * NO TRACKED PATH MISSING — a map that omits things is one nobody can rely on, and the
     omission is invisible from inside the file.
 
+WHAT IT DELIBERATELY DOES NOT CHECK, because something else already owns it:
+whether the map OMITS a tracked file. `test_file_structure_map_covers_the_tree.py`
+holds that direction and holds it better — it knows which directories the map
+enumerates versus summarises, which this tool does not. The two are complementary
+and neither is redundant: that test asks *is anything missing*, this one asks *is
+everything here one line, and does it name something real*.
+
 `git ls-files` IS THE SOURCE, not a filesystem walk. It already encodes every exclusion
 the repo has decided on — `.gitignore`, worktrees, caches — so this cannot disagree with
 the repo about what is part of the repo, and no second ignore list exists to drift.
