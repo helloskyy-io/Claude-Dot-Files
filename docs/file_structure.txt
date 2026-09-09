@@ -81,6 +81,7 @@ claude-dot-files/
 │   ├── helpers/                                     # YOU run these. Pure bash, no AI, zero tokens
 │   │                                                #   (helpers/ = standalone executables you RUN; workflows/lib/ = bash you SOURCE. Different things, hence two folders)
 │   │   ├── file_structure_check.py     # Holds docs/file_structure.txt to one line per entry, and refuses to grade a map it cannot read
+│   │   ├── sibling_checkouts.py       # Reports work left in a repo the dispatch was not pointed at — read-only, never tidies
 │   │   ├── standards_index.py         # Audits a standards corpus against the header
 │   │       #   contract — the three lines § Standards Corpus Organization requires, plus
 │   │       #   standards this repo's CLAUDE.md references nowhere. Built BEFORE the index
@@ -146,6 +147,7 @@ claude-dot-files/
 │   │           │                                    #   (and every spelling of OFF turns it off), a scan over an empty tree is a failure rather than a
 │   │           │                                    #   tick, and a prompt block whose closing ')' is never found fails instead of vanishing
 │   │           ├── test_file_structure_check.py # The map check's two arms and its vacuity control, each driven by a mutation
+│   │           ├── test_sibling_checkouts.py   # The sibling sweep's off-branch arm, its exclusion, and its empty-population refusal
 │   │           ├── test_standards_index_audit.py # The header audit's three distinctions, each
 │   │               #   driven by a mutation: a field inside a section is NOT a header (a substring
 │   │               #   search would call a header-less standard conformant), a VENDORED standard is
