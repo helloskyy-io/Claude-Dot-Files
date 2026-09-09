@@ -237,10 +237,51 @@ def run_review(task: ReviewInput, worktree: Path, *,
             # it. `run_claude` refuses a log_file with no run_id for that reason.
             invocation_id=invocation_id,
         )
-    except Exception:
+    except Exception as prose_failure:
         _append_shadow_pair(log_file, invocation_id=invocation_id, pr=task.pr_number,
                             expected_ref=expected_ref)
-        raise
+        # ⚠ THE SENTINEL IS A FAST PATH, NOT THE EVIDENCE — and this `except` used to
+        # end the run here. `exit 0 must mean done` is right and is NOT weakened: what
+        # changed is which artifact proves done. The typed record is the channel this
+        # parent already trusts to decide the verdict eight lines below; a line of
+        # stdout is a proxy for it.
+        #
+        # MEASURED 2026-09-09: a run reviewed the PR, posted its `pr_review:` comment,
+        # verified its own post ("exactly one fence-anchored block, carrying the
+        # correct nonce"), then ended a turn with prose instead of the sentinel — and
+        # the parent reported failure. `grep -c "^VERDICT:"` was 0 while the posted
+        # comment carried `verdict: HOLD` and the PR's comment count went 1 -> 2.
+        #
+        # FALSE FAILURE IS WORSE THAN FALSE SUCCESS HERE, because its obvious remedy is
+        # destructive: re-dispatching reviews an unchanged tree, posts a SECOND comment
+        # for the same pass, and corrupts the pass counter that the convergence rule and
+        # the loop-back limit both read. The reporting PM avoided it only by noticing
+        # the comment count had moved.
+        # `route` IS TOTAL AND NEVER RAISES — it resolves a missing record toward the
+        # human arm rather than throwing, so a `try/except` around it can catch
+        # nothing and would rescue EVERY sentinel miss. That is the shape this
+        # fallback was written as first, and the exit-record tests caught it: with no
+        # record at all the run still passed. The condition is whether the CHILD
+        # actually wrote a record, which `UNDETERMINED` names exactly.
+        # READING THE LOG MUST NOT STACK A SECOND FAILURE. `route` is total, but
+        # `result_event` is not — a truncated log raises, and letting that escape
+        # replaces the run's real error with a parsing error from the rescue path.
+        # `test_an_UNREADABLE_log_does_not_stack_a_second_failure` holds it, and
+        # caught this exact regression when the read was added outside a guard.
+        try:
+            record = exit_record.route(
+                _shared.result_event(log_file), expected_invocation_id=invocation_id,
+                expected_ref=expected_ref)
+        except Exception:
+            raise prose_failure from None
+        # `routed_outcome`, NOT `outcome`. The first is what routing reads; the
+        # second is the child's own assertion carried verbatim, and reading it here
+        # made the check pass on a record that was never written.
+        if record.routed_outcome is exit_record.RoutedOutcome.UNDETERMINED:
+            record = None
+            raise prose_failure from None
+    else:
+        record = None
 
     # --- THE TYPED CHANNEL DECIDES --------------------------------------
     # TWO IDENTITIES ARE CHECKED, NOT ONE. `run_id` says the record came from
@@ -255,10 +296,11 @@ def run_review(task: ReviewInput, worktree: Path, *,
     # the child reviews the head branch of the PR this parent named and has no
     # way to choose another. Re-asserting it after the fact would compare the
     # parent's own value against itself.
-    record = exit_record.route(
-        _shared.result_event(log_file), expected_invocation_id=invocation_id,
-        expected_ref=expected_ref,
-    )
+    if record is None:
+        record = exit_record.route(
+            _shared.result_event(log_file), expected_invocation_id=invocation_id,
+            expected_ref=expected_ref,
+        )
     verdict = helper.verdict_from_record(record)
 
     # --- THE PROSE CHANNEL IS A SHADOW ----------------------------------

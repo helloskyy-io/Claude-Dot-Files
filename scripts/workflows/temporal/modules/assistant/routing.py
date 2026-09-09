@@ -264,8 +264,16 @@ def pr_number_from_url(url: str, *, expected_repo: str | None) -> str:
     see it: R5b's right-hand side is built FROM this number, so a wrong number
     is compared against itself.
     """
+    # CASE-INSENSITIVE, BECAUSE GITHUB SLUGS ARE. `helloskyy-io/MDC-Master-Planning`
+    # and `helloskyy-io/mdc-master-planning` are one repository, and GitHub serves
+    # both. A case-sensitive `!=` refuses a correct handoff — the guard's whole
+    # purpose is to catch a DIFFERENT repository, and a spelling is not one.
+    #
+    # THE COMPARISON IS THE ONLY THING RELAXED. The owner and name still have to
+    # match; nothing about the cross-repo hazard this exists for is weakened, and a
+    # child quoting `someone-else/other-repo` is refused exactly as before.
     repo, number = pr_identity(url)
-    if expected_repo is not None and repo != expected_repo:
+    if expected_repo is not None and repo.lower() != expected_repo.lower():
         raise ValueError(
             f"a child reported a PR URL in {repo!r} while this dispatch is "
             f"operating in {expected_repo!r}: {url!r}. Refusing to hand "

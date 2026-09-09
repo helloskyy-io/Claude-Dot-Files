@@ -126,7 +126,19 @@ def _declared() -> list[tuple[Path, set[str] | None]]:
     (measured 2026-08-22: nine dead targets either way, and the one paper it
     recovers resolves cleanly) — it only stops the guard skipping papers.
     """
-    papers = sorted(ROOT.glob("**/research/raw/*.md"))
+    # ⚠ WORKTREES ARE EXCLUDED, and leaving them in turned this guard red on a tree
+    # nobody had touched. `.claude/worktrees/` holds full checkouts, so a single
+    # review run's worktree made every paper appear TWICE — 74 paths across 37
+    # basenames — and the uniqueness assertion below reported "two papers share a
+    # basename" about one paper and its own copy. The population is the corpus, not
+    # the corpus plus however many runs happen to be mid-flight.
+    #
+    # THE FAILURE IS ENVIRONMENTAL, WHICH IS WHY IT IS WORTH THE COMMENT: it appears
+    # and disappears with somebody else's dispatch, so it looks like whichever commit
+    # was checked out when it was noticed. It survived a bisect pointing at an
+    # unrelated commit before the cause was found.
+    papers = sorted(p for p in ROOT.glob("**/research/raw/*.md")
+                    if ".claude/worktrees/" not in p.as_posix())
     assert len(papers) > 10, (
         f"only {len(papers)} papers found under {ROOT} — the glob is wrong, and a "
         f"guard that reads nothing passes silently"

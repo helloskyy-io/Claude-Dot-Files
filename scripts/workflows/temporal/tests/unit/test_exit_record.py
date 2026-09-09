@@ -2381,7 +2381,12 @@ def test_the_pair_is_RECORDED_when_the_completion_gate_kills_the_run(monkeypatch
 
     monkeypatch.setattr(act, "run_disposition", _gate_fails)
 
-    with pytest.raises(RuntimeError, match="completion pattern not found"):
+    # ⚠ THE RAISE IS NO LONGER THE SENTINEL'S. A valid typed record now carries the
+    # run past the completion gate (see `test_a_SENTINEL_MISS_with_a_POSTED_REVIEW_is_not_a_failure`),
+    # so what fails here is the LATER and truer guard: a record with no posted
+    # `pr_review:` block. This test's subject — that the pair is recorded, and that
+    # a damaged log stacks no second error — is unchanged and is what it still asserts.
+    with pytest.raises(RuntimeError, match="posted no new `pr_review:` block"):
         wf.run_review(ReviewInput(pr_number="67"), tmp_path,
                           worktree_name="review-pr-1")
 
@@ -2399,12 +2404,23 @@ def test_the_pair_is_RECORDED_when_the_completion_gate_kills_the_run(monkeypatch
     assert row["run_id"] == fake.invocation_id, "the row is not joinable to the run that produced it"
 
 
-def test_the_completion_gate_still_FAILS_the_run(monkeypatch, tmp_path):
-    """THE CONTROL. Recording the evidence must not rescue the run.
+def test_a_SENTINEL_MISS_with_a_POSTED_REVIEW_is_not_a_failure(monkeypatch, tmp_path):
+    """THE SENTINEL IS A FAST PATH, NOT THE EVIDENCE — and this test is the rewrite
+    its predecessor's own reasoning asked for.
 
-    Exit 0 must mean done. Buying a datapoint by swallowing the failure would
-    trade a real guarantee for a number — so the pair is recorded AND the
-    original error still reaches the caller, unchanged.
+    It used to be `test_the_completion_gate_still_FAILS_the_run`, and its argument
+    was *"exit 0 must mean done; buying a datapoint by swallowing the failure would
+    trade a real guarantee for a number."* That argument is still right and is NOT
+    weakened here. What changed is WHICH ARTIFACT PROVES DONE: the typed record is
+    the channel this parent already trusts to decide the verdict, and a line of
+    stdout is a proxy for it.
+
+    MEASURED 2026-09-09: a run reviewed the PR, posted its `pr_review:` comment,
+    verified its own post, then ended a turn with prose instead of the sentinel —
+    and the parent reported failure. False failure is worse than false success here
+    because its obvious remedy is destructive: re-dispatching reviews an unchanged
+    tree, posts a SECOND comment for the same pass, and corrupts the pass counter the
+    convergence rule and loop-back limit both read.
     """
     from modules.assistant.review_pr.review_pr_helper import ReviewInput
     from modules.assistant.review_pr import review_pr_activities as act
@@ -2413,15 +2429,52 @@ def test_the_completion_gate_still_FAILS_the_run(monkeypatch, tmp_path):
     wf = fake.install(monkeypatch, tmp_path)
     monkeypatch.setattr(wf._shared, "append_parent_route", lambda *a, **k: None)
 
+    def _did_the_work_then_missed_the_sentinel(prompt, *a, **k):
+        fake.invocation_id = _nonce_in(prompt)
+        fake.ran = True                      # the review ran and posted its block
+        raise RuntimeError("completion pattern not found")
+
+    monkeypatch.setattr(act, "run_disposition", _did_the_work_then_missed_the_sentinel)
+
+    # ASSERTED ON THE REASON, NOT ON SUCCESS. Whatever else this fixture's thread
+    # state makes the parent conclude, the SENTINEL must no longer be why a run with
+    # a valid typed record is failed — that is the whole finding. A later guard
+    # refusing it for a DIFFERENT and true reason is the system working.
+    try:
+        wf.run_review(ReviewInput(pr_number="67"), tmp_path,
+                      worktree_name="review-pr-1")
+    except Exception as e:
+        assert "completion pattern not found" not in str(e), (
+            "the sentinel miss still reached the caller even though the typed record "
+            f"routed — the fallback did not engage: {e}")
+
+
+def test_a_SENTINEL_MISS_with_NO_TYPED_RECORD_STILL_FAILS(monkeypatch, tmp_path):
+    """⚠ THE CONTROL, and the half that keeps `exit 0 means done` true.
+
+    The fallback rescues a run only when the record PROVES it finished. With no
+    readable record there is no evidence of anything, and the original failure must
+    reach the caller verbatim — otherwise the fallback is not a better check, it is
+    the gate deleted.
+
+    The mutation is the record itself: same path, same sentinel miss, no record.
+    """
+    from modules.assistant.review_pr.review_pr_helper import ReviewInput
+    from modules.assistant.review_pr import review_pr_activities as act
+
+    fake = _FakeWorkflow(None, "")
+    wf = fake.install(monkeypatch, tmp_path)
+    monkeypatch.setattr(wf._shared, "append_parent_route", lambda *a, **k: None)
+
     def _boom(prompt, *a, **k):
         fake.invocation_id = _nonce_in(prompt)
-        raise RuntimeError("the original failure, verbatim")
+        raise RuntimeError("review-pr FAILED (exit 1). completion pattern not found")
 
     monkeypatch.setattr(act, "run_disposition", _boom)
 
-    with pytest.raises(RuntimeError, match="the original failure, verbatim"):
+    with pytest.raises(RuntimeError, match="completion pattern not found"):
         wf.run_review(ReviewInput(pr_number="67"), tmp_path,
-                          worktree_name="review-pr-1")
+                      worktree_name="review-pr-1")
 
 
 def test_an_UNREADABLE_log_does_not_stack_a_second_failure(monkeypatch, tmp_path):

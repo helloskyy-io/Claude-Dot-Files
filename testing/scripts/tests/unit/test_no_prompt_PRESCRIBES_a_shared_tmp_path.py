@@ -378,6 +378,14 @@ def _residue_under(docs: Path, base: Path) -> dict[str, set[str]]:
     for f in sorted(docs.rglob("*")):
         if not (f.is_file() and f.suffix in SUFFIXES):
             continue
+        # ⚠ A WORKTREE IS NOT PART OF THE CORPUS. `.claude/worktrees/` holds full
+        # checkouts, so one review run mid-flight adds a copy of every file this
+        # inventory records and the record reads as stale against a tree nobody
+        # touched. The failure appears and disappears with somebody else's dispatch,
+        # which makes it look like whichever commit was checked out when it was
+        # noticed — it survived a bisect pointing at an unrelated commit.
+        if ".claude/worktrees/" in f.as_posix():
+            continue
         # NO `source` — the `docs/` inventory takes no exemptions, and cannot:
         # `EXPLANATORY` is keyed on a WALKED surface and `docs/` is not one, which
         # the staleness test asserts. Passing a source here would be code that can

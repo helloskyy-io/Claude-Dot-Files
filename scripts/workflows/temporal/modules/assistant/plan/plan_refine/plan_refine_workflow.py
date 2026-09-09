@@ -476,7 +476,9 @@ def run_plan_refine(*, repo_root: Path, worktree: Path, component: Path,
     # SNAPSHOTTED AROUND THE MODEL, never diffed against `origin/main`: this
     # workflow runs after two siblings on the same branch inside `plan-project`,
     # and a diff against the base would attribute their legitimate edits to it.
-    before_links = own.roadmap_phase_links(wt_component)
+    # BOTH SIDES READ THE SAME FUNCTION, or the diff is between two different
+    # questions and every cross-component citation reads as newly added.
+    before_links = own.roadmap_local_phase_links(wt_component)
     before_decision = act.candidate_decisions(wt_candidates)
     before_size = act.candidate_sizes(wt_candidates)
     before_status = act.candidate_statuses(wt_candidates)
@@ -562,7 +564,13 @@ def run_plan_refine(*, repo_root: Path, worktree: Path, component: Path,
     #
     # AND IT BROKE THE CHAIN, not just the run: `plan_project` calls this child
     # unguarded, so the raise propagated and `plan-sprint` was never reached.
-    after_links = own.roadmap_phase_links(wt_component)
+    # COMPARED ON THIS COMPONENT'S OWN PHASES, because the prohibition is about the
+    # decomposition it OWNS. Comparing every `phaseN_*.md` mention failed a run for
+    # ADDING a correct citation to a sibling's phase, and the cheapest way to pass was
+    # to delete the citation — a guard that punishes the correct choice, which the
+    # paragraph above already says is worse than no guard. The broad reader is still
+    # what `plan_inventory` reports from; only the comparison narrowed.
+    after_links = own.roadmap_local_phase_links(wt_component)
     added = sorted(set(after_links) - set(before_links))
     dropped = sorted(set(before_links) - set(after_links))
     if added or dropped:

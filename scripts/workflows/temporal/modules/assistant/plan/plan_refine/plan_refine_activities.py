@@ -80,6 +80,10 @@ phase_docs_of = act.phase_docs
 # `phases.md`, `phase.md` and `phase_notes.md` do not match, and neither does
 # *"see Phase 3 of the memory doc"* — measured against both, not assumed.
 _PHASE_REF = re.compile(r"\bphase\d+[a-z]?[a-z0-9_-]*\.md\b", re.I)
+#: A phase doc reference WITH whatever path is written around it — the path is
+#: what says which component owns it, and it is written as a link, as inline
+#: code, or bare, so it is matched as one token rather than three ways.
+_PHASE_PATH = re.compile(r"[A-Za-z0-9_./-]*\bphase\d+[a-z]?[a-z0-9_-]*\.md\b", re.I)
 
 
 def roadmap_hours(component: Path) -> Counter:
@@ -172,8 +176,47 @@ def roadmap_phase_links(component: Path) -> Counter:
     roadmap = component / ROADMAP
     if not roadmap.is_file():
         return Counter()
-    return Counter(m.group(0).lower()
-                   for m in _PHASE_REF.finditer(roadmap.read_text(errors="replace")))
+    text = roadmap.read_text(errors="replace")
+
+    return Counter(m.group(0).lower() for m in _PHASE_REF.finditer(text))
+
+
+def roadmap_local_phase_links(component: Path) -> Counter:
+    """Only the references that resolve inside this component's OWN directory.
+
+    THE BROAD READER ABOVE IS DELIBERATE AND STAYS. It exists so a run DELETING a
+    sibling cross-reference is caught too, and `plan_inventory` uses its divergence
+    from the doc count to tell a model when a roadmap cites siblings. Narrowing it
+    was tried and reverted: it silently removed the deletion half.
+
+    WHAT THIS EXISTS FOR IS THE COMPARISON, not the count. The decomposition
+    prohibition is about phases this component OWNS, and applying it to every
+    `phaseN_*.md` mention failed a run for ADDING a correct citation to another
+    component's phase. Reported 2026-09-09 on `common/mdc_rollout`, whose entire job
+    is naming which component owns each stage of a rollout — under the old
+    comparison, doing that job correctly failed the run, and the cheapest way to pass
+    was to delete the citation.
+
+    THE PATH AROUND THE FILENAME IS THE SUBJECT, and it is matched as ONE token so
+    every spelling is handled alike. Reading markdown link TARGETS alone was tried
+    and leaked three, because this corpus writes most cross-component references as
+    inline code (`common/control_plane_migration/phase0_….md`) rather than as links.
+
+    A NAME WITH NO PATH IS TREATED AS LOCAL, and the residual is stated rather than
+    chased: a roadmap citing a sibling's phase by BARE filename is indistinguishable
+    from one naming its own, and three such mentions exist in this corpus today. They
+    cannot cause a false failure here because this is compared before-against-after
+    within one run, so a stable mention appears on both sides and cancels.
+    """
+    roadmap = component / ROADMAP
+    if not roadmap.is_file():
+        return Counter()
+    local = []
+    for m in _PHASE_PATH.finditer(roadmap.read_text(errors="replace")):
+        href = m.group(0)
+        if "/" not in href or (component / href).resolve().parent == component.resolve():
+            local.append(Path(href).name.lower())
+    return Counter(local)
 
 
 def sizing_floor(component: Path, docs: dict[str, str]) -> int:
