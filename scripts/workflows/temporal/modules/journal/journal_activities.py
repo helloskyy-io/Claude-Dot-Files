@@ -53,9 +53,11 @@ from .bag import Bag, open_bag
 from .config_digest import (LABEL_CONFIG_DIGEST, ConfigDigestError,
                             ConfigTreeError, config_digest,
                             unavailable_tag_value)
+from .emit import Emitter, register_emitter
 from .root import JournalRootError, resolve_journal_root
 
-__all__ = ["mint_run_id", "open_run_bag", "load_journal_config", "JournalRootError"]
+__all__ = ["mint_run_id", "open_run_bag", "load_journal_config",
+           "JournalRootError"]
 
 # `config.yaml` sits at the repo root of THIS repo — the fleet's own
 # configuration, not the target repo's. Resolved from this file's location for
@@ -512,6 +514,22 @@ def _open(root: Path, run_id: str, writer: str | None, repo_root: Path,
     # ever share a file, and making it adopt would hand a retry the directory a
     # concurrent sibling is writing into. The cost is a subfolder per attempt,
     # which is visible in the bag rather than silent.
-    if writer is not None:
-        bag.writer_dir(writer)
+    # PHASE 3 CHANGES WHAT THIS ALLOCATION IS FOR, so the comment above is now
+    # half the story: the subfolder is no longer only an observable, it is where
+    # this invocation's events land. `Emitter.for_run` allocates it, which is why
+    # this call is gone rather than kept beside it — allocating twice would give
+    # one member two subfolders and split its events across them.
+    #
+    # THE PARENT GETS ONE TOO, NAMED `parent`. Under Phase 1 a parent had no
+    # subfolder because nothing wrote into a bag; now it emits, and events with
+    # nowhere of their own to go would have to share a file with every member —
+    # the exact contention `writer_dir` exists to remove.
+    #
+    # REGISTERED, NOT RETURNED, and requirement 12 is why. The write paths that
+    # emit — `gh` invocations, `tracked/` filings — sit dozens of call sites away
+    # from here and hold no bag; threading one through every signature makes the
+    # emit an optional argument, and this package's whole thesis is that an
+    # optional control is a skipped control. `emit.register_emitter` states the
+    # trade and what it does not reach.
+    register_emitter(Emitter.for_run(bag, writer=writer, journal_root=root))
     return bag

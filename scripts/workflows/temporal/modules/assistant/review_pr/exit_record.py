@@ -47,6 +47,8 @@ import json
 from dataclasses import dataclass
 from enum import Enum
 
+from ... import vocabulary
+from ...vocabulary import HoldKind, Outcome
 from .. import routing
 
 __all__ = [
@@ -76,24 +78,14 @@ SUPPORTED_SCHEMA_VERSIONS = frozenset({"1"})
 SCHEMA_BYTE_BOUND = 4096
 
 
-class Outcome(str, Enum):
-    """What the CHILD asserts about the work. Never written by a parent."""
-
-    MERGE = "merge"
-    HOLD = "hold"
-
-
-class HoldKind(str, Enum):
-    """The sub-kind every parent branches on — `hold` alone does not route.
-
-    NEEDS_RULING is the ASSERTED abstention arm: the evaluation completed and
-    the answer is that a human must decide. It stays a model assertion by
-    construction — a predicate that could detect "this needs a human" would be
-    the ground truth it is asking for.
-    """
-
-    REDISPATCH = "redispatch"
-    NEEDS_RULING = "needs_ruling"
+# `Outcome` AND `HoldKind` ARE DECLARED IN `modules/vocabulary.py` AND IMPORTED
+# HERE, not re-declared. Persistent Memory Protocol Phase 3 r3: the journal event
+# is a SEPARATE contract from this record — `exit-protocol.md` §2 forbids a field
+# added for a consumer that does not exist and §2.5 bounds this record at 4096
+# bytes, and a journal event adds six such fields and carries content verbatim —
+# so the two cannot be one contract, and the only thing that keeps them from
+# drifting is that every concept they share is spelled once. Re-exported through
+# `__all__` below so every existing `exit_record.Outcome` caller is unchanged.
 
 
 class RoutedOutcome(str, Enum):
@@ -211,10 +203,18 @@ CHILD_SCHEMA: dict = {
                 "required": ["id", "disposition"],
                 "properties": {
                     "id": {"type": "string"},
+                    # DERIVED FROM `vocabulary.Disposition`, NEVER RE-TYPED.
+                    # This list and `convergence.py`'s open/closed partition are
+                    # the same vocabulary read by two consumers, and a journal
+                    # event replaying a finding row is now a third — so the
+                    # spelling is taken from the one declaration rather than
+                    # written out again. `sorted` for a stable schema string:
+                    # `schema_argument()` is bounded at `SCHEMA_BYTE_BOUND` and
+                    # an order that moved between runs would make that bound's
+                    # test depend on enum iteration order.
                     "disposition": {
                         "type": "string",
-                        "enum": ["hold", "fixed", "deferred", "rejected",
-                                 "noted", "escalated", "dissolved"],
+                        "enum": sorted(m.value for m in vocabulary.Disposition),
                     },
                 },
             },

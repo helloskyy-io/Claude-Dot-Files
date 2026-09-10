@@ -24,6 +24,8 @@ from pathlib import Path
 
 from . import resource_telemetry
 from . import routing
+from ..journal import emit as journal_emit
+from ..journal.events import Destination, Provenance
 
 _WORKFLOWS = Path(__file__).resolve().parents[3]          # scripts/workflows
 _SHARED_PROMPTS = Path(__file__).resolve().parent / "prompts"
@@ -1252,6 +1254,82 @@ def _gh_timed_out_line(label: str, spent: int, attempts: int,
     return line
 
 
+#: The noun/verb pairs whose authored CONTENT this fleet emits. Every `gh`
+#: mutation is emitted; this table is only about which ones carry prose worth
+#: recording verbatim, and it exists so a new mutation verb defaults to being
+#: emitted rather than to being forgotten.
+_GH_AUTHORED_FLAGS = ("--body-file", "--body", "--comment", "--title")
+
+
+def _gh_write_path(args: list[str]) -> str:
+    """A stable name for one `gh` mutation, as `gh:<noun>:<verb>`.
+
+    THE SAME POSITIONAL READ `_gh_is_read_only` USES, and deliberately so: two
+    different parses of one argument list would let a call be classified a write
+    by one and named by the other, which is how a write path gets an emit under a
+    name nothing can join on. The imprecision is identical and runs the same
+    direction — an unparsed shape yields a vaguer name, never a missing emit.
+    """
+    verbs = [a for a in args if not a.startswith("-")]
+    noun = verbs[0] if verbs else "?"
+    verb = verbs[1] if len(verbs) >= 2 else "?"
+    return f"gh:{noun}:{verb}"
+
+
+def _gh_authored_content(args: list[str], repo_root: Path | None) -> str:
+    """The prose this invocation is about to publish, verbatim.
+
+    READ FROM `--body-file` RATHER THAN LEFT AS A PATH, because the phase's rule
+    is *the authored content, VERBATIM*, and a path is a pointer to bytes that
+    live outside the journal — the exact thing `payload_symlinks` exists to
+    report as uncovered. This fleet's own guidance tells every workflow to write
+    a comment to a temp file and pass `--body-file`, so a path-only record would
+    make the record empty for the majority of what a run authors.
+
+    ⚠ A `--body-file` THAT CANNOT BE READ YIELDS A NAMED PLACEHOLDER, NOT A
+    RAISE. This runs before the store write, so raising here would turn an
+    unreadable temp file into a stopped run — converting a recording problem into
+    a work-stopping one on the path whose whole job is to record. The placeholder
+    is distinguishable from an empty body, which is what a reader needs.
+
+    IT DOES NOT REACH A BODY ON STDIN. `gh` accepts `--body-file -`, and nothing
+    in this fleet uses it; a run that did would emit the placeholder rather than
+    the content, which is visible in the record rather than silent.
+    """
+    parts: list[str] = []
+    for index, token in enumerate(args):
+        if token not in _GH_AUTHORED_FLAGS or index + 1 >= len(args):
+            continue
+        value = args[index + 1]
+        if token != "--body-file":
+            parts.append(value)
+            continue
+        path = Path(value)
+        if not path.is_absolute() and repo_root is not None:
+            path = repo_root / path
+        try:
+            parts.append(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError) as exc:
+            parts.append(f"[BODY-FILE UNREADABLE: {value} — {type(exc).__name__}]")
+    return "\n".join(parts)
+
+
+class _GhWriteFailed(RuntimeError):
+    """A `gh` mutation exited non-zero, raised only so `paired_write` can see it.
+
+    `gh_attempt` RETURNS a failure rather than raising — two callers depend on
+    that and `test_gh_attempt_RETURNS_a_failure_rather_than_raising_it` pins it.
+    But `Emitter.paired_write` learns that a store write failed by catching an
+    exception, so the non-zero result is raised INSIDE the callable and the
+    result is carried on the exception for the caller to return unchanged. The
+    external contract is untouched; only the inside of one closure raises.
+    """
+
+    def __init__(self, result: subprocess.CompletedProcess) -> None:
+        super().__init__(f"gh exited {result.returncode}")
+        self.result = result
+
+
 def gh_attempt(args: list[str],
                repo_root: Path | None) -> subprocess.CompletedProcess:
     """`gh`, retried past transient server-side failures, returned UNJUDGED.
@@ -1287,6 +1365,69 @@ def gh_attempt(args: list[str],
     what failed, how it was classified, and how long the pause is; a run that
     eventually succeeded prints which attempt did it. Silent retries are how
     nobody ever learns whether the answer to "is it GitHub or us?" is on record.
+    """
+    emitter = journal_emit.current_emitter()
+    if emitter is not None and not _gh_is_read_only(args):
+        content = _gh_authored_content(args, repo_root)
+        # ⚠ THE ONE STORE WRITE PERMITTED WITH NO PRECEDING EMIT — the phase
+        # doc's requirement 4 case (d), stated as an exception because case (b)
+        # and requirement 1 otherwise cancel each other. This IS the durable
+        # report that the journal is unwritable, so requiring an intent to land
+        # first would make this component's own ordering rule suppress the only
+        # durable signal that the component is broken. It is the invariant's
+        # boundary condition, not a hole in it.
+        if journal_emit.unwritable_journal_in_text(content):
+            return _gh_attempt_unwrapped(args, repo_root)
+        try:
+            return emitter.paired_write(
+                write_path=_gh_write_path(args),
+                destination=Destination(store="github"),
+                content=content,
+                provenance=Provenance.FLEET_AUTHORED,
+                perform=lambda: _gh_raise_on_failure(
+                    _gh_attempt_unwrapped(args, repo_root)),
+                # THE STORE-ASSIGNED ADDRESS, which does not exist until the
+                # object does — the third thing one event per write cannot
+                # carry. `gh` prints the created object's URL on stdout for
+                # `pr create`, `issue create` and `pr comment`; a verb that
+                # prints nothing yields an empty address, which is honest
+                # rather than invented.
+                address_of=lambda r: r.stdout.strip().splitlines()[-1]
+                if r.stdout.strip() else "")
+        except journal_emit.StoreWriteFailed as recorded:
+            # ⚠ THE EXTERNAL CONTRACT IS UNCHANGED: this function RETURNS a
+            # failed `gh` rather than raising it, and two callers depend on that
+            # (`gh issue list` degrading to a note, and `ci_verdict` classifying
+            # by parsing a non-zero `gh pr checks`). The raise exists only so
+            # `paired_write` can see the store write fail and record a
+            # `store_write_failure` event — which it has now done — so the
+            # result is unwrapped and returned exactly as before.
+            cause = recorded.__cause__
+            if isinstance(cause, _GhWriteFailed):
+                return cause.result
+            raise
+    return _gh_attempt_unwrapped(args, repo_root)
+
+
+def _gh_raise_on_failure(
+        result: subprocess.CompletedProcess) -> subprocess.CompletedProcess:
+    """Turn a non-zero `gh` into the exception `paired_write` reads as a failure."""
+    if result.returncode != 0:
+        raise _GhWriteFailed(result)
+    return result
+
+
+def _gh_attempt_unwrapped(args: list[str],
+                          repo_root: Path | None) -> subprocess.CompletedProcess:
+    """`gh_attempt`'s retry loop, with no journal emit around it.
+
+    SPLIT OUT SO THE EMIT IS A WRAPPER RATHER THAN A BRANCH INSIDE THE LOOP. The
+    retry loop already has three exits and adding an emit to each is how one of
+    them ends up without it — which is precisely the write path with no emit that
+    requirement 1 exists to forbid. Wrapping means every exit is covered by
+    construction, and it means the intent is written once per CALL rather than
+    once per ATTEMPT: a transient 503 retried three times is one write of one
+    comment, and three intents for it would be three rows in a Phase 4 rebuild.
     """
     label = _one_line(" ".join(args))
     attempts = len(_GH_RETRY_BACKOFF_SECONDS) + 1

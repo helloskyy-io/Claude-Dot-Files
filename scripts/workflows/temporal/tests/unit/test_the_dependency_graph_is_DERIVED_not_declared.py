@@ -28,8 +28,7 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "modules"))
-from assistant.plan import plan_activities as pa  # noqa: E402
+from modules.assistant.plan import plan_activities as pa  # noqa: E402
 
 
 def _planning(tmp_path: Path) -> Path:

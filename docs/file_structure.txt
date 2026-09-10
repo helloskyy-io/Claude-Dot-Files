@@ -279,6 +279,24 @@ claude-dot-files/
 │           │                                        #   propose changing that set. The tag carries the population beside the hash so a
 │           │                                        #   reader can recompute it without this module; an unestablishable population is
 │           │                                        #   recorded as `unavailable reason=<slug>` and does NOT stop the run
+│           │                                        #   PHASE 3 ADDS THE EMIT RULE — every write to any store also emits to the journal — as four
+│           │                                        #   more files here, for the reason Phase 2's five are here: they write into a bag's payload.
+│           │                                        #   events.py is the event contract, SEPARATE from the typed exit record's and sharing one
+│           │                                        #   vocabulary with it (modules/vocabulary.py) — exit-protocol.md §2 forbids a field added for
+│           │                                        #   a consumer that does not exist and §2.5 bounds that record at 4096 bytes, and an event adds
+│           │                                        #   six such fields and carries content verbatim, so an extension is not available. Five event
+│           │                                        #   kinds, four admission fields (identity, edge_id, key_epoch, provenance), and two replay
+│           │                                        #   rules: dedupe on identity, and apply ONLY an intent that has a completion — which is what
+│           │                                        #   stops Phase 4 materialising content the store never got. edge_id.py persists the machine's
+│           │                                        #   name at the ROOT (per-machine, so not inside a bag) and refuses a digest-shaped id: a
+│           │                                        #   key-derived one orphans an edge's history on rotation AND is a confirmation oracle.
+│           │                                        #   capture_filter.py removes named credential shapes AT APPEND, before any byte reaches the
+│           │                                        #   root — not at seal, which would change written events. emit.py is the boundary: write-ahead
+│           │                                        #   ordering (intent, then the store write, then the completion carrying the store's address),
+│           │                                        #   the four write-failure cases, and case (d)'s two channels WITH their readers. It is
+│           │                                        #   registered by open_run_bag rather than threaded through forty signatures, and that trade is
+│           │                                        #   stated at register_emitter — an optional emit is a skipped emit. It reaches FLEET-CODE
+│           │                                        #   writes only; the model-issued half is Phase 10's post-exit harvest
 │           ├── scripts/                             # Kickoff entrypoints, until an SDK path replaces them — plus preflight.py,
 │           │                                        #   validate_bag.py, verify_citations.py, compare_run_config.py, dispatch_identity.py
 │           │                                        #   and dispatch_context.py,
@@ -856,15 +874,17 @@ claude-dot-files/
 │                   │                                #   and no store function at all, so an import-only check is blind to every one.
 │                   │                                #   Families 1 and 2 each hold a fleet idiom, which is what makes them likely rather
 │                   │                                #   than exotic: a journal submodule bound as a name (journal_activities as journal in
-│                   │                                #   every entrypoint, verify and validate in the two operator tools — eighteen call
+│                   │                                #   every entrypoint, verify and validate in the two operator tools, emit in
+│                   │                                #   assistant_activities — nineteen call
 │                   │                                #   sites, and content_store is not among them) and from .. import journal, the workflow
 │                   │                                #   tree's dominant relative import. The package matcher binds by import SEMANTICS,
 │                   │                                #   never by the identifier text `journal`: `alias.name` is matched and never the asname,
 │                   │                                #   BOUNDARY_PARENT rejects a `journal` imported from a sibling, and an asname binds
 │                   │                                #   exactly the module named, so import modules.assistant as ma reaches nothing. The
-│                   │                                #   eighteen call sites trip the first two at once, so neither can be observed through
+│                   │                                #   nineteen call sites trip the first two at once, so neither can be observed through
 │                   │                                #   them and neither costs a false positive — measured, deleting either flags nothing on
-│                   │                                #   a clean tree, because those call sites only reach open_run_bag. Both are therefore
+│                   │                                #   a clean tree, because those call sites reach only open_run_bag and the emit
+│                   │                                #   boundary. Both are therefore
 │                   │                                #   asserted directly on _package_bindings, by the shapes that isolate one check each,
 │                   │                                #   plus a synthetic module the tree does not contain: reading "no instance here" as "no
 │                   │                                #   control can express it" is what left family 3 unenumerated, twice. The name checks
@@ -875,8 +895,8 @@ claude-dot-files/
 │                   │                                #   nothing passes every assertion, which is today's fleet. Its vacuity control
 │                   │                                #   asserts a floor PER swept directory after a mutation showed a single total floor
 │                   │                                #   of fifty stayed green with all 22 modules under scripts/ dropped from the
-│                   │                                #   population, modules/ alone holding 60 of the 82. EVERY FIGURE IN ITS OWN PROSE IS
-│                   │                                #   DERIVED and asserted — the ten shapes, the eighteen call sites, 60/22/82 — and each
+│                   │                                #   population, modules/ alone holding 61 of the 83. EVERY FIGURE IN ITS OWN PROSE IS
+│                   │                                #   DERIVED and asserted — the ten shapes, the nineteen call sites, 61/22/83 — and each
 │                   │                                #   enumerated shape must have a fixture that writes it, so a shape added to the prose
 │                   │                                #   without a control goes red rather than reading as covered
 │                   ├── test_content_store.py        # PMP Phase 2 r7(b)/r7(d) — the on-disk path is a function of the COMPUTED DIGEST and

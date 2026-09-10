@@ -8,6 +8,14 @@ The distinction is the whole requirement — a silent fallback to a home directo
 is how the second edge (which may have no user account at all) would discover
 its journal in the wrong place months later, with the records already written.
 
+⚠ THE ROOT HOLDS ONE FILE THAT IS NOT A BAG, AND EVERY ENUMERATOR MUST SAY SO.
+Phase 3 r6 persists the machine's `edge_id` here (`edge_id.EDGE_ID_FILE`) — it is
+per-MACHINE state, so a file inside a bag would make it per-run, and an id that
+changed per run is not an id. **A consumer listing bags therefore filters to
+DIRECTORIES**; `validate.main` and `verify.main` already do. An enumerator that
+does not would hand a plain file to `validate_bag` and report the journal broken
+because the machine has a name.
+
 RESOLUTION FAILS THE RUN (Phase 1 r9). This is deliberately the earliest and
 cheapest of the three write-failure cases the component rules on: the root is
 resolved once, before a worktree is cut or a token is spent, so a missing path, a

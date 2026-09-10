@@ -42,7 +42,7 @@ from pathlib import Path
 from . import bag as bagmod
 from .bag import (BAGIT_FILE, BAG_INFO_FILE, MANIFEST_FILE, PAYLOAD_DIR,
                   BagError, contained_relpath, payload_files, payload_symlinks,
-                  sha256_of, read_tag_file)
+                  sha256_of, read_tag_file, unrecognised_journal_labels)
 
 __all__ = ["BagReport", "validate_bag", "render_report", "main"]
 
@@ -63,6 +63,14 @@ class BagReport:
     payload_bytes: int = 0
     redactions: tuple[str, ...] = ()
     gaps: tuple[str, ...] = ()
+    #: `Journal-` labels this fleet has no code for — Phase 3 r13(b). REPORTED
+    #: AND NOT REFUSED, and deliberately absent from `ok` below: RFC 8493 permits
+    #: arbitrary `bag-info.txt` labels, so a bag written by a newer fleet is a
+    #: VALID bag and failing it would make the namespace's stated extensibility
+    #: false the first time anyone used it. Silently dropping it is the other
+    #: wrong answer — that is how a contributed field stops existing without
+    #: anyone learning. So: it validates, and it is named.
+    unrecognised_tags: tuple[str, ...] = ()
 
     @property
     def ok(self) -> bool:
@@ -300,7 +308,8 @@ def validate_bag(bag_path: Path) -> BagReport:
         structural=tuple(structural), missing=tuple(missing),
         mismatched=tuple(mismatched), unlisted=tuple(unlisted),
         payload_files=len(on_disk), payload_bytes=payload_bytes,
-        redactions=state.redactions, gaps=state.gaps)
+        redactions=state.redactions, gaps=state.gaps,
+        unrecognised_tags=unrecognised_journal_labels(entries))
 
 
 def render_report(report: BagReport) -> str:
@@ -323,7 +332,12 @@ def render_report(report: BagReport) -> str:
                          ("mismatched", report.mismatched),
                          ("unlisted", report.unlisted),
                          ("redactions", report.redactions),
-                         ("gaps", report.gaps)):
+                         ("gaps", report.gaps),
+                         # NAMED SEPARATELY FROM `structural`, because it is not
+                         # a defect: it is this fleet reporting the limit of its
+                         # own vocabulary. Rendering it under `structural` would
+                         # make a valid bag from a newer fleet read as broken.
+                         ("unrecognised tag", report.unrecognised_tags)):
         for item in items:
             lines.append(f"  {label}: {item}")
     return "\n".join(lines)

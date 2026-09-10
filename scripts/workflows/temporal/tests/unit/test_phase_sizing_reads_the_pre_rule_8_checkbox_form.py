@@ -36,10 +36,9 @@ import re
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "modules"))
 
 from planning_corpus import PLANNING_ROOT  # noqa: E402
-from assistant.plan import plan_activities as A  # noqa: E402
+from modules.assistant.plan import plan_activities as A  # noqa: E402
 
 import sys as _cg_sys  # noqa: E402
 from pathlib import Path as _cg_Path  # noqa: E402

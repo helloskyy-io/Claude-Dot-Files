@@ -17,10 +17,9 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "modules"))
 
-from assistant import routing
-from assistant.merge import merge_pr  # noqa: E402
+from modules.assistant import routing
+from modules.assistant.merge import merge_pr  # noqa: E402
 
 REPO = Path("/nonexistent-by-design")
 

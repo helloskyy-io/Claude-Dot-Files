@@ -15,6 +15,28 @@ rather than where it lands and how it is read, it is in the wrong phase.
                              installer's own symlink set (Workflow
                              Decomposition Phase 5)
 
+PHASE 3 ADDS THE EMIT RULE — *whenever a run writes anything to any store, it
+also writes a copy into the journal* — and it is four more files under this same
+package, for the reason Phase 2's five are here: they write into a bag's payload,
+so they are the journal's own I/O rather than a capability sitting beside it.
+
+  `events.py`              — the event contract: five kinds, four admission
+                             fields, and the replay rules (dedupe on identity,
+                             apply only an intent that has a completion)
+  `edge_id.py`             — the machine's stable name, persisted, and
+                             independent of every credential (r6)
+  `capture_filter.py`      — named credential shapes kept out at APPEND time,
+                             before any byte reaches the root (r10)
+  `emit.py`                — the emit boundary: write-ahead ordering, the four
+                             write-failure cases, and case (d)'s two channels
+                             WITH their readers (r4, r11, r12)
+
+THE EVENT CONTRACT IS SEPARATE FROM THE TYPED EXIT RECORD'S AND SHARES ONE
+VOCABULARY WITH IT (r3). `modules/vocabulary.py` is that vocabulary — a leaf at
+`modules/` belonging to neither package, because this package may not import
+`modules.assistant` and `exit_record.py` is dependency-free by design. The full
+argument is in `vocabulary.py`'s own docstring.
+
 PHASE 2 ADDS THE CONTENT STORE, and it is five more files under this same package
 rather than a new child of `modules/`. That placement is a deliberate answer to a
 question the roadmap flagged as this phase's trigger: whether `modules/<capability>/`
@@ -91,9 +113,20 @@ from .citations import (CAPTURE_HARVEST, CAPTURE_READ_TIME, Citation,
 # `AttributeError` on a function object, which is how every other submodule in
 # this package can be reached. Callers take it by its full path:
 # `from modules.journal.config_digest import config_digest`.
+from .capture_filter import (RULES, FilterResult, Rule, filter_capture,
+                             placeholder_for)
 from .config_digest import (LABEL_CONFIG_DIGEST, ConfigDigest,
                             ConfigDigestError, installer_targets,
                             parse_tag_value, unavailable_tag_value)
+from .edge_id import (EDGE_ID_FILE, NO_CREDENTIAL_EPOCH, EdgeIdError,
+                      adopt_edge_id, read_edge_id, resolve_edge_id)
+from .emit import (UNWRITABLE_JOURNAL_MARKER, EmitFailed, Emitter,
+                   JournalUnwritable, StoreWriteFailed, gap_class_for,
+                   unwritable_journal_in_text, unwritable_journal_report)
+from .events import (EVENTS_FILE, Destination, EventError, EventKind, GapClass,
+                     JournalEvent, Lineage, Provenance, applied_intents,
+                     decode_event, dedupe_on_identity, encode_event,
+                     event_identity, gap_event, redaction_placeholder_event)
 from .content_activities import (capture_code_citation, capture_fetched_source,
                                  capture_source, resolve_citation)
 from .content_store import (ContentStoreError, digest_of_bytes, load_object,
@@ -106,16 +139,26 @@ from .validate import BagReport, render_report, validate_bag
 from .verify import CitationResult, VerifyReport, verify_bag, verify_citation
 
 __all__ = [
-    "CAPTURE_HARVEST", "CAPTURE_READ_TIME", "JOURNAL_SCHEMA_VERSION",
-    "LABEL_CONFIG_DIGEST", "Bag", "BagError", "BagReport", "Citation",
-    "CitationError", "CitationResult", "ConfigDigest", "ConfigDigestError",
-    "ContentStoreError", "FetchPolicy", "FetchRefused", "JournalRootError",
-    "VerifyReport", "capture_code_citation", "capture_fetched_source",
-    "capture_source", "digest_of_bytes", "evidence_set_hash", "fetch_source",
-    "installer_targets", "load_journal_config", "load_object", "mint_run_id",
-    "new_citation", "object_relpath", "open_bag", "open_run_bag",
-    "parse_tag_value", "read_citations", "read_tag_file", "record_citation",
-    "render_report", "resolve_citation", "resolve_journal_root",
-    "stage_evidence_hashes", "store_bytes", "unavailable_tag_value", "utc_now",
-    "validate_bag", "verify_bag", "verify_citation",
+    "CAPTURE_HARVEST", "CAPTURE_READ_TIME", "EDGE_ID_FILE", "EVENTS_FILE",
+    "JOURNAL_SCHEMA_VERSION", "LABEL_CONFIG_DIGEST", "NO_CREDENTIAL_EPOCH",
+    "RULES", "UNWRITABLE_JOURNAL_MARKER", "Bag", "BagError", "BagReport",
+    "Citation", "CitationError", "CitationResult", "ConfigDigest",
+    "ConfigDigestError", "ContentStoreError", "Destination", "EdgeIdError",
+    "EmitFailed", "Emitter", "EventError", "EventKind", "FetchPolicy",
+    "FetchRefused", "FilterResult", "GapClass", "JournalEvent",
+    "JournalRootError", "JournalUnwritable", "Lineage", "Provenance", "Rule",
+    "StoreWriteFailed", "VerifyReport", "adopt_edge_id", "applied_intents",
+    "capture_code_citation", "capture_fetched_source", "capture_source",
+    "decode_event", "dedupe_on_identity", "digest_of_bytes", "encode_event",
+    "event_identity", "evidence_set_hash", "fetch_source", "filter_capture",
+    "placeholder_for",
+    "gap_class_for", "gap_event", "installer_targets", "load_journal_config",
+    "load_object", "mint_run_id", "new_citation", "object_relpath", "open_bag",
+    "open_run_bag", "parse_tag_value", "read_citations", "read_edge_id",
+    "read_tag_file", "record_citation", "redaction_placeholder_event",
+    "render_report", "resolve_citation", "resolve_edge_id",
+    "resolve_journal_root", "stage_evidence_hashes", "store_bytes",
+    "unavailable_tag_value", "unwritable_journal_in_text",
+    "unwritable_journal_report", "utc_now", "validate_bag", "verify_bag",
+    "verify_citation",
 ]
