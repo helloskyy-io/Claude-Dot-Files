@@ -34,7 +34,6 @@ import re
 import textwrap
 from pathlib import Path
 
-_MODULES = Path(__file__).resolve().parents[2] / "modules"
 
 import pytest
 import yaml
@@ -408,10 +407,6 @@ def test_the_pool_pointer_runs_BOTH_directions_and_neither_arm_is_silent() -> No
     shopping in its own pool and a product run into a write boundary it does not
     own, and both arms would still "pass" a mere non-empty check.
     """
-    import sys
-    sys.path.insert(0, str(_MODULES))
-    from assistant.research import research_activities as act
-
     # THE CORPUS LIVES IN THE PLANNING REPO SINCE THE 2026-08-31 CONSOLIDATION.
     #
     # THIS SAID "derived rather than hardcoded" AND IT WAS HARDCODED — a fixed

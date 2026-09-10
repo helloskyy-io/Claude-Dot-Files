@@ -60,11 +60,17 @@ as broader than it is does more harm than a narrow one:
     is that a new spelling escapes rather than that a good one is blocked.
 
 THE POPULATION FIGURE IS DERIVED, NOT ASSERTED. `test_the_census_matches_the_
-tree` fails when the number of launch bindings changes, so the sentence "eight
+tree` fails when the number of launch bindings changes, so the sentence "seven
 launch bindings live in the tree" cannot go stale the way the docstring this
 guard replaces did. It went from seven to eight when the content store's
 `verify.git_blob` landed, which is the census doing its job: the author of that
-function was told, by this assertion, that they had joined this population. That is the discipline this file exists to demonstrate: a
+function was told, by this assertion, that they had joined this population. It
+went BACK to seven under PMP Phase 3, and the direction matters — a member left
+the population by being routed through a choke point rather than by being
+deleted. `intake._gh` bound `run_bounded` directly and now calls
+`assistant_activities.gh_attempt`, which is where the fleet's `gh` mutations
+acquire both their retry discipline and their journal emit; the reply is still
+checked, one layer up. That is the discipline this file exists to demonstrate: a
 coverage claim is either an assertion that goes red, or it is a hedge.
 """
 
@@ -298,8 +304,8 @@ def test_the_census_matches_the_tree() -> None:
     next person to add one is told, here, that they are now in this population.
     """
     _, total = _scan_tree()
-    assert total == 8, (
-        f"the walk found {total} launch-reply binding(s), not the 8 recorded when "
+    assert total == 7, (
+        f"the walk found {total} launch-reply binding(s), not the 7 recorded when "
         f"this was written. That is not a failure — it is the census telling you "
         f"the population moved. Confirm the new site reads its outcome, then "
         f"update this number and the docstring's count together."

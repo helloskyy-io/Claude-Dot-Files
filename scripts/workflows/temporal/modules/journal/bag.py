@@ -46,13 +46,15 @@ from its bag entirely.
 
 from __future__ import annotations
 
+import contextlib
+import fcntl
 import hashlib
 import os
 import posixpath
 import re
 import shutil
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -71,7 +73,9 @@ __all__ = ["JOURNAL_SCHEMA_VERSION", "BAGIT_VERSION", "TAG_FILE_ENCODING",
            "RUN_ID_MAX_LENGTH", "validated_run_id", "folds_a_tag_line",
            "LABEL_SCHEMA_VERSION", "LABEL_REDACTION", "LABEL_INCOMPLETE",
            "LABEL_GAP", "LABEL_SEALED_AT", "BagState", "bag_state",
-           "lifecycle_of"]
+           "lifecycle_of", "JOURNAL_LABEL_PREFIX", "RESERVED_JOURNAL_LABELS",
+           "DESCRIPTIVE_JOURNAL_LABELS", "known_journal_label",
+           "unrecognised_journal_labels"]
 
 # THE EVENT SCHEMA VERSION. Bumping it is a deliberate act with a written rule
 # beside it (see the module docstring and the phase doc's § Schema versioning):
@@ -111,6 +115,108 @@ LABEL_REDACTION = "Journal-Redaction"              # zero or more; presence => r
 LABEL_INCOMPLETE = "Journal-Incomplete"            # zero or one; "true" => incomplete
 LABEL_GAP = "Journal-Gap"                          # zero or more; what was lost
 LABEL_SEALED_AT = "Journal-Sealed-At"              # exactly one, once sealed
+
+# ---------------------------------------------------------------------------
+# THE `Journal-` TAG NAMESPACE — Phase 3 requirement 13, four questions.
+#
+# (a) WHO MAY ADD ONE, answered separately for the namespace's TWO TRUST
+#     CLASSES, because a flat rule over the prefix either blocks a legitimate
+#     descriptive tag or opens the integrity space.
+#
+#       * LIFECYCLE labels are FACTS ABOUT WHAT HAPPENED to a run — Phase 4,
+#         Phase 6 and Phase 7 branch on them — and they are written by this
+#         module alone, from `seal`, `redact` and `mark_incomplete`. They are
+#         not something a run's opener declares, so `RESERVED_JOURNAL_LABELS`
+#         refuses them on the contribution path below.
+#       * DESCRIPTIVE labels say WHAT THE RUN WAS — its workflow key, its origin
+#         repo, that repo's remote and commit, its worktree, the configuration
+#         digest it absorbed. Any component may contribute one.
+#
+# (b) WHAT A READER DOES WITH ONE IT DOES NOT RECOGNISE: it VALIDATES and is
+#     REPORTED. Not refused (RFC 8493 permits arbitrary `bag-info.txt` labels
+#     and a bag carrying a newer fleet's tag is a valid bag), and not silently
+#     dropped (which is how a contributed field stops existing without anyone
+#     learning). `unrecognised_journal_labels` is that reader half, and
+#     `validate_bag` surfaces it — as a REPORT and never as a finding, because
+#     `BagReport.ok` is a verdict about the BYTES.
+#
+# (c) WHETHER BAG METADATA CARRIES A VERSION OF ITS OWN, distinct from the
+#     per-event one, IS DELIBERATELY NOT RULED HERE and this comment is the
+#     ruling that it stays open. The fleet declares ONE version field today and
+#     Phase 1 describes it two ways — "the event schema version" and "the
+#     bag-level version". A tag addition changes bag metadata and changes no
+#     event, so *"bump it"* and *"do not"* are both wrong answers to a question
+#     with an ambiguous subject. Nobody has verified that a bump is needed, and
+#     settling it here would manufacture a decision no run has made.
+#
+# (d) BY WHAT MECHANISM AN OUTSIDE COMPONENT CONTRIBUTES ONE: `Bag.add_tag`,
+#     and nothing else. THE RULE NAMES THE WRITER, NOT JUST THE OWNER, because
+#     the controls that actually hold this namespace are code and not prose —
+#     the reserved-label refusal and `_refuse_folded_value` run on the bag-open
+#     path and nowhere else. A component that composes a `bag-info.txt` line
+#     itself, or reaches `_append_tag_line` directly, bypasses every one of
+#     them, which is how the value-forging class comes back through a second
+#     author. This module's own history is the argument: the rule stayed prose
+#     and leaked twice more, and its conclusion was that a rule has to become a
+#     function and a sweep rather than a sentence.
+#
+# TRIGGER: Workflow Decomposition Phase 5 r1 — a sixth `Journal-` tag beside the
+# five that exist, and the first field this bag has ever taken from outside.
+# Until now the namespace was closed BY CONSTRUCTION: every label is a literal
+# inside this package and callers supply values, never labels.
+# ---------------------------------------------------------------------------
+JOURNAL_LABEL_PREFIX = "Journal-"
+
+#: The lifecycle class. Written by this module alone; refused from outside.
+#: `LABEL_SCHEMA_VERSION` is in the set despite not carrying the prefix, because
+#: it is the same KIND of thing — a fact about the record rather than about the
+#: run — and a reserved set that a reader has to remember one exception to is a
+#: reserved set with a hole in it.
+RESERVED_JOURNAL_LABELS = frozenset({
+    LABEL_SCHEMA_VERSION, LABEL_REDACTION, LABEL_INCOMPLETE, LABEL_GAP,
+    LABEL_SEALED_AT,
+})
+
+#: The descriptive class this fleet writes today. NOT a permitted-set — a label
+#: outside it is contributable and is merely UNRECOGNISED to a reader, per (b).
+#: It exists so `unrecognised_journal_labels` has something to be the complement
+#: of, and so the five WD-Phase-5 already depends on are enumerated somewhere a
+#: contributor can find them.
+DESCRIPTIVE_JOURNAL_LABELS = frozenset({
+    "Journal-Workflow", "Journal-Origin-Repo", "Journal-Origin-Remote",
+    "Journal-Origin-Commit", "Journal-Worktree", "Journal-Config-Digest",
+})
+
+
+def known_journal_label(label: str) -> bool:
+    """Whether this fleet's code knows what a given `Journal-` label means."""
+    return label in RESERVED_JOURNAL_LABELS or label in DESCRIPTIVE_JOURNAL_LABELS
+
+
+def unrecognised_journal_labels(
+        entries: Sequence[tuple[str, str]]) -> tuple[str, ...]:
+    """The reader half of (b), as a function rather than as a rule in prose.
+
+    Every `Journal-`-prefixed label in `entries` that this fleet has no code for,
+    de-duplicated and in file order. A caller does something INFORMATIVE with the
+    result — `validate_bag` prints it — and never refuses on it: a bag written by
+    a newer fleet is a valid bag, and refusing it would make the namespace's
+    stated extensibility false the first time anyone used it.
+
+    IT IGNORES NON-`Journal-` LABELS ENTIRELY, including RFC 8493's own reserved
+    elements. Those are the standard's namespace and this fleet does not police
+    them; `Payload-Oxum` appearing here would be a report that the RFC exists.
+    """
+    seen: set[str] = set()
+    out: list[str] = []
+    for label, _ in entries:
+        if not label.startswith(JOURNAL_LABEL_PREFIX):
+            continue
+        if known_journal_label(label) or label in seen:
+            continue
+        seen.add(label)
+        out.append(label)
+    return tuple(out)
 
 # `\A…\Z` AND NOT `^…$`: `$` also matches immediately BEFORE a trailing
 # newline, so an anchored-looking validator silently accepts one. Both
@@ -455,6 +561,85 @@ def _refuse_folded_value(label: str, value: str) -> None:
             f"EIGHT more characters that method breaks on went through it.")
 
 
+@contextlib.contextmanager
+def _tag_file_lock(path: Path) -> Iterator[None]:
+    """Serialise every writer of one tag file, across processes.
+
+    ⚠ THIS CLOSES A RACE PHASE 1 COULD NOT REACH AND PHASE 3 CREATES. Phase 1
+    gives each writer its own payload subfolder so no two writers share a file —
+    but **every writer shares `bag-info.txt`**, and `_set_tag_line` is a
+    read-modify-write that truncates. Nothing called `seal()` outside tests, so
+    the race was unreachable until emitters existed; the day they do, a gap
+    record appended while the parent seals is **lost along with the `incomplete`
+    flag**, and the bag then validates clean. That is precisely the *"a bag that
+    lost data reads as complete"* outcome Phase 1's four-state design exists to
+    prevent, arriving through the one file its per-writer isolation does not
+    cover.
+
+    THE LOCK IS TAKEN ON THE CONTAINING DIRECTORY, NOT ON THE FILE. `flock`
+    attaches to an INODE, and the atomic rewrite below replaces the file with a
+    new one — so a lock held on `bag-info.txt` would be a lock on an inode the
+    next writer no longer opens, which is a lock that reads as working and
+    protects nothing. The directory's inode is stable for the life of the bag.
+    It also means one lock covers `bag-info.txt` and `manifest-sha256.txt`
+    together, which is what a reseal actually needs: `seal` writes both, and a
+    reader between them would see a manifest that does not match the Oxum.
+
+    NOT REENTRANT. Nothing nests today — `redact` and `mark_incomplete` compose
+    and validate their line, then call the writers in sequence — and a reentrant
+    wrapper for a nesting nobody performs is machinery guarding a hypothetical.
+    A future caller that nests will deadlock loudly at its first run rather than
+    corrupting a record, which is the failure this package prefers.
+
+    ⚠ IT IS AN ADVISORY LOCK, so it binds only writers that take it. That is the
+    same reason `Bag.add_tag` exists: a component composing a `bag-info.txt`
+    line itself bypasses this exactly as it bypasses the reserved-label refusal.
+    """
+    fd = os.open(str(path.parent), os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(fd)
+
+
+def _replace_tag_file(path: Path, lines: list[str]) -> None:
+    """`_write_tag_file`'s atomic twin: a reader never sees a half-written file.
+
+    WRITE-TEMP-PLUS-`os.replace`, in the same directory so the rename stays
+    within one filesystem and is therefore a single atomic syscall. The
+    truncate-then-write `_write_tag_file` performs has a window in which
+    `bag-info.txt` is EMPTY — and a concurrent `Bag.incomplete` reading that
+    window gets `false` for a bag that is flagged, which is this component's
+    worst output. The lock above serialises WRITERS; this is what protects a
+    READER, which takes no lock at all.
+
+    `_write_tag_file` IS KEPT FOR THE REDACTION MARKER AND FOR BAG CREATION —
+    a payload file each redaction writes once, and the two tag files a staging
+    directory gets before anything can reach it. Neither is read concurrently by
+    a flag check, and neither is a shared file two writers reach.
+    **The manifest is NOT one of them**: `seal` routes it through this function,
+    under the lock, because `validate_bag` reads it while a reseal may be
+    rewriting it. An earlier version of this paragraph claimed both the manifest
+    and the marker were "written once by a caller already holding the lock", and
+    that was false of both callers — `seal` held no lock at all.
+    """
+    fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=".tag-", suffix=".tmp")
+    try:
+        body = "".join(ln if ln.endswith("\n") else ln + "\n" for ln in lines)
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(body)
+        os.chmod(tmp, FILE_MODE)
+        os.replace(tmp, str(path))
+    except BaseException:
+        # NAMED RATHER THAN SWALLOWED: the temp file is this function's own
+        # litter, and leaving it behind would put an unlisted file in the bag
+        # root that no reader has a rule for. The original exception propagates.
+        with contextlib.suppress(OSError):
+            os.unlink(tmp)
+        raise
+
+
 def _write_tag_file(path: Path, lines: list[str]) -> None:
     """Write a tag file at `FILE_MODE`, with the mode set at creation.
 
@@ -492,10 +677,17 @@ def _append_tag_line(path: Path, label: str, value: str) -> None:
     # `record_citation` was caught creating a file with neither rule, and fixed
     # here rather than reported, because a sweep that names a second member and
     # leaves it is not a sweep.
-    fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW,
-                 FILE_MODE)
-    with os.fdopen(fd, "a", encoding="utf-8") as handle:
-        handle.write(f"{label}: {value}\n")
+    # UNDER THE DIRECTORY LOCK because `_set_tag_line` truncates. `O_APPEND` is
+    # atomic against another `O_APPEND`, which is why this line was safe on its
+    # own; it is NOT atomic against a read-modify-write, and a gap record
+    # appended into the window where `seal` has read the file and not yet
+    # written it back is a record that never existed.
+    with _tag_file_lock(path):
+        fd = os.open(str(path),
+                     os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW,
+                     FILE_MODE)
+        with os.fdopen(fd, "a", encoding="utf-8") as handle:
+            handle.write(f"{label}: {value}\n")
 
 
 def _set_tag_line(path: Path, label: str, value: str) -> None:
@@ -520,6 +712,28 @@ def _set_tag_line(path: Path, label: str, value: str) -> None:
     reach for it with a free-text label whose value could.
     """
     _refuse_folded_value(label, value)
+    # THE READ AND THE WRITE ARE ONE CRITICAL SECTION. Split, this is the
+    # read-modify-write that drops any line appended between them — which for
+    # this file means a gap record and the `Journal-Incomplete` flag beside it.
+    with _tag_file_lock(path):
+        _set_tag_line_locked(path, label, value)
+
+
+def _set_tag_line_locked(path: Path, label: str, value: str) -> None:
+    """`_set_tag_line`'s body, for a caller that ALREADY HOLDS the lock.
+
+    THE LOCK IS NOT REENTRANT — it is a `flock` on the containing directory, and
+    taking it twice on one thread deadlocks. `seal` writes four files that have
+    to move together, so it holds the lock once and calls this; every other
+    caller takes the wrapper. Split rather than made reentrant for the reason
+    `_tag_file_lock` states: a reentrant wrapper for a nesting nobody performs is
+    machinery guarding a hypothetical, and the one caller that does nest is right
+    here where a reader can see it.
+
+    `_refuse_folded_value` STILL RUNS IN THE WRAPPER and is not repeated here:
+    the composed line is validated before the lock is taken, so a refusal never
+    happens while a bag's tag file is held.
+    """
     lines = path.read_text(encoding="utf-8").splitlines()
     replacement = f"{label}: {value}"
     kept: list[str] = []
@@ -535,7 +749,7 @@ def _set_tag_line(path: Path, label: str, value: str) -> None:
         kept.append(line)
     if not written:
         kept.append(replacement)
-    _write_tag_file(path, kept)
+    _replace_tag_file(path, kept)
 
 
 def read_tag_file(path: Path) -> list[tuple[str, str]]:
@@ -772,6 +986,100 @@ class Bag:
             f"{self.payload_dir}: 9999 names are taken. That is not a collision, "
             f"it is a loop writing one directory per iteration.")
 
+    def add_tag(self, label: str, value: str) -> None:
+        """THE ONE MECHANISM by which anything contributes a `bag-info.txt` tag.
+
+        REQUIREMENT 13(d), AND IT NAMES THE WRITER RATHER THAN ONLY THE OWNER.
+        The controls that hold the `Journal-` namespace are code, not prose: the
+        reserved-label refusal here and `_refuse_folded_value`'s forged-label and
+        folded-value refusals. A component that composes a tag line itself, or
+        reaches `_append_tag_line` directly, bypasses all three — which is how
+        the value-forging class comes back through a second author. This
+        package's own history is the argument for a function rather than a
+        sentence; see § *And the rule stayed prose, so it leaked twice more*.
+
+        THE LIFECYCLE LABELS ARE REFUSED, THE DESCRIPTIVE ONES ARE NOT. A
+        lifecycle label is a FACT about what happened to this run — Phase 4,
+        Phase 6 and Phase 7 branch on it — and is written by this module from
+        `seal`, `redact` and `mark_incomplete`. Letting an outside contributor
+        assert one would let it declare a run complete, or declare a gap that
+        never happened, which is the integrity space requirement 13(a) draws the
+        line around.
+
+        APPENDS RATHER THAN SETS, so a repeatable descriptive label stays
+        repeatable. `_set_tag_line` is for the three RFC-reserved elements that
+        describe the bag AS IT STANDS and must be replaced on a reseal; a
+        contributed tag is a statement made once.
+
+        ⚠ IT DOES NOT REFUSE A SEALED BAG. A tag is not payload: it is outside
+        the manifest by design (see the module docstring on why there is no
+        `tagmanifest-sha256.txt`), so adding one after a seal invalidates
+        nothing. Refusing here would make a redaction tombstone — which is
+        exactly a post-seal tag write — a special case in a rule that has none.
+        """
+        if label in RESERVED_JOURNAL_LABELS:
+            raise BagError(
+                f"{label!r} is a reserved lifecycle label and is written by the "
+                f"journal package alone (Phase 3 r13a). It is a fact about what "
+                f"happened to this run — Phase 4, Phase 6 and Phase 7 branch on "
+                f"it — not something a contributor declares. Reserved: "
+                f"{sorted(RESERVED_JOURNAL_LABELS)}.\n"
+                f"  a gap is recorded by `mark_incomplete`, a redaction by "
+                f"`redact`, and the sealed-at stamp by `seal`.")
+        _append_tag_line(self.info_path, label, value)
+
+    def write_payload(self, relpath: str, data: str | bytes) -> Path:
+        """Write one payload file through the bag, at `FILE_MODE`.
+
+        THIS PHASE IS WHAT MAKES `config.yaml`'s *"payload files are 0600"* TRUE
+        OR A LIE. Phase 1 applied `FILE_MODE` only to the tag files it wrote
+        itself, because nothing wrote payload yet — so an emitter reaching for
+        `Path.write_text` would land `0644` transcripts under a `0700` root. That
+        is harmless exactly until Phase 7 tars a bag and lands them somewhere the
+        root's mode is not protecting them, at which point the fix is a
+        bucket-wide operation rather than a mode argument.
+
+        THE MODE IS SET AT CREATION, not by a following `chmod`, for the reason
+        `_write_tag_file` and the root's directory mode both give: an `open()`
+        then `chmod` leaves a window in which a world-readable file holding
+        transcript bytes exists on a multi-user host.
+
+        CONTAINMENT AND SYMLINK REFUSAL ARE THE CALLER-SUPPLIED-PATH RULES THIS
+        MODULE ALREADY OWNS, reused rather than re-derived —
+        `_contained_payload_target` is the same function `redact` proves its own
+        path with, and it carries both halves the validator must not have.
+
+        `O_EXCL`: A PAYLOAD FILE IS WRITTEN ONCE. The journal is append-only, so
+        overwriting one is the immutability rule being broken from inside the
+        writer that is supposed to enforce it. An emitter appending to a growing
+        file opens it itself with `O_APPEND` — see `emit.py` — which is a
+        different operation with a different guarantee, and conflating the two
+        behind one method is how the append path would silently acquire a
+        truncate.
+        """
+        if Path(relpath).parts[:1] != (PAYLOAD_DIR,):
+            raise BagError(
+                f"cannot write {relpath}: payload goes under {PAYLOAD_DIR}/. A "
+                f"path outside it is either a tag file — which the bag writes "
+                f"itself — or an escape.")
+        target = self._contained_payload_target(relpath)
+        target.parent.mkdir(mode=DIR_MODE, parents=True, exist_ok=True)
+        body = data.encode("utf-8") if isinstance(data, str) else data
+        try:
+            fd = os.open(str(target),
+                         os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                         FILE_MODE)
+        except FileExistsError as exc:
+            raise BagError(
+                f"cannot write {relpath}: it already exists in {self.path}. A "
+                f"payload file is written once — overwriting one is the "
+                f"immutability rule being broken from inside the writer that "
+                f"enforces it. A redaction is the one sanctioned replacement.",
+            ) from exc
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(body)
+        return target
+
     def seal(self) -> Path:
         """Write `manifest-sha256.txt` over the payload. The bag becomes `sealed`.
 
@@ -793,13 +1101,30 @@ class Bag:
         """
         files = payload_files(self.path)
         lines = [f"{sha256_of(self.path / rel)}  {rel.as_posix()}" for rel in files]
-        _write_tag_file(self.manifest_path, lines)
-
         octets = sum((self.path / rel).stat().st_size for rel in files)
         sealed_at = utc_now()
-        _set_tag_line(self.info_path, "Payload-Oxum", f"{octets}.{len(files)}")
-        _set_tag_line(self.info_path, "Bagging-Date", sealed_at[:10])
-        _set_tag_line(self.info_path, LABEL_SEALED_AT, sealed_at)
+
+        # ⚠ ONE LOCK OVER ALL FOUR WRITES, AND IT USED NOT TO BE. The manifest
+        # was written OUTSIDE the lock, through the truncating `_write_tag_file`,
+        # while the three tag lines each took and released the lock separately —
+        # so `_tag_file_lock`'s own claim that "one lock covers `bag-info.txt`
+        # and `manifest-sha256.txt` together, which is what a reseal actually
+        # needs" was false about the function it was written for. Two concurrent
+        # reseals — and `mark_incomplete` reseals, which Phase 3 makes reachable
+        # from every emitter on a disk-full — could interleave two truncating
+        # writes of one manifest, and a reader between the manifest and the Oxum
+        # saw a manifest that did not match it.
+        #
+        # THE MANIFEST GOES THROUGH `_replace_tag_file` FOR THE READER's SAKE:
+        # the lock serialises writers, and `validate_bag` takes no lock at all,
+        # so only the atomic rename keeps it from reading a half-written
+        # manifest and reporting a bag that lost data.
+        with _tag_file_lock(self.info_path):
+            _replace_tag_file(self.manifest_path, lines)
+            _set_tag_line_locked(self.info_path, "Payload-Oxum",
+                                 f"{octets}.{len(files)}")
+            _set_tag_line_locked(self.info_path, "Bagging-Date", sealed_at[:10])
+            _set_tag_line_locked(self.info_path, LABEL_SEALED_AT, sealed_at)
         return self.manifest_path
 
     def _contained_payload_target(self, payload_relpath: str) -> Path:

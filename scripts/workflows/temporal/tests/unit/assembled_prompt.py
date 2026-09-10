@@ -46,8 +46,10 @@ WHAT THIS DOES NOT DO, so it is not over-read:
     oldest assertion. It went unnoticed because the parity check expands both
     sides and the error cancelled; the next assertion written over it would not
     have been so lucky. `local` mirrors what the workflow's values dict does,
-    and `test_a_CHILD_S_OWN_FILE_WINS_over_a_pool_fragment_of_the_same_stem`
-    holds it.
+    `local` is what holds it — the test that named this property was DELETED
+    with the collision it demonstrated (see `test_assembled_prompt.py`, which
+    says so at the site it stood on), so the behaviour is asserted by the
+    resolver's own precedence and by nothing else.
   * **It resolves to a FIXED POINT, bounded.** A pool fragment may itself carry a
     pool placeholder. Ten rounds, then it raises rather than spinning — the same
     bound and the same reason as `render()`.

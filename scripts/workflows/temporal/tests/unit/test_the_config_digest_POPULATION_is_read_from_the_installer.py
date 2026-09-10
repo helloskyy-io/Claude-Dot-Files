@@ -188,8 +188,9 @@ def fixture(tmp_path: Path) -> tuple[Path, Path]:
 #
 # The rule, rather than a third correctly-written probe: a skip in this file
 # whose reason is a claim about the MACHINE is guarded by a call that drives the
-# real syscall on the real path. `test_every_SKIP_in_this_file_probes_the_MACHINE`
-# holds that for the class, so the next one fails when it is written.
+# real syscall on the real path.
+# `test_every_SKIP_in_this_file_probes_the_MACHINE_not_the_RESULT` holds that for
+# the class, so the next one fails when it is written.
 
 
 def _hidden(path: Path) -> bool:

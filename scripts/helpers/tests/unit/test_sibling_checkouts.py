@@ -30,6 +30,16 @@ def _repo(root: Path, name: str) -> Path:
     subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(origin)], check=True)
     d = root / name
     subprocess.run(["git", "clone", "-q", str(origin), str(d)], check=True)
+    # ⚠ THE LOCAL BRANCH IS NAMED EXPLICITLY, BECAUSE `init.defaultBranch` IS A
+    # PROPERTY OF THE MACHINE. Cloning an empty bare repo leaves an unborn
+    # branch named by the host's git config — `main` on a workstation that sets
+    # it, `master` on a stock GitHub runner. This fixture then pushed `HEAD:main`
+    # and set origin's head to `main`, so on the runner the checkout WAS off its
+    # default branch and the sweep correctly reported it: `test_a_CLEAN_
+    # WORKSPACE_PASSES` failed on every CI run while passing locally. The test
+    # was asserting a fact about the author's git config.
+    subprocess.run(["git", "-C", str(d), "symbolic-ref", "HEAD",
+                    "refs/heads/main"], check=True)
     subprocess.run(["git", "-C", str(d), "config", "user.email", "t@t"], check=True)
     subprocess.run(["git", "-C", str(d), "config", "user.name", "t"], check=True)
     (d / "f.txt").write_text("x\n", encoding="utf-8")

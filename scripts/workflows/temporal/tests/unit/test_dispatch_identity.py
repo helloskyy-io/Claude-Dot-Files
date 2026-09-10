@@ -236,8 +236,8 @@ def test_a_SEQUENTIAL_RETRY_under_one_run_id_yields_ONE_BAG(
                           workflow_key="build", worktree_name="wt-1")
 
     assert second.path == first.path
-    assert [p.name for p in root.iterdir()] == ["retried-run"], (
-        f"one run produced more than one bag: {sorted(p.name for p in root.iterdir())}. "
+    assert [p.name for p in root.iterdir() if p.is_dir()] == ["retried-run"], (
+        f"one run produced more than one bag: {sorted(p.name for p in root.iterdir() if p.is_dir())}. "
         f"This is the failure that is SILENT — two bags read as two runs forever.")
     assert (second.path / BAG_INFO_FILE).read_text() == before, (
         "the retry rewrote bag-info.txt. A rewrite drops tombstones and gap "
@@ -288,9 +288,9 @@ def test_a_PARENT_AND_ITS_CHILDREN_produce_ONE_bag_with_ONE_SUBFOLDER_EACH(
                               workflow_key=child, worktree_name="build-1")
         assert joined.path == parent.path, f"{child} filed its own bag"
 
-    assert [p.name for p in root.iterdir()] == ["one-run"], (
-        f"one run produced {len(list(root.iterdir()))} bags: "
-        f"{sorted(p.name for p in root.iterdir())}")
+    assert [p.name for p in root.iterdir() if p.is_dir()] == ["one-run"], (
+        f"one run produced {len([p for p in root.iterdir() if p.is_dir()])} bags: "
+        f"{sorted(p.name for p in root.iterdir() if p.is_dir())}")
     assert sorted(p.name for p in (parent.path / PAYLOAD_DIR).iterdir()) == [
         "build_draft", "build_refine", "review_pr"], (
         "one subfolder per writer, named for the writer — a shared directory is "
@@ -316,7 +316,7 @@ def test_a_STANDALONE_CHILD_produces_exactly_one_bag_and_NO_ORPHAN(
                        repo_root=TEMPORAL, workflow_key="research_refine",
                        worktree_name=None)
 
-    assert [p.name for p in root.iterdir()] == [identity.run_id]
+    assert [p.name for p in root.iterdir() if p.is_dir()] == [identity.run_id]
     assert list((bag.path / PAYLOAD_DIR).iterdir()) == [], (
         "an invocation that IS the run takes no writer subfolder — its records "
         "are the run's, not one member's")
@@ -366,7 +366,7 @@ def test_a_MEMBER_of_a_run_whose_bag_does_not_exist_yet_CREATES_it(
                           workflow_key="child_b", worktree_name="wt")
 
     assert first.path == second.path
-    assert [p.name for p in root.iterdir()] == ["parentless"]
+    assert [p.name for p in root.iterdir() if p.is_dir()] == ["parentless"]
     assert sorted(p.name for p in (first.path / PAYLOAD_DIR).iterdir()) == [
         "child_a", "child_b"]
     # The bag records the FIRST arrival's workflow, not the last — adoption does
@@ -388,4 +388,4 @@ def test_two_DIFFERENT_run_ids_DO_produce_two_bags(root: pathlib.Path) -> None:
     """
     open_bag(root, "run-one")
     open_bag(root, "run-two")
-    assert sorted(p.name for p in root.iterdir()) == ["run-one", "run-two"]
+    assert sorted(p.name for p in root.iterdir() if p.is_dir()) == ["run-one", "run-two"]

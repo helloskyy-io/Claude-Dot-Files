@@ -111,7 +111,14 @@ def _gh(*args: str, cwd: Path | None = None) -> str:
     an unreadable repo rather than as a bad address. `run_bounded` also supplies
     the wall-clock ceiling that keeps a hung `gh` from parking the dispatch.
     """
-    done = shared.run_bounded(["gh", *args], cwd=cwd)
+    # THROUGH `gh_attempt` RATHER THAN `run_bounded` DIRECTLY, as of PMP Phase 3.
+    # `gh_attempt` is where the fleet's `gh` mutations acquire their journal emit
+    # (requirement 1) — and it is also where a transient 503 on a READ is retried
+    # and a transient one on a WRITE is refused rather than repeated. This module
+    # closes intake issues, which is a mutation, so both properties were missing
+    # here for the same reason: it reached one layer below the choke point.
+    # `run_bounded`'s wall-clock ceiling is unchanged — `gh_attempt` calls it.
+    done = shared.gh_attempt(list(args), cwd)
     if done.returncode != 0:
         raise IntakeError(f"`gh {' '.join(args)}` failed: {done.stderr.strip()}")
     return done.stdout

@@ -35,7 +35,7 @@ so a second cycle against the same pool leaves two papers with nothing
 rolling them up — and a planner told not to read raw papers wholesale reports "no
 synthesis" and plans from priors while both papers sit unread. The contract is
 `draft.md`'s sizing section, the work happens in its SYNTHESIZE stage, and
-`tests/unit/test_research_minor.py::test_the_minor_cycle_writes_a_SYNTHESIS` pins
+`tests/unit/test_research_draft.py::test_the_minor_cycle_writes_a_SYNTHESIS` pins
 it in the opposite direction from the bullet this replaced.
 
 WHAT IS DELIBERATELY PRESENT. Every §3 obligation that makes a paper

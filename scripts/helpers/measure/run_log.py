@@ -53,8 +53,10 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 # --- the surface -------------------------------------------------------------
 
 # THE MEMBER SET. Adding a fourth event type means adding it here, and
-# `test_run_log_surface.py` fails in BOTH directions — an undeclared writer, and
-# a declared type nobody writes.
+# `test_run_log.py` fails in BOTH directions — an undeclared writer, and a
+# declared type nobody writes. (This line named a surface-suffixed module that
+# has never existed in this tree; the assertions are in `test_run_log.py`, which
+# reads `MEMBER_EVENT_TYPES` at three sites.)
 MEMBER_EVENT_TYPES = frozenset({"parent_route", "run_resources", "convergence"})
 
 # THE JOIN KEY. All three members carry it. Its VALUE was out of conformance

@@ -1,9 +1,9 @@
 """Every markdown table in the repo renders WHOLE, not just in one file.
 
-WHY THIS IS TREE-WIDE AND ITS SIBLING IS NOT. The cell-count check in
-`test_candidates_prose_matches_the_table.py` was built for `candidates.md`
-because that is where the defect was first measured. The DEFECT is not
-file-shaped. GitHub-flavoured markdown splits a table row on `|` before it
+WHY THIS IS TREE-WIDE. The cell-count check began as a per-file one, built for
+`candidates.md` because that is where the defect was first measured; that file
+and its gate were both deleted in `91925af` and this is the survivor. The DEFECT
+is not file-shaped. GitHub-flavoured markdown splits a table row on `|` before it
 parses inline content, so a pipe inside an inline code span — a regex
 alternation, a shell pipeline, a `true|false` enumeration — is a cell break.
 GFM then DROPS every cell past the header's count and CUTS the last survivor at
@@ -80,15 +80,23 @@ here, held by `test_the_VENDORED_SET_is_read_off_the_script_that_defines_it`,
 because a hard-coded list is exactly the hand-kept declaration this repo's
 gates exist to catch.
 
-WHAT THIS GATE DOES NOT COVER THAT ITS SIBLING DOES — one thing, deliberately,
-and this paragraph SAID "nothing" FOR ONE REVISION WHILE THAT WAS FALSE. The
-sibling asserts `test_EVERY_PIPE_OPENING_LINE_SITS_INSIDE_A_TABLE_BLOCK`: in
-`candidates.md`, a curated table file, EVERY `|`-opening line must be a row.
-That bar is correct there and wrong here — three tracked files carry a
-deliberate one-line row-shape illustration under a heading, which is not a
-defect and which the strict bar would fail. This module asserts the weaker,
-tree-safe half of the same property via `severed_rows`. The gap is one bar, not
-one shape, and the shape itself IS gated here.
+WHAT THIS GATE DOES NOT COVER THAT ITS SIBLING DID — one thing, deliberately,
+and this paragraph SAID "nothing" FOR ONE REVISION WHILE THAT WAS FALSE. ⚠ THE
+SIBLING NO LONGER EXISTS: `test_candidates_prose_matches_the_table.py` was
+deleted in `91925af` with the `candidates.md` corpus it read, so the strict bar
+described below is asserted NOWHERE today and this paragraph is a record of a
+gap rather than of a division of labour. It asserted that in `candidates.md`, a
+curated table file, EVERY `|`-opening line must be a row. That bar was correct
+there and is wrong here — three tracked files carry a deliberate one-line
+row-shape illustration under a heading, which is not a defect and which the
+strict bar would fail. This module asserts the weaker, tree-safe half of the
+same property via `severed_rows`. The gap is one bar, not one shape, and the
+shape itself IS gated here.
+
+(The present-tense version of that paragraph survived the correction that took
+the deleted module's FILENAME out of it, because the claim's remaining subject
+was a bare test-FUNCTION name — the half the citation gate does not key on. That
+asymmetry is the whole of `#178`.)
 
 The false "nothing" claim is worth recording rather than quietly deleting,
 because the paragraph diagnosed its own error one shape over while making it:
@@ -663,12 +671,13 @@ def test_an_HTML_BLOCK_opener_is_the_residual_TREE_WIDE_TOO() -> None:
     UNEXERCISED, and if a `<`-opening line ever lands inside a table block the
     count below moves and this test says so.
 
-    COMPANION: `test_an_HTML_BLOCK_opener_is_the_residual_this_scan_does_NOT_see`
-    in `test_candidates_prose_matches_the_table.py` holds the same residual for
-    that file. Both are claims about `ends_the_table`, which they now share, so
-    teaching it CommonMark's block-tag list retires BOTH tests and BOTH
-    docstring bullets — delete them in one commit or the surviving one starts
-    describing a residual that no longer exists.
+    THERE USED TO BE A COMPANION, and this paragraph asked a future maintainer
+    to delete it in the same commit as this one. It held the same residual for
+    `candidates.md`, and both it and that corpus were deleted in `91925af` — so
+    the instruction outlived its object and would have sent its reader looking
+    for a file to delete that is already gone. This test is now the only claim
+    about `ends_the_table`'s residual: teaching it CommonMark's block-tag list
+    retires THIS test and THIS bullet, and nothing else.
     """
     require_planning_corpus()
     doc = ["| a | b |", "|---|---|", "| x | y |", "<div>html</div>", "| p | q |"]

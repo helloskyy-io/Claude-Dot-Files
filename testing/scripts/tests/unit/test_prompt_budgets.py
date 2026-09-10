@@ -257,7 +257,14 @@ BUDGETS: dict[str, int] = {
     # RAISED again: the duplicate-check line documented `--repo <owner/repo>`
     # while every stored `repo:` is a bare name, so the exact-match promotion
     # could never fire — and `--component` was not mentioned at all.
-    "review_pr/prompts/disposition.md": 90_856,
+    # RAISED for precheck requirement 5 — RUN IT AND PASTE WHAT IT PRINTED.
+    # The contract had four requirements and none of them was that the check
+    # executes. It fails in the worst direction: a malformed invocation exits
+    # non-zero having matched nothing, and a split predicate reading "non-zero
+    # + no files -> ALREADY DONE, STOP" tells the executor the fix is in place,
+    # so the correction loop closes on work nobody did. Two consecutive passes
+    # shipped `env -u VAR NAME=VALUE`, which GNU env rejects; both exited 127.
+    "review_pr/prompts/disposition.md": 91_894,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-f0lfdhmm's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the
     # residue is 19 bytes. Worth stating because this is the mechanism working
@@ -723,7 +730,13 @@ BUDGETS: dict[str, int] = {
     # SURFACE, and names what a surfaced finding must carry — the reviewer files
     # from those words, so anything missing is lost. Changes what every
     # producing run DOES; no reasoner infers a boundary the text contradicts.
-    "prompts/decision_log_and_reflection.md": 9_960,
+    # RAISED for the fidelity clause: a divergence from the brief's stated
+    # MECHANISM or PLACEMENT is the first entry in the log. The attestation was
+    # already required of correction passes — this prompt is rendered for them —
+    # so the gap was never "no attestation"; it was that nothing said a SILENT
+    # NARROWING is a defect even when the tests pass, because the tests were
+    # written against the cases the narrowing did handle.
+    "prompts/decision_log_and_reflection.md": 10_596,
     # 8,106 not 8,057 — the first draft of this budget counted CHARACTERS and
     # this file is full of em-dashes. The test caught it on its first run,
     # which is the cheapest possible demonstration that byte counts are not

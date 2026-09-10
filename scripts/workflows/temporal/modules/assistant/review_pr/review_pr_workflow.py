@@ -72,6 +72,48 @@ def assemble_prompt(review_type: ReviewType) -> str:
     )
 
 
+def _prose_shadow(log_file, pr_number: str, repo_root):
+    """The prose channel's verdict, read where the prose ACTUALLY IS.
+
+    ⚠ IT MOVED, AND THE SHADOW DID NOT FOLLOW IT. `assistant_text` returns only
+    top-level `text` blocks. Measured 2026-09-10 on a live review log: 318 events,
+    63 assistant messages — 26 `thinking` blocks, 36 `tool_use` blocks and exactly
+    ONE `text` block of 27 characters. The verdict appeared three times in that
+    log and every occurrence was inside the `tool_use` that POSTED THE REVIEW
+    COMMENT. So the reader found nothing, `parse_verdict` failed safe to
+    HOLD_NEEDS_ASSISTANCE, and `channels_agree` came out false on a run whose two
+    channels did not disagree about anything.
+
+    THAT MAKES THE METRIC WORTHLESS IN THE ONE DIRECTION IT IS READ. It is
+    evidence for whether the prose channel can be retired, and it was biased
+    toward "the channels disagree" exactly when a run completed cleanly.
+
+    THE POSTED BLOCK IS THE PROSE CHANNEL NOW. A run states its verdict by posting
+    it, so that comment is where the prose lives; the log's text blocks are what is
+    left over. Reading the comment is not reading the typed record twice — the
+    typed record comes from the run's own exit event, and the comment is a
+    separate artifact the run wrote to GitHub, so the comparison stays a
+    comparison of two channels.
+
+    FALLS BACK TO THE OLD SURFACE rather than replacing it, because older runs DID
+    emit the verdict as text and their logs are the archive this measurement is
+    built on. Reported by SN-PM2 across PRs #170 and #175; my first pass at it
+    measured 21 of 22 archived MERGE logs parsing correctly and called the report
+    unsupported — that sample was biased toward the older shape, and the two
+    counter-examples were in front of me, dismissed as runs that died early.
+    """
+    from . import review_pr_activities as _acts               # noqa: PLC0415
+    try:
+        blocks = _acts.pr_review_blocks(pr_number, repo_root)
+    except Exception:
+        blocks = []
+    for block in reversed(blocks or []):
+        m = helper.BLOCK_VERDICT.search(block or "")
+        if m:
+            return helper.Verdict(m.group(1)), True
+    return helper.parse_verdict(_shared.assistant_text(log_file))
+
+
 def _append_shadow_pair(log_file, *, invocation_id: str, pr: str, expected_ref) -> None:
     """Write the `parent_route` row comparing the typed channel against the prose one.
 
@@ -312,7 +354,7 @@ def run_review(task: ReviewInput, worktree: Path, *,
     #
     # PARSED BEFORE THE STRATUM IS WRITTEN so the stratum can carry it. The
     # COMPARISON still happens after; only the parse moved.
-    shadow, parseable = helper.parse_verdict(_shared.assistant_text(log_file))
+    shadow, parseable = _prose_shadow(log_file, task.pr_number, worktree)
 
     # Persist the parent stratum BEFORE the shadow COMPARISON, because a
     # disagreement raises and a machinery failure that leaves no trace is the
@@ -422,9 +464,22 @@ def run_review(task: ReviewInput, worktree: Path, *,
     notes.append(
         f"Routed on the typed exit record: routed_outcome={record.routed_outcome.value}"
         + (f", reason={record.undetermined_reason.value}" if record.undetermined_reason else "")
-        + (f". Prose shadow agreed ({shadow.value})." if parseable else
+        + (f". Prose shadow agreed ({shadow.value})." if parseable and shadow is verdict else
+           f". Prose shadow produced a DIFFERENT verdict ({shadow.value}) — a real "
+           f"divergence between two channels that both parsed." if parseable else
+           # ⚠ THIS SENTENCE USED TO CLAIM COINCIDENCE UNCONDITIONALLY, and it was
+           # false whenever the fail-safe default did NOT match the typed route —
+           # on a MERGE pass it says HOLD "coincides with" MERGE. Reported by
+           # SN-PM2 from PR #170. The two unparseable cases are genuinely
+           # different: two defaults matching is not evidence of agreement, and a
+           # default landing somewhere else is not a divergence between channels
+           # either, because only one channel spoke.
            f". Prose shadow produced NO parseable verdict; its fail-safe default "
-           f"({shadow.value}) coincides with the typed route, which is not agreement.")
+           f"({shadow.value}) "
+           + ("coincides with the typed route, which is not agreement."
+              if shadow is verdict else
+              f"differs from the typed route ({verdict.value}), which is not a "
+              f"divergence either — only one channel spoke."))
     )
     if record.routed_outcome is exit_record.RoutedOutcome.UNDETERMINED:
         notes.append(

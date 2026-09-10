@@ -90,7 +90,8 @@ SCOPE = "modules/journal/bag.py"
 # The four functions permitted to touch the filesystem directly. Everything else
 # in `bag.py` mutates THROUGH one of these, which is what lets half B find the
 # members by name instead of by tracing every call.
-_PRIMITIVES = {"_write_tag_file", "_append_tag_line", "Bag.writer_dir", "open_bag"}
+_PRIMITIVES = {"_write_tag_file", "_replace_tag_file", "_append_tag_line",
+               "Bag.writer_dir", "Bag.write_payload", "open_bag"}
 
 # Method names that are unambiguously a filesystem mutation. `rename`/`replace`
 # are deliberately absent from this set and handled below by receiver, because
@@ -265,9 +266,13 @@ TOTAL = "TOTAL"
 
 _MUTATORS: dict[str, str] = {
     "_write_tag_file": TOTAL,
+    "_replace_tag_file": TOTAL,
+    "_set_tag_line_locked": TOTAL,
     "_append_tag_line": "refusable",
     "_set_tag_line": "refusable",
     "Bag.writer_dir": TOTAL,
+    "Bag.write_payload": "refusable",
+    "Bag.add_tag": "refusable",
     "Bag.seal": TOTAL,
     "Bag.redact": "refusable",
     "Bag.mark_incomplete": "refusable",
@@ -283,6 +288,19 @@ _TOTAL_REASONS = {
         "name into a slug. Its single `BagError` is ordinal exhaustion, reached "
         "only after 9999 `os.mkdir` calls have EVERY ONE raised `FileExistsError`, "
         "so the refusing path is the path on which nothing was created.",
+    "_replace_tag_file":
+        "`_write_tag_file`'s atomic twin, and TOTAL for the same reason: it "
+        "validates nothing and raises no `BagError`. Its only failure is an "
+        "`OSError` from the write or the rename, which is the filesystem "
+        "refusing rather than this module refusing a caller's value — and it "
+        "unlinks its own temp file on that path so the bag keeps no litter.",
+    "_set_tag_line_locked":
+        "`_set_tag_line`'s body, for a caller already holding the lock. TOTAL "
+        "because the refusal it used to contain stayed in the wrapper: "
+        "`_refuse_folded_value` runs BEFORE the lock is taken, so by the time "
+        "this runs the value has already been accepted and nothing here can "
+        "abort. Split out for `seal`, which writes four files that have to move "
+        "under one lock and cannot take a non-reentrant one twice.",
     "Bag.seal":
         "takes no caller argument. Every value it composes is module-derived — a "
         "byte count, a file count and `utc_now()` — and none can fold a tag line "
@@ -387,6 +405,18 @@ _REFUSAL_DRIVERS: list[tuple[str, str, Callable, Callable]] = [
      _redact_setup, lambda b: b.mark_incomplete(FOLDS, "disk full")),
     ("Bag.mark_incomplete", "a second gap on a bag already flagged",
      lambda root: _flagged(root), lambda b: b.mark_incomplete("the reply", FOLDS)),
+    ("Bag.write_payload", "a path outside the payload directory",
+     _redact_setup, lambda b: b.write_payload("bag-info.txt", "x")),
+    ("Bag.write_payload", "a payload path that escapes the bag",
+     _redact_setup, lambda b: b.write_payload("data/../../escape", "x")),
+    ("Bag.write_payload", "a payload file that already exists — written once, never twice",
+     _redact_setup, lambda b: b.write_payload("data/child/payload", "x")),
+    ("Bag.add_tag", "a reserved lifecycle label, which the package writes alone",
+     _redact_setup, lambda b: b.add_tag("Journal-Incomplete", "true")),
+    ("Bag.add_tag", "a descriptive VALUE that does not survive a round trip",
+     _redact_setup, lambda b: b.add_tag("Journal-Region", FOLDS)),
+    ("Bag.add_tag", "a LABEL that forges a second record",
+     _redact_setup, lambda b: b.add_tag(FOLDS, "x")),
     ("open_bag", "an `info` VALUE that does not survive a round trip",
      lambda root: root, lambda root: open_bag(root, "fresh", info={"Journal-Worktree": FOLDS})),
     ("open_bag", "an `info` LABEL that forges a second record",
