@@ -238,6 +238,14 @@ _BARE_TEST_NAME = re.compile(r"`([A-Za-z0-9_/]*\btest_[A-Za-z0-9_]+)`")
 # mentions below are three ROWS, and a fourth site naming any of them is a
 # finding.
 _DECLARED_TEST_MODULES: dict[tuple[str, str], str] = {
+    ("scripts/helpers/tests/unit/test_every_producer_NAMES_ITS_CONSUMER.py",
+     "test_measure_readme_names_a_consumer.py"):
+        "DELETED when WD Phase 6's gate (this file, PR #170) SUPERSEDED it — the "
+        "deleted module's six properties were carried by name into this file, and "
+        "its line 39 records the supersession. Narrated as history: naming the "
+        "file IS the record that its coverage moved here. Surfaced when PR #175 "
+        "rebased onto #170's merge, putting this gate and #175's citation check in "
+        "one tree for the first time.",
     ("testing/scripts/tests/unit/gfm_table_scan.py",
      "test_candidates_prose_matches_the_table.py"):
         "DELETED in `91925af` with the `candidates.md` corpus it gated. Narrated "
@@ -588,7 +596,7 @@ _BARE_NAME_CENSUS = 9
 #: refuses any that is not. Pinned anyway, because a declared row is a claim
 #: that a citation is HISTORY and a growing count of them is the shape that
 #: turns a gate into an allowlist.
-_FILENAME_CENSUS = 8
+_FILENAME_CENSUS = 9
 
 
 def _census() -> tuple[list[str], list[str]]:
