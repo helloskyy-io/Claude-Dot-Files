@@ -177,10 +177,13 @@ def _names(member: str, text: str) -> bool:
 
 
 def _code_lines(text: str) -> str:
-    """A shell file with its comment lines removed, so a header that merely
-    describes a sibling — `# (for finding common/format-stream.sh)` — does not
-    count as consuming it."""
-    return "\n".join(l for l in text.splitlines() if not l.lstrip().startswith("#"))
+    """A shell file with its comments removed — whole comment lines AND a
+    trailing `# ...` on a code line — so a header that merely describes a
+    sibling, or `noop  # replaces activities/x.sh`, does not count as
+    consuming it. The trailing strip needs whitespace before the `#`, so a
+    parameter expansion like `${VAR#prefix}` is left alone."""
+    return "\n".join(re.sub(r"\s+#.*$", "", l)
+                     for l in text.splitlines() if not l.lstrip().startswith("#"))
 
 
 def _rel(p: Path) -> str:
@@ -532,7 +535,7 @@ RULED_OUT = {
         "`test_prompt_completeness.py` require every shared fragment to be "
         "loaded by a consumer or excluded with a reason",
     "scripts/workflows/temporal/scripts": "a MIXED population this sweep does "
-        "not rule wholesale: 18 shim↔runner pairs, held by "
+        "not rule wholesale: 16 shim↔runner pairs, held by "
         "`test_shim_usage_names_itself.py`, and six library modules consumed "
         "by import. Ruling the entrypoints against a documented operator entry "
         "— the claim made of the bash workflows — is the next extension; "
@@ -965,8 +968,11 @@ def test_a_SOURCE_line_counts_and_a_HEADER_COMMENT_does_not(tmp_path: Path, monk
     """Control for the bash-library predicate, on a corpus built here.
 
     The fixture varies the SHAPE: one file sources the library, one runs it as
-    a command, one only describes it in a comment, and the library names
-    itself in its own header. Only the first two are consumers.
+    a command, one only describes it in a comment, one names it in a TRAILING
+    comment on a live line (the shape review found the first `_code_lines`
+    blind to), one invokes it after a `#` that is a parameter expansion
+    rather than a comment, and the library names itself in its own header.
+    Three are consumers: the source, the command, and the expansion line.
     """
     w = tmp_path / "scripts" / "workflows"
     (w / "activities").mkdir(parents=True)
@@ -974,14 +980,40 @@ def test_a_SOURCE_line_counts_and_a_HEADER_COMMENT_does_not(tmp_path: Path, monk
     (w / "a.sh").write_text('source "${SCRIPT_DIR}/activities/lib.sh"\n')
     (w / "b.sh").write_text('X="$("${SCRIPT_DIR}/common/lib.sh" key)"\n')
     (w / "c.sh").write_text("# helper: see activities/lib.sh for details\n")
+    (w / "d.sh").write_text("noop  # replaces activities/lib.sh, see c.sh\n")
+    # A `#` that is a parameter expansion, BEFORE a real invocation on the same
+    # line: if the trailing-comment strip fired on it, the invocation would
+    # vanish and e.sh would wrongly drop out of the consumers.
+    (w / "e.sh").write_text('X="${Y#pre}" "${SCRIPT_DIR}/common/lib.sh"\n')
     (w / "activities" / "lib.sh").write_text("# lib.sh — usage: source activities/lib.sh\n")
     monkeypatch.setattr(sys.modules[__name__], "_REPO", tmp_path)
     _bash_corpus.cache_clear()
     try:
         assert _sourced_or_run_by("lib.sh") == ["scripts/workflows/a.sh",
-                                                "scripts/workflows/b.sh"]
+                                                "scripts/workflows/b.sh",
+                                                "scripts/workflows/e.sh"]
     finally:
         _bash_corpus.cache_clear()
+
+
+def test_every_DERIVED_consumer_path_is_one_the_RATCHET_can_see(surface: Surface) -> None:
+    """`_paths_in` carries an extension whitelist, and only the ratchet routes
+    through it — so a baselined member that gained a consumer of an extension
+    not on the list would never force its line out, and the gate would report
+    it as still unread with a straight face. This ties the whitelist to what
+    the predicates actually return, on the live surfaces, so a new surface
+    whose consumers end in `.toml` fails HERE with the reason rather than
+    later as a ratchet that never fires."""
+    if surface.consumers is None:
+        pytest.skip(f"{surface.name} is a table surface; its cells are prose a person wrote")
+    for member in _population(surface):
+        found = surface.consumers(member)
+        seen = _paths_in(", ".join(f"`{p}`" for p in found))
+        assert set(found) <= set(seen), (
+            f"{surface.name}: {member}'s consumers {found} include a path "
+            f"`_paths_in` does not recognise — widen its extension list, or the "
+            f"ratchet is blind to this surface"
+        )
 
 
 def test_a_SERVICE_counts_only_when_install_sh_reads_it_FROM_THE_REPO() -> None:
@@ -1006,6 +1038,13 @@ def test_a_SUITE_counts_only_when_its_stem_is_in_FRAMEWORKS() -> None:
         "a commented-out array counted"
     assert _listed_as_framework("python.sh") == ["testing/run-all.sh"]
     assert _listed_as_framework("__no_such__.sh") == []
+    # A stem that IS in run-all.sh — `ALL_CATEGORIES=(unit ...)` — and is NOT a
+    # framework. Without this line a predicate matching the stem anywhere in
+    # the file passes the two assertions above; found while predicting the
+    # mutation count, before the mutation ran.
+    assert "unit" in _text(_REPO / "testing" / "run-all.sh")
+    assert _listed_as_framework("unit.sh") == [], \
+        "a stem present in run-all.sh outside FRAMEWORKS counted as a suite"
 
 
 def test_the_AGENT_corpus_is_the_dispatching_surfaces_and_not_the_agents() -> None:
