@@ -246,7 +246,15 @@ BUDGETS: dict[str, int] = {
     # PARTLY FUNDED: both blocks were written 754 bytes longer and compressed
     # before this number moved. 1_365 is the residue, on the file this dict
     # still says most needs shrinking — that shrink pass remains owed.
-    "review_pr/prompts/disposition.md": 90_050,
+    # RAISED for Tracked Items §4.0 — WHERE is one locator with one spelling.
+    # NOT new guidance: the template already listed all four fields and told a
+    # run which store each belonged to. What changed is that `repo:` and
+    # `component:` now BOTH apply to issues and candidates, so a template saying
+    # "repo: for issues, component: for candidates" would have kept producing the
+    # half-locators the ruling exists to end — 13 issues with no component, 70
+    # candidates with no repo. It also described `component:` as a PATH, which is
+    # wrong: the seventy live candidates carry a bare NAME.
+    "review_pr/prompts/disposition.md": 90_582,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-f0lfdhmm's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the
     # residue is 19 bytes. Worth stating because this is the mechanism working

@@ -89,7 +89,10 @@ def main(argv: list[str] | None = None) -> int:
     # promotes an exact match above every text hit and labels it as such.
     ap.add_argument("--target", help="standards store: the standard being amended")
     ap.add_argument("--anchor", help="standards store: the section, precisely")
-    ap.add_argument("--component", help="candidates store: the owning component")
+    ap.add_argument("--component",
+                    help="issues and candidates: the component's NAME "
+                         "(`workflow-decomposition`), not a path")
+    ap.add_argument("--repo", help="any store: the repository the item is about")
     ap.add_argument("--no-intake", action="store_true",
                     help="store only — skip the intake queue. Use when offline; the "
                          "answer is then incomplete and says so.")
@@ -106,8 +109,13 @@ def main(argv: list[str] | None = None) -> int:
               f"Items Standard §1.", file=sys.stderr)
         return 2
 
+    # `repo` AND `component` NARROW EVERY STORE THAT CARRIES THEM, not just the
+    # one each was first written for. Tracked Items §4.0 makes them one locator
+    # with one spelling; a search that only honoured `--component` on candidates
+    # would miss the duplicate an issue in the same component already filed.
     key = {k: v for k, v in (("target", args.target), ("anchor", args.anchor),
-                             ("component", args.component)) if v}
+                             ("component", args.component),
+                             ("repo", args.repo)) if v}
     # THE STORE AND THE CONVEYOR, in that order. A finding is filed as an intake
     # ISSUE and harvested into `tracked/` later, so a store-only answer is blind for
     # the whole filing-to-harvest window — which is exactly when a sibling reviewer

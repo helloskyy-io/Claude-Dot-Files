@@ -179,6 +179,12 @@ a lost finding where it does not. A repo nobody has filed into has no such label
 an issue against a missing one either fails or lands it **unlabelled**; an unlabelled intake is
 invisible to the harvest, so **a correctly-classified finding silently never becomes a record.**
 
+**WHERE IS ONE LOCATOR WITH ONE SPELLING: `repo:` THEN `component:`** (Tracked Items §4.0).
+Both are optional and both apply to issues AND candidates — `repo:` alone stopped locating
+anything once one repository held many components, and `repo: skyynet-master-planning` is true
+of nearly every item this platform files. **A standards item takes `repo:` and NO `component:`**:
+a component is a unit of work and a standard is a document, so the field would be blank forever.
+
 **The intake body IS the item**, so there is no second format to learn. Frontmatter, then the prose:
 
 ```
@@ -186,10 +192,10 @@ invisible to the harvest, so **a correctly-classified finding silently never bec
 store: issues | candidates | standards
 status: open
 filed_by: review-pr
-repo: <for issues — where the work lands>
-component: <for candidates — the development/<edge>/<name>/ it belongs to>
-target: <for standards — the standard file>
-anchor: <for standards — the section, precise enough to act on>
+repo: <issues, candidates, standards — the repository>
+component: <issues and candidates — the component's NAME, e.g. `workflow-decomposition`, not a path>
+target: <standards only — the standard file being amended>
+anchor: <standards only — the section, precise enough to act on>
 ---
 
 <the body: what it is, why it matters, and the proposed action>
