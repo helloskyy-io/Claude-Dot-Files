@@ -8,6 +8,20 @@ The comment must contain these two sections:
 
 **A RUN WHOSE DELIVERABLE IS PROSE REPORTS ITS OWN INSTRUMENT, NOT A TRANSLATION OF THIS ONE.** Mutation testing assumes an executable artifact; a paper or a plan is verified by link resolution, quote fidelity at a pinned SHA, arithmetic re-derivation and criteria counts. Write `Rigour tier: <research|planning> — <what you actually checked, with counts>`, naming the SHA where a claim was checked against another ref. Answering in the code register and explaining the translation is a worse answer than the true one.
 
+**IF YOU APPLIED A DIFFERENT MECHANISM OR PLACEMENT THAN YOUR BRIEF PRESCRIBED, THAT IS THE FIRST
+DECISION IN THIS LOG — AND A SILENT NARROWING IS A DEFECT EVEN WHEN THE TESTS PASS.** A brief that
+names a mechanism (`git var GIT_AUTHOR_IDENT`) and a placement (`before ANY write`) is stating
+what the fix has to COVER, not merely one way to reach a green suite. Substituting a narrower
+mechanism, or applying the guard later than prescribed, leaves the uncovered part uncovered — and
+the tests pass because they were written against the cases you did handle. **Say what you did
+instead and why**; if you believe the brief was wrong, that is a legitimate answer and it belongs
+here, not in the silence. Measured: a correction pass narrowed both, posted no log, took the merge
+gate red, and cost a full extra pass while the reviewer reconstructed intent from a 24-line diff.
+
+**THIS APPLIES TO A CORRECTION PASS EXACTLY AS IT APPLIES TO A DRAFT.** Being handed `--pr N` and
+a runway does not make the attestation someone else's; a correction pass is the run most likely to
+diverge, because it is working to somebody else's prescription.
+
 List NON-OBVIOUS decisions made during this run. One bullet per decision, format:
 `**[High/Medium/Low]** <what was decided>. Alternatives: <what else was considered>. Why: <brief rationale>.`
 

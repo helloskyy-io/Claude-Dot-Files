@@ -472,6 +472,18 @@ pr_review:
              needing DIFFERENT actions. Only 'already done' justifies STOP. Say which is which, e.g.
              'if already extracted -> STOP, it is done; if fewer than N adopters -> proceed anyway,
              the threshold is advisory'. Never collapse them into one ambiguous STOP.
+         (5) RUN IT AND PASTE WHAT IT PRINTED. A precheck you reasoned about and did not
+             execute is a guess with a command attached. **A COMMAND THAT CANNOT RUN IS A
+             DEFECT, NOT A RESULT** — and it fails in the worst direction: a malformed
+             invocation exits non-zero having matched nothing, and a split predicate reading
+             'non-zero + no files -> ALREADY DONE, STOP' tells the executor the fix is in
+             place. The correction loop then closes on work nobody did, silently.
+             (Measured: two consecutive passes shipped `env -u VAR NAME=VALUE ...`, where GNU
+             `env` requires `-u` BEFORE the first assignment. Both exited 127 without running.)
+             So: **an exit that means COULD-NOT-RUN is never STOP.** State it as its own arm —
+             'if the command errors rather than reporting, the precheck is broken: report that
+             and do not act on it.' A precheck is evidence, and evidence you did not observe is
+             not evidence.
          (4) SCOPE-MATCH THE DISPATCH_CONTEXT — the precheck must be checkable against EXACTLY the
              set the dispatch_context enumerates. Do not pair an enumeration with a broader general
              predicate: 'mirror these four candidates' + 'the requirement is set-equality between the

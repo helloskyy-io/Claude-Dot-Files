@@ -422,9 +422,22 @@ def run_review(task: ReviewInput, worktree: Path, *,
     notes.append(
         f"Routed on the typed exit record: routed_outcome={record.routed_outcome.value}"
         + (f", reason={record.undetermined_reason.value}" if record.undetermined_reason else "")
-        + (f". Prose shadow agreed ({shadow.value})." if parseable else
+        + (f". Prose shadow agreed ({shadow.value})." if parseable and shadow is verdict else
+           f". Prose shadow produced a DIFFERENT verdict ({shadow.value}) — a real "
+           f"divergence between two channels that both parsed." if parseable else
+           # ⚠ THIS SENTENCE USED TO CLAIM COINCIDENCE UNCONDITIONALLY, and it was
+           # false whenever the fail-safe default did NOT match the typed route —
+           # on a MERGE pass it says HOLD "coincides with" MERGE. Reported by
+           # SN-PM2 from PR #170. The two unparseable cases are genuinely
+           # different: two defaults matching is not evidence of agreement, and a
+           # default landing somewhere else is not a divergence between channels
+           # either, because only one channel spoke.
            f". Prose shadow produced NO parseable verdict; its fail-safe default "
-           f"({shadow.value}) coincides with the typed route, which is not agreement.")
+           f"({shadow.value}) "
+           + ("coincides with the typed route, which is not agreement."
+              if shadow is verdict else
+              f"differs from the typed route ({verdict.value}), which is not a "
+              f"divergence either — only one channel spoke."))
     )
     if record.routed_outcome is exit_record.RoutedOutcome.UNDETERMINED:
         notes.append(
