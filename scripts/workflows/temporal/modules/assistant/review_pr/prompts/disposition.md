@@ -204,7 +204,7 @@ anchor: <standards only — the section, precise enough to act on>
 **BEFORE FILING ANYTHING, CHECK THE STORE *AND THE INTAKE QUEUE*** — with the command, not by hand:
 
 ```
-python3 ${SIMILAR_CANDIDATES} --store <issues|candidates|standards> --repo <owner/repo> "<the finding>"
+python3 ${SIMILAR_CANDIDATES} --store <issues|candidates|standards> --repo <repo NAME, as the item's `repo:` holds it> "<the finding>"
 ```
 
 **The store is `tracked/`; the QUEUE is the open `tracked-intake` issues that have not been
@@ -213,6 +213,8 @@ blind for the whole filing-to-harvest window — which is exactly when a reviewe
 PR has most likely already filed the same thing. Pass `--repo` so the queue is searched too;
 without it the answer covers the store alone. **A queue hit has no id to increment: say so and
 let the harvest land it, or comment your evidence on that issue — do not file a second one.**
+
+**Add `--component` too, on issues and candidates** — same spelling in both, the bare name (`workflow-decomposition`). It promotes an exact match rather than narrowing, so a wrong value costs a missed promotion and never hides a duplicate.
 
 For a standards amendment add `--target` and `--anchor`: they are the one field pair that IDENTIFIES rather than narrows, so an exact match is promoted and labelled. It hands you the few worth opening; **read those in full.** **If it is already there: increment its `count`, append a dated line under `## Recurrences` naming this PR, and file no intake.** That is a terminal disposition and its pointer is the existing item.
 

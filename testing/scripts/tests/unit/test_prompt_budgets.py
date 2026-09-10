@@ -254,7 +254,10 @@ BUDGETS: dict[str, int] = {
     # half-locators the ruling exists to end — 13 issues with no component, 70
     # candidates with no repo. It also described `component:` as a PATH, which is
     # wrong: the seventy live candidates carry a bare NAME.
-    "review_pr/prompts/disposition.md": 90_582,
+    # RAISED again: the duplicate-check line documented `--repo <owner/repo>`
+    # while every stored `repo:` is a bare name, so the exact-match promotion
+    # could never fire — and `--component` was not mentioned at all.
+    "review_pr/prompts/disposition.md": 90_856,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-f0lfdhmm's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the
     # residue is 19 bytes. Worth stating because this is the mechanism working
