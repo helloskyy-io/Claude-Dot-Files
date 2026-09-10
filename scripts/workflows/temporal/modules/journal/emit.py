@@ -65,15 +65,22 @@ PARAMETER rather than a special case inside the function, because the caller is
 what knows which member it is holding.
 
 **(d) The bootstrap case — the journal is unwritable, so the gap event cannot go
-in the journal either.** `unwritable_journal_report` below. It surfaces on two
-channels that are not the journal, and the second is why the first is not enough:
+in the journal either.** `unwritable_journal_report` below builds the payload;
+`CASE_D_CHANNELS` above declares which surfaces actually carry it, and
+`test_the_case_d_CHANNEL_TABLE_matches_the_tree` derives that table from the tree
+rather than from this paragraph. **Read that table, not this sentence** — an
+earlier version of this paragraph named the two channels that have no producer
+and omitted the one that does.
+
+The DESIGN calls for three, and the reasoning is why the table has three rows:
 the typed exit record plus a non-zero exit status carry it out of the process,
-**and both are invocation state — read within seconds and then gone.** The
-durable half is a pull-request comment: durable, addressable, and outside the
-journal root by construction. **Not the standup tracker** — that surface is
-`tracked/operations/`, which Tracked Items §1.2 makes human-in-the-loop only with
-no autonomous write ever, and offering it here would put a binding-standard
-violation on the one path that exists to report this component being broken.
+**and both are invocation state — read within seconds and then gone**, so a
+durable half is needed too, and that is a pull-request comment: durable,
+addressable, and outside the journal root by construction. **Not the standup
+tracker** — that surface is `tracked/operations/`, which Tracked Items §1.2 makes
+human-in-the-loop only with no autonomous write ever, and offering it here would
+put a binding-standard violation on the one path that exists to report this
+component being broken.
 
 **⚠ CASE (d)'s DURABLE REPORT IS THE ONE STATED EXCEPTION TO REQUIREMENT 1's
 INVARIANT AND TO CASE (b)'s ORDERING.** The durable report is a STORE WRITE. Case
@@ -93,15 +100,24 @@ counts gaps by reading gap events; a run in case (d) produced no gap event, no
 bag and nothing to count. That is a stated limit of that measurement rather than
 a defect in it.
 
-## Requirement 11 — each signal ships with its reader, in this change
+## Requirement 11 — each signal that SHIPPED shipped with its reader
 
-The exit-record field has a named parent branch that reads it and the
-working-record line has a named consumer that surfaces it. Adding a field to a
-channel and leaving the reading to somebody later is how this fleet has already
-lost three observables, and the one channel this component's failure path depends
-on is the last place to repeat it. Both readers are `unwritable_journal_report`
-and `unwritable_journal_in_text` at the bottom of this module, and
-`test_journal_emit.py` is what holds them to the producers rather than this
+Adding a field to a channel and leaving the reading to somebody later is how this
+fleet has already lost three observables, and the one channel this component's
+failure path depends on is the last place to repeat it. So the rule here is the
+inverse of the usual one: a channel ships only WITH its reader, and a channel
+whose reader would have to be written elsewhere does not ship at all.
+
+**ONE of the three channels ships in this change and the other two do not**, per
+`CASE_D_CHANNELS` above. The process exit carries the signal — `JournalUnwritable`
+subclasses `RuntimeError`, so every entrypoint's existing handler prints a message
+LEADING with `UNWRITABLE_JOURNAL_MARKER` — and `unwritable_journal_in_text` is its
+committed reader. The durable working-record line has its producer built
+(`gh_attempt(case_d_report=True)`) and **no caller**; the exit-record field is not
+built at all, because it needs a parent branch outside this change and a field
+with no branch is precisely the observable-with-no-reader this requirement forbids.
+
+`test_journal_emit.py` holds the shipped half to its reader rather than this
 paragraph — see `test_the_marker_is_ONE_declaration_shared_by_producer_and_reader`
 and the case-(d) tests beside it.
 """
@@ -125,7 +141,8 @@ from .events import (EVENTS_FILE, Destination, EventKind, GapClass,
                      event_identity, gap_event, redaction_placeholder_event)
 
 __all__ = ["Emitter", "EmitFailed", "JournalUnwritable", "StoreWriteFailed",
-           "UNWRITABLE_JOURNAL_MARKER", "unwritable_journal_report",
+           "UNWRITABLE_JOURNAL_MARKER", "CASE_D_CHANNELS",
+           "case_d_channel_sentence", "unwritable_journal_report",
            "unwritable_journal_in_text", "gap_class_for", "register_emitter",
            "current_emitter", "emitting_into"]
 
@@ -138,6 +155,54 @@ T = TypeVar("T")
 #: `as_prose_verdict`. Distinctive enough not to appear in ordinary prose, and
 #: plain enough that a human scanning a PR thread sees it.
 UNWRITABLE_JOURNAL_MARKER = "JOURNAL-UNWRITABLE"
+
+#: THE THREE CHANNELS CASE (d) COULD REPORT ON, AND WHICH OF THEM ACTUALLY HAS A
+#: PRODUCER — declared once, as data, because stating it in prose drifted at five
+#: sites on one branch. Every one of them said case (d) *"is reported on the typed
+#: exit record and on a durable working-record surface"*; NEITHER of those has a
+#: live producer, and the channel that does — the process exit — was the one none
+#: of them named. On the single failure path where this component cannot speak for
+#: itself, that sent an operator to two surfaces carrying nothing and away from the
+#: one carrying the signal, so they conclude the report was lost.
+#:
+#: THE SECOND FIELD IS DERIVED FROM THE TREE BY
+#: `test_the_case_d_CHANNEL_TABLE_matches_the_tree`, not asserted here. That is
+#: the point: the day somebody wires the exit-record field or gives
+#: `case_d_report=True` a production caller, the test goes red against this table
+#: and the message below changes with it — rather than five paragraphs quietly
+#: becoming true one at a time while nobody re-reads them.
+CASE_D_CHANNELS: tuple[tuple[str, bool], ...] = (
+    ("the process exit — a non-zero status whose message leads with "
+     f"`{UNWRITABLE_JOURNAL_MARKER}`, which `unwritable_journal_in_text` reads",
+     True),
+    ("a durable working-record surface — a pull-request comment via "
+     "`gh_attempt(case_d_report=True)`",
+     False),
+    ("the typed exit record — a `CHILD_SCHEMA` field a parent branches on",
+     False),
+)
+
+
+def case_d_channel_sentence() -> str:
+    """The case-(d) message's channel paragraph, COMPOSED from `CASE_D_CHANNELS`.
+
+    Composed rather than written out, so the operator-facing sentence and the
+    declared table cannot disagree. The unwired channels are NAMED rather than
+    omitted: an operator who has read the phase doc knows both are planned, and a
+    message that simply left them out would read as "the report went somewhere I
+    have not been told about" — which is the same dead end by a quieter route.
+    """
+    live = [name for name, wired in CASE_D_CHANNELS if wired]
+    dead = [name for name, wired in CASE_D_CHANNELS if not wired]
+    if live:
+        sentence = "reported on " + "; and on ".join(live)
+    else:
+        sentence = "NOT REPORTED ANYWHERE — every declared channel is unbuilt"
+    if dead:
+        sentence += (". NOT on " + "; nor on ".join(dead) +
+                     " — both are declared by requirement 11 and NEITHER has a "
+                     "producer yet, so nothing will appear on them")
+    return sentence
 
 
 class EmitFailed(RuntimeError):
@@ -480,17 +545,26 @@ class Emitter:
         try:
             result = perform()
         except Exception as exc:
-            failure = JournalEvent(
-                kind=EventKind.STORE_WRITE_FAILURE, event_id=intent.event_id,
-                run_id=self.run_id, edge_id=self.edge_id,
-                key_epoch=self.key_epoch, provenance=provenance,
-                write_path=write_path, sequence=sequence,
-                destination=destination,
-                terminal_state=TerminalState.STORE_WRITE_FAILED)
             recorded = "a store-write-failure event was recorded"
+            # INSIDE THE GUARD, same class as the completion below and the intent
+            # above: `JournalEvent.__post_init__` is an admission gate that
+            # raises, and this construction sits in a handler that is ALREADY
+            # recovering from one failure — an exception escaping here would
+            # replace the store failure the caller's handlers are written against
+            # with an untyped crash. `except Exception` for the reason the
+            # completion block gives: every failure to record this has one
+            # outcome, so they get one handler.
             try:
+                failure = JournalEvent(
+                    kind=EventKind.STORE_WRITE_FAILURE,
+                    event_id=intent.event_id,
+                    run_id=self.run_id, edge_id=self.edge_id,
+                    key_epoch=self.key_epoch, provenance=provenance,
+                    write_path=write_path, sequence=sequence,
+                    destination=destination,
+                    terminal_state=TerminalState.STORE_WRITE_FAILED)
                 self._append(failure)
-            except APPEND_FAILURES:
+            except Exception:
                 # THE ORIGINAL FAILURE IS WHAT THE CALLER NEEDS, and a second
                 # exception raised from this handler would mask it. So the bag
                 # is marked instead — the record then says a write is missing
@@ -524,16 +598,35 @@ class Emitter:
                 f"happened, not what did not."
             ) from exc
 
-        completion = JournalEvent(
-            kind=EventKind.COMPLETION, event_id=intent.event_id,
-            run_id=self.run_id, edge_id=self.edge_id, key_epoch=self.key_epoch,
-            provenance=provenance, write_path=write_path, sequence=sequence,
-            destination=Destination(store=destination.store,
-                                    address=address_of(result)),
-            terminal_state=TerminalState.COMPLETED, lineage=intent.lineage)
+        # ⚠ THE COMPLETION IS BUILT INSIDE THE GUARD FOR THE REASON THE INTENT IS,
+        # AND THIS SITE WAS THE ASYMMETRIC HALF OF THAT PAIR. `address_of` is
+        # CALLER-SUPPLIED — it parses a store reply — so it can raise anything,
+        # and `JournalEvent.__post_init__` is an admission gate that raises
+        # `EventError`. Evaluated above the `try`, either escaped `paired_write`
+        # bare, AFTER the store write had already landed and was therefore
+        # unrecoverable: no `EmitFailed`, no gap event, no `incomplete` flag, and
+        # — for an `address_of` raising `IndexError` or a JSON `ValueError` —
+        # past every entrypoint's `except RuntimeError` as well. The four callers
+        # this branch ships are all defensive, so the invariant held by their
+        # good manners rather than by construction; a fifth write path whose
+        # `address_of` parses a store reply is where that stops being true.
+        #
+        # `except Exception` AND NOT `APPEND_FAILURES`, DELIBERATELY. Once
+        # `perform()` has returned, every failure in this block has ONE outcome —
+        # the store write landed and the record cannot prove it — so they get one
+        # handler. Narrowing it to the append's own exception set is what left
+        # the caller-supplied callable outside the taxonomy in the first place.
         try:
+            completion = JournalEvent(
+                kind=EventKind.COMPLETION, event_id=intent.event_id,
+                run_id=self.run_id, edge_id=self.edge_id,
+                key_epoch=self.key_epoch,
+                provenance=provenance, write_path=write_path, sequence=sequence,
+                destination=Destination(store=destination.store,
+                                        address=address_of(result)),
+                terminal_state=TerminalState.COMPLETED, lineage=intent.lineage)
             self._append(completion)
-        except APPEND_FAILURES as exc:
+        except Exception as exc:
             # ⚠ THE STORE WRITE HAS ALREADY HAPPENED, so stopping the run would
             # not un-happen it. What matters is that the record does not claim an
             # applied write it cannot prove — and an intent with no completion is
@@ -626,8 +719,12 @@ class Emitter:
         be written.
 
         **IF THE FLAG FAILS, THIS IS CASE (d) — whether or not the event
-        landed**: `JournalUnwritable` is raised, and the caller reports it on the
-        two channels that are not the journal. That is the case that makes (c)
+        landed**: `JournalUnwritable` is raised, and it carries itself out on
+        whichever channels are not the journal — `CASE_D_CHANNELS` is the
+        authority on which of the three those are, and the message composes its
+        own answer from that table rather than naming them here. That is a SIXTH
+        site: the five that named the two channels with no producer were all
+        prose asserting the same unbuilt fact. That is the case that makes (c)
         circular if it is not answered. The raise is NOT conditioned on the event
         also having failed, because nothing downstream reads a writer's
         `events.jsonl` to decide whether a bag is clean — a gap event beside a
@@ -639,15 +736,22 @@ class Emitter:
         # today only because the function is pure, which is agreement by
         # accident rather than by construction.
         gap_class = gap_class_for(exc)
-        gap = gap_event(run_id=self.run_id, edge_id=self.edge_id,
-                        key_epoch=self.key_epoch, write_path=write_path,
-                        sequence=self._next_sequence(write_path),
-                        gap_class=gap_class, lost_bytes=lost_bytes,
-                        destination=destination)
         event_written = True
+        # THE EVENT IS BUILT INSIDE THE GUARD, third member of the same class as
+        # the two sites in `paired_write`. `gap_event` constructs a
+        # `JournalEvent`, whose `__post_init__` raises `EventError` — and this
+        # function's whole job is to run on the failure path, so an exception
+        # escaping it loses the gap record AND masks the failure it was called to
+        # record. `gap_class_for` stays outside because it cannot raise and the
+        # flag below reads the same derivation (ONE derivation, read twice).
         try:
+            gap = gap_event(run_id=self.run_id, edge_id=self.edge_id,
+                            key_epoch=self.key_epoch, write_path=write_path,
+                            sequence=self._next_sequence(write_path),
+                            gap_class=gap_class, lost_bytes=lost_bytes,
+                            destination=destination)
             self._append(gap)
-        except APPEND_FAILURES:
+        except Exception:
             event_written = False
 
         try:
@@ -672,29 +776,37 @@ class Emitter:
                 f"{UNWRITABLE_JOURNAL_MARKER}: the journal cannot be "
                 f"written and neither can the record of that. "
                 f"{write_path} failed with {failure_detail(exc)}, and the "
-                f"`incomplete` flag failed after it — {landed}.\n"
+                f"`incomplete` flag failed after it with "
+                f"{failure_detail(flag_exc)} — {landed}.\n"
                 f"  bag: {self.bag.path}\n"
-                f"  this is requirement 4 case (d). It is reported on the "
-                f"typed exit record and on a durable working-record surface, "
-                f"because the journal is not available to report it."
+                f"  this is requirement 4 case (d), and it is "
+                f"{case_d_channel_sentence()}."
             ) from flag_exc
 
 
 # ---------------------------------------------------------------------------
-# Requirement 11 — the two channels case (d) reports on, WITH their readers.
+# Requirement 11 — the case-(d) signal and its reader. `CASE_D_CHANNELS` above
+# is the authority on WHICH channels carry it; exactly one does today, and this
+# section builds the payload and the reader for all three so that wiring the
+# other two is a call site rather than a contract.
 # ---------------------------------------------------------------------------
 
 def unwritable_journal_report(exc: JournalUnwritable, *,
                               bag_path: Path | None = None) -> dict[str, str]:
-    """PRODUCER for both channels: the exit-record field and the durable line.
+    """The case-(d) payload, in the one shape all three channels would carry.
 
-    ONE FUNCTION FOR BOTH so the two cannot disagree about what happened. The
-    exit record is read within seconds and then gone; the durable half is a
-    pull-request comment, which is durable, addressable, and outside the journal
-    root by construction. **Both are needed and neither is sufficient** — the
-    first because a parent has to route on it in-process, the second because
-    every consumer this component builds reads the record long after the process
-    is gone.
+    ONE FUNCTION FOR ALL OF THEM so no two channels can disagree about what
+    happened. **It has NO PRODUCTION CALLER TODAY, and that is stated rather than
+    implied**: `CASE_D_CHANNELS` above is the authority, and the only channel with
+    a live producer is the process exit — which is wired by INHERITANCE (see the
+    warning below) and does not call this function. This exists so that wiring
+    either remaining channel is a call site rather than a contract.
+
+    The design needs all three and none is sufficient alone: the exit record
+    because a parent has to route on it in-process, the durable pull-request
+    comment because every consumer this component builds reads the record long
+    after the process is gone, and the exit status because it is the only one
+    that needs nothing built.
 
     `terminal_state` IS `TerminalState.JOURNAL_UNWRITABLE`, from
     `modules/vocabulary.py` — the same declaration the journal event's own
@@ -718,7 +830,9 @@ def unwritable_journal_report(exc: JournalUnwritable, *,
 
 
 def unwritable_journal_in_text(text: str) -> bool:
-    """READER of the durable half. The named consumer requirement 11 demands.
+    """READER for every channel that carries the marker — the named consumer
+    requirement 11 demands, and today that is the PROCESS OUTPUT rather than the
+    durable half, because the durable half has no producer (`CASE_D_CHANNELS`).
 
     A SUBSTRING TEST AGAINST THE ONE DECLARED MARKER, and it is deliberately not
     a parse. The durable channel is a PR comment written by a run whose journal

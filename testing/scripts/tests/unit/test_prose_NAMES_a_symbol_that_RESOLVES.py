@@ -167,6 +167,73 @@ _DECLARED: dict[str, str] = {
 }
 
 
+# A backticked TEST MODULE FILENAME, optionally path-qualified. The `.py` is the
+# discriminator and it is why this half is decidable while bare test-FUNCTION
+# names are not: a citation carrying the suffix is unambiguously a file, whereas
+# a bare one is also a parametrize id, a prompt-variant stem and a section
+# heading. (An illustrative example cannot be written here, because this gate
+# reads its own comments and would report the example as a ghost — which it did,
+# to this paragraph's first draft.) Measured
+# over the swept tree: 32 bare-name citations do not resolve and almost all are
+# false positives, against 11 filename citations of which every one was a real
+# question. Keying on the half that discriminates is the whole lesson of the
+# `_ROOTS` recogniser two files over.
+_TEST_MODULE = re.compile(r"`([A-Za-z0-9_/]*\btest_[A-Za-z0-9_]+\.py)`")
+
+# Test modules named in prose that are NOT in the tree and are NOT defects.
+#
+# ⚠ KEYED BY (FILE, NAME) AND NOT BY NAME, AND THE FIRST DRAFT WAS KEYED BY NAME.
+# That draft's negative control PASSED when the deleted citation was put back at
+# the exact site a reviewer had just found it — because one row exempting the
+# name covered every site in the tree, including sites that did not exist when
+# the row was written. A deleted test module is cited in HISTORY at a handful of
+# known places and in ERROR anywhere; an exemption that cannot tell those apart
+# retires the gate for the one name it most needs to watch. The three historical
+# mentions below are three ROWS, and a fourth site naming any of them is a
+# finding.
+_DECLARED_TEST_MODULES: dict[tuple[str, str], str] = {
+    ("testing/scripts/tests/unit/gfm_table_scan.py",
+     "test_candidates_prose_matches_the_table.py"):
+        "DELETED in `91925af` with the `candidates.md` corpus it gated. Narrated "
+        "as history: these scanning helpers were private to it until a repo-wide "
+        "gate needed the same boundary, and naming the file IS that explanation.",
+    ("testing/scripts/tests/unit/test_markdown_tables_render_whole.py",
+     "test_candidates_prose_matches_the_table.py"):
+        "same deletion, narrated as history at ONE remaining site — the first "
+        "draft of this gate path-loaded it, which is the PR #96 coupling "
+        "`test_test_tree_hygiene.py` was widened for. The other three mentions "
+        "in this file made LIVE claims (a \"sibling\" comparison, a COMPANION "
+        "instruction to delete it in one commit) and were corrected, not "
+        "declared.",
+    ("testing/scripts/tests/unit/test_test_tree_hygiene.py",
+     "test_candidates_prose_matches_the_table.py"):
+        "same deletion. This is the MEASUREMENT that produced this file's "
+        "dynamic-load gate — a correction pass reached four private helpers out "
+        "of it by `spec_from_file_location`. The measurement is about that file "
+        "and cannot be restated without it.",
+    ("scripts/workflows/temporal/modules/journal/verify.py",
+     "test_verify_is_offline.py"):
+        "a file that NEVER EXISTED. `verify.py` names it in the act of saying so "
+        "— the sentence IS the correction, and blanking the name leaves it "
+        "without a subject.",
+    ("testing/scripts/tests/unit/test_mutate.py",
+     "test_subject.py"):
+        "a fixture WRITTEN AT RUN TIME into a `tmp_path` sandbox by this file, "
+        "never a tracked one. A real module that exists only while the test that "
+        "creates it is running.",
+}
+
+
+def unresolved_test_modules(source: str, filenames: set[str]) -> list[tuple[int, str]]:
+    """`(lineno, name)` for every backticked test-module filename that is not a file."""
+    found: list[tuple[int, str]] = []
+    for lineno, text in prose_of(source):
+        for match in _TEST_MODULE.finditer(text):
+            if match.group(1).split("/")[-1] not in filenames:
+                found.append((lineno, match.group(1).split("/")[-1]))
+    return found
+
+
 def _tracked(pattern: str) -> list[Path]:
     """Tracked files AND untracked-but-not-ignored ones. See the docstring.
 
@@ -332,6 +399,123 @@ def test_EVERY_PRIVATE_NAME_PROSE_CITES_RESOLVES_OR_IS_DECLARED(names: set[str])
         "it is deliberately historical — add a row to `_DECLARED` with the reason:"
         "\n  " + "\n  ".join(findings) +
         f"\n\nSCOPE: {SWEPT_PREFIXES}. A name outside it is invisible here.")
+
+
+# ---------------------------------------------------------------------------
+# THE SECOND AXIS: a TEST MODULE named in prose must exist.
+#
+# Added after a review pass found `test_a_census_guard_proves_its_own_predicate`
+# — the file whose thesis is that a coverage claim must be derived or must not be
+# written — enumerating "four corpora" and naming a gate deleted in `91925af`.
+# Sweeping the class found the SAME deleted filename at SEVEN sites in five
+# files, four of them making live claims, plus two other prose-only test modules
+# that do not exist. That is why this is a predicate and not seven corrections:
+# the previous pass corrected the two dead citations it found by script, and this
+# one was in the file class that sweep excluded.
+#
+# A test module named in prose is the strongest possible form of the thing
+# `_REFERENCE` gates: it does not merely read as already-checked, it reads as
+# ALREADY-ENFORCED. A reader auditing what is covered stops at the name.
+
+
+@pytest.fixture(scope="module")
+def filenames() -> set[str]:
+    """Every file basename in the tree — uncommitted ones included, per `_tracked`."""
+    return {path.name for path in _tracked("*")}
+
+
+def test_the_test_module_extractor_FINDS_references_at_all(
+        filenames: set[str]) -> None:
+    """A floor on the second extractor, which the first one's floor does not give."""
+    resolving = 0
+    for path in _swept():
+        source = path.read_text(encoding="utf-8", errors="replace")
+        for _, text in prose_of(source):
+            resolving += sum(1 for m in _TEST_MODULE.finditer(text)
+                             if m.group(1).split("/")[-1] in filenames)
+    assert resolving > 50, (
+        f"only {resolving} resolving test-module citations found in the tree's "
+        f"prose — the extractor is not reading what it claims to read")
+
+
+def test_EVERY_TEST_MODULE_PROSE_CITES_EXISTS(filenames: set[str]) -> None:
+    """THE RULE: a backticked `test_*.py` in a comment or docstring must be a file."""
+    findings: list[str] = []
+    for path in _swept():
+        source = path.read_text(encoding="utf-8", errors="replace")
+        relpath = str(path.relative_to(ROOT))
+        for lineno, name in unresolved_test_modules(source, filenames):
+            if (relpath, name) in _DECLARED_TEST_MODULES:
+                continue
+            findings.append(f"{relpath}:{lineno}: `{name}`")
+    assert not findings, (
+        "prose names a test module that is not in the tree. A named test reads "
+        "as already-ENFORCED, so a deleted one stops the next reader checking "
+        "whether the property is covered at all. Correct it to the gate that "
+        "ships, or — if the mention is deliberately historical — add a row to "
+        "`_DECLARED_TEST_MODULES` for THIS FILE with the reason (rows are keyed "
+        "by site, so declaring a name elsewhere does not cover this one):"
+        "\n  " + "\n  ".join(findings) +
+        f"\n\nSCOPE: {SWEPT_PREFIXES}. A file outside it is invisible here.")
+
+
+def test_no_DECLARED_TEST_MODULE_row_has_gone_stale(filenames: set[str]) -> None:
+    """A row claims the module does not exist. Re-creating it expires the row."""
+    live = sorted(name for _, name in _DECLARED_TEST_MODULES if name in filenames)
+    assert not live, (
+        f"these `_DECLARED_TEST_MODULES` rows name files that NOW EXIST: {live}. "
+        f"The row's reason is no longer true — delete it, and check the prose it "
+        f"was exempting still says the right thing about the file that now exists.")
+
+
+def test_every_DECLARED_TEST_MODULE_row_is_still_REACHED(
+        filenames: set[str]) -> None:
+    """A row for a module nobody cites is dead weight that reads as coverage."""
+    cited: set[tuple[str, str]] = set()
+    for path in _swept():
+        source = path.read_text(encoding="utf-8", errors="replace")
+        relpath = str(path.relative_to(ROOT))
+        cited.update((relpath, name)
+                     for _, name in unresolved_test_modules(source, filenames))
+    orphaned = sorted(set(_DECLARED_TEST_MODULES) - cited)
+    assert not orphaned, (
+        f"`_DECLARED_TEST_MODULES` rows nothing cites any more: {orphaned}. The "
+        f"prose that needed the exemption is gone; delete the row with it.")
+
+
+_GHOST_TEST_MODULE = '''
+# Held by `test_a_gate_that_was_deleted.py`, which does not exist.
+X = 1
+'''
+
+_REAL_TEST_MODULE = '''
+# Held by `test_prose_NAMES_a_symbol_that_RESOLVES.py`.
+X = 1
+'''
+
+_TEST_FUNCTION_NOT_A_MODULE = '''
+# The property is held by `test_the_thing_is_held`, a function and not a file.
+X = 1
+'''
+
+
+def test_the_test_module_predicate_CATCHES_a_deleted_gate() -> None:
+    found = unresolved_test_modules(_GHOST_TEST_MODULE, {"anything.py"})
+    assert [name for _, name in found] == ["test_a_gate_that_was_deleted.py"]
+
+
+def test_the_test_module_predicate_PASSES_a_gate_that_exists() -> None:
+    assert unresolved_test_modules(
+        _REAL_TEST_MODULE,
+        {"test_prose_NAMES_a_symbol_that_RESOLVES.py"}) == []
+
+
+def test_the_test_module_predicate_IGNORES_a_bare_FUNCTION_name() -> None:
+    """The `.py` is the discriminator. Bare `test_*` spans are also parametrize
+    ids, prompt-variant stems and section headings — 32 of them do not resolve in
+    this tree and almost none is a defect, so matching them would make this gate
+    answered by suppression, which is worse than no gate."""
+    assert unresolved_test_modules(_TEST_FUNCTION_NOT_A_MODULE, set()) == []
 
 
 def test_no_DECLARED_row_has_gone_stale(names: set[str]) -> None:

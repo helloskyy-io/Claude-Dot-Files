@@ -217,12 +217,27 @@ def event_identity(*, run_id: str, write_path: str, sequence: int) -> str:
     on which one got there first, so a retry of either would mint a new identity
     rather than re-deriving its own.
 
-    ⚠ WHAT THIS DOES NOT ESTABLISH: an ORDER across writers. Two children each
-    emitting `seq=1` are unordered relative to each other, and nothing here says
-    which came first. That is the same limit `Bag.writer_dir` states, and it is
-    survivable for the same reason: today parallel children are read-only critics
-    and a single analyst writes. The day two concurrent children write to one
-    store, this needs a sequence number that spans them.
+    ⚠ WHAT THIS DOES NOT ESTABLISH, AND THE CONSEQUENCE IS WORSE THAN "UNORDERED".
+    This paragraph used to say only that two children each emitting `seq=1` are
+    unordered relative to each other. They are — and they also derive the SAME
+    `event_id`, because the material is `(run_id, write_path, sequence)` and a
+    writer contributes nothing to it. `dedupe_on_identity` keys on
+    `(event_id, kind)` and keeps the FIRST, so on replay the second writer's
+    distinct, successfully-written completion is DROPPED: not an ambiguity about
+    order, real data loss, and precisely the silent gap cases (b) and (c) exist to
+    forbid. The counter is per-`Emitter` (`Emitter._sequences`), and
+    `Bag.writer_dir` gives each writer its own `events.jsonl` — so within one
+    writer this cannot happen and across two it is unguarded.
+
+    IT IS UNREACHABLE TODAY AND NOTHING ENFORCES THAT, which is also stated rather
+    than left implied. It needs two concurrent writers in ONE run emitting on the
+    SAME `write_path`; today parallel children are read-only critics and a single
+    analyst writes, so no second writer performs a store write at all. That is a
+    property of the current wiring, not an invariant this module holds.
+    **Trigger: the second concurrent writer that performs a store write.** The
+    remedy is a sequence number that spans writers — or a writer key in the
+    identity material — and it is a schema question, so it is named here rather
+    than reached for now.
     """
     if sequence < 0:
         raise EventError(

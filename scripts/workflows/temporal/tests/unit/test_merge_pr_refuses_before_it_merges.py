@@ -20,6 +20,9 @@ import pytest
 
 from modules.assistant import routing
 from modules.assistant.merge import merge_pr  # noqa: E402
+from modules.journal.bag import open_bag
+from modules.journal.emit import Emitter, emitting_into
+from modules.journal.events import EVENTS_FILE, EventKind, decode_event
 
 REPO = Path("/nonexistent-by-design")
 
@@ -153,6 +156,69 @@ def test_a_failed_BRANCH_DELETE_does_not_report_a_failed_MERGE(monkeypatch) -> N
     monkeypatch.setattr(merge_pr.subprocess, "run", _boom)
     monkeypatch.setattr(merge_pr, "_gh_json", lambda a, r: {"state": "MERGED"})
     assert merge_pr.merge_one("1", REPO) is None
+
+
+def test_a_failed_BRANCH_DELETE_is_journaled_as_a_COMPLETED_write(
+        monkeypatch, tmp_path: Path) -> None:
+    """The merge LANDED, so the journal must say so — permanently and only once.
+
+    ⚠ THE TWO TESTS ABOVE RUN WITH NO EMITTER REGISTERED, which is why this
+    defect shipped past them. With the emit wired, `gh` exiting non-zero on a
+    merge that succeeded made `paired_write` append a `store_write_failure` —
+    and the journal is append-only, so the record said *this write did not
+    happen* about a merge that had, uncorrectably. `applied_intents` then
+    declines that intent forever and a Phase 4 rebuild concludes the merge never
+    occurred, while `run_merge` reports it under `merged` in the same run. The
+    record exists to be trusted over the report; a record that contradicts a
+    correct report is worse than no record.
+
+    The scenario is PR #166's, measured: `--delete-branch` cannot remove a branch
+    checked out in a worktree, and this fleet always dispatches from one.
+    """
+    def _boom(*a, **k):
+        raise subprocess.CalledProcessError(1, "gh",
+                                            stderr="failed to delete local branch")
+
+    monkeypatch.setattr(merge_pr.subprocess, "run", _boom)
+    monkeypatch.setattr(merge_pr, "_gh_json", lambda a, r: {"state": "MERGED"})
+
+    root = tmp_path / "journal"
+    root.mkdir(mode=0o700, parents=True)
+    bag = open_bag(root, "run-merge")
+    emitter = Emitter.for_run(bag, writer=None, journal_root=root)
+    with emitting_into(emitter):
+        assert merge_pr.merge_one("1", REPO) is None
+
+    lines = (emitter.writer_dir / EVENTS_FILE).read_text().splitlines()
+    kinds = [decode_event(line).kind for line in lines]
+    assert kinds == [EventKind.INTENT, EventKind.COMPLETION], (
+        f"a merge that LANDED was journaled as {[k.value for k in kinds]}. The "
+        f"exit code covers `--delete-branch` too, so the outcome has to be "
+        f"resolved INSIDE `perform` — resolving it in a handler is one frame "
+        f"too late, and the journal never forgets.")
+
+
+def test_a_GENUINELY_failed_merge_is_still_journaled_as_a_FAILURE(
+        monkeypatch, tmp_path: Path) -> None:
+    """THE CONTROL FOR THE TEST ABOVE. Asking the outcome must not launder a real
+    failure into a completion — that would be the same defect pointing the other
+    way, and Phase 4 would then MATERIALISE a merge nobody performed."""
+    def _boom(*a, **k):
+        raise subprocess.CalledProcessError(1, "gh", stderr="not mergeable")
+
+    monkeypatch.setattr(merge_pr.subprocess, "run", _boom)
+    monkeypatch.setattr(merge_pr, "_gh_json", lambda a, r: {"state": "OPEN"})
+
+    root = tmp_path / "journal"
+    root.mkdir(mode=0o700, parents=True)
+    bag = open_bag(root, "run-merge-failed")
+    emitter = Emitter.for_run(bag, writer=None, journal_root=root)
+    with emitting_into(emitter):
+        assert merge_pr.merge_one("1", REPO) == "not mergeable"
+
+    lines = (emitter.writer_dir / EVENTS_FILE).read_text().splitlines()
+    kinds = [decode_event(line).kind for line in lines]
+    assert kinds == [EventKind.INTENT, EventKind.STORE_WRITE_FAILURE]
 
 
 def test_a_GENUINELY_failed_merge_is_still_reported(monkeypatch) -> None:

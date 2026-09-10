@@ -28,8 +28,9 @@ so they are the journal's own I/O rather than a capability sitting beside it.
   `capture_filter.py`      — named credential shapes kept out at APPEND time,
                              before any byte reaches the root (r10)
   `emit.py`                — the emit boundary: write-ahead ordering, the four
-                             write-failure cases, and case (d)'s two channels
-                             WITH their readers (r4, r11, r12)
+                             write-failure cases, and case (d)'s reporting
+                             channels — `CASE_D_CHANNELS` declares which of the
+                             three actually has a producer (r4, r11, r12)
 
 THE EVENT CONTRACT IS SEPARATE FROM THE TYPED EXIT RECORD'S AND SHARES ONE
 VOCABULARY WITH IT (r3). `modules/vocabulary.py` is that vocabulary — a leaf at

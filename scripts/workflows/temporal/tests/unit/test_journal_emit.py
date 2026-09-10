@@ -20,7 +20,10 @@ stops a contract written wrongly and exercised wrongly from agreeing with itself
 
 from __future__ import annotations
 
+import ast
+import json
 import os
+import pathlib
 from pathlib import Path
 
 import pytest
@@ -35,6 +38,7 @@ from modules.journal.emit import (EmitFailed, Emitter, JournalUnwritable,
                                   unwritable_journal_report)
 from modules.journal.events import (EVENTS_FILE, Destination, EventKind,
                                     GapClass, Provenance, decode_event)
+from modules.assistant.review_pr import exit_record
 from modules.vocabulary import TerminalState
 
 ROOT_SKIP = pytest.mark.skipif(
@@ -188,6 +192,41 @@ def test_a_FAILED_STORE_WRITE_records_a_failure_event_and_re_raises(
                              content="body", perform=_boom)
     kinds = [e.kind for e in _events(emitter)]
     assert kinds == [EventKind.INTENT, EventKind.STORE_WRITE_FAILURE]
+
+
+def test_a_RAISING_address_of_is_a_GAP_and_not_an_untyped_CRASH(
+        emitter: Emitter, bag) -> None:
+    """`address_of` is CALLER-SUPPLIED, so it is inside the guard like the intent.
+
+    IT PARSES A STORE REPLY, which is the one input at this boundary the fleet
+    does not author — `gh_attempt` reads `stdout.splitlines()[-1]`, and the
+    obvious next write path parses JSON. Evaluated above the `try` (as it was),
+    an `IndexError` or a `JSONDecodeError` escaped `paired_write` bare: no
+    `EmitFailed`, no gap event, no `incomplete` flag, and — since neither is a
+    `RuntimeError` — past every entrypoint's handler as well. AFTER the store
+    write had landed and was therefore unrecoverable.
+
+    THE EXCEPTION CHOSEN HERE IS DELIBERATELY NOT A `RuntimeError`. A
+    `RuntimeError` would be caught by the entrypoints even on the broken code, so
+    it would not discriminate; `IndexError` is what an empty `gh` stdout actually
+    raises, and it is the shape that escaped everything.
+    """
+    def _address(_result: None) -> str:
+        raise IndexError("gh printed nothing, so stdout.splitlines()[-1] blew up")
+
+    with pytest.raises(EmitFailed, match="store write DID land"):
+        emitter.paired_write(write_path="gh:pr:comment",
+                             destination=Destination(store="github"),
+                             content="body", perform=lambda: None,
+                             address_of=_address)
+    kinds = [e.kind for e in _events(emitter)]
+    assert kinds == [EventKind.INTENT, EventKind.GAP], (
+        f"a raising `address_of` produced {kinds}; the record must carry the "
+        f"intent and a typed gap, so replay sees an intent with no completion "
+        f"and declines to apply a write it cannot prove")
+    assert bag.incomplete, (
+        "the bag reads as complete after a write whose completion was lost — "
+        "the outcome Phase 1's four-state design exists to prevent")
 
 
 def test_a_RETRIED_paired_write_appends_a_deduplicable_pair_per_attempt(
@@ -466,12 +505,16 @@ def test_a_store_failure_whose_record_ALSO_dies_names_the_unwritable_journal(
         "said so — this is the exception's only surface")
 
 
-def test_case_d_reports_on_the_exit_record_AND_a_durable_surface() -> None:
-    """Requirement 11: two channels, and the second is why the first is not enough.
+def test_the_case_d_PAYLOAD_is_ONE_shape_for_every_channel() -> None:
+    """One payload builder, so no two channels can disagree about what happened.
 
-    The typed exit record plus a non-zero exit carry it out of the process — and
-    both are invocation state, read within seconds and then gone, so a failure
-    reported only there is invisible to every consumer this component builds.
+    ⚠ THIS TEST USED TO BE NAMED `test_case_d_reports_on_the_exit_record_AND_a_
+    durable_surface`, AND THE NAME WAS FALSE — neither of those channels has a
+    producer. A green test asserting a channel is wired is the strongest possible
+    form of the drift `CASE_D_CHANNELS` was declared to stop, because a test name
+    reads as proof rather than as prose. What this actually holds is the payload's
+    SHAPE; which channels carry it is
+    `test_the_case_d_CHANNEL_TABLE_matches_the_tree` below.
     """
     report = unwritable_journal_report(JournalUnwritable("root is gone"),
                                        bag_path=Path("/j/run-1"))
@@ -480,12 +523,19 @@ def test_case_d_reports_on_the_exit_record_AND_a_durable_surface() -> None:
     assert report["marker"] == emitmod.UNWRITABLE_JOURNAL_MARKER
 
 
-def test_the_durable_signal_HAS_a_committed_reader() -> None:
+def test_the_case_d_signal_HAS_a_committed_reader() -> None:
     """Requirement 11, and it is the one thing this phase must not get wrong.
 
     Adding a field to a channel and leaving the reading to somebody later is how
     this fleet has already lost three observables, and the one channel this
     component's failure path depends on is the last place to repeat it.
+
+    THE READER IS CHANNEL-BLIND, WHICH IS WHY IT SHIPS AHEAD OF TWO OF THE THREE.
+    It is a substring test against the one declared marker, so it reads the
+    process output that IS wired today and a pull-request comment on the day that
+    channel acquires a producer. A comment body is used here as the input BECAUSE
+    the durable channel is the unbuilt one — the reader is ready and the writer is
+    not, which is the correct half of that pair to ship first.
     """
     report = unwritable_journal_report(JournalUnwritable("root is gone"))
     comment = f"### Run failed\n\n{report['marker']}: {report['detail']}\n"
@@ -519,6 +569,102 @@ def test_the_RAISED_case_d_exception_is_readable_by_the_same_reader(
     finally:
         bag.info_path.chmod(0o600)
     assert unwritable_journal_in_text(str(raised.value))
+
+
+def _passes_case_d_report_true(tree: ast.AST) -> bool:
+    """Does this module CALL something with `case_d_report=True`?
+
+    Asked of the AST and not of the text, for the reason every guard in this
+    package learned the hard way: a docstring explaining the flag mentions its
+    name, and a substring scan reads the explanation as the wiring.
+    """
+    return any(
+        isinstance(node, ast.Call)
+        and any(kw.arg == "case_d_report"
+                and isinstance(kw.value, ast.Constant) and kw.value.value is True
+                for kw in node.keywords)
+        for node in ast.walk(tree))
+
+
+def _derive_case_d_wiring() -> tuple[bool, ...]:
+    """Which of `CASE_D_CHANNELS` has a live producer — READ FROM THE TREE.
+
+    One derivation per row, in the table's order. Each answers *is there a
+    producer*, never *is there a plan*, because the whole defect this replaces was
+    prose describing the plan in the present tense.
+    """
+    fleet = pathlib.Path(__file__).resolve().parents[2]
+
+    # (0) THE PROCESS EXIT — wired by INHERITANCE and by nothing else. Every
+    # entrypoint already carries `except RuntimeError`, so a `JournalUnwritable`
+    # that subclasses it reaches the operator with no entrypoint edited. Break
+    # that inheritance and the channel is gone, silently, which is why the
+    # derivation is the inheritance rather than a count of handlers.
+    process_exit = issubclass(JournalUnwritable, RuntimeError)
+
+    # (1) THE DURABLE WORKING-RECORD COMMENT — its producer is the `case_d_report`
+    # bypass, so the channel is live exactly when some PRODUCTION file calls it.
+    # Tests are excluded deliberately: a test exercising the bypass proves the
+    # mechanism works, not that anything reports through it.
+    durable = any(
+        _passes_case_d_report_true(ast.parse(path.read_text(encoding="utf-8",
+                                                            errors="replace")))
+        for path in sorted(fleet.rglob("*.py"))
+        if "tests" not in path.parts)
+
+    # (2) THE TYPED EXIT RECORD — live when its schema declares somewhere for the
+    # terminal state to go. Asked of `CHILD_SCHEMA` itself, which
+    # `exit-protocol.md` §2 makes the single declaration of that record's shape.
+    exit_record_field = TerminalState.JOURNAL_UNWRITABLE.value in json.dumps(
+        exit_record.CHILD_SCHEMA)
+
+    return (process_exit, durable, exit_record_field)
+
+
+def test_the_case_d_CHANNEL_TABLE_matches_the_tree() -> None:
+    """`CASE_D_CHANNELS` says which channels carry case (d). THE TREE DECIDES.
+
+    THIS TEST EXISTS BECAUSE THE PROSE VERSION DRIFTED AT SEVEN SITES ON ONE
+    BRANCH — `emit.py`'s module docstring twice, `_record_gap`'s docstring, its
+    raised message, `unwritable_journal_report`'s docstring, `journal/__init__.py`
+    and a TEST NAME — every one of them asserting that case (d) reports on the
+    typed exit record and on a durable working-record surface. Neither had a
+    producer. The channel that did — the process exit — was named by none of them,
+    so on the single failure path where this component cannot speak for itself the
+    operator was sent to two empty surfaces and away from the full one.
+
+    Correcting seven paragraphs does not converge; the eighth gets written next
+    pass. So the claim became DATA with a derivation behind it, and this is that
+    derivation. The day somebody gives `case_d_report=True` a production caller or
+    adds the field to `CHILD_SCHEMA`, this goes red against the table — and the
+    message `case_d_channel_sentence` composes changes with it, because that
+    sentence reads the same table.
+    """
+    declared = tuple(wired for _, wired in emitmod.CASE_D_CHANNELS)
+    derived = _derive_case_d_wiring()
+    assert declared == derived, (
+        f"`CASE_D_CHANNELS` declares {declared} and the tree says {derived}. A "
+        f"channel that gained a producer must be flipped to True here — and the "
+        f"prose citing this table re-read — because the case-(d) message names "
+        f"exactly the rows this table calls wired."
+    )
+
+
+def test_the_channel_DERIVATION_discriminates() -> None:
+    """A deriver that answered True to everything would agree with any table.
+
+    Both directions on the one row that is decided by a code shape rather than by
+    a class relationship: a call carrying the flag is seen, and a docstring
+    MENTIONING it is not — which is the substring bug this package has already met
+    twice, once in the journal-isolation guard and once in `gh_attempt` itself,
+    where reading the flag off the content skipped the journal entirely.
+    """
+    assert _passes_case_d_report_true(ast.parse(
+        "gh_attempt(['gh', 'pr', 'comment'], root, case_d_report=True)"))
+    assert not _passes_case_d_report_true(ast.parse(
+        '''def f():\n    """Pass `case_d_report=True` to bypass the emit."""\n'''))
+    assert not _passes_case_d_report_true(ast.parse(
+        "gh_attempt(['gh', 'pr', 'view'], root, case_d_report=False)"))
 
 
 def test_the_marker_is_ONE_declaration_shared_by_producer_and_reader() -> None:

@@ -760,8 +760,8 @@ def test_the_journal_package_imports_no_workflow_module(module: str) -> None:
     clean sweep over nothing.
 
     ⚠ ASKED OF THE IMPORTS, NOT OF THE TEXT — the same substring bug
-    `test_a_module_named_only_in_PROSE_is_not_reachable` above exists to rule
-    out, met here from the other side. `__init__.py` explains in prose why the
+    `test_the_reachability_check_FAILS_on_a_module_only_MENTIONED` above exists
+    to rule out, met here from the other side. `__init__.py` explains in prose why the
     package imports no workflow module, and a text scan reported that sentence
     as the violation it describes. The widened walk found it immediately; the
     fixed list never reached the file.

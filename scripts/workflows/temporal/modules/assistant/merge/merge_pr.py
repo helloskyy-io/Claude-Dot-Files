@@ -81,6 +81,32 @@ class MergeReport:
         return not self.refused and self.drain_error is None
 
 
+class _MergeRefused(RuntimeError):
+    """`gh pr merge` failed AND the PR is not merged — the store write truly failed.
+
+    RAISED FROM INSIDE `perform`, WHICH IS THE WHOLE POINT. `gh pr merge --squash
+    --delete-branch` is ONE process whose exit code covers the merge AND the
+    cleanup, and the cleanup fails routinely here — `--delete-branch` cannot
+    remove a branch checked out in a worktree, and this fleet dispatches from
+    `.claude/worktrees/`. Measured on the first real invocation: PR #166 MERGED
+    and `gh` exited non-zero.
+
+    Before PMP Phase 3 that only cost a wrong console message, which
+    `_merge_outcome_after_failure` already corrected in a handler. With the emit
+    wired, correcting it in a handler is TOO LATE: `paired_write` sees `perform`
+    raise, appends a `store_write_failure` event, and the journal is append-only —
+    so a merge that LANDED is recorded, permanently and uncorrectably, as a write
+    that did not. `applied_intents` then declines that intent forever, and a Phase
+    4 rebuild concludes the merge never happened while the run's own report says
+    it did. The record exists to be trusted over the report, so it is the record
+    that has to be right.
+
+    So the outcome is resolved BEFORE `perform` returns or raises, and this class
+    is how the resolved detail reaches the caller without being re-derived: one
+    `gh pr view`, one answer, carried rather than recomputed.
+    """
+
+
 def _gh_json(args: list[str], repo_root: Path) -> dict | None:
     """A `gh` read, or None when it could not be read. None is never 'fine'."""
     try:
@@ -197,9 +223,27 @@ def merge_one(pr: str, repo_root: Path, *, dry_run: bool = False) -> str | None:
     # empty `content` would make the event indistinguishable from a write whose
     # body could not be read.
     def _merge() -> None:
-        subprocess.run(["gh", "pr", "merge", pr, "--squash", "--delete-branch"],
-                       cwd=repo_root, capture_output=True, text=True,
-                       check=True, timeout=300)
+        # ⚠ THE EXIT CODE COVERS THE CLEANUP TOO, AND THE CLEANUP IS NOT THE
+        # MERGE — so this callable asks the OUTCOME before it returns or raises,
+        # rather than letting a handler correct it afterwards. `--delete-branch`
+        # fails when the branch is checked out in a worktree, which it always is
+        # here; measured on PR #166, which MERGED while `gh` exited non-zero.
+        #
+        # THE PLACEMENT IS THE FIX AND NOT A STYLE CHOICE. `paired_write` writes
+        # the journal from whether `perform` raises, and the journal is
+        # append-only — so resolving this one handler-frame later records a
+        # completed merge as a `store_write_failure` that can never be corrected,
+        # and `applied_intents` declines it forever.
+        try:
+            subprocess.run(["gh", "pr", "merge", pr, "--squash",
+                            "--delete-branch"],
+                           cwd=repo_root, capture_output=True, text=True,
+                           check=True, timeout=300)
+        except subprocess.CalledProcessError as exc:
+            detail = _merge_outcome_after_failure(exc, pr, repo_root)
+            if detail is None:
+                return          # MERGED; only `--delete-branch` failed
+            raise _MergeRefused(detail) from exc
 
     emitter = journal_emit.current_emitter()
     try:
@@ -214,40 +258,39 @@ def merge_one(pr: str, repo_root: Path, *, dry_run: bool = False) -> str | None:
                 perform=_merge)
         return None
     except journal_emit.StoreWriteFailed as recorded:
-        # The `store_write_failure` event is already appended; the ORIGINAL `gh`
-        # failure is what the two handlers below are written against, so it is
-        # re-raised into them rather than replaced by the wrapper's own class.
+        # The `store_write_failure` event is already appended, and by the time we
+        # are here that is the RIGHT record: `_merge` returned normally for every
+        # case where the PR actually merged, so a raise reaching this point means
+        # the merge did not land. The ORIGINAL failure is what the branches below
+        # are written against, so it is unwrapped rather than replaced by the
+        # emit wrapper's own class.
         cause = recorded.__cause__
-        if isinstance(cause, BaseException):
-            exc = cause
-        else:                                   # pragma: no cover - unreachable
-            raise
-        if isinstance(exc, subprocess.CalledProcessError):
-            return _merge_outcome_after_failure(exc, pr, repo_root)
-        if isinstance(exc, (subprocess.SubprocessError, OSError)):
-            return str(exc)
+        if isinstance(cause, _MergeRefused):
+            return str(cause)
+        if isinstance(cause, (subprocess.SubprocessError, OSError)):
+            return str(cause)
         raise
-    except subprocess.CalledProcessError as exc:
-        # THE EXIT CODE COVERS THE CLEANUP TOO, AND THE CLEANUP IS NOT THE MERGE.
-        # `--delete-branch` fails when the branch is checked out in a worktree —
-        # which it always is, because this fleet dispatches from
-        # `.claude/worktrees/`. Measured on the first real invocation: PR #166
-        # MERGED and this reported "merge failed: failed to delete local branch".
-        # A tool that says a completed merge failed is worse than one that says
-        # nothing, so the OUTCOME is asked rather than the exit code trusted.
-        return _merge_outcome_after_failure(exc, pr, repo_root)
+    except _MergeRefused as exc:
+        # The emitter was absent, so `_merge` was called directly. Same answer:
+        # the outcome was resolved inside it and the detail is carried, not
+        # recomputed — one `gh pr view` per failed merge, on either path.
+        return str(exc)
     except (subprocess.SubprocessError, OSError) as exc:
         return str(exc)
 
 
 def _merge_outcome_after_failure(exc: subprocess.CalledProcessError, pr: str,
                                  repo_root: Path) -> str | None:
-    """ONE definition of "did it actually merge?", called from two handlers.
+    """ONE definition of "did it actually merge?", asked INSIDE `perform`.
 
-    Split out when the emit wrapper gave this question a second caller. Two
-    copies of it would drift, and the direction they would drift in is the one
-    the comment inside it is about: a tool that reports a completed merge as
-    failed is worse than one that says nothing.
+    It was split out when the emit wrapper gave the question a second caller, and
+    it now has one again — because the answer moved to the only place it can be
+    correct. Asked from a handler, it corrects the console message after the
+    journal has already recorded the opposite; asked from inside `perform`, the
+    journal and the report are derived from one answer and cannot disagree.
+
+    `None` means MERGED. A returned string is the operator-facing detail, and the
+    caller carries it out on `_MergeRefused` rather than re-deriving it.
     """
     detail = (exc.stderr or exc.stdout or "gh pr merge failed").strip()
     view = _gh_json(["pr", "view", pr, "--json", "state"], repo_root)
