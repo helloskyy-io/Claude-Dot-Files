@@ -129,6 +129,21 @@ echo "================================================================"
 echo
 
 # ---------------------------------------------------------------------------
+# Preflight: a usable git identity must exist BEFORE anything is written
+# ---------------------------------------------------------------------------
+# `git commit` (Step 6) derives its author from GIT_AUTHOR_IDENT, which honours
+# GIT_AUTHOR_* / GIT_COMMITTER_* env vars as well as user.name/user.email config
+# — a `git config user.name` probe would miss the env-supplied case. Checked
+# HERE, before Step 1 writes anything, so a missing identity refuses on an empty
+# directory rather than leaving a half-scaffolded repo with no commit.
+if ! git var GIT_AUTHOR_IDENT >/dev/null 2>&1; then
+    echo "✗ No usable git identity — git cannot determine an author." >&2
+    echo "  Set user.name and user.email (or GIT_AUTHOR_NAME / GIT_AUTHOR_EMAIL) and re-run;" >&2
+    echo "  refusing to scaffold ${PROJECT_NAME} before an author is known." >&2
+    exit 1
+fi
+
+# ---------------------------------------------------------------------------
 # Step 1: Git init
 # ---------------------------------------------------------------------------
 if git rev-parse --show-toplevel &>/dev/null; then
@@ -553,11 +568,6 @@ if git rev-parse HEAD &>/dev/null; then
     echo "✓ Commits already exist — skipping initial commit"
 else
     echo "→ Creating initial commit..."
-    if [[ -z "$(git config user.name)" || -z "$(git config user.email)" ]]; then
-        echo "✗ git identity is not configured (user.name / user.email)." >&2
-        echo "  Refusing to commit ${PROJECT_NAME}'s scaffolding under an unknown author — set both and re-run." >&2
-        exit 1
-    fi
     git add -A
     git commit -m "feat: initialize ${PROJECT_NAME} project scaffolding"
     echo "✓ Initial commit created"

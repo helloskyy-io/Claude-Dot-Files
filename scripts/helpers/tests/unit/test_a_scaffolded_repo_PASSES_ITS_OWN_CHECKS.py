@@ -53,6 +53,38 @@ def scaffold(tmp_path_factory) -> Path:
     return d
 
 
+def test_IT_REFUSES_BEFORE_WRITING_ANYTHING_WHEN_GIT_HAS_NO_IDENTITY(tmp_path: Path) -> None:
+    """The preflight refuses on an EMPTY directory, not after scaffolding.
+
+    Before this guard the script wrote ~16 files and only THEN failed at the
+    commit (git's exit 128), leaving a half-built repo with no commit. The
+    preflight checks `git var GIT_AUTHOR_IDENT` before Step 1, so a host with no
+    identity exits 1 having touched nothing. This also pins the probe against the
+    regression that shipped once: `git config user.name` cannot see the
+    GIT_AUTHOR_* env the fixture above supplies, so it would refuse an identity
+    `git commit` accepts. `git var GIT_AUTHOR_IDENT` reads the same source the
+    commit will, so the two never disagree.
+    """
+    d = tmp_path / "no-identity-repo"
+    d.mkdir()
+    # Remove EVERY identity source: the author/committer env vars, and the global
+    # and system config files, so git genuinely cannot determine an author.
+    env = {k: v for k, v in os.environ.items()
+           if k not in {"GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL",
+                        "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"}}
+    env["GIT_CONFIG_GLOBAL"] = os.devnull
+    env["GIT_CONFIG_SYSTEM"] = os.devnull
+    r = subprocess.run(["bash", str(INIT), "no-identity-repo", "--skip-remote"],
+                       cwd=d, capture_output=True, text=True, timeout=180, env=env)
+    assert r.returncode == 1, (
+        f"expected the identity preflight to refuse with exit 1 (not git's late "
+        f"exit 128), got {r.returncode}:\n{r.stdout}\n{r.stderr}")
+    wrote = list(d.iterdir())
+    assert not wrote, (
+        f"the preflight let the script write before refusing — a half-scaffolded "
+        f"repo is the exact defect it exists to prevent: {[p.name for p in wrote]}")
+
+
 def test_IT_SCAFFOLDS_A_WORKFLOW_AND_ITS_POLICY_TOGETHER(scaffold: Path) -> None:
     """Neither exists without the other. `testing/README.md` states the rule — a
     policy with no workflow reports "declares a policy and none of it reported",
