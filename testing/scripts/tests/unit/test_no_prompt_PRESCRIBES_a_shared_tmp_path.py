@@ -276,6 +276,22 @@ class Residue(NamedTuple):
 # DO NOT RETYPE THE `paths` SETS. They are the output of `_fixed_paths` over
 # `git ls-files docs`, and the test below is what reconciles them.
 DOCS_RESIDUE: dict[str, Residue] = {
+    "development/edge-assistant/workflow-decomposition/phase5_configuration_a_run_absorbed.md": Residue(
+        frozenset({"/tmp/r5-hookflag/marker-hook.txt", "/tmp/r5-trials/marker-B0.txt",
+                   "/tmp/r5-trials/marker-Bj.txt", "/tmp/r5-trials/marker-B.txt",
+                   "/tmp/r5-trials/marker-C0.txt", "/tmp/r5-trials/marker-C.txt"}),
+        "NOT FIX-CLASS. These are a CAPTURED TRANSCRIPT of an experiment that was "
+        "run, not an instruction anyone follows: the phase measured whether a "
+        "dispatched invocation is distinguishable from an operator at a terminal, "
+        "and the marker files are what the trials wrote. Rewriting them would "
+        "falsify the record of what was executed — the one thing a transcript "
+        "must not do — and the paths cannot collide with anything, because the "
+        "runs that wrote them are over. `marker-<N>.txt` is the placeholder form "
+        "the trials were issued from and the rest are the filled-in results, "
+        "which is why both shapes appear. Recorded rather than exempted: the "
+        "predicate is right that these are fixed paths, and the judgement that "
+        "they are evidence rather than instruction is one only a reader can make.",
+    ),
     "standards/temporal/worker_deployment_standard.md": Residue(
         frozenset({"/tmp/claude-deploy-new-workers.sh"}),
         "NOT FIX-CLASS, and this is the entry that makes the remedy non-mechanical. "

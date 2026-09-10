@@ -492,7 +492,7 @@ def test_the_sweep_is_not_vacuous() -> None:
     """A sweep that examined nothing satisfies the assertion above exactly.
 
     THE FLOOR IS PER DIRECTORY, AND A SINGLE AGGREGATE FLOOR IS WHAT THIS FILE
-    SHIPPED FIRST. `modules/` alone holds 59 of the 81, so a total-only floor of
+    SHIPPED FIRST. `modules/` alone holds 60 of the 82, so a total-only floor of
     fifty stayed green with `scripts/` — all 22 of its modules — dropped from
     the population entirely. That is the failure this control exists to catch,
     passing the control: a guard whose SCOPE has halved reports the same green
@@ -507,7 +507,7 @@ def test_the_sweep_is_not_vacuous() -> None:
                  if (FLEET_ROOT / name) in p.parents]
         assert len(found) >= floor, (
             f"only {len(found)} modules discovered under {FLEET_ROOT / name}; "
-            f"this fleet has 59 under modules/ (outside the journal package) "
+            f"this fleet has 60 under modules/ (outside the journal package) "
             f"and 22 under scripts/. The predicate has drifted from the tree "
             f"and the absence above proves nothing about this half of it.")
 

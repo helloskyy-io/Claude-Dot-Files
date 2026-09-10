@@ -869,8 +869,8 @@ claude-dot-files/
 │                   │                                #   nothing passes every assertion, which is today's fleet. Its vacuity control
 │                   │                                #   asserts a floor PER swept directory after a mutation showed a single total floor
 │                   │                                #   of fifty stayed green with all 22 modules under scripts/ dropped from the
-│                   │                                #   population, modules/ alone holding 59 of the 81. EVERY FIGURE IN ITS OWN PROSE IS
-│                   │                                #   DERIVED and asserted — the ten shapes, the eighteen call sites, 59/22/81 — and each
+│                   │                                #   population, modules/ alone holding 60 of the 82. EVERY FIGURE IN ITS OWN PROSE IS
+│                   │                                #   DERIVED and asserted — the ten shapes, the eighteen call sites, 60/22/82 — and each
 │                   │                                #   enumerated shape must have a fixture that writes it, so a shape added to the prose
 │                   │                                #   without a control goes red rather than reading as covered
 │                   ├── test_content_store.py        # PMP Phase 2 r7(b)/r7(d) — the on-disk path is a function of the COMPUTED DIGEST and

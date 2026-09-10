@@ -11,6 +11,7 @@ from modules.assistant import assistant_activities as act_shared  # noqa: E402
 from modules.journal import journal_activities as journal  # noqa: E402
 from modules.assistant.research.research import research_workflow as rw  # noqa: E402
 from modules.assistant.research import research_activities as act  # noqa: E402
+from modules.assistant.research.capture_cited_sources import capture_cited_sources  # noqa: E402
 
 BANNER = "=" * 64
 
@@ -98,19 +99,42 @@ def main(argv=None) -> int:
                                workflow_key="research", pr_number=a.pr_number,
                                target=target)
         ctx.echo()
-        journal.open_run_bag(run_id=ctx.run_id, writer=ctx.writer,
-                             repo_root=ctx.repo_root,
-                             workflow_key=ctx.workflow_key,
-                             worktree_name=ctx.worktree_name,
-                             journal_root=ctx.journal_root)
-
         # NO --refresh BRANCH. Revalidation is not a mode of this parent any
         # more: the write child computes the due set in code and routes each
         # due topic to `research-currency` itself, so one run covers new topics
         # and expired ones together instead of two runs over one pool.
+        bag = journal.open_run_bag(run_id=ctx.run_id, writer=ctx.writer,
+                                   repo_root=ctx.repo_root,
+                                   workflow_key=ctx.workflow_key,
+                                   worktree_name=ctx.worktree_name,
+                                   journal_root=ctx.journal_root)
+
         result = rw.run_research(research_dir=research_dir, repo_root=repo_root,
                                  worktree_name=ctx.worktree_name, context=context,
                                  pr_number=a.pr_number, verbose=a.verbose)
+
+        # --- IN-WINDOW SOURCE CAPTURE ----------------------------------
+        # HERE RATHER THAN INSIDE THE WORKFLOW, because this is where the run's
+        # bag is open — threading a bag through the parent to reach the fetcher
+        # would put the store on the workflow's import path for no gain.
+        #
+        # AFTER the paper settles and BEFORE the run exits. A correction pass can
+        # add, repair or drop a citation, so the artifact worth capturing is the
+        # paper that MERGES; capturing an intermediate draft would store bytes for
+        # citations the paper no longer makes.
+        #
+        # ⚠ IT CANNOT FAIL THE RUN. The paper is the deliverable; the capture is
+        # evidence about it. `capture_cited_sources` catches every per-citation
+        # error itself, and this call is guarded too — a defect in the sweep must
+        # not cost a completed research run either.
+        try:
+            report = capture_cited_sources(pool_dir=research_dir, bag=bag,
+                                           stage="research")
+            result.setdefault("notes", []).append(report.as_note())
+        except Exception as exc:                  # noqa: BLE001 - see above
+            result.setdefault("notes", []).append(
+                f"source capture: NOT RUN — the sweep itself failed ({exc}). "
+                f"The paper is unaffected.")
     except (RuntimeError, FileNotFoundError, ValueError) as exc:
         return refuse(exc)
 
