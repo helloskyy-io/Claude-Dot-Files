@@ -553,6 +553,11 @@ if git rev-parse HEAD &>/dev/null; then
     echo "✓ Commits already exist — skipping initial commit"
 else
     echo "→ Creating initial commit..."
+    if [[ -z "$(git config user.name)" || -z "$(git config user.email)" ]]; then
+        echo "✗ git identity is not configured (user.name / user.email)." >&2
+        echo "  Refusing to commit ${PROJECT_NAME}'s scaffolding under an unknown author — set both and re-run." >&2
+        exit 1
+    fi
     git add -A
     git commit -m "feat: initialize ${PROJECT_NAME} project scaffolding"
     echo "✓ Initial commit created"

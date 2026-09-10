@@ -558,6 +558,25 @@ def test_a_BASELINED_tool_is_still_on_disk_and_still_declares_itself() -> None:
         )
 
 
+def test_the_NOT_AN_INVOKER_exclusions_still_exist_on_disk() -> None:
+    """A named exclusion cannot outlive its subject silently.
+
+    `NOT_AN_INVOKER` rejects a cell that names the repo map as an invoker — the
+    map mentions every file, so accepting it would pass every row trivially. The
+    entry is a path LITERAL: rename the map and the literal matches nothing, the
+    rejection fires on no one, and a cell naming the new map path resolves,
+    mentions the tool, and passes trivially — reopening the hole. Asserting the
+    path exists makes the rename fail HERE, loudly, so the exclusion is updated
+    rather than silently defeated.
+    """
+    for rel in NOT_AN_INVOKER:
+        assert (_REPO / rel).is_file(), (
+            f"{rel} is excluded by name as a non-invoker but is not on disk — "
+            f"renamed or removed. Update NOT_AN_INVOKER to the new path, or the "
+            f"exclusion rejects nothing and the map becomes an accepted invoker."
+        )
+
+
 def _regained(listed: dict) -> list[tuple[str, list[str]]]:
     """Baselined tools whose cell now names an invoker that resolves and mentions them."""
     out = []
