@@ -149,6 +149,7 @@ claude-dot-files/
 │   │           ├── test_file_structure_check.py # The map check's two arms and its vacuity control, each driven by a mutation
 │   │           ├── test_sibling_checkouts.py   # The sibling sweep's off-branch arm, its exclusion, and its empty-population refusal
 │   │           ├── test_standards_index_audit.py # The header audit's three distinctions, each
+│   │           ├── test_the_standards_index_is_ACTUALLY_CLEAN.py # Runs the audit against the REAL corpus — the tool had only fixture tests
 │   │               #   driven by a mutation: a field inside a section is NOT a header (a substring
 │   │               #   search would call a header-less standard conformant), a VENDORED standard is
 │   │               #   the owner's to fix and never this repo's worklist, and a retired OLD_ file is
