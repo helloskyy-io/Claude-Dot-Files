@@ -73,6 +73,7 @@ from __future__ import annotations
 import re
 import sys
 from dataclasses import dataclass, field
+from typing import Callable
 from pathlib import Path
 
 import pytest
@@ -126,14 +127,19 @@ class Surface:
     #: How the population is read OFF DISK. Never a hand-kept list: a table
     #: checked against itself cannot see the member that was never added to it,
     #: which is the exact shape of the finding this phase is the remedy for.
-    members: object
+    members: Callable[[Path], set]
     #: `True` when the surface accumulates items awaiting disposition, which is
     #: what makes the cadence-and-runner clause bind (requirement 2's ruling).
     accumulates: bool
-    #: name -> reason. Each is asserted present on disk AND explained in the
-    #: README, because an exclusion outliving its subject is how a gate stops
-    #: covering the thing it names.
+    #: NOT A MEMBER AT ALL. name -> reason. Subtracted from the population, and
+    #: a row for one is a FAILURE — the surface's own README says these are not
+    #: rows, so permitting one would let the table contradict its own prose.
     exclusions: dict = field(default_factory=dict)
+    #: A MEMBER, with a row, exempt from the CADENCE clause only. Distinct from
+    #: the above and the distinction is load-bearing: `tracked/operations/` is a
+    #: real store that must appear in its table — what cannot be checked is
+    #: whether a person emptied it, not whether it exists.
+    cadence_exempt: dict = field(default_factory=dict)
 
 
 def _files(root: Path) -> set[str]:
@@ -180,7 +186,7 @@ SURFACES = [
         readme=PLANNING_ROOT / "tracked" / "README.md",
         members=_dirs,
         accumulates=True,
-        exclusions={
+        cadence_exempt={
             "operations": "human-in-the-loop only (Tracked Items §1.2) — its "
                           "consumer is a person and no check can assert that a "
                           "person read something",
@@ -250,35 +256,89 @@ def surface(request) -> Surface:
 
 # --- the two properties every ruled-in surface carries --------------------------
 
-def test_every_member_on_disk_has_a_ROW(surface: Surface) -> None:
-    """A member with no row is the failure; a blank cell is only its symptom.
+#: Cells that name nobody while looking like they name something.
+_NAMES_NOBODY = frozenset({"", "-", "—", "n/a", "TBD"})
 
-    Read off disk rather than out of the table, because a table checked against
-    itself cannot see the member that was never added to it.
+
+def _unlisted(on_disk: set, listed: set) -> set:
+    """Members on disk with no row. The failure; a blank cell is its symptom."""
+    return on_disk - listed
+
+
+def _phantom(on_disk: set, listed: set) -> set:
+    """Rows for something that is not a member.
+
+    STRICTLY `listed - on_disk`, with no slack for the excluded names. An
+    excluded name is one the surface's README says is NOT a row — `run_log.py`
+    is a declaration module, `README.md` is the table itself — so forgiving a
+    row for one would let the table contradict the prose the exclusion rests on,
+    and silently permitting a stray row is the drift this phase exists to catch.
+    A store that IS a member and merely cannot be cadence-checked is
+    `cadence_exempt`, not this.
+    """
+    return listed - on_disk
+
+
+def _unnamed(listed: dict) -> list:
+    return [m for m, cell in listed.items() if cell.strip() in _NAMES_NOBODY]
+
+
+def test_every_member_on_disk_has_a_ROW(surface: Surface) -> None:
+    """Read off disk rather than out of the table.
+
+    A table checked against itself cannot see the member that was never added to
+    it, which is the exact shape of the finding this phase is the remedy for.
     """
     on_disk = _population(surface)
     assert on_disk, f"no members found under {surface.root} — this gate read nothing"
     listed = set(_listed(surface))
-    assert on_disk <= listed, (
+    assert not _unlisted(on_disk, listed), (
         f"{surface.name} holds members with no row in {surface.readme.name}: "
-        f"{sorted(on_disk - listed)}. A surface nobody reads is what this gate "
-        f"exists to stop producing; one nobody LISTS is how one gets there."
+        f"{sorted(_unlisted(on_disk, listed))}. A surface nobody reads is what "
+        f"this gate exists to stop producing; one nobody LISTS is how one gets "
+        f"there."
     )
-    assert listed <= on_disk | set(surface.exclusions), (
-        f"{surface.readme.name} lists members that are not on disk: "
-        f"{sorted(listed - on_disk - set(surface.exclusions))}"
+    assert not _phantom(on_disk, listed), (
+        f"{surface.readme.name} has rows for things that are not members of "
+        f"{surface.name}: {sorted(_phantom(on_disk, listed))}"
     )
 
 
 def test_every_row_NAMES_A_CONSUMER(surface: Surface) -> None:
     """The weaker claim, made of every surface: somebody is named."""
-    empty = [m for m, cell in _listed(surface).items()
-             if not cell or cell in {"-", "—", "n/a", "TBD"}]
+    empty = _unnamed(_listed(surface))
     assert not empty, (
         f"{surface.name} rows with no named consumer: {empty}. Name what reads "
         f"this, or the member does not belong in a surface whose table claims "
         f"every entry answers a standing question."
     )
+
+
+def test_the_TWO_BASE_checks_fire_on_the_two_ways_to_be_wrong() -> None:
+    """Live controls for requirement 5's two shapes, on self-contained samples.
+
+    Both were also demonstrated by real mutation at authoring time — a tool
+    added to `scripts/helpers/` with no row, and a row whose cell was `—`; each
+    turned the suite red in exactly the predicted test. Those mutations ran once,
+    by hand, in a session nobody can re-open. These run on every CI run, so the
+    failing path stays exercised rather than remembered.
+
+    The samples are BUILT HERE rather than borrowed from a live surface: a
+    control sharing a fixture with the code under mutation over-fires and proves
+    nothing about the check.
+    """
+    assert _unlisted({"a.py"}, {"a.py"}) == set(), "fires on a listed member"
+    assert _unlisted({"a.py", "orphan.py"}, {"a.py"}), \
+        "a member with NO ROW AT ALL is invisible — requirement 5, shape one"
+    assert _phantom({"a.py"}, {"a.py", "ghost.py"}), \
+        "a row for something not on disk is invisible"
+    assert _unnamed({"a.py": "`config/commands/standup.md`"}) == [], \
+        "fires on a row that names a consumer"
+    for nobody in ("", "  ", "-", "—", "n/a", "TBD"):
+        assert _unnamed({"a.py": nobody}), (
+            f"an EMPTY consumer cell {nobody!r} is invisible — requirement 5, "
+            f"shape two"
+        )
 
 
 def test_an_EXCLUSION_still_has_its_subject_and_its_reason(surface: Surface) -> None:
@@ -288,10 +348,11 @@ def test_an_EXCLUSION_still_has_its_subject_and_its_reason(surface: Surface) -> 
     on disk, AND the README must still explain why it has no row — otherwise its
     absence from the table reads as an omission to the next person.
     """
-    if not surface.exclusions:
+    named = {**surface.exclusions, **surface.cadence_exempt}
+    if not named:
         pytest.skip(f"{surface.name} excludes nothing by name")
     text = surface.readme.read_text(encoding="utf-8")
-    for name, reason in surface.exclusions.items():
+    for name, reason in named.items():
         target = surface.root / name
         assert target.exists(), (
             f"{name} is excluded from {surface.name} ({reason}) but is not "
@@ -326,7 +387,7 @@ def test_an_ACCUMULATING_surface_names_a_cadence_AND_a_runner(surface: Surface) 
             f"the cadence clause does not bind it (requirement 2, ruled "
             f"2026-09-10: an on-demand reader is a conformant consumer)"
         )
-    gaps = _cadence_gaps(_listed(surface), surface.exclusions)
+    gaps = _cadence_gaps(_listed(surface), surface.cadence_exempt)
     assert not gaps, (
         f"{surface.name} rows that do not name a cadence AND a runner separated "
         f"by `·`: {gaps}. A store whose triage has no named runner is out of "
@@ -360,6 +421,13 @@ def test_the_CADENCE_check_fires_on_a_half_filled_cell() -> None:
 
 # --- the stronger claim, on `scripts/helpers/`: the named invoker OPENS ---------
 
+# WHY ONLY `scripts/helpers/` CARRIES THE STRONGER CLAIM, and it is a property of
+# the cells rather than an oversight. That table's consumer cell names a PATH IN
+# THIS REPO, which is a claim a check can open. `measure/`'s `Read by` names
+# phases, candidates and open decisions in the planning corpus — prose addressed
+# to a human — and `tracked/`'s names a cadence and a runner, one of which is a
+# person. Opening those would mean asserting a proxy for "somebody read it",
+# which is the shape § *The one exclusion the stores force* rules out.
 def test_a_named_invoker_RESOLVES_and_MENTIONS_the_tool() -> None:
     """The cell names a path, and the path is opened.
 
