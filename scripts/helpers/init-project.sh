@@ -273,15 +273,15 @@ ${PROJECT_NAME}/
 │   ├── guide/                     # OPERATING MANUAL: user-facing docs
 │   └── file_structure.txt         # This file
 │
-├── tracked/                       # THE FOUR TRACKED-ITEM STORES — one file per
-│   │                              #   item, random ids, count on recurrence
+├── tracked/                       # The four tracked-item stores — one file per item
 │   ├── issues/                    # Defects in live code (I-)
 │   ├── operations/                # Operating notes (O-) — HUMAN-ONLY
 │   ├── candidates/                # Proposals (C-)
 │   └── standards/                 # Amendments to a named standard (S-)
 │
-├── testing/                       # check-policy.yaml is owed with the first
-│                                  #   CI workflow — see testing/README.md
+├── testing/                       # Suite runners, and check-policy.yaml
+│
+├── .github/workflows/             # checks.yml — the repo-general checks on the merge path
 │
 ├── .gitignore                     # Git ignore rules
 ├── CLAUDE.md                      # Project instructions for Claude
@@ -395,20 +395,23 @@ else
 
 Per the **Testing Standard**.
 
-## `check-policy.yaml` is owed, and deliberately absent
+## `check-policy.yaml` — written WITH the workflow, which is why it is here
 
-**It is created with the first CI workflow, not before.** The build parent reads
-it to learn which checks gate a merge. With no workflows in the repo, no file is
-the *true* statement — the tooling reports *"declares no check policy; nothing
-was gated on and nothing was expected to be."* An empty policy would instead
-report *"declares a policy and none of it reported"*, implying workflows were
-filtered out of the change. **Wrong sentence, and wrong on every run.**
+**The rule is that a policy never exists without a workflow**, and this repo was
+scaffolded with both, so the rule is satisfied by construction rather than by
+anyone remembering. With no workflows, no policy file is the *true* statement —
+the tooling reports *"declares no check policy; nothing was gated on and nothing
+was expected to be."* An empty policy would report *"declares a policy and none
+of it reported"*, implying workflows were filtered out of the change. **Wrong
+sentence, and wrong on every run.**
 
-**When the first workflow lands, this file is part of that PR**, and the Testing
-Standard's clause binds it: an automated check that can fail is either on the
-merge path or declared advisory, and there is no third state.
+**If you delete `.github/workflows/`, delete this file with it.** The two are one
+statement about the repo, and half of it is a lie.
+
+The Testing Standard's clause binds this file: an automated check that can fail
+is either on the merge path or declared advisory, and there is no third state.
 TESTINGMD
-    echo "✓ testing/ created (README.md; check-policy.yaml owed with the first workflow)"
+    echo "✓ testing/ created (README.md)"
 fi
 
 # ---------------------------------------------------------------------------
@@ -422,6 +425,115 @@ fi
 # picking one here. Until it is ruled, pass `--sprint <path>`; preflight already
 # names the file it found when the default misses.
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Step 4d: CI — the checks, and the policy that says which of them gate
+# ---------------------------------------------------------------------------
+# WHY THIS IS SCAFFOLDED RATHER THAN LEFT TO THE FIRST ENGINEER. Measured
+# 2026-09-10 across four live repos: two had no CI at all, and one of those was
+# the planning repo holding every standard the platform ratifies. Every check
+# protecting it ran from a suite in a DIFFERENT repo, on one machine, when
+# somebody remembered. A control with no cadence is the failure this fleet keeps
+# rediscovering — an unread intake queue, an unswept worktree set, an audit with
+# only fixture tests. A repo that gets its checks on day one never acquires it.
+#
+# THE POLICY IS WRITTEN WITH THE WORKFLOW, NEVER BEFORE IT, which is the rule
+# testing/README.md states above: with no workflows, no policy file is the TRUE
+# sentence. The moment a workflow exists that sentence becomes false, so the two
+# land together or the tooling reports a state that is not real.
+#
+# THE TOOLING IS CHECKED OUT, NOT VENDORED. `Claude-Dot-Files` is public, so this
+# needs no token — and a copy of these scripts in every repo is a copy that
+# drifts from the one that is maintained.
+if [[ -f ".github/workflows/checks.yml" ]]; then
+    echo "✓ .github/workflows/checks.yml already exists — skipping"
+else
+    mkdir -p .github/workflows
+    cat > .github/workflows/checks.yml <<'CHECKSYML'
+# The repo-general checks, run on the merge path.
+#
+# Each step says what it DID, including when it had nothing to look at — a step
+# that stays silent on an empty population reads as a pass it never earned.
+name: checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  repo-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # PUBLIC, so no token. Pinned to a ref rather than floating on main: a
+      # tooling change should not turn this repo red without anyone touching it.
+      - name: Fetch the tooling
+        uses: actions/checkout@v4
+        with:
+          repository: helloskyy-io/Claude-Dot-Files
+          ref: main
+          path: .tooling
+
+      - name: Standards carry their header and are indexed
+        run: |
+          if ls docs/standards/**/*.md standards/**/*.md >/dev/null 2>&1; then
+            python3 .tooling/scripts/helpers/standards_index.py --repo-root . --check
+          else
+            echo "no standards in this repo yet — nothing to audit, and nothing asserted"
+          fi
+
+      - name: Vendored standards have not drifted from their source
+        run: |
+          if [[ -f .vendored-standards ]]; then
+            bash .tooling/scripts/helpers/vendor-standards.sh --target . --check
+          else
+            echo "this repo vendors no standards — nothing to check, and nothing asserted"
+          fi
+
+      - name: The repo map is one line per entry and names things that exist
+        run: |
+          if [[ -f docs/file_structure.txt ]]; then
+            python3 .tooling/scripts/helpers/file_structure_check.py --repo-root . --check
+          else
+            echo "no docs/file_structure.txt — nothing to check, and nothing asserted"
+          fi
+
+      - name: This repo's own suite
+        run: |
+          if [[ -x testing/run-all.sh ]]; then
+            ./testing/run-all.sh
+          else
+            echo "no testing/run-all.sh yet — this repo has no suite, and nothing asserted"
+          fi
+CHECKSYML
+
+    cat > testing/check-policy.yaml <<'POLICYYML'
+# Which of this repo's CI checks gate a merge, and which are advisory.
+#
+# READ BY THE BUILD PARENT between refine and review-pr. A red BLOCKING check
+# means review-pr is never dispatched, so MERGE is unreachable on a red tree.
+#
+# The Testing Standard's clause is binding here: an automated check that can
+# fail is EITHER on the merge path OR declared advisory, and there is no third
+# state. A check that runs and appears in neither list is a detectable
+# violation, and the parent reports it by name.
+
+blocking:
+  # The repo-general checks and this repo's own suite, all in one job. Every
+  # step is a correctness claim about the tree, so a red one means the tree is
+  # wrong rather than merely untidy.
+  - repo-checks
+
+advisory: []
+POLICYYML
+    echo "✓ .github/workflows/checks.yml + testing/check-policy.yaml created"
+fi
 
 # ---------------------------------------------------------------------------
 # Step 5: .claude directory (for worktrees, logs, state)

@@ -87,6 +87,28 @@ _BUCKET_ORDER = {"architecture": 0, "claude-code": 1, "workflows": 2, "services"
                  "temporal": 8}
 
 
+def _standards_dir(root: Path) -> Path:
+    """Where this repo keeps its standards, DERIVED FROM REPO CLASS.
+
+    Same rule as `vendor-standards.sh` and the plan deriver's `development_root`,
+    and here for the same reason: a planning repo's root IS its documentation
+    tree, so it hoists the buckets; every other repo keeps them under `docs/`.
+    See the Documentation Standard § *A repo that CONSUMES standards*, rule 1.
+
+    ⚠ THIS TOOL LOOKED AT `<root>/standards` UNCONDITIONALLY, which is the THIRD
+    instance of one bug. Pointed at a non-planning repo it found nothing and
+    exited 2 — "no standards, nothing to audit" — which is a loud refusal for the
+    wrong reason: the corpus was there, in the place the standard says it lives,
+    and the tool looked somewhere else. The refusal is what stopped this being a
+    silent pass, and it is why the same defect in the plan deriver scored a repo
+    PERFECT while reading no files.
+    """
+    if root.name.endswith("-master-planning"):
+        return root / "standards"
+    docs = root / "docs" / "standards"
+    return docs if docs.is_dir() else root / "standards"
+
+
 def read_standard(path: Path) -> Standard:
     text = path.read_text(encoding="utf-8", errors="replace")
     cut = _FIRST_SECTION.search(text)
@@ -104,7 +126,7 @@ def standards_in(root: Path) -> list[Standard]:
     corpus clean while a session could still read them. They surface as missing headers,
     and the remedy — delete — is the operator's to choose, not this script's to assume.
     """
-    d = root / "standards"
+    d = _standards_dir(root)
     if not d.is_dir():
         return []
     return [read_standard(p) for p in sorted(d.rglob("*.md")) if p.name != "README.md"]
@@ -168,7 +190,7 @@ def render_index(items: list[Standard], root: Path) -> str:
     out = [BEGIN, ""]
     grouped: dict[str, list[Standard]] = {}
     for s in sorted(items, key=lambda x: x.path.as_posix()):
-        rel = (root / s.path).resolve().relative_to((root / "standards").resolve())
+        rel = (root / s.path).resolve().relative_to(_standards_dir(root).resolve())
         grouped.setdefault(rel.parts[0] if len(rel.parts) > 1 else "", []).append(s)
     for bucket in sorted(grouped, key=lambda b: (_BUCKET_ORDER.get(b, 99), b)):
         if bucket:
