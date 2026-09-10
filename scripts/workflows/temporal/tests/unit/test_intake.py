@@ -195,6 +195,63 @@ def test_a_malformed_intake_is_left_OPEN_and_reported(
     assert gh.calls.count("close") == 1, "the malformed one was NOT closed"
 
 
+def test_an_intake_with_a_WRONG_FIELD_is_left_open_and_the_DRAIN_CONTINUES(
+        root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """⚠ THE SHAPE THAT EMPTIED HALF A QUEUE, and the test above did not cover it.
+
+    That test malforms an intake by making its body unparseable, which raises
+    `IntakeError`. `tracked_items.file_item` raises a bare `ValueError` for a
+    DIFFERENT and commoner malformation — a field the target store does not define
+    — and the handler named only `IntakeError`, so it escaped and killed the loop.
+
+    Measured 2026-09-10 on a real queue: 22 intakes, 5 filed and closed, the 6th
+    carried `component:` into the issues store, and the remaining 17 never ran.
+    MDC hit the identical error weeks earlier and worked around it by editing the
+    intakes rather than the handler.
+
+    THE ASSERTION THAT MATTERS IS THE LAST ONE. Reporting the bad item was never
+    the gap; CONTINUING PAST IT was.
+    """
+    bad = {"number": 3, "title": "t",
+           "body": "---\nstore: issues\ncomponent: common/x\n---\n\nprose\n",
+           "createdAt": "2026-08-20T10:00:00Z"}
+    gh = _FakeGh([bad, _issue(4, "candidates"), _issue(5, "candidates")])
+    monkeypatch.setattr(own, "_gh", gh)
+
+    moved, failed = own.harvest(root)
+
+    assert [n for n, _ in failed] == [3]
+    assert "not fields of the issues store" in failed[0][1], (
+        f"the reason must name the field and the store, or an operator cannot "
+        f"tell a schema mismatch from a parse failure: {failed[0][1]}")
+    assert [n for n, _ in moved] == [4, 5], (
+        "the drain stopped at the malformed intake instead of stepping over it — "
+        "one bad item must not hold the queue")
+
+
+def test_the_DRY_RUN_predicts_a_wrong_field_rather_than_reporting_it_movable(
+        root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A rehearsal that cannot predict the failure is not a rehearsal.
+
+    The dry run skipped the field check because it skips the write, so it reported
+    all 22 intakes movable minutes before the real run died on the 6th. An operator
+    reading that rehearsal had no way to know.
+    """
+    bad = {"number": 3, "title": "t",
+           "body": "---\nstore: issues\ncomponent: common/x\n---\n\nprose\n",
+           "createdAt": "2026-08-20T10:00:00Z"}
+    gh = _FakeGh([bad, _issue(4, "candidates")])
+    monkeypatch.setattr(own, "_gh", gh)
+
+    moved, failed = own.harvest(root, dry_run=True)
+
+    assert [n for n, _ in failed] == [3], (
+        "the dry run reported the malformed intake as movable, which is the "
+        "rehearsal telling the operator the real run will succeed when it will not")
+    assert [n for n, _ in moved] == [4]
+    assert gh.calls.count("close") == 0, "a dry run must close nothing"
+
+
 def test_harvest_order_is_FILING_order(root: Path,
                                        monkeypatch: pytest.MonkeyPatch) -> None:
     """Oldest first, so a queue that backs up drains in the order it filled."""

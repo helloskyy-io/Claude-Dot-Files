@@ -226,6 +226,17 @@ def harvest(root: Path, *, cwd: Path | None = None,
                 status = fields.pop("status", "open")
                 filed_by = fields.pop("filed_by", "review-pr")
                 if dry_run:
+                    # ⚠ VALIDATE EVEN THOUGH NOTHING IS WRITTEN. A dry run that
+                    # skips the field check reports every intake movable and then
+                    # the real run dies on the first one that is not — which is
+                    # exactly what happened on 2026-09-10: 22 reported clean, 5
+                    # moved, the 6th raised, 17 never ran. A rehearsal that cannot
+                    # predict the failure is not a rehearsal.
+                    unknown = sorted(set(fields) - set(store.extra_fields))
+                    if unknown:
+                        raise ValueError(
+                            f"{unknown} are not fields of the {store.name} store "
+                            f"— §4 gives it {list(store.extra_fields)}")
                     moved.append((number, Path(f"{store.name}/(dry-run)")))
                     continue
                 path = ti.file_item(
@@ -248,10 +259,25 @@ def harvest(root: Path, *, cwd: Path | None = None,
                 f"this intake carried it and is now empty, per Tracked Items "
                 f"Standard §5.0.", cwd=cwd)
             moved.append((number, path))
-        except IntakeError as exc:
+        except (IntakeError, ValueError) as exc:
             # LEFT OPEN DELIBERATELY. A malformed intake is a finding that has
             # already left its run; closing it would lose the finding to tidy up
             # the queue, which is the trade this design refuses to make.
+            #
+            # ⚠ `ValueError` BELONGS HERE AND ITS ABSENCE COST A WHOLE DRAIN.
+            # `tracked_items.file_item` raises a bare `ValueError` when an intake
+            # carries a field the target store does not define — the commonest
+            # malformation there is — so it escaped this handler, killed the loop,
+            # and left the queue half-drained. Measured 2026-09-10: five items
+            # filed and closed, the sixth raised `['component'] are not fields of
+            # the issues store`, and the remaining seventeen never ran. MDC hit
+            # the identical error weeks earlier and worked around it by editing
+            # the intakes.
+            #
+            # THE INTENT WAS ALREADY CORRECT — the comment above says a malformed
+            # intake is a finding the drain reports and steps over. The handler
+            # just named one exception type when the code raises two, which is
+            # why a design that HAD a failure channel still stopped dead.
             failed.append((number, str(exc)))
 
     return moved, failed
