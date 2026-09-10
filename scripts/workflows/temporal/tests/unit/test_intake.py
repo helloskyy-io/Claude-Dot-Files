@@ -115,6 +115,13 @@ class _FakeGh:
         return ""
 
 
+#: A field no store defines, derived so a later schema change cannot silently
+#: make this fixture valid and the guard vacuous.
+_UNKNOWN_FIELD = next(
+    f for f in ("severity", "priority", "urgency", "zzz_not_a_field")
+    if not any(f in s.extra_fields for s in own.ti.STORES.values()))
+
+
 def _issue(number: int, store: str, title: str = "t") -> dict:
     return {"number": number, "title": title,
             "body": own.render_intake(ti.STORES[store], title=title,
@@ -213,7 +220,12 @@ def test_an_intake_with_a_WRONG_FIELD_is_left_open_and_the_DRAIN_CONTINUES(
     the gap; CONTINUING PAST IT was.
     """
     bad = {"number": 3, "title": "t",
-           "body": "---\nstore: issues\ncomponent: common/x\n---\n\nprose\n",
+           # DERIVED, NOT HARDCODED. This test first used `component:` — the
+           # real field that broke the real drain — and the ruling that added it
+           # to the issues store turned the fixture legal and the test red. The
+           # malformation has to be a field no store defines, or the test pins a
+           # schema decision it has no business pinning.
+           "body": f"---\nstore: issues\n{_UNKNOWN_FIELD}: x\n---\n\nprose\n",
            "createdAt": "2026-08-20T10:00:00Z"}
     gh = _FakeGh([bad, _issue(4, "candidates"), _issue(5, "candidates")])
     monkeypatch.setattr(own, "_gh", gh)
@@ -238,7 +250,12 @@ def test_the_DRY_RUN_predicts_a_wrong_field_rather_than_reporting_it_movable(
     reading that rehearsal had no way to know.
     """
     bad = {"number": 3, "title": "t",
-           "body": "---\nstore: issues\ncomponent: common/x\n---\n\nprose\n",
+           # DERIVED, NOT HARDCODED. This test first used `component:` — the
+           # real field that broke the real drain — and the ruling that added it
+           # to the issues store turned the fixture legal and the test red. The
+           # malformation has to be a field no store defines, or the test pins a
+           # schema decision it has no business pinning.
+           "body": f"---\nstore: issues\n{_UNKNOWN_FIELD}: x\n---\n\nprose\n",
            "createdAt": "2026-08-20T10:00:00Z"}
     gh = _FakeGh([bad, _issue(4, "candidates")])
     monkeypatch.setattr(own, "_gh", gh)

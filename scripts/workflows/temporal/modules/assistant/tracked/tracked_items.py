@@ -73,12 +73,26 @@ class Store:
 # §1 and §4, transcribed. The admission tests live in the standard rather than
 # here on purpose: they are prose judgements a reader applies, and a copy of a
 # prose rule is a copy that rots. What IS here is the machine-checkable half.
+#: WHERE is ONE locator with ONE spelling — `repo:` then `component:` — in every
+#: store that says where something is. Tracked Items Standard §4.0.
+#:
+#: ⚠ THE FRAGMENTATION WAS MEASURED, NOT SUSPECTED. On 2026-09-10 the live stores
+#: held 13 issues all carrying `repo:` and none carrying `component:`, against 70
+#: candidates all carrying `component:` and none carrying `repo:` — two stores
+#: holding one half each of one locator, which is whoever filed first rather than
+#: a design. A producer filing into both had to use two words for one concept, got
+#: it wrong in the obvious direction, and its refused intake took a whole drain
+#: down with it.
+#:
+#: A standards candidate carries `repo:` for the same reason: `target:`/`anchor:`
+#: are the level BELOW component — which document, which section — and a bare path
+#: is ambiguous in a corpus where standards are mirrored between ecosystems.
 STORES: dict[str, Store] = {
     "issues": Store(
         name="issues",
         prefix="I-",
         holds="a DEFECT, found while building something unrelated to it",
-        extra_fields=("repo",),
+        extra_fields=("repo", "component"),
         terminal=("resolved", "rejected"),
     ),
     "operations": Store(
@@ -93,14 +107,14 @@ STORES: dict[str, Store] = {
         name="candidates",
         prefix="C-",
         holds="a PROPOSAL — a capability, detector or improvement to be considered",
-        extra_fields=("component", "size", "decision"),
+        extra_fields=("repo", "component", "size", "decision"),
         terminal=("adopted", "rejected"),
     ),
     "standards": Store(
         name="standards",
         prefix="S-",
         holds="a proposed amendment to a NAMED standard, with an actionable anchor",
-        extra_fields=("target", "anchor", "ratification"),
+        extra_fields=("repo", "target", "anchor", "ratification"),
         terminal=("ratified", "amended", "rejected"),
         operator_only=("ratification",),
     ),

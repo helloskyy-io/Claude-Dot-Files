@@ -293,3 +293,48 @@ def test_an_id_is_never_reused_even_after_a_terminal_state(tmp_path: Path) -> No
     with pytest.raises(FileExistsError):
         own.file_item(tmp_path, store, title="other", filed_by="x", status="open",
                       body="b", item_id="I-aaaaaaaa")
+
+
+# ── WHERE is one locator with one spelling ─────────────────────────────────
+
+
+def test_EVERY_LOCATING_STORE_SPELLS_WHERE_THE_SAME_WAY() -> None:
+    """⚠ THE DEFECT THIS CLOSES WAS A VOCABULARY, NOT A MISSING FIELD.
+
+    Measured 2026-09-10 across the live stores: 13 issues all carrying `repo:` and
+    none carrying `component:`; 70 candidates all carrying `component:` and none
+    carrying `repo:`. Two stores holding one half each of one locator — not a
+    design, but whoever filed into each of them first.
+
+    A producer filing into both had to use two different words for one concept and
+    got it wrong in the obvious direction: it wrote `component:` into the issues
+    store because that is what it meant. The intake was refused and took a whole
+    harvest down with it.
+
+    `operations/` is exempt BY NAME rather than by omission — it is a human-only
+    surface whose items are notes to self, `ownership:` answers who, and nothing
+    has asked it where. Naming it here is what stops the exemption being read as
+    an oversight the next time someone adds a store.
+    """
+    locating = {n: s for n, s in own.STORES.items() if n != "operations"}
+    assert len(locating) == 3, f"a store was added or removed: {sorted(own.STORES)}"
+
+    for name, store in locating.items():
+        assert "repo" in store.extra_fields, (
+            f"the {name} store cannot say WHICH REPOSITORY. Tracked Items Standard "
+            f"§4.0 makes `repo:` then `component:` one locator with one spelling.")
+        assert store.extra_fields[0] == "repo", (
+            f"the {name} store lists {store.extra_fields[0]!r} before `repo` — the "
+            f"order is part of the spelling, coarse before fine")
+
+    for name in ("issues", "candidates"):
+        assert "component" in own.STORES[name].extra_fields, (
+            f"the {name} store cannot say WHICH COMPONENT, so `repo:` is its only "
+            f"locator — and `repo: skyynet-master-planning` is true of very nearly "
+            f"every item this platform files, which locates nothing.")
+
+    # THE STANDARDS STORE IS THE ONE EXCEPTION AND IT IS DELIBERATE: `target:` and
+    # `anchor:` are the level BELOW component — which document, which section — so
+    # it needs `repo:` above them but not `component:` between.
+    assert "component" not in own.STORES["standards"].extra_fields
+    assert {"target", "anchor"} <= set(own.STORES["standards"].extra_fields)
