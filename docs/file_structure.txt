@@ -388,6 +388,8 @@ claude-dot-files/
 │                   │                                #   check cannot fail: the code reads the array, so comparing it against the array
 │                   │                                #   compares a value with itself. The guard that CAN go red is the source scan
 │                   ├── test_the_dependency_graph_is_DERIVED_not_declared.py # Rule 9 says four facts
+│                   ├── test_capture_cited_sources.py            # In-window capture: the never-fail-the-run constraint, and its vacuity control
+│                   ├── test_the_citations_sidecar_has_a_WRITER_and_a_READER.py # Binds the sweep, the prompt and the call site so capture cannot go off silently
 │                       #   are derived — the reverse edge, the component rollup plan_sprint orders
 │                       #   on, satisfaction, and the graph. This holds the derivation, because a rule
 │                       #   asserting "derived" with nothing deriving is a promise. Built BEFORE the

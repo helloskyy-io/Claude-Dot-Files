@@ -77,7 +77,12 @@ Critic:         <verdict + date, written after the critic gate — a paper read 
 - Write exactly the paper(s) your dispatch prompt names — no scope creep into other topics
 - Set `Last validated:` to today; propose `Revalidate:` per the standard's volatility tiers based on how fast this topic's subject actually moves
 - If the topic itself appears to be the wrong question (subject died, decision already forced), say so prominently at the top — do not dutifully research a dead question
+<!-- CITATIONS-SIDECAR-SPEC — the filename and field names below are read by
+     `capture_cited_sources`. A guard binds them; reword the prose freely, but
+     a renamed field or file must change on both sides. -->
 - **WRITE `citations.json` AT THE ROOT OF THE POOL YOU WROTE INTO — one file per run, and append to it rather than replacing it if it already exists.** A JSON array of `{"claim_id", "quote", "url"}`, one entry per source you cited, where `quote` is a span you can see VERBATIM in what that URL returned to you and `claim_id` names the claim it supports. **This is the ONLY machine-readable pairing of a claim to its source**, and a fleet activity uses it to fetch and store each cited source before the run exits, so the paper can be re-checked offline later.
   **A citation with no quoted span cannot be stored at all** — the store refuses it, because there would be nothing to re-check. **So a source you cannot quote verbatim is one you cite at lower confidence and omit from this file**, exactly as the verbatim rule above already requires. Do NOT invent a span to fill the field: a quote that is not in the bytes produces a false record rather than a missing one, and the missing one is recoverable.
   **This changes nothing about HOW you read.** You are recording pairings you already made.
+<!-- END CITATIONS-SIDECAR-SPEC -->
+
 - Your final report to the dispatcher: paper path, source count, confidence summary, gaps found, and anything that should change the topic list

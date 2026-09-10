@@ -21,6 +21,15 @@ WHAT THIS DELIBERATELY DOES NOT ASSERT: that any pool on disk HAS a sidecar. The
 25 papers in this corpus predate the mechanism, so requiring one would be a false
 alarm on legitimate history rather than a finding. The end-to-end demonstration is
 owned by PMP phase 4, where real run-bag data is already under test.
+
+⚠ AND THE LIMIT WORTH READING BEFORE TRUSTING THIS: IT CHECKS MENTION, NOT
+INSTRUCTION. It proves the spec block names the file and the fields the reader
+uses. It cannot prove a research run actually WRITES one — only a real run shows
+that, and running research to prove a capture path is the waste this fleet
+declined. So this is a PROXY, chosen because the authoritative value is not
+available rather than because it was cheaper: the pattern SN-PM2 correctly warned
+about when a guard's real subject is expensive to check. Named here so nobody
+reads a green suite as "capture is working".
 """
 from __future__ import annotations
 
@@ -33,6 +42,28 @@ REPO = TEMPORAL.parents[2]
 READER = TEMPORAL / "modules/assistant/research/capture_cited_sources.py"
 ENTRYPOINT = TEMPORAL / "scripts/run_research.py"
 WRITER = REPO / "config/agents/research-analyst.md"
+#: The spec is read out of a MARKED BLOCK, not out of the whole file, and that is
+#: this guard's own correction. Matching field names anywhere in the prompt was
+#: measured VACUOUS on 2026-09-10: deleting the entire sidecar instruction left
+#: `quote` and `url` appearing four times each in unrelated prose, so two of the
+#: three field arms passed on a prompt that no longer asked for a sidecar at all.
+#: Only `claim_id` caught it, by the accident of being a unique string.
+#: Scoping also removes the other half of the fragility — a legitimate rewording
+#: outside the block can no longer fail the build.
+BLOCK_START = "<!-- CITATIONS-SIDECAR-SPEC"
+BLOCK_END = "<!-- END CITATIONS-SIDECAR-SPEC -->"
+
+
+def _spec_block() -> str:
+    """The marked spec, or a refusal naming what is missing."""
+    text = WRITER.read_text(encoding="utf-8")
+    if BLOCK_START not in text or BLOCK_END not in text:
+        raise AssertionError(
+            f"`{WRITER.name}` carries no {BLOCK_START} block. That block is the "
+            f"instruction telling the agent to write the sidecar `capture_cited_sources` "
+            f"reads; without it, citation capture reports `NOT RUN` on every research "
+            f"run and nothing else goes red.")
+    return text[text.index(BLOCK_START):text.index(BLOCK_END)]
 
 
 def _reader_source() -> str:
@@ -70,7 +101,7 @@ def test_THE_WRITER_IS_TOLD_TO_WRITE_THE_FILE_THE_READER_OPENS() -> None:
     """The rename case, and it is the one SN-PM2 named."""
     name = _sidecar_name()
     assert name, "the reader's SIDECAR_NAME is empty — nothing to bind"
-    prompt = WRITER.read_text(encoding="utf-8")
+    prompt = _spec_block()
     assert name in prompt, (
         f"`{WRITER.name}` does not mention `{name}`, which is the file "
         f"`capture_cited_sources` opens. Either the agent was told to write a "
@@ -85,10 +116,11 @@ def test_THE_WRITER_IS_TOLD_EVERY_FIELD_THE_READER_READS() -> None:
     assert fields, (
         "no `row.get(\"...\")` calls found in the reader — the derivation is "
         "broken, so this test would pass while checking nothing")
-    prompt = WRITER.read_text(encoding="utf-8")
+    prompt = _spec_block()
     missing = sorted(f for f in fields if f not in prompt)
     assert not missing, (
-        f"`{WRITER.name}` never names {missing}, which `capture_cited_sources` "
+        f"the sidecar spec block in `{WRITER.name}` never names {missing}, which "
+        f"`capture_cited_sources` "
         f"reads out of every citation row. A row missing any of them is SKIPPED, "
         f"so the sidecar would be written, parse cleanly, and capture nothing.")
 
@@ -101,6 +133,7 @@ def test_THE_DERIVATION_ITSELF_IS_EXERCISED() -> None:
     assert _sidecar_name().endswith(".json"), (
         f"the derived sidecar name is {_sidecar_name()!r}, which is not a JSON "
         f"file — the constant moved and this guard is reading the wrong thing")
+    assert _spec_block().strip(), "the spec block is empty — nothing is being checked"
     assert len(_fields_read()) >= 3, (
         f"only derived {_fields_read()} from the reader; a citation needs a claim, "
         f"a quoted span and a source, and fewer means the regex stopped matching")
