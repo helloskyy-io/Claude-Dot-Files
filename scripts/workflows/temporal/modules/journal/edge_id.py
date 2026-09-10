@@ -158,7 +158,13 @@ def _validate(value: str, *, source: str) -> str:
         raise EdgeIdError(
             f"the edge id from {source} is empty. Every event carries one "
             f"(requirement 6), and a field absent from version-1 events is "
-            f"absent forever — so there is no recovering this later.")
+            f"absent forever — so there is no recovering this later.\n"
+            f"  an EMPTY FILE here means a previous run was killed between "
+            f"creating it and writing it. The value cannot be guessed: every "
+            f"event this machine has written carries the one that belongs in "
+            f"it. Remedy: if this root holds bags, copy the `edge_id` from any "
+            f"event in one into the file; if it holds none, delete the file and "
+            f"the next run mints a new id.")
     if stripped != value:
         raise EdgeIdError(
             f"the edge id from {source} carries surrounding whitespace: "
@@ -227,11 +233,13 @@ def resolve_edge_id(root: Path) -> str:
     reachable here for the same reason: a parent and its children can start
     within the same second on a machine that has never run before.
 
-    ⚠ THE RE-READ CAN STILL RETURN `None` IF THE WINNER HAS CREATED THE FILE AND
-    NOT YET WRITTEN IT. That window is one `os.write` wide and the remedy is to
-    say so rather than to loop: a retry loop here would spin on a genuinely
-    empty file (a previous run killed between create and write), which is a state
-    a human has to clear. The error names the file and the remedy.
+    ⚠ THE RE-READ CAN STILL FIND THE FILE EMPTY IF THE WINNER HAS CREATED IT AND
+    NOT YET WRITTEN IT. That window is one `os.write` wide, and the answer is to
+    REFUSE with a remedy rather than to loop: a retry loop would spin forever on
+    the durable version of the same state — a previous run killed between create
+    and write — which no run can clear. `read_edge_id` raises that refusal, and
+    it is the same refusal either way because the two states are indistinguishable
+    from here and have the same fix.
     """
     existing = read_edge_id(root)
     if existing is not None:
@@ -244,17 +252,14 @@ def resolve_edge_id(root: Path) -> str:
                      os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
                      _EDGE_ID_MODE)
     except FileExistsError:
-        raced = read_edge_id(root)
-        if raced is None:
-            raise EdgeIdError(
-                f"{path} exists and is empty. A previous run was killed between "
-                f"creating this file and writing it, and an empty id cannot be "
-                f"guessed — every event this machine has ever written carries "
-                f"the value that belongs here.\n"
-                f"  remedy: if this machine has bags under {root}, take the "
-                f"`edge_id` from any event in one and write it into this file; "
-                f"if it has none, delete the file and the next run mints one.")
-        return raced
+        # THE RACE'S LOSER RE-READS THE WINNER'S VALUE rather than overwriting
+        # it. `read_edge_id` raises rather than returning `None` for a file that
+        # exists and is empty — which is the one-`os.write`-wide window between
+        # the winner's create and its write, and also the durable state a killed
+        # run leaves. Its message names the remedy, so there is nothing to add
+        # here; an `if raced is None` arm would be unreachable code carrying a
+        # second copy of that message.
+        return read_edge_id(root)  # type: ignore[return-value]
     except OSError as exc:
         raise EdgeIdError(
             f"the edge id could not be written at {path} — {exc.strerror}. The "

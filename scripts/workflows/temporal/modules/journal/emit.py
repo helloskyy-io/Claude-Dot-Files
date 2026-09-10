@@ -570,8 +570,9 @@ class Emitter:
         except (OSError, BagError) as flag_exc:
             if not event_written:
                 raise JournalUnwritable(
-                    f"the journal cannot be written and neither can the record "
-                    f"of that: {write_path} failed with {exc.strerror}, and the "
+                    f"{UNWRITABLE_JOURNAL_MARKER}: the journal cannot be "
+                    f"written and neither can the record of that. "
+                    f"{write_path} failed with {exc.strerror}, and the "
                     f"gap event and the `incomplete` flag both failed after it.\n"
                     f"  bag: {self.bag.path}\n"
                     f"  this is requirement 4 case (d). It is reported on the "
@@ -600,6 +601,14 @@ def unwritable_journal_report(exc: JournalUnwritable, *,
     `modules/vocabulary.py` — the same declaration the journal event's own
     `terminal_state` comes from. That is requirement 3 doing its job on the one
     field that crosses both contracts on the failure path.
+
+    ⚠ THE THIRD CHANNEL IS THE PROCESS EXIT, AND IT IS ALREADY WIRED BY
+    INHERITANCE RATHER THAN BY THIS FUNCTION. `JournalUnwritable` subclasses
+    `RuntimeError`, so every entrypoint's existing `except RuntimeError: return
+    refuse(exc)` prints its message and exits non-zero — and the message now
+    LEADS with `UNWRITABLE_JOURNAL_MARKER`, so `unwritable_journal_in_text`
+    reads the process's own output as well as a PR comment. One declared
+    literal, three surfaces, and no entrypoint edited to get it.
     """
     return {
         "terminal_state": TerminalState.JOURNAL_UNWRITABLE.value,

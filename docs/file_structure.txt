@@ -789,6 +789,44 @@ claude-dot-files/
 │                   │                                #   more. Sweeps every f"{label}: {value}" for an undeclared value; the battery beside it
 │                   │                                #   is DERIVED from splitlines() rather than from a remembered list, and the round trip
 │                   │                                #   is the property: for any accepted value, reading the file returns what was written
+│                   ├── test_journal_events.py        # PMP Phase 3's CONTRACT — what an event is, what makes it admissible, and the two replay
+│                   │                                #   rules. Owns no I/O; test_journal_emit.py drives the failure cases, and keeping them apart is
+│                   │                                #   what stops a contract written wrongly and exercised wrongly from agreeing with itself. Every
+│                   │                                #   admission check is asserted as a REFUSAL, because a test that built an admissible event and
+│                   │                                #   read its fields would leave all five untested while looking thorough. Two assertions carry
+│                   │                                #   the whole design: dedupe keys on (id, KIND) — keyed on id alone it drops every completion
+│                   │                                #   and replay applies nothing — and an intent with no completion is NOT applied, which is what
+│                   │                                #   stops Phase 4 materialising content the store never got. Identity is asserted deterministic
+│                   │                                #   AND discriminating on each of its three inputs, or the first assertion passes for a constant
+│                   ├── test_journal_emit.py          # The four write-failure cases, driven against REAL bags on a real filesystem — a mocked open()
+│                   │                                #   proves the code branches, not that the bag ends up in the state the branch claims. Ordering is
+│                   │                                #   asserted from INSIDE the store write, which is the only place write-ahead is visible: reading
+│                   │                                #   the file afterwards proves write order, not order relative to the side effect. Case (d) needs
+│                   │                                #   the tag FILE unwritable, not its directory — a 0500 directory refuses creation and an existing
+│                   │                                #   bag-info.txt still takes an append, which is how the first version of that test asserted case
+│                   │                                #   (d) and observed case (c). Mode-induced refusals skip under uid 0 rather than passing vacuously
+│                   ├── test_journal_edge_id_and_capture_filter.py # Two modules in one file because they share one argument: keeping a secret out of a durable
+│                   │                                #   record. A digest-shaped edge id is refused (hash(api_key) is ruled out twice — it changes on
+│                   │                                #   rotation, and a stored hash of a live credential is a confirmation oracle) and a PREFIXED
+│                   │                                #   random token is accepted, which is the control that keeps the refusal from being total. The
+│                   │                                #   filter's ten rules each fire on their own sample, ordinary prose and a git SHA do NOT fire it,
+│                   │                                #   and the STATED BLIND SPOTS — a bare password, a base64-ed token — are asserted AS blind spots
+│                   │                                #   so the suite reads as a boundary rather than as a completeness claim
+│                   ├── test_the_tag_namespace_is_HELD_BY_CODE.py # PMP Phase 3 r13. Separate from test_journal_tag_lines.py because that owns the LINE and this
+│                   │                                #   owns the NAMESPACE, and they failed independently — the line's rule leaked twice through
+│                   │                                #   different writers, the namespace never had a rule because it was closed by construction until
+│                   │                                #   WD Phase 5 took a tag from outside. Lifecycle labels refused, descriptive ones accepted, an
+│                   │                                #   unrecognised one VALIDATES and is REPORTED. (c) is deliberately open and a test holds it open:
+│                   │                                #   test_no_bag_level_version_field_was_invented goes red if a later change quietly settles it.
+│                   │                                #   Also drives the bag-info.txt race from three PROCESSES — an advisory flock is a cross-process
+│                   │                                #   control, so a threading test would exercise the GIL rather than the lock
+│                   ├── test_every_fleet_write_path_EMITS.py # PMP Phase 3 r1, wired. Two halves: a CENSUS that keeps requirement 9's inventory complete, and
+│                   │                                #   one behavioural test per inventoried path. The census walks for ONE shape — a subprocess whose
+│                   │                                #   argv[0] is `gh`, from an uninventoried module — and deliberately NOT for a bare write_text,
+│                   │                                #   which would be almost all false positives and teach a reader to add exemptions. It asserts a
+│                   │                                #   non-zero examined count, because a walk that scoped itself wrongly reports a clean sweep over
+│                   │                                #   nothing. The discriminators are the point: a gh READ must not emit, and the case-(d) report
+│                   │                                #   must not emit while an ORDINARY comment must — the exception is narrow or it is a hole
 │                   ├── test_dispatch_context.py     # The run context's behaviour: the worktree name follows the workflow key (every key,
 │                   │                                #   because the drift was in a single runner), the object is frozen, the echo is gated on
 │                   │                                #   `is_the_run` rather than on `minted` — a retry supplies its name and is exactly the

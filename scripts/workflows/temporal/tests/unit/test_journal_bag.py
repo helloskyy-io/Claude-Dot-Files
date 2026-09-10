@@ -496,3 +496,62 @@ def test_open_bag_ADOPTS_rather_than_crashing_when_the_directory_appears_first(r
     second = open_bag(root, "raced")
     assert second.path == first.path
     assert (second.payload_dir / "a.txt").read_text() == "written by the winner"
+
+
+# --- the payload writer PMP Phase 3 adds --------------------------------------
+
+def test_a_payload_file_written_through_the_bag_is_FILE_MODE(tmp_path: Path) -> None:
+    """PMP Phase 3: `config.yaml` states payload files are `0600`.
+
+    Phase 1 applied `FILE_MODE` only to the tag files it wrote itself, because
+    nothing wrote payload yet — so this phase is what makes that statement true
+    or a lie. It stops being harmless the moment Phase 7 tars a bag and lands
+    world-readable transcripts somewhere the `0700` root is not protecting them,
+    at which point the fix is a bucket-wide operation rather than a mode
+    argument.
+    """
+    if os.geteuid() == 0:
+        pytest.skip("mode assertions do not bind uid 0")
+    bag = open_bag(tmp_path, "run")
+    written = bag.write_payload("data/child/transcript.jsonl", "a line\n")
+    assert written.stat().st_mode & 0o777 == FILE_MODE
+    assert written.read_text(encoding="utf-8") == "a line\n"
+
+
+def test_a_payload_file_is_written_ONCE_and_never_overwritten(tmp_path: Path) -> None:
+    """The journal is append-only, so overwriting is the immutability rule being
+    broken from inside the writer that enforces it. A redaction is the one
+    sanctioned replacement."""
+    bag = open_bag(tmp_path, "run")
+    bag.write_payload("data/child/a.txt", "first")
+    with pytest.raises(BagError, match="written once"):
+        bag.write_payload("data/child/a.txt", "second")
+    assert (bag.path / "data/child/a.txt").read_text() == "first"
+
+
+@pytest.mark.parametrize("relpath", ["bag-info.txt", "data/../../escape",
+                                     "../outside"])
+def test_write_payload_REFUSES_a_path_outside_the_payload_directory(
+        tmp_path: Path, relpath: str) -> None:
+    """The same containment `redact` proves its own path with, reused rather than
+    re-derived — the input is the same class, a caller-supplied string composed
+    onto a trusted base path."""
+    bag = open_bag(tmp_path, "run")
+    with pytest.raises(BagError):
+        bag.write_payload(relpath, "x")
+
+
+def test_write_payload_REFUSES_a_symlinked_segment(tmp_path: Path) -> None:
+    """A bag holds bytes, not pointers to bytes that live outside it.
+
+    A symlinked intermediate directory relocates everything beneath it just as
+    effectively as a symlinked file does, which is why every segment is checked.
+    """
+    outside = tmp_path / "elsewhere"
+    outside.mkdir()
+    bag = open_bag(tmp_path, "run")
+    (bag.payload_dir / "linked").symlink_to(outside)
+    with pytest.raises(BagError, match="symlink"):
+        bag.write_payload("data/linked/x.txt", "x")
+    assert not (outside / "x.txt").exists(), (
+        "the write followed the link and landed outside the bag")
