@@ -58,6 +58,8 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from ...journal import emit as journal_emit
+from ...journal.events import Destination, Provenance
 from .. import routing
 from ..assistant_activities import ci_verdict
 from ..review_pr import review_pr_activities as review_act
@@ -181,11 +183,50 @@ def merge_one(pr: str, repo_root: Path, *, dry_run: bool = False) -> str | None:
     """
     if dry_run:
         return None
-    try:
+
+    # PMP PHASE 3: A MERGE IS A STORE WRITE AND IT EMITS LIKE EVERY OTHER ONE.
+    # This call site does NOT go through `assistant_activities.gh_attempt` — it
+    # cannot, because that function retries and a merge must never be retried —
+    # so the emit is applied here rather than inherited. That divergence is
+    # exactly why requirement 9's inventory enumerates call sites rather than
+    # trusting one choke point: a path that had a good reason to bypass the choke
+    # point is a path with no emit, and nothing goes red.
+    #
+    # THE CONTENT IS THE INVOCATION, NOT PROSE. A merge authors nothing; what the
+    # record needs is WHICH PR was merged, under which options, by which run. An
+    # empty `content` would make the event indistinguishable from a write whose
+    # body could not be read.
+    def _merge() -> None:
         subprocess.run(["gh", "pr", "merge", pr, "--squash", "--delete-branch"],
                        cwd=repo_root, capture_output=True, text=True,
                        check=True, timeout=300)
+
+    emitter = journal_emit.current_emitter()
+    try:
+        if emitter is None:
+            _merge()
+        else:
+            emitter.paired_write(
+                write_path="gh:pr:merge",
+                destination=Destination(store="github"),
+                content=f"gh pr merge {pr} --squash --delete-branch",
+                provenance=Provenance.FLEET_AUTHORED,
+                perform=_merge)
         return None
+    except journal_emit.StoreWriteFailed as recorded:
+        # The `store_write_failure` event is already appended; the ORIGINAL `gh`
+        # failure is what the two handlers below are written against, so it is
+        # re-raised into them rather than replaced by the wrapper's own class.
+        cause = recorded.__cause__
+        if isinstance(cause, BaseException):
+            exc = cause
+        else:                                   # pragma: no cover - unreachable
+            raise
+        if isinstance(exc, subprocess.CalledProcessError):
+            return _merge_outcome_after_failure(exc, pr, repo_root)
+        if isinstance(exc, (subprocess.SubprocessError, OSError)):
+            return str(exc)
+        raise
     except subprocess.CalledProcessError as exc:
         # THE EXIT CODE COVERS THE CLEANUP TOO, AND THE CLEANUP IS NOT THE MERGE.
         # `--delete-branch` fails when the branch is checked out in a worktree —
@@ -194,13 +235,25 @@ def merge_one(pr: str, repo_root: Path, *, dry_run: bool = False) -> str | None:
         # MERGED and this reported "merge failed: failed to delete local branch".
         # A tool that says a completed merge failed is worse than one that says
         # nothing, so the OUTCOME is asked rather than the exit code trusted.
-        detail = (exc.stderr or exc.stdout or "gh pr merge failed").strip()
-        view = _gh_json(["pr", "view", pr, "--json", "state"], repo_root)
-        if view is not None and view.get("state") == "MERGED":
-            return None                      # merged; only the cleanup failed
-        return detail
+        return _merge_outcome_after_failure(exc, pr, repo_root)
     except (subprocess.SubprocessError, OSError) as exc:
         return str(exc)
+
+
+def _merge_outcome_after_failure(exc: subprocess.CalledProcessError, pr: str,
+                                 repo_root: Path) -> str | None:
+    """ONE definition of "did it actually merge?", called from two handlers.
+
+    Split out when the emit wrapper gave this question a second caller. Two
+    copies of it would drift, and the direction they would drift in is the one
+    the comment inside it is about: a tool that reports a completed merge as
+    failed is worse than one that says nothing.
+    """
+    detail = (exc.stderr or exc.stdout or "gh pr merge failed").strip()
+    view = _gh_json(["pr", "view", pr, "--json", "state"], repo_root)
+    if view is not None and view.get("state") == "MERGED":
+        return None                          # merged; only the cleanup failed
+    return detail
 
 
 def run_merge(prs: list[str], repo_root: Path, *, stores_root: Path | None = None,

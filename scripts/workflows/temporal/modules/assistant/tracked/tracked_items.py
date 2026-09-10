@@ -35,6 +35,16 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
+# PMP PHASE 3's EMIT RULE REACHES THIS MODULE, and this import is the whole
+# coupling it costs. This file was stdlib-only, which was a property worth
+# keeping and is not worth keeping at the price of the four `tracked/` stores
+# being written with nothing recording it: requirement 1 is *if any store gets
+# it, the journal gets it*, and these three functions ARE the fleet's write path
+# to those stores. The journal package imports no workflow module, so the edge
+# runs one way and nothing circular is created.
+from ...journal import emit as journal_emit
+from ...journal.events import Destination, Provenance
+
 # §7. Bumped upstream when §2 or §3 change; a consumer that writes a different
 # shape than the standard declares is detectable at dispatch instead of at
 # failure, which is the whole reason the number exists. `candidates.md` changed
@@ -219,6 +229,51 @@ def render(fields: dict[str, str], body: str) -> str:
     return f"---\n{lines}\n---\n{body}"
 
 
+def _write_item(path: Path, text: str, *, write_path: str,
+                store_name: str) -> Path:
+    """Write one item file, emitting the intent BEFORE the file exists.
+
+    PMP PHASE 3 REQUIREMENT 4 CASE (b), APPLIED TO THE `tracked/` STORES. The
+    ordering is what makes requirement 1's invariant self-enforcing: the intent
+    lands first, so a journal failure means the file is never written and NEITHER
+    side happened. Written the other way round, the store would hold an item the
+    record does not — which is the state Phase 4's rebuild cannot distinguish
+    from a row somebody deleted.
+
+    THE ADDRESS IS THE PATH, AND IT LANDS ON THE COMPLETION. Unlike a GitHub
+    comment the path is knowable in advance here — but putting it on the intent
+    would say the file exists before it does, and `JournalEvent` refuses an
+    intent carrying an address for exactly that reason. The completion is the
+    event that asserts the write happened.
+
+    ⚠ `provenance` IS `FLEET_AUTHORED` ON ALL THREE WRITERS, INCLUDING THE ONES
+    DRIVEN BY AN INTAKE ISSUE. The body of an intake-harvested item was authored
+    by a `review-pr` dispatch, which is fleet code; an item a HUMAN edits by hand
+    never passes through this function at all, because `tracked/operations/`
+    admits no machine write and the operator edits the other three in an editor.
+    So there is no operator-authored write on this path to mislabel.
+
+    OUTSIDE A RUN THE WRITE IS PERFORMED UNWRAPPED. `current_emitter()` answers
+    `None` for a unit test or a helper script, and that is a real state rather
+    than an error — manufacturing an emitter here would write a bag for a process
+    that is not a run, under a `run_id` nobody minted.
+    """
+    def _perform() -> Path:
+        path.write_text(text)
+        return path
+
+    emitter = journal_emit.current_emitter()
+    if emitter is None:
+        return _perform()
+    return emitter.paired_write(
+        write_path=write_path,
+        destination=Destination(store=f"tracked_{store_name}"),
+        content=text,
+        provenance=Provenance.FLEET_AUTHORED,
+        perform=_perform,
+        address_of=lambda written: str(written))
+
+
 def file_item(
     root: Path,
     store: Store,
@@ -267,8 +322,9 @@ def file_item(
     path = directory / f"{new_id}.md"
     if path.exists():
         raise FileExistsError(f"{path} already exists — ids are never reused (§2)")
-    path.write_text(render(fields, body if body.startswith("\n") else "\n" + body))
-    return path
+    return _write_item(
+        path, render(fields, body if body.startswith("\n") else "\n" + body),
+        write_path=f"tracked:{store.name}:file", store_name=store.name)
 
 
 def expand(path: Path, note: str, body_text: str, *, today: date | None = None) -> None:
@@ -293,7 +349,9 @@ def expand(path: Path, note: str, body_text: str, *, today: date | None = None) 
         body = body.rstrip("\n") + f"\n\n{block}"
     else:
         body = body.rstrip("\n") + f"\n\n{section}\n\n{block}"
-    path.write_text(render(fields, body))
+    _write_item(path, render(fields, body),
+                write_path=f"tracked:{store_of(fields['id']).name}:expand",
+                store_name=store_of(fields["id"]).name)
 
 
 def increment(path: Path, note: str, *, today: date | None = None) -> int:
@@ -322,5 +380,7 @@ def increment(path: Path, note: str, *, today: date | None = None) -> int:
     else:
         body = body.rstrip("\n") + f"\n\n## Recurrences\n\n{stamped}\n"
 
-    path.write_text(render(fields, body))
+    _write_item(path, render(fields, body),
+                write_path=f"tracked:{store_of(fields['id']).name}:increment",
+                store_name=store_of(fields["id"]).name)
     return int(fields["count"])

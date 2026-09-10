@@ -52,6 +52,8 @@ import re
 from pathlib import Path
 from typing import NamedTuple
 
+from ....journal import emit as journal_emit
+from ....journal.events import Destination, Provenance
 from .. import plan_activities as act
 
 # Strips the leading marker so a section name is just its name.
@@ -377,10 +379,46 @@ def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> Scaf
         # a narrow locale fails before anything exists; a write that fails leaves
         # the directory `mkdir` just made, half-built and indistinguishable from
         # a component somebody is working on.
-        (pool / "synthesis.md").write_text(_seed(row, slug), encoding="utf-8")
+        _write_seed(pool / "synthesis.md", _seed(row, slug))
         result.created.append(slug)
 
     return result
+
+
+def _write_seed(path: Path, text: str) -> None:
+    """Seed one research pool, emitting the intent before the file exists.
+
+    PMP PHASE 3 REQUIREMENT 1: this is a fleet-code write to a store — the
+    planning corpus — so it emits. It is the only such write in the plan family
+    and it is easy to miss precisely because it does not look like one: no `gh`,
+    no `tracked/` item, just a `write_text` inside a loop. That is the class
+    requirement 9's enumeration exists to find, and Phase 4's rebuild test is
+    what keeps it found after this phase closes.
+
+    ⚠ THE DIRECTORY IS CREATED BEFORE THIS RUNS AND IS NOT WITHHELD BY A FAILED
+    EMIT, which is a real if small hole in write-ahead ordering, stated rather
+    than papered over. `pool.mkdir(parents=True)` happens above, so a journal
+    failure here leaves an empty directory the record does not mention. The
+    caller's own comment already names that half-built state as the failure it
+    cares about; moving the `mkdir` inside the emit would be the correct fix and
+    it changes this function's caller rather than this function, so it is left
+    for whoever next touches that loop rather than done blind here.
+    """
+    def _perform() -> Path:
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    emitter = journal_emit.current_emitter()
+    if emitter is None:
+        _perform()
+        return
+    emitter.paired_write(
+        write_path="planning:research-pool:seed",
+        destination=Destination(store="planning_corpus"),
+        content=text,
+        provenance=Provenance.FLEET_AUTHORED,
+        perform=_perform,
+        address_of=lambda written: str(written))
 
 
 def _is_unresearched(pool: Path) -> bool:

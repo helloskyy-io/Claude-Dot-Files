@@ -102,15 +102,16 @@ excusing it.
 
 ⚠ FAMILIES 1 AND 2 EACH CONTAIN THE FLEET'S OWN IDIOM, WHICH IS WHY NEITHER IS
 EXOTIC.
-Nineteen swept modules import a journal submodule as a name: the sixteen
+Twenty-two swept modules import a journal submodule as a name: the sixteen
 entrypoints take `journal_activities as journal`, `verify_citations.py` and
-`validate_bag.py` take `verify` and `validate`, and `assistant_activities.py`
-takes `emit as journal_emit` — the first two of those three are operator tools
-that READ a finished bag rather than entrypoints, per
-`journal_entrypoint_facts.py`'s own classification, so this file says *call
-sites* wherever the nineteen are meant. The nineteenth is Phase 3's, and it is
-the first fleet module to bind a journal submodule for a reason other than
-opening a bag: it wraps every `gh` mutation in the emit. `from .. import journal` is the
+`validate_bag.py` take `verify` and `validate`, and FOUR fleet modules take
+`emit as journal_emit` — `assistant_activities.py`, `tracked_items.py`,
+`merge_pr.py` and `plan_project_activities.py`. The two operator tools READ a
+finished bag rather than being entrypoints, per `journal_entrypoint_facts.py`'s
+own classification, so this file says *call sites* wherever the twenty-two are
+meant. The four emit binders are PMP Phase 3's, and they are the first fleet
+modules to bind a journal submodule for a reason other than opening a bag: each
+is a WRITE PATH, wrapping its store write in the intent-then-completion pair. `from .. import journal` is the
 dominant relative-import spelling across the workflow tree (`from .. import
 routing`, `from .. import plan_activities as act`, `from . import
 tracked_items as ti`). So both are what a real bypass looks like: a line copied
@@ -128,13 +129,13 @@ attributed the whole job to one of them and MEASUREMENT SAID OTHERWISE:
     `from modules.assistant import journal`, a sibling exporting a colliding
     name.
 
-The nineteen call sites are excluded REDUNDANTLY, by both at once, which is
+The twenty-two call sites are excluded REDUNDANTLY, by both at once, which is
 why neither mechanism can be controlled through them: each shape above isolates
 exactly one, and the control below uses those rather than the idiom.
 
 ⚠ AND NEITHER COSTS THE EIGHTEEN FALSE POSITIVES THEY WERE PREDICTED TO COST.
 Deleting the parent check outright leaves every test in this file green and
-flags no fleet module: those nineteen reach only `journal.open_run_bag` and
+flags no fleet module: those twenty-two reach only `journal.open_run_bag` and
 Phase 3's `journal_emit.current_emitter` / `paired_write`,
 which is in neither `STORE_MODULES` nor `STORE_IO_NAMES`, so a reach-based
 matcher never looks at them. The trap is structurally unreachable rather than
@@ -909,8 +910,8 @@ def test_the_FLEET_IDIOM_binding_journal_to_the_activities_module_is_NOT_flagged
     IS WHERE IT WAS FIRST WRITTEN. Deleting the parent check was expected to fail
     this file loudly and to flag nineteen fleet modules. MEASURED, IT DOES
     NEITHER: every test stayed green and the real-tree sweep named nothing,
-    because those nineteen call sites reach only `journal.open_run_bag` and the
-    emit boundary, neither of which is
+    because those twenty-two call sites reach only `journal.open_run_bag` and
+    the emit boundary, neither of which is
     in neither name set. So a control routed through the sweep over THE REAL TREE
     is vacuous — it would begin discriminating only once some module writes
     `journal.load_object` off the activities alias, which is the moment the guard
