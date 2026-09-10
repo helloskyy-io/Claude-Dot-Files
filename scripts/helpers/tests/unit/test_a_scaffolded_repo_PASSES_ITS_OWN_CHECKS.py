@@ -67,12 +67,18 @@ def test_IT_REFUSES_BEFORE_WRITING_ANYTHING_WHEN_GIT_HAS_NO_IDENTITY(tmp_path: P
     """
     d = tmp_path / "no-identity-repo"
     d.mkdir()
-    # Remove EVERY identity source: the author/committer env vars, and the global
-    # and system config files, so git genuinely cannot determine an author.
+    # Remove EVERY identity source, host-INDEPENDENTLY. Dropping the env vars and
+    # neutralising system config is not enough: git falls back to EMAIL and then
+    # to a gecos/hostname guess, so on a host with a populated passwd GECOS the
+    # script would resolve an author and never refuse (this test would then fail
+    # for a reason that has nothing to do with the guard). A global config with
+    # user.useConfigOnly=true forbids that guess, so "no identity" holds anywhere.
     env = {k: v for k, v in os.environ.items()
            if k not in {"GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL",
-                        "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"}}
-    env["GIT_CONFIG_GLOBAL"] = os.devnull
+                        "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL", "EMAIL"}}
+    gc = tmp_path / "gitconfig-no-identity"
+    gc.write_text("[user]\n\tuseConfigOnly = true\n", encoding="utf-8")
+    env["GIT_CONFIG_GLOBAL"] = str(gc)
     env["GIT_CONFIG_SYSTEM"] = os.devnull
     r = subprocess.run(["bash", str(INIT), "no-identity-repo", "--skip-remote"],
                        cwd=d, capture_output=True, text=True, timeout=180, env=env)
