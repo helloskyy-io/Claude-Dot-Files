@@ -188,9 +188,21 @@ def case_d_channel_sentence() -> str:
 
     Composed rather than written out, so the operator-facing sentence and the
     declared table cannot disagree. The unwired channels are NAMED rather than
-    omitted: an operator who has read the phase doc knows both are planned, and a
+    omitted: an operator who has read the phase doc knows they are planned, and a
     message that simply left them out would read as "the report went somewhere I
     have not been told about" — which is the same dead end by a quieter route.
+
+    ⚠ THE AGREEMENT IS DERIVED TOO, AND TAKING THE NAMES FROM THE TABLE WHILE
+    SPELLING THE COUNT BY HAND WAS THE DEFECT. This function used to compose the
+    names from `CASE_D_CHANNELS` and then hardcode *"both are declared … NEITHER
+    has a producer … appear on them"*. Driven with a one-dead-channel table it
+    emitted three false plurals about a single channel — and
+    `test_the_case_d_CHANNEL_TABLE_matches_the_tree` stayed green, because it
+    compares the table against the tree and never reads this sentence. The day
+    somebody wires one of the two, the table flips correctly and the message on
+    the one path where this component cannot speak for itself starts asserting an
+    unbuilt fact in the present tense: the precise defect `CASE_D_CHANNELS` was
+    declared to stop, surviving in the composer that reads it.
     """
     live = [name for name, wired in CASE_D_CHANNELS if wired]
     dead = [name for name, wired in CASE_D_CHANNELS if not wired]
@@ -199,9 +211,20 @@ def case_d_channel_sentence() -> str:
     else:
         sentence = "NOT REPORTED ANYWHERE — every declared channel is unbuilt"
     if dead:
-        sentence += (". NOT on " + "; nor on ".join(dead) +
-                     " — both are declared by requirement 11 and NEITHER has a "
-                     "producer yet, so nothing will appear on them")
+        # THE WHOLE CLAUSE IS SELECTED BY CARDINALITY, not assembled from three
+        # independently-agreeing fragments. Assembling it is how "NEITHER has a
+        # producer" becomes "IT has a producer" — a negation that inverts when its
+        # quantifier is swapped word-for-word.
+        if len(dead) == 1:
+            clause = ("it is declared by requirement 11 and has NO producer yet, "
+                      "so nothing will appear on it")
+        elif len(dead) == 2:
+            clause = ("both are declared by requirement 11 and NEITHER has a "
+                      "producer yet, so nothing will appear on them")
+        else:
+            clause = (f"all {len(dead)} are declared by requirement 11 and NONE "
+                      f"has a producer yet, so nothing will appear on them")
+        sentence += ". NOT on " + "; nor on ".join(dead) + f" — {clause}"
     return sentence
 
 

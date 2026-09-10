@@ -70,9 +70,16 @@ bar `test_journal_regex_anchors` sets for its own exemptions.
     the 193-line scratch-delete elision that `block-dangerous.sh` deleted on
     2026-08-15. That is a live instance of this exact class, and correcting it
     is not a rename — the sentence's whole premise is a mechanism that no longer
-    exists, so it needs a read of what that sweep is still for. It is SURFACED
-    on the PR that added this file rather than laundered into a row below.
-    Widening the scope is what closes it.
+    exists, so it needs a read of what that sweep is still for. It is tracked at
+    issue #178 with the other disclosed blind spot, rather than laundered into a
+    row below. Widening the scope is what closes it.
+
+    ⚠ THAT SENTENCE PREVIOUSLY SAID THE INSTANCE WAS *"SURFACED on the PR that
+    added this file"*, AND IT WAS NOT — not in the body, not in any comment. So
+    the only record of a disclosed live defect was this paragraph, in the file
+    whose own docstring calls a permanent list of dead names the thing the guard
+    exists to prevent. A reader checking whether the disclosure had been actioned
+    would have found the PR silent and concluded it was handled off-thread.
   * IT RESOLVES AGAINST THIS TREE'S BINDINGS AND NOTHING ELSE, so a prose
     reference to a name the RUNTIME provides — `_replace`, `_field_defaults` on
     a `NamedTuple` — needs a row below. That is two rows across the whole tree,
@@ -168,17 +175,56 @@ _DECLARED: dict[str, str] = {
 
 
 # A backticked TEST MODULE FILENAME, optionally path-qualified. The `.py` is the
-# discriminator and it is why this half is decidable while bare test-FUNCTION
-# names are not: a citation carrying the suffix is unambiguously a file, whereas
-# a bare one is also a parametrize id, a prompt-variant stem and a section
-# heading. (An illustrative example cannot be written here, because this gate
-# reads its own comments and would report the example as a ghost — which it did,
-# to this paragraph's first draft.) Measured
-# over the swept tree: 32 bare-name citations do not resolve and almost all are
-# false positives, against 11 filename citations of which every one was a real
-# question. Keying on the half that discriminates is the whole lesson of the
-# `_ROOTS` recogniser two files over.
-_TEST_MODULE = re.compile(r"`([A-Za-z0-9_/]*\btest_[A-Za-z0-9_]+\.py)`")
+# discriminator and it is why this half is GATED while the bare test-FUNCTION
+# half is only MEASURED: a citation carrying the suffix is unambiguously a file,
+# whereas a bare one is also a parametrize id, a prompt-variant stem and a
+# section heading. (An illustrative example cannot be written here, because this
+# gate reads its own comments and would report the example as a ghost — which it
+# did, to this paragraph's first draft.)
+#
+# ⚠ THIS COMMENT USED TO CARRY TWO MEASURED FIGURES — "32 bare-name citations do
+# not resolve and almost all are false positives, against 11 filename citations
+# of which every one was a real question" — AND NEITHER COULD BE RE-DERIVED. A
+# review pass ran the stated method and got 129 sites on one reading of "bare
+# name" and 17 on the other; the `11` was plausible and unrefutable. The
+# conclusion those figures supported is right, and it is the reason this
+# pattern keys on `.py`. What was wrong is that the sole stated evidence for
+# leaving half a class ungated sat, uncheckable, in the file whose whole thesis
+# is that an unbacked claim in a trusted block stops the next reader checking.
+#
+# So the figures are DERIVED now, by `test_the_CITATION_CLASS_census_is_DERIVED`
+# below, and the predicate is `unresolved_bare_test_names` rather than a phrase.
+# `_BARE_NAME_CENSUS` and `_FILENAME_CENSUS` are the pinned counts; a maintainer
+# re-measuring runs that test and gets the same number or a red one, and can
+# tell which of "the class grew", "the measurement was wrong" and "the predicate
+# moved" they are looking at.
+#
+# Keying on the half that discriminates is the whole lesson of the `_ROOTS`
+# recogniser two files over.
+#
+# ⚠ A THIRD CITATION SHAPE EXISTS AND BOTH PREDICATES WERE BLIND TO IT — a
+# pytest node id, a path and a `::` and a function name. (Written out it would
+# be reported here, like the two examples above it; the pattern below is the
+# specification.) It was neither: the module pattern wanted a backtick straight
+# after the suffix, and the bare pattern has no `.` in its class. Six sites carry it, and PR #175's third pass found the sixth was
+# a LIVE present-tense claim naming a module deleted in `6a59500`, in a workflow
+# docstring, inside the swept tree and invisible to a sweep that had just been
+# run over that tree twice. The optional group below is what makes the FILENAME
+# half of a node id gate exactly like a bare filename does; the function half
+# stays ungated for the same reason the bare half does.
+_TEST_MODULE = re.compile(
+    r"`([A-Za-z0-9_/]*\btest_[A-Za-z0-9_]+\.py)(?:::[A-Za-z0-9_]+)?`")
+
+# THE BARE HALF, as a predicate rather than as a phrase. The same span as
+# `_TEST_MODULE` with no suffix — and it excludes a filename citation by
+# CONSTRUCTION rather than by a lookahead: `.` is not in the character class, so
+# a span carrying the suffix has no closing backtick where this pattern wants
+# one. (The example cannot be written out — this gate reads its own comments and
+# would report it, which it did, to this paragraph's first draft.)
+# "Does not resolve" is spelled out in `unresolved_bare_test_names` below,
+# because the two readings of it differ by a factor of seven and the prose this
+# replaces stated neither.
+_BARE_TEST_NAME = re.compile(r"`([A-Za-z0-9_/]*\btest_[A-Za-z0-9_]+)`")
 
 # Test modules named in prose that are NOT in the tree and are NOT defects.
 #
@@ -199,12 +245,14 @@ _DECLARED_TEST_MODULES: dict[tuple[str, str], str] = {
         "gate needed the same boundary, and naming the file IS that explanation.",
     ("testing/scripts/tests/unit/test_markdown_tables_render_whole.py",
      "test_candidates_prose_matches_the_table.py"):
-        "same deletion, narrated as history at ONE remaining site — the first "
-        "draft of this gate path-loaded it, which is the PR #96 coupling "
-        "`test_test_tree_hygiene.py` was widened for. The other three mentions "
-        "in this file made LIVE claims (a \"sibling\" comparison, a COMPANION "
-        "instruction to delete it in one commit) and were corrected, not "
-        "declared.",
+        "same deletion, narrated as history at TWO sites. One: the first draft "
+        "of this gate path-loaded it, which is the PR #96 coupling "
+        "`test_test_tree_hygiene.py` was widened for. Two: the \"what this gate "
+        "does not cover\" paragraph, which named the deleted module's ASSERTION "
+        "by bare function name and so survived the pass that took the filename "
+        "out — it now records the bar as UNASSERTED rather than as the "
+        "sibling's job. The COMPANION instruction to delete it in one commit "
+        "was corrected, not declared.",
     ("testing/scripts/tests/unit/test_test_tree_hygiene.py",
      "test_candidates_prose_matches_the_table.py"):
         "same deletion. This is the MEASUREMENT that produced this file's "
@@ -216,6 +264,14 @@ _DECLARED_TEST_MODULES: dict[tuple[str, str], str] = {
         "a file that NEVER EXISTED. `verify.py` names it in the act of saying so "
         "— the sentence IS the correction, and blanking the name leaves it "
         "without a subject.",
+    ("scripts/workflows/temporal/tests/unit/test_promoted_fragments_render_for_every_consumer.py",
+     "test_research_minor.py"):
+        "DELETED in `6a59500`, when two research write-children became one that "
+        "sizes its own cycle. Narrated as history: it is the module whose "
+        "drive-the-entry-point shape this one reuses, and its reasoning is the "
+        "reason given, so naming it IS the explanation. Cited without the `.py` "
+        "until PR #175's third pass, which is how a present-tense claim about a "
+        "deleted module sat outside this gate.",
     ("testing/scripts/tests/unit/test_mutate.py",
      "test_subject.py"):
         "a fixture WRITTEN AT RUN TIME into a `tmp_path` sandbox by this file, "
@@ -231,6 +287,35 @@ def unresolved_test_modules(source: str, filenames: set[str]) -> list[tuple[int,
         for match in _TEST_MODULE.finditer(text):
             if match.group(1).split("/")[-1] not in filenames:
                 found.append((lineno, match.group(1).split("/")[-1]))
+    return found
+
+
+def unresolved_bare_test_names(source: str, names: set[str],
+                               filenames: set[str]) -> list[tuple[int, str]]:
+    """`(lineno, name)` for every backticked bare `test_*` span that resolves to nothing.
+
+    "RESOLVES TO NOTHING" IS TWO CONDITIONS, AND SAYING SO IS THE POINT OF THIS
+    FUNCTION EXISTING. A bare span is unresolved only when it is neither a name
+    BOUND anywhere in the tree — so a span naming a real test function resolves
+    — nor the STEM of a tracked file, which is how this tree cites a test module
+    without its suffix. The prose this replaces said "bare-name
+    citations do not resolve" and meant one of those two readings without
+    saying which; they differ by a factor of seven (129 sites against 17), which
+    is why the figure it quoted could not be reproduced by the pass that checked
+    it.
+
+    NOT A GATE. `test_EVERY_TEST_MODULE_PROSE_CITES_EXISTS` refuses an unresolved
+    `.py` citation; this half is COUNTED, not refused, because the population is
+    dominated by legitimate history narration and a gate over it would be
+    answered by exemption rows. Widening it into a gate is proposed at issue
+    #178, with a resolver rather than a list.
+    """
+    found: list[tuple[int, str]] = []
+    for lineno, text in prose_of(source):
+        for match in _BARE_TEST_NAME.finditer(text):
+            name = match.group(1).split("/")[-1]
+            if name not in names and f"{name}.py" not in filenames:
+                found.append((lineno, name))
     return found
 
 
@@ -483,6 +568,103 @@ def test_every_DECLARED_TEST_MODULE_row_is_still_REACHED(
         f"prose that needed the exemption is gone; delete the row with it.")
 
 
+#: THE CITATION CLASS, IN SITES, DERIVED BY THE TEST BELOW AND PINNED HERE.
+#: These two numbers replace a pair of prose figures that could not be
+#: re-derived from their own stated method. They are SITES, not unique names —
+#: the distinction the earlier prose also left open — and each is produced by a
+#: named predicate in this module rather than by a phrase.
+#:
+#: `_BARE_NAME_CENSUS` is the ungated half: every site is history narration
+#: today (a RETIRED marker, a "WAS HERE", an "it used to be"), which is the
+#: measured reason this half is counted rather than refused. PR #175's third
+#: pass took it from 17 to 9 by correcting the eight LIVE claims in it —
+#: including two coverage claims whose "held by" named functions that went with
+#: the deleted corpus gate three `_DECLARED_TEST_MODULES` rows above describe.
+#: That is what shows this half is not merely noise.
+_BARE_NAME_CENSUS = 9
+
+#: `_FILENAME_CENSUS` is the GATED half, and every site in it is covered by a
+#: `_DECLARED_TEST_MODULES` row — `test_EVERY_TEST_MODULE_PROSE_CITES_EXISTS`
+#: refuses any that is not. Pinned anyway, because a declared row is a claim
+#: that a citation is HISTORY and a growing count of them is the shape that
+#: turns a gate into an allowlist.
+_FILENAME_CENSUS = 8
+
+
+def _census() -> tuple[list[str], list[str]]:
+    """`(bare sites, filename sites)` over the swept tree, as `path:lineno:name`."""
+    names = bound_names(_tracked("*.py"), _tracked("*.sh"))
+    files = {path.name for path in _tracked("*")}
+    bare: list[str] = []
+    filename: list[str] = []
+    for path in _swept():
+        source = path.read_text(encoding="utf-8", errors="replace")
+        relpath = str(path.relative_to(ROOT))
+        bare += [f"{relpath}:{line}: `{name}`"
+                 for line, name in unresolved_bare_test_names(source, names, files)]
+        filename += [f"{relpath}:{line}: `{name}`"
+                     for line, name in unresolved_test_modules(source, files)]
+    return bare, filename
+
+
+def test_the_CITATION_CLASS_census_is_DERIVED() -> None:
+    """The evidence for gating one half and not the other is re-derivable HERE.
+
+    THE DEFECT THIS REPLACES WAS NOT A WRONG NUMBER. It was a measurement stated
+    as prose, in the file whose thesis is that an unbacked claim in a trusted
+    block stops the next reader checking — so the one decision the file makes
+    about its own scope rested on a figure a maintainer could not reproduce. Two
+    reconstructions of its stated method gave 129 and 17; it said 32.
+
+    BOTH DIRECTIONS ARE LOAD-BEARING. A count that GREW means somebody wrote a
+    citation naming something that does not exist: read it, and if it is a live
+    claim — "held by", "asserted by", "the sibling asserts" — correct it rather
+    than counting it. A count that SHRANK means citations were fixed or prose was
+    deleted, and the number moves down with a line in the commit message. Either
+    way the bump is a decision somebody made on purpose, which is the whole
+    difference between this and the sentence it replaces.
+    """
+    bare, filename = _census()
+    assert len(bare) == _BARE_NAME_CENSUS, (
+        f"the bare-name citation census is {len(bare)}, pinned at "
+        f"{_BARE_NAME_CENSUS}. Every site is listed below. If a new one makes a "
+        f"LIVE claim (a residual 'held by' a test, a property 'asserted by' one) "
+        f"the citation is a defect — correct it. If it narrates history, bump "
+        f"the constant and say which site in the commit message. This half is "
+        f"counted rather than gated on purpose; widening it is issue #178:"
+        "\n  " + "\n  ".join(bare))
+    assert len(filename) == _FILENAME_CENSUS, (
+        f"the filename citation census is {len(filename)}, pinned at "
+        f"{_FILENAME_CENSUS}. Every one of these is a DECLARED historical "
+        f"mention — `test_EVERY_TEST_MODULE_PROSE_CITES_EXISTS` refuses the rest "
+        f"— so a rise here means the allowlist grew and is worth reading:"
+        "\n  " + "\n  ".join(filename))
+
+
+def test_the_bare_name_predicate_DISCRIMINATES() -> None:
+    """A predicate that answered "unresolved" to everything would make the census
+    above a headcount of citations rather than of ghosts, and one that answered
+    "resolved" to everything would pin it at zero forever.
+
+    Three cases, because "resolves" has two arms and both were left ambiguous by
+    the prose this replaces: a BOUND name resolves, a tracked module STEM
+    resolves, and a span that is neither does not.
+    """
+    snippet = "# Held by `test_a_gate_that_never_was`.\nX = 1\n"
+    assert [name for _, name in unresolved_bare_test_names(snippet, set(), set())] \
+        == ["test_a_gate_that_never_was"]
+    assert unresolved_bare_test_names(
+        snippet, {"test_a_gate_that_never_was"}, set()) == []
+    assert unresolved_bare_test_names(
+        snippet, set(), {"test_a_gate_that_never_was.py"}) == []
+
+
+def test_the_bare_name_predicate_IGNORES_a_FILENAME_citation() -> None:
+    """The two halves must not double-count: a `.py` span belongs to the gate."""
+    snippet = "# Held by `test_a_gate_that_never_was.py`.\nX = 1\n"
+    assert unresolved_bare_test_names(snippet, set(), set()) == []
+
+
 _GHOST_TEST_MODULE = '''
 # Held by `test_a_gate_that_was_deleted.py`, which does not exist.
 X = 1
@@ -510,11 +692,50 @@ def test_the_test_module_predicate_PASSES_a_gate_that_exists() -> None:
         {"test_prose_NAMES_a_symbol_that_RESOLVES.py"}) == []
 
 
+_GHOST_NODE_ID = '''
+# Pinned by `tests/unit/test_a_gate_that_was_deleted.py::test_the_property`.
+X = 1
+'''
+
+_REAL_NODE_ID = '''
+# Pinned by `tests/unit/test_prose_NAMES_a_symbol_that_RESOLVES.py::test_x`.
+X = 1
+'''
+
+
+def test_the_test_module_predicate_CATCHES_a_deleted_gate_in_a_NODE_ID() -> None:
+    """The third citation shape, which both predicates were blind to.
+
+    MEASURED, NOT ANTICIPATED. Six sites in the swept tree cite a test as a
+    pytest node id, and one of them was a live present-tense claim naming a
+    module deleted in `6a59500` — inside a workflow docstring, inside the swept
+    tree, and invisible to a sweep of this class that had just been run over that
+    tree twice. The FILENAME is what gates; the function half after `::` is
+    consumed and discarded, for the same reason the bare half is not gated.
+    """
+    found = unresolved_test_modules(_GHOST_NODE_ID, {"anything.py"})
+    assert [name for _, name in found] == ["test_a_gate_that_was_deleted.py"]
+
+
+def test_the_test_module_predicate_PASSES_a_NODE_ID_that_resolves() -> None:
+    assert unresolved_test_modules(
+        _REAL_NODE_ID,
+        {"test_prose_NAMES_a_symbol_that_RESOLVES.py"}) == []
+
+
+def test_the_bare_name_predicate_IGNORES_a_NODE_ID() -> None:
+    """The two halves must not double-count a node id either: it is a filename
+    citation carrying a function name, and it belongs to the gated half."""
+    assert unresolved_bare_test_names(_GHOST_NODE_ID, set(), set()) == []
+
+
 def test_the_test_module_predicate_IGNORES_a_bare_FUNCTION_name() -> None:
-    """The `.py` is the discriminator. Bare `test_*` spans are also parametrize
-    ids, prompt-variant stems and section headings — 32 of them do not resolve in
-    this tree and almost none is a defect, so matching them would make this gate
-    answered by suppression, which is worse than no gate."""
+    """The `.py` is the discriminator. A bare span is also a parametrize id, a
+    prompt-variant stem and a section heading, so matching them here would make
+    this gate answered by exemption rows, which is worse than no gate. The
+    population is not ignored, though — it is COUNTED by
+    `test_the_CITATION_CLASS_census_is_DERIVED`, whose pinned figure replaces the
+    unreproducible one this docstring used to quote."""
     assert unresolved_test_modules(_TEST_FUNCTION_NOT_A_MODULE, set()) == []
 
 

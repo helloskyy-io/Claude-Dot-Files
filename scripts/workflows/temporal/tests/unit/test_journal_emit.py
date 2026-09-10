@@ -25,6 +25,7 @@ import json
 import os
 import pathlib
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
@@ -648,6 +649,48 @@ def test_the_case_d_CHANNEL_TABLE_matches_the_tree() -> None:
         f"prose citing this table re-read — because the case-(d) message names "
         f"exactly the rows this table calls wired."
     )
+
+
+def test_the_case_d_SENTENCE_agrees_with_the_table_it_reads() -> None:
+    """The table test above never reads the SENTENCE, and that was the gap.
+
+    `case_d_channel_sentence` composed the channel NAMES from `CASE_D_CHANNELS`
+    and then spelled the COUNT by hand — *"both are declared … NEITHER has a
+    producer … appear on them"*. Driven with a one-dead-channel table that is
+    three false plurals about a single channel, and
+    `test_the_case_d_CHANNEL_TABLE_matches_the_tree` stays green throughout,
+    because it compares the table against the tree.
+
+    THAT IS NOT A FUTURE PROBLEM. The table flips the day somebody wires the
+    durable line or adds the `CHILD_SCHEMA` field — which is what the deriver
+    above exists to force — and the operator-facing message on the one path where
+    this component cannot speak for itself would start asserting an unbuilt fact
+    in the present tense.
+
+    Driven at every cardinality the table can hold, because the defect was
+    invisible at the ONE cardinality the tree happens to have today.
+    """
+    def sentence_for(table):
+        with mock.patch.object(emitmod, "CASE_D_CHANNELS", table):
+            return emitmod.case_d_channel_sentence()
+
+    one_dead = sentence_for((('A', True), ('B', False)))
+    assert "both are" not in one_dead and "NEITHER" not in one_dead, (
+        f"a one-dead-channel table produced a plural: {one_dead!r}")
+    assert "appear on them" not in one_dead, (
+        f"a one-dead-channel table produced a plural pronoun: {one_dead!r}")
+    assert "has NO producer yet" in one_dead, (
+        f"the negation did not survive the singular: {one_dead!r}")
+
+    two_dead = sentence_for((('A', True), ('B', False), ('C', False)))
+    assert "both are declared" in two_dead and "NEITHER has a producer" in two_dead
+
+    three_dead = sentence_for((('A', False), ('B', False), ('C', False)))
+    assert "all 3 are declared" in three_dead and "NONE has a producer" in three_dead
+
+    none_dead = sentence_for((('A', True), ('B', True)))
+    assert "NOT on" not in none_dead, (
+        f"a fully-wired table still names dead channels: {none_dead!r}")
 
 
 def test_the_channel_DERIVATION_discriminates() -> None:

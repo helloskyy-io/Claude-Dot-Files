@@ -12,8 +12,8 @@ satisfies the static check completely and ships a literal `${ALTITUDE_COMPONENT}
 to the model, or trips `render()`'s leftover guard mid-dispatch, at real spend.
 
 So this module DRIVES THE REAL ENTRY POINTS and reads the prompt they built —
-the same shape `test_research_minor` uses, and for the same stated reason: the
-prompt file is not the prompt.
+the same shape `test_research_minor.py` used before it was deleted, and for
+the same stated reason it stated: the prompt file is not the prompt.
 
 WHAT THIS DOES NOT LOOK AT:
 

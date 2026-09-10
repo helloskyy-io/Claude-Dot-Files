@@ -229,3 +229,119 @@ def test_a_GENUINELY_failed_merge_is_still_reported(monkeypatch) -> None:
     monkeypatch.setattr(merge_pr.subprocess, "run", _boom)
     monkeypatch.setattr(merge_pr, "_gh_json", lambda a, r: {"state": "OPEN"})
     assert merge_pr.merge_one("1", REPO) == "not mergeable"
+
+
+# ---------------------------------------------------------------------------
+# THE READ THAT RESOLVES THE OUTCOME. Moving "did it actually merge?" inside
+# `perform` made the journal and the report derive from ONE answer — and left
+# that answer resting on a single unretried call whose failure was silently
+# spelled "not merged". `gh pr merge` exiting non-zero is the NORMAL case here,
+# so the read sits on the ordinary path: one transient `gh` failure on it was
+# enough to journal a merge that LANDED as a write that did not happen.
+
+
+def test_a_TRANSIENTLY_unreadable_outcome_is_RE_ASKED_and_the_merge_COMPLETES(
+        monkeypatch, tmp_path: Path) -> None:
+    """A blip on the state read must not become a permanent wrong record.
+
+    THE FIX IS THE RE-ASK, AND THIS IS THE TEST THAT MEASURES IT. With one
+    attempt, the first `None` is read as "not merged" and `paired_write` appends
+    a `store_write_failure` for a merge that landed — into an append-only
+    journal, so `applied_intents` declines that intent forever.
+    """
+    def _boom(*a, **k):
+        raise subprocess.CalledProcessError(1, "gh",
+                                            stderr="failed to delete local branch")
+
+    answers = [None, None, {"state": "MERGED"}]
+    monkeypatch.setattr(merge_pr.subprocess, "run", _boom)
+    monkeypatch.setattr(merge_pr, "_gh_json", lambda a, r: answers.pop(0))
+    monkeypatch.setattr(merge_pr.time, "sleep", lambda s: None)
+
+    root = tmp_path / "journal"
+    root.mkdir(mode=0o700, parents=True)
+    bag = open_bag(root, "run-merge-transient")
+    emitter = Emitter.for_run(bag, writer=None, journal_root=root)
+    with emitting_into(emitter):
+        assert merge_pr.merge_one("1", REPO) is None
+
+    assert answers == [], "the re-ask stopped before the answer arrived"
+    lines = (emitter.writer_dir / EVENTS_FILE).read_text().splitlines()
+    kinds = [decode_event(line).kind for line in lines]
+    assert kinds == [EventKind.INTENT, EventKind.COMPLETION], (
+        f"a landed merge was journaled as {[k.value for k in kinds]} because the "
+        f"outcome read was not re-asked. The journal is append-only; this record "
+        f"cannot be corrected later.")
+
+
+def test_an_UNREAD_outcome_does_not_present_GH_S_STDERR_as_the_verdict(
+        monkeypatch) -> None:
+    """The verdict was never read, and the detail must say that rather than
+    quoting `gh pr merge`'s cleanup error as though it were the answer.
+
+    `failed to delete local branch` is a sentence about the BRANCH DELETE. Handed
+    back as the merge outcome it reads as "the PR did not merge", which is the
+    one thing this read exists to establish and the one thing nobody established.
+    """
+    def _boom(*a, **k):
+        raise subprocess.CalledProcessError(1, "gh",
+                                            stderr="failed to delete local branch")
+
+    monkeypatch.setattr(merge_pr.subprocess, "run", _boom)
+    monkeypatch.setattr(merge_pr, "_gh_json", lambda a, r: None)
+    monkeypatch.setattr(merge_pr.time, "sleep", lambda s: None)
+
+    detail = merge_pr.merge_one("1", REPO)
+    assert detail is not None
+    assert detail.startswith(merge_pr.UNRESOLVED_MERGE_PREFIX), (
+        f"an unread verdict was reported as {detail!r} — indistinguishable from "
+        f"a merge that was read and found not to have happened.")
+    # The stderr is still CARRIED, because an operator needs it. What changed is
+    # that it is attributed rather than presented as the verdict.
+    assert "failed to delete local branch" in detail
+
+
+def test_a_verdict_that_WAS_read_is_NOT_reported_as_unread(monkeypatch) -> None:
+    """THE DISCRIMINATION CONTROL. A prefix that appears on every failed merge
+    tells an operator nothing: the whole value of `UNRESOLVED_MERGE_PREFIX` is
+    that a genuinely-refused merge does NOT carry it."""
+    def _boom(*a, **k):
+        raise subprocess.CalledProcessError(1, "gh", stderr="not mergeable")
+
+    monkeypatch.setattr(merge_pr.subprocess, "run", _boom)
+    monkeypatch.setattr(merge_pr, "_gh_json", lambda a, r: {"state": "OPEN"})
+    monkeypatch.setattr(merge_pr.time, "sleep", lambda s: None)
+
+    detail = merge_pr.merge_one("1", REPO)
+    assert detail == "not mergeable"
+    assert merge_pr.UNRESOLVED_MERGE_PREFIX not in detail
+
+
+def test_a_reply_that_PARSES_but_carries_no_state_is_UNREAD_not_an_answer(
+        monkeypatch) -> None:
+    """`{}` decodes cleanly and `.get("state")` on it returns the same `None` an
+    unreadable call does. Reading a missing field as an answer is the same
+    conflation one level in."""
+    monkeypatch.setattr(merge_pr, "_gh_json", lambda a, r: {})
+    monkeypatch.setattr(merge_pr.time, "sleep", lambda s: None)
+    assert merge_pr._merge_state("1", REPO) is None
+
+
+def test_a_gh_READ_rides_out_a_TRANSIENT_failure(monkeypatch) -> None:
+    """`_gh_json` was the one `gh` read in `modules/` that bypassed the fleet's
+    bounded wrapper, so a 503 on any of its three callers was one attempt and a
+    `None`. Driven through `gh_attempt`'s own retry loop rather than asserting
+    which function is called."""
+    replies = [
+        subprocess.CompletedProcess(["gh"], 1, stdout="",
+                                    stderr="HTTP 503: No server is currently "
+                                           "available to service your request."),
+        subprocess.CompletedProcess(["gh"], 0, stdout='{"state": "MERGED"}',
+                                    stderr=""),
+    ]
+    monkeypatch.setattr(merge_pr.act, "run_bounded", lambda *a, **k: replies.pop(0))
+    monkeypatch.setattr(merge_pr.act.time, "sleep", lambda s: None)
+
+    assert merge_pr._gh_json(["pr", "view", "1", "--json", "state"],
+                             REPO) == {"state": "MERGED"}
+    assert replies == [], "the transient reply was not retried past"

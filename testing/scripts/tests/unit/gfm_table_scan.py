@@ -87,7 +87,8 @@ def ends_the_table(line: str) -> bool:
         and a blanket `s.startswith("<")` would therefore invent a boundary
         GitHub does not draw and report the rows after a `<span>` as stranded.
         That residual is named in the cell-count check's limits list and held
-        by `test_an_HTML_BLOCK_opener_is_the_residual_this_scan_does_NOT_see`;
+        by `test_an_HTML_BLOCK_opener_is_the_residual_TREE_WIDE_TOO` in
+        `test_markdown_tables_render_whole.py`;
         it is disclosed rather than implemented because `candidates.md` has
         ZERO lines opening with `<` today and the repo-wide question is C-oe0gc9x6's
         to rule, not this pass's to guess at.
@@ -226,7 +227,8 @@ def blank_fenced(lines: list[str]) -> list[str]:
     fence nested inside a list item can legitimately sit at four or more
     absolute spaces and still be a fence rather than an indented code block;
     this reads it as the latter and leaves it unblanked. Held by
-    `test_a_CONTAINER_INDENTED_FENCE_is_the_residual_this_scan_does_NOT_see`.
+    `test_a_CONTAINER_INDENTED_FENCE_is_the_residual_this_gate_does_NOT_see` in
+    `test_markdown_tables_render_whole.py`.
     Container tracking is a block parser, which is a different program from
     this one.
     """

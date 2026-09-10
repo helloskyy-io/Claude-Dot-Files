@@ -61,6 +61,7 @@ from pathlib import Path
 from ...journal import emit as journal_emit
 from ...journal.events import Destination, Provenance
 from .. import routing
+from .. import assistant_activities as act
 from ..assistant_activities import ci_verdict
 from ..review_pr import review_pr_activities as review_act
 from ..review_pr import review_pr_helper as review_helper
@@ -103,16 +104,41 @@ class _MergeRefused(RuntimeError):
 
     So the outcome is resolved BEFORE `perform` returns or raises, and this class
     is how the resolved detail reaches the caller without being re-derived: one
-    `gh pr view`, one answer, carried rather than recomputed.
+    bounded `gh pr view` re-ask, one answer, carried rather than recomputed.
+
+    ⚠ AND THE ANSWER MAY BE "UNREAD", WHICH IS NOT "NOT MERGED". A detail
+    carrying `UNRESOLVED_MERGE_PREFIX` means the verdict was never read; the run
+    still fails toward "did not merge", and the operator is told to look.
     """
 
 
 def _gh_json(args: list[str], repo_root: Path) -> dict | None:
-    """A `gh` read, or None when it could not be read. None is never 'fine'."""
+    """A `gh` read, or None when it could not be read. None is never 'fine'.
+
+    IT GOES THROUGH THE FLEET'S BOUNDED WRAPPER, AND IT WAS THE ONE `gh` READ
+    THAT DID NOT. `gh_attempt` retries a transient server-side failure on a
+    read-only verb and refuses to retry anything else; this function used to
+    call `subprocess.run` directly, so a 503 or a throttle on either of its two
+    callers was one attempt and then a `None`. Measured over `modules/`: this
+    was the only such read — the other direct launch is the merge itself, which
+    must NOT be retried because repeating it may act on a different state.
+
+    `gh pr view` is read-only, so `gh_attempt` neither retries a write nor emits
+    a journal event for one; the retries here are free of consequence.
+
+    ⚠ `None` IS NOT AN ANSWER, AND THE TWO CALLERS OWE IT OPPOSITE DIRECTIONS.
+    `pr_view` fails SAFE — an unreadable answer becomes a refusal to merge, which
+    costs a re-run. `_merge_state` does not, and `_merge_outcome_after_failure`
+    says so at length below. (`thread_verdict` above reaches `gh` through
+    `review_act.pr_review_blocks` rather than through here, and fails safe on its
+    own; it is named because an earlier draft of this paragraph counted it as a
+    caller of this function, which it has never been.)
+    """
     try:
-        out = subprocess.run(["gh", *args], cwd=repo_root, capture_output=True,
-                             text=True, check=True, timeout=120).stdout
-        parsed = json.loads(out)
+        result = act.gh_attempt(list(args), repo_root)
+        if result.returncode != 0:
+            return None
+        parsed = json.loads(result.stdout)
         return parsed if isinstance(parsed, dict) else None
     except (subprocess.SubprocessError, OSError, json.JSONDecodeError):
         return None
@@ -182,6 +208,33 @@ def refusals(pr: str, repo_root: Path) -> list[str]:
 #: for the states that are real.
 UNKNOWN_RETRIES = 3
 UNKNOWN_WAIT_SECONDS = 2.0
+
+#: How many times to re-ask "did it actually merge?" when the answer cannot be
+#: READ, and how long to wait. SEPARATE FROM `UNKNOWN_RETRIES` ABOVE BECAUSE IT
+#: ANSWERS A DIFFERENT QUESTION: that one re-asks a field GitHub has answered
+#: with `UNKNOWN`, this one re-asks a call that did not answer at all.
+#:
+#: `gh_attempt` retries a transient failure that names an HTTP status, and it
+#: deliberately treats a status-less one as terminal — a timeout and a transport
+#: error both present with no status and are both left un-retried there. Those
+#: are exactly the shapes a network blip produces, so the read that decides a
+#: PERMANENT journal record gets its own bounded re-ask on top.
+#:
+#: THE TWO COMPOSE, AND THE WORST CASE IS STATED RATHER THAN LEFT TO BE
+#: DISCOVERED. A persistently 503-ing read costs `gh_attempt`'s attempts inside
+#: each of these, so at most 3 x (1 + len(_GH_RETRY_BACKOFF_SECONDS)) `gh pr view`
+#: invocations and the sum of both backoffs before the outcome is called unread.
+#: That is bounded, it happens only after a merge has already failed, and the
+#: alternative — one attempt — is what journaled a landed merge as a failure.
+OUTCOME_RETRIES = 3
+OUTCOME_WAIT_SECONDS = 2.0
+
+#: The prefix an operator-facing detail carries when the merge verdict was never
+#: READ. It is not decoration: the string it replaces was `gh pr merge`'s own
+#: stderr, which describes the CLEANUP that failed and says nothing about whether
+#: the merge landed. Presenting it as the verdict is how "the branch could not be
+#: deleted" reads as "the PR did not merge".
+UNRESOLVED_MERGE_PREFIX = "MERGE OUTCOME UNREAD"
 
 
 def pr_view(pr: str, repo_root: Path) -> dict | None:
@@ -273,7 +326,8 @@ def merge_one(pr: str, repo_root: Path, *, dry_run: bool = False) -> str | None:
     except _MergeRefused as exc:
         # The emitter was absent, so `_merge` was called directly. Same answer:
         # the outcome was resolved inside it and the detail is carried, not
-        # recomputed — one `gh pr view` per failed merge, on either path.
+        # recomputed — one bounded `gh pr view` re-ask per failed merge, on
+        # either path.
         return str(exc)
     except (subprocess.SubprocessError, OSError) as exc:
         return str(exc)
@@ -291,12 +345,63 @@ def _merge_outcome_after_failure(exc: subprocess.CalledProcessError, pr: str,
 
     `None` means MERGED. A returned string is the operator-facing detail, and the
     caller carries it out on `_MergeRefused` rather than re-deriving it.
+
+    ⚠ THREE OUTCOMES, NOT TWO, AND COLLAPSING THE THIRD INTO "NOT MERGED" IS THE
+    DEFECT THIS PARAGRAPH EXISTS FOR. The read can say MERGED, say something
+    else, or FAIL — and a failed read used to return `detail`, which is
+    `gh pr merge`'s own stderr. On this path that stderr is almost always
+    `failed to delete local branch`: a sentence about the CLEANUP, presented as
+    the merge verdict, on the one path where the verdict decides a permanent
+    append-only record. One transient `gh` failure on the read was therefore
+    enough to journal a merge that LANDED as a `store_write_failure` — the exact
+    outcome moving this question inside `perform` exists to prevent, surviving on
+    the path that move created.
     """
     detail = (exc.stderr or exc.stdout or "gh pr merge failed").strip()
-    view = _gh_json(["pr", "view", pr, "--json", "state"], repo_root)
-    if view is not None and view.get("state") == "MERGED":
+    state = _merge_state(pr, repo_root)
+    if state == "MERGED":
         return None                          # merged; only the cleanup failed
+    if state is None:
+        # UNREAD, AND SAID SO. The direction is still "did not merge" — that is
+        # the fail-safe half of this module's thesis and it does not change here
+        # — but the DETAIL must not claim a verdict nobody read. An operator
+        # seeing this line has one job: look at the PR, because if it merged, the
+        # journal now carries a `store_write_failure` for a write that landed and
+        # the journal is append-only.
+        return (f"{UNRESOLVED_MERGE_PREFIX}: `gh pr merge` exited non-zero and "
+                f"`gh pr view {pr} --json state` did not return a readable "
+                f"`state` in {OUTCOME_RETRIES} attempts, so whether PR {pr} "
+                f"merged is UNKNOWN and is being recorded as NOT MERGED. Check "
+                f"the PR by hand. `gh pr merge` said: {detail}")
     return detail
+
+
+def _merge_state(pr: str, repo_root: Path) -> str | None:
+    """The PR's `state`, re-asking a read that did not answer. `None` means UNREAD.
+
+    `None` IS NOT `"OPEN"`, and the whole value of this function is keeping those
+    two apart for its caller. `_gh_json` returns `None` for an unreadable answer
+    and a readable `{"state": "OPEN"}` is a different fact — the first says the
+    question was not answered, the second answers it.
+
+    A REPLY THAT PARSES BUT CARRIES NO `state` IS ALSO UNREAD, and it is folded
+    in here rather than left to the caller: `{}` decodes cleanly, and
+    `view.get("state")` on it returns the same `None` an unreadable call does. A
+    caller that read those two as one fact would report "could not be read" for
+    a shape defect, or worse, read a missing field as an answer.
+
+    BOUNDED, AND EXHAUSTING THE RE-ASKS IS NOT THE SAME AS THE PR BEING OPEN. The
+    caller must still say the outcome was unread, which is what
+    `UNRESOLVED_MERGE_PREFIX` is for.
+    """
+    for attempt in range(OUTCOME_RETRIES):
+        view = _gh_json(["pr", "view", pr, "--json", "state"], repo_root)
+        state = view.get("state") if view is not None else None
+        if isinstance(state, str) and state:
+            return state
+        if attempt < OUTCOME_RETRIES - 1:
+            time.sleep(OUTCOME_WAIT_SECONDS)
+    return None
 
 
 def run_merge(prs: list[str], repo_root: Path, *, stores_root: Path | None = None,
