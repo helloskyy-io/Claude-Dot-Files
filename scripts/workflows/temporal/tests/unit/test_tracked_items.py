@@ -333,8 +333,13 @@ def test_EVERY_LOCATING_STORE_SPELLS_WHERE_THE_SAME_WAY() -> None:
             f"locator — and `repo: skyynet-master-planning` is true of very nearly "
             f"every item this platform files, which locates nothing.")
 
-    # THE STANDARDS STORE IS THE ONE EXCEPTION AND IT IS DELIBERATE: `target:` and
-    # `anchor:` are the level BELOW component — which document, which section — so
-    # it needs `repo:` above them but not `component:` between.
-    assert "component" not in own.STORES["standards"].extra_fields
+    # THE STANDARDS STORE HAS NO `component:` AND THAT IS THE RULE, NOT AN
+    # OMISSION. A component is a UNIT OF WORK — a roadmap, phases, an owner — and
+    # a standard is a DOCUMENT. The field would be blank on every standards item
+    # forever, and a field that is always blank teaches every reader to skip it.
+    # `target:`/`anchor:` are a different KIND of value besides: a file path and a
+    # section, where `component:` is a bare name (`workflow-decomposition`).
+    assert "component" not in own.STORES["standards"].extra_fields, (
+        "the standards store gained `component:` — a standard is a document, not a "
+        "unit of work, so the field would be blank on every item forever")
     assert {"target", "anchor"} <= set(own.STORES["standards"].extra_fields)
