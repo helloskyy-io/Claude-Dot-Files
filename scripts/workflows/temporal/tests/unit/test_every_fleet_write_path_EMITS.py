@@ -288,6 +288,13 @@ def test_the_case_d_REPORT_is_the_one_write_that_does_not_emit(tmp_path: Path,
     component is broken. A build that implements case (b) as an unconditional
     wrapper without this exception ships the failure path silently broken, which
     is exactly what this test exists to catch.
+
+    ⚠ THE EXCEPTION IS ASSERTED BY THE CALLER, NEVER READ OFF THE CONTENT. The
+    first version of this pair drove the bypass by putting the marker in the
+    comment body, and the code gated on exactly that — so every `gh` mutation
+    whose text merely QUOTED the marker skipped the journal with no error and no
+    record. `test_a_comment_that_QUOTES_the_marker_still_emits` below is the
+    control that fails if the content ever gates it again.
     """
     from modules.assistant import assistant_activities as act
     from modules.journal.emit import (UNWRITABLE_JOURNAL_MARKER,
@@ -303,12 +310,46 @@ def test_the_case_d_REPORT_is_the_one_write_that_does_not_emit(tmp_path: Path,
     line = f"{report['marker']}: {report['detail']}"
 
     with emitting_into(emitter):
-        act.gh_attempt(["pr", "comment", "1", "--body", line], tmp_path)
+        act.gh_attempt(["pr", "comment", "1", "--body", line], tmp_path,
+                       case_d_report=True)
 
     assert _events(emitter) == [], (
         "the case-(d) report emitted, which means a run whose journal is "
         "unwritable would fail to publish the report saying so")
     assert UNWRITABLE_JOURNAL_MARKER in line
+
+
+def test_a_comment_that_QUOTES_the_marker_still_emits(tmp_path: Path,
+                                                     monkeypatch) -> None:
+    """THE FALSE-POSITIVE DIRECTION, which nothing asserted until it was found.
+
+    A bypass inferred from the bytes being published is a bypass any author can
+    trigger by accident: a run quoting a previous failure, a bug report about
+    this component, a review comment naming the marker. Each of those silently
+    left the journal with no intent, no completion and no gap — requirement 1's
+    invariant defeated by ordinary prose. The exception is a FLAG the caller
+    sets, so this write emits like every other one.
+    """
+    from modules.assistant import assistant_activities as act
+    from modules.journal.emit import UNWRITABLE_JOURNAL_MARKER
+
+    class _Done:
+        returncode, stdout, stderr = 0, "https://github.com/o/r/pull/1#c9\n", ""
+
+    monkeypatch.setattr(act, "run_bounded", lambda *a, **k: _Done())
+    emitter = _emitter(tmp_path)
+    body = (f"the previous run reported `{UNWRITABLE_JOURNAL_MARKER}` and this "
+            f"comment is quoting it, not being it")
+    with emitting_into(emitter):
+        act.gh_attempt(["pr", "comment", "1", "--body", body], tmp_path)
+
+    events = _events(emitter)
+    assert [e.kind for e in events] == [EventKind.INTENT, EventKind.COMPLETION], (
+        f"a comment that merely quotes {UNWRITABLE_JOURNAL_MARKER} did not "
+        f"emit, so the case-(d) exception is being inferred from the content "
+        f"again — every write whose prose names the marker is then absent from "
+        f"the record, with no error and nothing to count it")
+    assert events[0].content == body
 
 
 def test_an_ORDINARY_comment_still_emits_so_the_exception_is_NARROW(

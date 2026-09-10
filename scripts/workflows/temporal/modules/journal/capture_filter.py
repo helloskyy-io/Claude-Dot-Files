@@ -84,8 +84,21 @@ class Rule:
 
 #: The shapes this fleet actually handles, and nothing speculative. Each is a
 #: PREFIXED, self-identifying credential format — which is the class a pattern
-#: filter can catch honestly, and the class this repo's own `.env`, `gh` auth and
-#: 1Password references are drawn from. An entropy heuristic was considered and
+#: filter can catch honestly.
+#:
+#: ⚠ AN EARLIER VERSION OF THIS SENTENCE CITED *"this repo's own `.env`, `gh`
+#: auth and 1Password references"*, AND TWO OF THE THREE ARE NOT HERE: the tree
+#: holds no `.env` and no `op://` reference or 1Password token anywhere outside
+#: prose (checked by grep on 2026-09-10). What this repo actually handles is the
+#: `gh` CLI's own credential and whatever the environment supplies to a
+#: dispatch, which is why the GitHub shapes lead the list. The rest are the
+#: widely-published formats a transcript can pick up from a command line — they
+#: are here because they are catchable, not because a file in this tree holds
+#: one. **A control's provenance claim is checked like any other citation**;
+#: this one was not, and a filter that cites material nobody has is a filter
+#: whose coverage nobody can audit.
+#:
+#: An entropy heuristic was considered and
 #: rejected: it fires on git SHAs, on `sha256` manifest lines and on every
 #: `event_id` in the journal's own events, so it would filter the record's own
 #: identity fields and report a leak on every bag.

@@ -101,8 +101,9 @@ channel and leaving the reading to somebody later is how this fleet has already
 lost three observables, and the one channel this component's failure path depends
 on is the last place to repeat it. Both readers are `unwritable_journal_report`
 and `unwritable_journal_in_text` at the bottom of this module, and
-`test_the_unwritable_journal_signal_HAS_a_reader.py` is what holds them to the
-producers rather than this paragraph.
+`test_journal_emit.py` is what holds them to the producers rather than this
+paragraph — see `test_the_marker_is_ONE_declaration_shared_by_producer_and_reader`
+and the case-(d) tests beside it.
 """
 
 from __future__ import annotations
@@ -181,8 +182,55 @@ class JournalUnwritable(RuntimeError):
     terminal_state = TerminalState.JOURNAL_UNWRITABLE
 
 
-def gap_class_for(exc: OSError) -> GapClass:
-    """An `OSError` as one of four closed classes — never as its message.
+#: What the append boundary converts into a typed case rather than letting
+#: escape. `OSError` is the DISK; `UnicodeError` is the CONTENT — a lone
+#: surrogate reaching `encode` raises `UnicodeEncodeError`, which is a
+#: `ValueError` and therefore joins none of this module's `except OSError`
+#: clauses. It escaped `paired_write` as an untyped crash, past all four cases
+#: and past every entrypoint's `except RuntimeError`, until a probe raised it on
+#: this branch. `edge_id.read_edge_id` had already met the same trap from the
+#: decode side, which is why it names `UnicodeDecodeError` separately.
+APPEND_FAILURES = (OSError, UnicodeError)
+
+
+def failure_detail(exc: BaseException) -> str:
+    """One line naming what failed, FOR AN EXCEPTION MESSAGE and never for the record.
+
+    `strerror` when there is one, the type and text when there is not — a
+    `UnicodeEncodeError` has no `strerror`, and reading the attribute off it
+    would raise a second exception out of the handler for the first.
+
+    THE RECORD STILL GETS NEITHER. `gap_class_for` below is what reaches the
+    journal, and it is a closed set for the reason stated there; this is the
+    operator-facing half the module docstring promises on stderr.
+
+    ⚠ THE TYPE AND THE TEXT ARE JOINED BY AN EM DASH, NOT BY A COLON, and that
+    is not cosmetic: `test_journal_tag_lines` sweeps this package for
+    `f"{value}: …"` and refuses any such composition whose value is not proven
+    unable to fold a tag line. This value is free text from an exception and CAN
+    carry a newline — it simply never reaches a tag line. Spelling it as a
+    label/value pair would either forge a false positive forever or need an
+    exemption row, and an exemption is the thing this package has learned not to
+    hand out: five forging escapes had exactly that shape.
+    """
+    detail = getattr(exc, "strerror", None)
+    return detail if detail else f"{type(exc).__name__} — {exc}"
+
+
+def utf8_len(text: str) -> int:
+    """Byte length that cannot itself raise, for use on the failure path.
+
+    `errors="replace"` because this is called while ALREADY handling a failed
+    write — including one caused by content that cannot be encoded at all. A
+    plain `.encode()` here would raise out of the handler and lose the gap
+    record, which is the silent loss this component exists to prevent. The
+    number is a report of magnitude, not a checksum.
+    """
+    return len(text.encode("utf-8", "replace"))
+
+
+def gap_class_for(exc: BaseException) -> GapClass:
+    """A failed append as one of four closed classes — never as its message.
 
     THE MESSAGE IS DELIBERATELY DISCARDED. A gap event reports that content was
     lost; a `why` carrying `exc.strerror` or `exc.filename` would put the failing
@@ -194,11 +242,12 @@ def gap_class_for(exc: OSError) -> GapClass:
     module raises. What is bounded is what reaches the DURABLE record, which is
     the surface Phase 7 syncs to object storage and Phase 4 replays.
     """
-    if exc.errno in (errno.ENOSPC, errno.EDQUOT):
+    code = getattr(exc, "errno", None)
+    if code in (errno.ENOSPC, errno.EDQUOT):
         return GapClass.DISK_FULL
-    if exc.errno in (errno.EROFS, errno.EACCES, errno.EPERM):
+    if code in (errno.EROFS, errno.EACCES, errno.EPERM):
         return GapClass.READ_ONLY
-    if exc.errno in (errno.ENOENT, errno.ENOTDIR, errno.ESTALE):
+    if code in (errno.ENOENT, errno.ENOTDIR, errno.ESTALE):
         return GapClass.PATH_GONE
     return GapClass.WRITE_FAILED
 
@@ -401,16 +450,27 @@ class Emitter:
         happened, not complete what did not.*
         """
         sequence = self._next_sequence(write_path)
-        intent = self._build(kind=EventKind.INTENT, write_path=write_path,
-                             sequence=sequence, destination=destination,
-                             content=content, provenance=provenance,
-                             lineage=lineage or Lineage())
+        # ⚠ `_build` IS INSIDE THE GUARD, NOT ABOVE IT, AND THAT PLACEMENT IS THE
+        # FIX FOR A REAL ESCAPE. `_build` appends a redaction placeholder of its
+        # own whenever the capture filter fires, and it encodes the content to
+        # count its bytes — so it performs I/O and it encodes, and BOTH can fail.
+        # Built above the `try`, a filter that fired on a read-only mount raised a
+        # bare `PermissionError` straight out of this function: no `EmitFailed`,
+        # no gap, no `incomplete` flag, and past every entrypoint's
+        # `except RuntimeError`. Demonstrated on this branch, against a real bag,
+        # with the same call succeeding as `EmitFailed` when the filter did not
+        # fire — which is what made the placeholder append the only difference.
         try:
+            intent = self._build(kind=EventKind.INTENT, write_path=write_path,
+                                 sequence=sequence, destination=destination,
+                                 content=content, provenance=provenance,
+                                 lineage=lineage or Lineage())
             self._append(intent)
-        except OSError as exc:
+        except APPEND_FAILURES as exc:
             raise EmitFailed(
                 f"the intent event for {write_path} could not be written to "
-                f"{self.events_path} — {exc.strerror}. The store write was NOT "
+                f"{self.events_path} — {failure_detail(exc)}. The store write "
+                f"was NOT "
                 f"performed, so neither side of this write happened and the "
                 f"record is short but not wrong.\n"
                 f"  the run stops here rather than continuing: every later "
@@ -427,28 +487,39 @@ class Emitter:
                 write_path=write_path, sequence=sequence,
                 destination=destination,
                 terminal_state=TerminalState.STORE_WRITE_FAILED)
+            recorded = "a store-write-failure event was recorded"
             try:
                 self._append(failure)
-            except OSError:
+            except APPEND_FAILURES:
                 # THE ORIGINAL FAILURE IS WHAT THE CALLER NEEDS, and a second
                 # exception raised from this handler would mask it. So the bag
                 # is marked instead — the record then says a write is missing
                 # even though it could not say which.
+                recorded = ("its store-write-failure event could NOT be written "
+                            "and the bag was marked incomplete instead")
                 try:
                     self.bag.mark_incomplete(
                         write_path, "store write failed and its failure event "
                                     "could not be written")
                 except (OSError, BagError):
-                    # NAMED, NOT SWALLOWED SILENTLY: what is ignored is a failed
-                    # `incomplete` flag while already handling a failed store
-                    # write AND a failed failure-event. At that point the journal
-                    # is gone, `StoreWriteFailed` below is what the caller needs
-                    # to see, and case (d) reporting is the caller's to do from
-                    # the exception it is about to receive.
-                    pass
+                    # ⚠ NEITHER THE EVENT NOR THE FLAG LANDED, so nothing in the
+                    # journal says this write is missing — which is case (d)
+                    # reached from the store-failure path. `StoreWriteFailed` is
+                    # still what the caller needs (its handlers are written
+                    # against the store failure), so the journal's death is
+                    # carried OUT on this message rather than replacing it, and
+                    # it LEADS with the one declared marker so
+                    # `unwritable_journal_in_text` reads it on the process
+                    # channel exactly as it reads a durable comment. Swallowing
+                    # it — which this did — left the single case where the
+                    # journal is gone and no surface says so.
+                    recorded = (f"{UNWRITABLE_JOURNAL_MARKER}: neither the "
+                                f"store-write-failure event nor the incomplete "
+                                f"flag could be written, so the journal says "
+                                f"nothing about this write at all")
             raise StoreWriteFailed(
                 f"the store write for {write_path} failed after its intent "
-                f"landed: {exc}. A store-write-failure event was recorded, so "
+                f"landed: {exc}. {recorded}, so "
                 f"replay will not apply the intent — Phase 4 rebuilds what "
                 f"happened, not what did not."
             ) from exc
@@ -462,7 +533,7 @@ class Emitter:
             terminal_state=TerminalState.COMPLETED, lineage=intent.lineage)
         try:
             self._append(completion)
-        except OSError as exc:
+        except APPEND_FAILURES as exc:
             # ⚠ THE STORE WRITE HAS ALREADY HAPPENED, so stopping the run would
             # not un-happen it. What matters is that the record does not claim an
             # applied write it cannot prove — and an intent with no completion is
@@ -471,10 +542,11 @@ class Emitter:
             # would be conditioned on it.
             self._record_gap(write_path=write_path, exc=exc,
                              destination=destination,
-                             lost_bytes=len(content.encode("utf-8")))
+                             lost_bytes=utf8_len(content))
             raise EmitFailed(
                 f"the completion event for {write_path} could not be written — "
-                f"{exc.strerror}. The store write DID land; the journal cannot "
+                f"{failure_detail(exc)}. The store write DID land; the journal "
+                f"cannot "
                 f"prove it, so replay will not apply the intent and the bag is "
                 f"marked incomplete."
             ) from exc
@@ -518,26 +590,31 @@ class Emitter:
         by *"neither side is written"*, and it is a materially weaker guarantee.
         """
         sequence = self._next_sequence(write_path)
-        event = self._build(kind=EventKind.COMPLETION, write_path=write_path,
-                            sequence=sequence, destination=destination,
-                            content=content, provenance=provenance,
-                            lineage=lineage or Lineage())
+        # INSIDE THE GUARD for the reason `paired_write` states — and it matters
+        # more here, because this case has no store write to withhold. A
+        # placeholder append that escaped uncaught would lose the content AND the
+        # gap record, which is the silent gap this whole component is named after.
         try:
+            event = self._build(kind=EventKind.COMPLETION, write_path=write_path,
+                                sequence=sequence, destination=destination,
+                                content=content, provenance=provenance,
+                                lineage=lineage or Lineage())
             self._append(event)
-        except OSError as exc:
+        except APPEND_FAILURES as exc:
             self._record_gap(write_path=write_path, exc=exc,
                              destination=destination,
-                             lost_bytes=len(content.encode("utf-8")))
+                             lost_bytes=utf8_len(content))
             if stop_on_failure:
                 raise EmitFailed(
                     f"{write_path} could not be written to the journal — "
-                    f"{exc.strerror} — and this write path stops the run. It is "
+                    f"{failure_detail(exc)} — and this write path stops the run. "
+                    f"It is "
                     f"the fleet's only record of what commands ran, under "
                     f"bypassed permissions; continuing past it would be evidence "
                     f"loss wearing a routine defect's clothes."
                 ) from exc
 
-    def _record_gap(self, *, write_path: str, exc: OSError,
+    def _record_gap(self, *, write_path: str, exc: BaseException,
                     destination: Destination, lost_bytes: int) -> None:
         """Case (c)'s record, and case (d) is what happens when even this fails.
 
@@ -548,37 +625,59 @@ class Emitter:
         and Phase 7 branch on — so it is attempted even when the event could not
         be written.
 
-        **If BOTH fail, the journal is unwritable and this is case (d)**:
-        `JournalUnwritable` is raised, and the caller reports it on the two
-        channels that are not the journal. That is the case that makes (c)
-        circular if it is not answered.
+        **IF THE FLAG FAILS, THIS IS CASE (d) — whether or not the event
+        landed**: `JournalUnwritable` is raised, and the caller reports it on the
+        two channels that are not the journal. That is the case that makes (c)
+        circular if it is not answered. The raise is NOT conditioned on the event
+        also having failed, because nothing downstream reads a writer's
+        `events.jsonl` to decide whether a bag is clean — a gap event beside a
+        missing flag is a bag that lost data and reads as complete, which is the
+        outcome this function exists to prevent.
         """
+        # ONE DERIVATION, READ TWICE. Computed once so the event's class and the
+        # flag's reason cannot disagree about what happened — two calls agree
+        # today only because the function is pure, which is agreement by
+        # accident rather than by construction.
+        gap_class = gap_class_for(exc)
         gap = gap_event(run_id=self.run_id, edge_id=self.edge_id,
                         key_epoch=self.key_epoch, write_path=write_path,
                         sequence=self._next_sequence(write_path),
-                        gap_class=gap_class_for(exc), lost_bytes=lost_bytes,
+                        gap_class=gap_class, lost_bytes=lost_bytes,
                         destination=destination)
         event_written = True
         try:
             self._append(gap)
-        except OSError:
+        except APPEND_FAILURES:
             event_written = False
 
         try:
             self.bag.mark_incomplete(
-                write_path, f"emit failed: {gap_class_for(exc).value}")
+                write_path, f"emit failed: {gap_class.value}")
         except (OSError, BagError) as flag_exc:
-            if not event_written:
-                raise JournalUnwritable(
-                    f"{UNWRITABLE_JOURNAL_MARKER}: the journal cannot be "
-                    f"written and neither can the record of that. "
-                    f"{write_path} failed with {exc.strerror}, and the "
-                    f"gap event and the `incomplete` flag both failed after it.\n"
-                    f"  bag: {self.bag.path}\n"
-                    f"  this is requirement 4 case (d). It is reported on the "
-                    f"typed exit record and on a durable working-record surface, "
-                    f"because the journal is not available to report it."
-                ) from flag_exc
+            # ⚠ A FAILED FLAG RAISES WHETHER OR NOT THE EVENT LANDED, and the
+            # earlier `if not event_written` guard here was the one hole in *a
+            # gap may exist; a silent gap may not*. The flag is the MORE
+            # important of the two writes — Phase 4, Phase 6 and Phase 7 branch
+            # on it, and none of them reads a writer's `events.jsonl` to decide
+            # whether a bag is clean. So a gap event that landed beside a flag
+            # that did not produced a bag which LOST DATA AND READS AS COMPLETE,
+            # returning normally with no signal to any caller: exactly the
+            # outcome Phase 1's four-state design exists to prevent, reached
+            # through the function that exists to prevent it.
+            landed = ("the gap event landed but nothing downstream reads it to "
+                      "decide a bag is clean"
+                      if event_written else
+                      "neither the gap event nor the flag landed")
+            raise JournalUnwritable(
+                f"{UNWRITABLE_JOURNAL_MARKER}: the journal cannot be "
+                f"written and neither can the record of that. "
+                f"{write_path} failed with {failure_detail(exc)}, and the "
+                f"`incomplete` flag failed after it — {landed}.\n"
+                f"  bag: {self.bag.path}\n"
+                f"  this is requirement 4 case (d). It is reported on the "
+                f"typed exit record and on a durable working-record surface, "
+                f"because the journal is not available to report it."
+            ) from flag_exc
 
 
 # ---------------------------------------------------------------------------

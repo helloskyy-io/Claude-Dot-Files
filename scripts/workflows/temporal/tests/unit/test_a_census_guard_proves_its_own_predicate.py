@@ -210,7 +210,15 @@ _HERE = Path(__file__).resolve().parent
 # because it ships its own literal control: the shipped arrangement, the
 # corrected one, a function that never cuts, and a call that legitimately
 # needs the worktree.
-_PINNED = (44, 34)
+# 44 -> 45 and 34 -> 35 when a `build-refine` pass added
+# `test_shared_vocabulary_is_declared_once.py` — the test `modules/vocabulary.py`
+# had CITED while it did not exist, which is why the module's one invariant was
+# held by a paragraph. BOTH numbers moved because it arrived WITH its control:
+# six literal snippets drive its re-declaration predicate, and the two that
+# matter are an `import` (which binds the same name a declaration does, so
+# `hasattr` cannot tell them apart) and a DOCSTRING naming the class (the
+# substring bug a text scan gets wrong in the other direction).
+_PINNED = (45, 35)
 
 
 # GRANDFATHERED — walks the tree, has no literal control, PREDATES this rule.

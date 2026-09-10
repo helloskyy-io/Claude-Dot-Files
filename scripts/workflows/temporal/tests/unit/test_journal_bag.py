@@ -555,3 +555,72 @@ def test_write_payload_REFUSES_a_symlinked_segment(tmp_path: Path) -> None:
         bag.write_payload("data/linked/x.txt", "x")
     assert not (outside / "x.txt").exists(), (
         "the write followed the link and landed outside the bag")
+
+
+def test_the_MANIFEST_is_written_INSIDE_the_lock_that_covers_the_tag_lines(
+        tmp_path: Path) -> None:
+    """⚠ `_tag_file_lock` CLAIMED TO COVER THE MANIFEST AND DID NOT.
+
+    Its docstring says *"one lock covers `bag-info.txt` and
+    `manifest-sha256.txt` together, which is what a reseal actually needs:
+    `seal` writes both, and a reader between them would see a manifest that does
+    not match the Oxum"* — while `seal` wrote the manifest OUTSIDE the lock,
+    through the truncating writer, and then took and released the lock three
+    times for its three tag lines. `mark_incomplete` reseals, and Phase 3 makes
+    that reachable from every emitter on a full disk, so two concurrent reseals
+    could interleave two truncating writes of one manifest.
+
+    THE PROBE IS "DOES SEAL TOUCH THE MANIFEST WHILE ANOTHER HOLDER HAS THE
+    LOCK", which is decidable without racing anything: a second process holds
+    the bag directory's `flock`, and this thread calls `seal()`. Under the
+    defect the manifest is rewritten immediately and only the tag lines block;
+    with the fix nothing moves until the lock is released. A final assertion
+    that the reseal DID land is what stops this passing on a `seal()` that
+    simply never wrote.
+    """
+    import subprocess
+    import sys
+    import textwrap
+    import threading
+    import time
+
+    root = tmp_path / "journal"
+    root.mkdir(mode=0o700)
+    bag = open_bag(root, "lock")
+    bag.write_payload("data/a.txt", "first")
+    bag.seal()
+    before = bag.manifest_path.read_text(encoding="utf-8")
+
+    # A SECOND PAYLOAD FILE, so a reseal MUST change the manifest. Without it
+    # "unchanged while the lock is held" would be true of a seal that ran.
+    bag.write_payload("data/b.txt", "second")
+
+    holder = textwrap.dedent(f"""
+        import fcntl, os, time
+        fd = os.open({str(bag.path)!r}, os.O_RDONLY | os.O_DIRECTORY)
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        print("held", flush=True)
+        time.sleep(2.0)
+        os.close(fd)
+    """)
+    script = tmp_path / "holder.py"
+    script.write_text(holder, encoding="utf-8")
+    worker = subprocess.Popen([sys.executable, str(script)],
+                              stdout=subprocess.PIPE, text=True)
+    try:
+        assert worker.stdout.readline().strip() == "held"
+        sealer = threading.Thread(target=bag.seal)
+        sealer.start()
+        time.sleep(0.5)
+        during = bag.manifest_path.read_text(encoding="utf-8")
+        assert during == before, (
+            "the manifest was rewritten while another writer held the bag's "
+            "lock, so `seal` is not the single critical section its own lock "
+            "docstring describes — two concurrent reseals can interleave two "
+            "whole-file writes of it")
+    finally:
+        worker.wait(timeout=10)
+        sealer.join(timeout=10)
+
+    assert "data/b.txt" in bag.manifest_path.read_text(encoding="utf-8"), (
+        "the reseal never landed, so the assertion above held vacuously")

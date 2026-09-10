@@ -297,6 +297,17 @@ claude-dot-files/
 │           │                                        #   registered by open_run_bag rather than threaded through forty signatures, and that trade is
 │           │                                        #   stated at register_emitter — an optional emit is a skipped emit. It reaches FLEET-CODE
 │           │                                        #   writes only; the model-issued half is Phase 10's post-exit harvest
+│           ├── modules/__init__.py                  # The package marker, and nothing else — every module under modules/ is
+│           │                                        #   imported by its own path, so this file exports nothing and re-exports nothing
+│           ├── modules/vocabulary.py                # ONE DECLARATION per concept the typed exit record and the journal event share
+│           │                                        #   (PMP Phase 3 r3) — Outcome, HoldKind, Disposition, TerminalState, plus
+│           │                                        #   SHARED_CONCEPTS, which a conformance test walks rather than re-typing. A LEAF AT
+│           │                                        #   modules/ belonging to NEITHER package, and that is the whole placement argument:
+│           │                                        #   modules/journal/ may import no workflow module (Phase 6's reader would otherwise
+│           │                                        #   drag in temporalio) and exit_record.py is dependency-free by design, so beside
+│           │                                        #   either one it would break the other. Two contracts, one spelling — two enums
+│           │                                        #   spelled alike compare UNEQUAL member-to-member while both still serialise to the
+│           │                                        #   same string, so a rebuild diffing them reports a difference that is not one
 │           ├── scripts/                             # Kickoff entrypoints, until an SDK path replaces them — plus preflight.py,
 │           │                                        #   validate_bag.py, verify_citations.py, compare_run_config.py, dispatch_identity.py
 │           │                                        #   and dispatch_context.py,
@@ -827,6 +838,15 @@ claude-dot-files/
 │                   │                                #   non-zero examined count, because a walk that scoped itself wrongly reports a clean sweep over
 │                   │                                #   nothing. The discriminators are the point: a gh READ must not emit, and the case-(d) report
 │                   │                                #   must not emit while an ORDINARY comment must — the exception is narrow or it is a hole
+│                   ├── test_shared_vocabulary_is_declared_once.py # PMP Phase 3 r3 as a test, and it exists because
+│                   │                                #   vocabulary.py CITED it while it did not — the module whose whole job is one spelling was
+│                   │                                #   held by prose, and SHARED_CONCEPTS was imported by nothing. Identity, never value: two
+│                   │                                #   enums spelled alike compare UNEQUAL member-to-member while every string test keeps
+│                   │                                #   passing, so a value assertion goes green on exactly the drift this catches. Walks
+│                   │                                #   SHARED_CONCEPTS rather than re-typing it, asks the SYNTAX TREE whether either contract
+│                   │                                #   re-declares a concept (an import binds the same name, so hasattr cannot tell), and binds
+│                   │                                #   the third consumer — convergence.py's open/closed partition, where an unlisted
+│                   │                                #   disposition silently counts as OPEN and the loop never converges
 │                   ├── test_dispatch_context.py     # The run context's behaviour: the worktree name follows the workflow key (every key,
 │                   │                                #   because the drift was in a single runner), the object is frozen, the echo is gated on
 │                   │                                #   `is_the_run` rather than on `minted` — a retry supplies its name and is exactly the

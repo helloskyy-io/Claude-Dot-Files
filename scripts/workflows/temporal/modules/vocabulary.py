@@ -33,8 +33,20 @@ contracts stays where it is used. `RoutedOutcome` and `UndeterminedReason` are
 the parent's computed stratum (`exit-protocol.md` §2.3) and no journal event
 carries them, so hoisting them here would make this module a dumping ground for
 the exit record's enums rather than the shared surface it is. The test that
-holds this is `test_shared_vocabulary_is_declared_once.py`, which asserts the
-spelling agreement in both directions rather than the membership of this file.
+holds this is `test_shared_vocabulary_is_declared_once.py`, which asks the SYNTAX
+TREE whether either contract re-declares a concept — an import binds the same
+name as a declaration, so `hasattr` cannot tell the two apart — and asserts the
+shared objects by IDENTITY, because two enums spelled alike compare unequal
+member-to-member while every string comparison in the fleet keeps passing. It
+walks `SHARED_CONCEPTS` rather than re-typing any spelling, and checks that dict
+against `__all__` so a fifth concept cannot be silently exempt from the walk.
+
+⚠ THAT FILE WAS CITED HERE BEFORE IT EXISTED, and the citation is why it does
+now. This module's own argument — made three times across this package — is that
+a rule written only as prose has not once prevented the thing it forbids; the one
+invariant it was added to protect was itself protected by this paragraph, and
+`SHARED_CONCEPTS`, built so a conformance test could walk it, was imported by
+nothing.
 """
 
 from __future__ import annotations

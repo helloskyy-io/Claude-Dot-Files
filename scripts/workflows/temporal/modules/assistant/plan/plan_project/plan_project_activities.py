@@ -373,12 +373,9 @@ def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> Scaf
             else:
                 result.extends.append((row.id, slug))
             continue
-        pool.mkdir(parents=True)
-        # `encoding` explicitly: the seed carries em dashes, and this is the one
-        # place in the family that WRITES rather than reads. A read that fails on
-        # a narrow locale fails before anything exists; a write that fails leaves
-        # the directory `mkdir` just made, half-built and indistinguishable from
-        # a component somebody is working on.
+        # THE `mkdir` IS INSIDE THE EMIT, NOT ABOVE IT — see `_write_seed`. Run
+        # here, it produced a directory a failed journal write could not
+        # withhold, which is the half-built state the comment below is about.
         _write_seed(pool / "synthesis.md", _seed(row, slug))
         result.created.append(slug)
 
@@ -395,16 +392,19 @@ def _write_seed(path: Path, text: str) -> None:
     requirement 9's enumeration exists to find, and Phase 4's rebuild test is
     what keeps it found after this phase closes.
 
-    ⚠ THE DIRECTORY IS CREATED BEFORE THIS RUNS AND IS NOT WITHHELD BY A FAILED
-    EMIT, which is a real if small hole in write-ahead ordering, stated rather
-    than papered over. `pool.mkdir(parents=True)` happens above, so a journal
-    failure here leaves an empty directory the record does not mention. The
-    caller's own comment already names that half-built state as the failure it
-    cares about; moving the `mkdir` inside the emit would be the correct fix and
-    it changes this function's caller rather than this function, so it is left
-    for whoever next touches that loop rather than done blind here.
+    ⚠ THE DIRECTORY IS CREATED INSIDE `perform`, WHICH IS THE POINT. Created by
+    the caller, it was a write-ahead hole: a failed journal write left an empty
+    pool directory the record does not mention, half-built and
+    indistinguishable from a component somebody is working on — the caller's own
+    comment named that state as the failure it cares about. Inside `perform`,
+    nothing on disk moves unless the intent landed first.
+
+    `encoding` EXPLICITLY: the seed carries em dashes and this is the one place
+    in the plan family that WRITES rather than reads, so a narrow locale would
+    fail here rather than before anything existed.
     """
     def _perform() -> Path:
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
         return path
 

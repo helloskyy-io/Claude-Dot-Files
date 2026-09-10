@@ -1330,8 +1330,8 @@ class _GhWriteFailed(RuntimeError):
         self.result = result
 
 
-def gh_attempt(args: list[str],
-               repo_root: Path | None) -> subprocess.CompletedProcess:
+def gh_attempt(args: list[str], repo_root: Path | None, *,
+               case_d_report: bool = False) -> subprocess.CompletedProcess:
     """`gh`, retried past transient server-side failures, returned UNJUDGED.
 
     THIS FUNCTION NEVER RAISES ON A NON-ZERO EXIT, and that is the whole reason
@@ -1365,19 +1365,28 @@ def gh_attempt(args: list[str],
     what failed, how it was classified, and how long the pause is; a run that
     eventually succeeded prints which attempt did it. Silent retries are how
     nobody ever learns whether the answer to "is it GitHub or us?" is on record.
+
+    ⚠ `case_d_report=True` IS THE ONE STORE WRITE PERMITTED WITH NO PRECEDING
+    EMIT — the phase doc's requirement 4 case (d), stated as an exception because
+    case (b) and requirement 1 otherwise cancel each other. That write IS the
+    durable report that the journal is unwritable, so requiring an intent to land
+    first would make this component's own ordering rule suppress the only durable
+    signal that the component is broken. It is the invariant's boundary
+    condition, not a hole in it.
+
+    ⚠ AND IT IS A FLAG THE CALLER SETS, NEVER A SHAPE READ OFF THE CONTENT. The
+    first implementation gated the exception on
+    `unwritable_journal_in_text(content)` — a substring test against the body
+    being published. Every `gh` mutation whose text happened to contain the
+    marker therefore skipped the journal entirely, with no error and no record:
+    a run quoting a previous failure, a bug report describing this component, or
+    a review comment naming the marker. A bypass of a completeness control must
+    be asserted by the code that knows it is the exception, not inferred from
+    attacker- or author-supplied bytes.
     """
     emitter = journal_emit.current_emitter()
-    if emitter is not None and not _gh_is_read_only(args):
+    if emitter is not None and not case_d_report and not _gh_is_read_only(args):
         content = _gh_authored_content(args, repo_root)
-        # ⚠ THE ONE STORE WRITE PERMITTED WITH NO PRECEDING EMIT — the phase
-        # doc's requirement 4 case (d), stated as an exception because case (b)
-        # and requirement 1 otherwise cancel each other. This IS the durable
-        # report that the journal is unwritable, so requiring an intent to land
-        # first would make this component's own ordering rule suppress the only
-        # durable signal that the component is broken. It is the invariant's
-        # boundary condition, not a hole in it.
-        if journal_emit.unwritable_journal_in_text(content):
-            return _gh_attempt_unwrapped(args, repo_root)
         try:
             return emitter.paired_write(
                 write_path=_gh_write_path(args),

@@ -316,6 +316,156 @@ def test_case_d_raises_when_even_the_GAP_RECORD_cannot_be_written(
         bag.info_path.chmod(0o600)
 
 
+# --- what escaped the taxonomy entirely, until it was probed for -------------
+
+#: A credential shape `capture_filter` matches, so `_build` appends a redaction
+#: placeholder BEFORE the event it was called to construct. That second append is
+#: the one the failure taxonomy did not cover.
+_FILTERED_SHAPE = "ghp_" + "A" * 24
+
+
+@ROOT_SKIP
+def test_a_FILTERED_paired_write_on_a_dead_journal_still_raises_EmitFailed(
+        emitter: Emitter, bag) -> None:
+    """⚠ THE PLACEHOLDER APPEND USED TO ESCAPE EVERY ONE OF THE FOUR CASES.
+
+    `_build` appends a redaction placeholder of its own whenever the filter
+    fires, and it was called ABOVE the `try` that catches a failed append. On a
+    read-only mount a filtered write therefore raised a bare `PermissionError`
+    straight out of `paired_write`: no `EmitFailed`, no gap, no `incomplete`
+    flag — and past every entrypoint's `except RuntimeError`, because `OSError`
+    is not one.
+
+    ⚠ THE CONTROL IS THE PAIR, NOT THIS ASSERTION ALONE.
+    `test_a_FAILED_INTENT_means_the_store_write_does_NOT_happen` above drives the
+    identical call with content the filter ignores and gets `EmitFailed`. The
+    only difference between the two is whether the placeholder was appended, so
+    the pair is what localises the escape to it.
+    """
+    performed = []
+    _make_unwritable(emitter)
+    with pytest.raises(EmitFailed):
+        emitter.paired_write(write_path="gh:pr:comment",
+                             destination=Destination(store="github"),
+                             content=f"token {_FILTERED_SHAPE} leaked",
+                             perform=lambda: performed.append(1))
+    assert performed == [], (
+        "the store write ran even though the journal refused the intent — the "
+        "invariant is that a journal failure means NEITHER side happened")
+
+
+@ROOT_SKIP
+def test_a_FILTERED_unpairable_write_on_a_dead_journal_still_MARKS_THE_BAG(
+        emitter: Emitter, bag) -> None:
+    """The same escape on the case with no store write to withhold, where it costs more.
+
+    Here the placeholder's `OSError` did not merely skip a typed exception: it
+    skipped `_record_gap`, so the content was lost AND nothing recorded the loss.
+    A bag that lost data and reads as complete is the outcome the four-state
+    design exists to prevent, reached through the function that exists to
+    prevent it.
+    """
+    _make_unwritable(emitter)
+    emitter.unpairable_write(write_path="transcript",
+                             destination=Destination(store="filesystem"),
+                             content=f"a transcript holding {_FILTERED_SHAPE}")
+    assert bag.incomplete, (
+        "a filtered write that could not land left the bag reading as complete")
+    gaps = [v for label, v in read_tag_file(bag.info_path) if label == LABEL_GAP]
+    assert len(gaps) == 1 and "transcript" in gaps[0]
+
+
+def test_CONTENT_that_cannot_be_ENCODED_fails_as_EmitFailed_not_as_a_crash(
+        emitter: Emitter) -> None:
+    """`UnicodeEncodeError` is a `ValueError`, so it joined no `except OSError`.
+
+    A lone surrogate — which reaches this fleet from `surrogateescape`-decoded
+    filenames and from tool output — raised out of `paired_write` untyped,
+    exactly as the placeholder append did, and for the same reason: the failure
+    set was written as "the disk" when it is "the disk OR the bytes".
+    `edge_id.read_edge_id` already names the same trap from the decode side.
+
+    THE STORE WRITE IS WITHHELD, which is the correct answer rather than an
+    incidental one: the journal cannot record this write, so it does not happen.
+    """
+    performed = []
+    with pytest.raises(EmitFailed):
+        emitter.paired_write(write_path="gh:pr:comment",
+                             destination=Destination(store="github"),
+                             content="a lone surrogate \ud800 in the body",
+                             perform=lambda: performed.append(1))
+    assert performed == []
+
+
+@ROOT_SKIP
+def test_a_failed_FLAG_is_case_d_even_when_the_gap_event_LANDED(
+        emitter: Emitter, bag) -> None:
+    """⚠ THE ONE HOLE IN *a gap may exist; a silent gap may not*.
+
+    `_record_gap` raised `JournalUnwritable` only when BOTH writes failed. With
+    the gap event landing and the flag failing, it returned normally and told
+    nobody — and nothing downstream reads a writer's `events.jsonl` to decide
+    whether a bag is clean. Phase 4, Phase 6 and Phase 7 all branch on the flag,
+    so that bag lost data and read as complete.
+
+    ⚠ THE FIXTURE HAS TO FAIL ONE WRITE AND NOT THE OTHER, which a mode cannot
+    do — both events go to one file. So the CONTENT is what fails: a lone
+    surrogate cannot be encoded, while the gap event that reports it carries no
+    content at all and lands normally. `bag-info.txt` is read-only at the FILE,
+    because a `0500` directory refuses creation and `events.jsonl` already
+    exists — the correction this file's case-(d) test already records.
+    """
+    bag.info_path.chmod(0o400)
+    try:
+        with pytest.raises(JournalUnwritable, match="the gap event landed"):
+            emitter.unpairable_write(write_path="run-facts",
+                                     destination=Destination(store="filesystem"),
+                                     content="run facts with \ud800 in them")
+    finally:
+        bag.info_path.chmod(0o600)
+    kinds = [e.kind for e in _events(emitter)]
+    assert EventKind.GAP in kinds, (
+        "the fixture did not reach the case it names — the gap event has to "
+        "LAND for this to be the event-landed/flag-failed arm")
+
+
+@ROOT_SKIP
+def test_a_store_failure_whose_record_ALSO_dies_names_the_unwritable_journal(
+        emitter: Emitter, bag) -> None:
+    """The third place a failed `incomplete` flag was swallowed with no signal.
+
+    The store write fails, its `store_write_failure` event cannot be written,
+    and the flag cannot either — so nothing in the journal says this write is
+    missing. `StoreWriteFailed` is still what the caller needs, because its
+    handlers are written against the store failure; what changed is that the
+    journal's death now leaves on that message, LEADING with the one declared
+    marker so `unwritable_journal_in_text` reads it on the process channel.
+
+    The message also used to assert *"a store-write-failure event was
+    recorded"* unconditionally — on the path where recording it had just failed.
+    """
+    def _die() -> None:
+        # AT THE FILE, NOT THE DIRECTORY: the intent has already created
+        # `events.jsonl`, so a `0500` directory would refuse nothing and the
+        # failure event would land. Same correction the case-(d) test above
+        # carries, and the same trap.
+        emitter.events_path.chmod(0o400)
+        bag.info_path.chmod(0o400)
+        raise RuntimeError("the store refused it")
+
+    try:
+        with pytest.raises(StoreWriteFailed) as caught:
+            emitter.paired_write(write_path="gh:pr:comment",
+                                 destination=Destination(store="github"),
+                                 content="a comment", perform=_die)
+    finally:
+        emitter.events_path.chmod(0o600)
+        bag.info_path.chmod(0o600)
+    assert unwritable_journal_in_text(str(caught.value)), (
+        "the journal died while recording a store-write failure and no channel "
+        "said so — this is the exception's only surface")
+
+
 def test_case_d_reports_on_the_exit_record_AND_a_durable_surface() -> None:
     """Requirement 11: two channels, and the second is why the first is not enough.
 

@@ -728,7 +728,23 @@ def test_the_reachability_check_FAILS_on_a_module_only_MENTIONED(tmp_path: Path)
         "substring bug this check was rewritten to rule out")
 
 
-@pytest.mark.parametrize("module", ["root", "bag", "validate", "journal_activities"])
+#: The journal package's own directory, walked rather than listed. A FIXED LIST
+#: IS WHAT WENT STALE: this guard named the four Phase 1 modules, and Phase 2
+#: then Phase 3 added nine more — so the isolation property Phase 6's reader
+#: depends on was unasserted for nine files, including the four least-reviewed
+#: ones, while the guard still read as covering the package.
+_JOURNAL_PACKAGE = (REPO_ROOT / "scripts" / "workflows" / "temporal" /
+                    "modules" / "journal")
+
+#: ONE expression, read by the parametrize AND by its denominator below. Written
+#: twice, the denominator re-derived the population instead of measuring the one
+#: the cases come from — so a walk narrowed to nothing collapsed the parametrize
+#: to zero cases while the denominator kept passing on its own second glob.
+#: Found by mutating the parametrize and watching NOTHING go red.
+_JOURNAL_MODULES = sorted(p.stem for p in _JOURNAL_PACKAGE.glob("*.py"))
+
+
+@pytest.mark.parametrize("module", _JOURNAL_MODULES)
 def test_the_journal_package_imports_no_workflow_module(module: str) -> None:
     """The journal must be loadable by a measurement helper or a CPI sweep.
 
@@ -736,8 +752,40 @@ def test_the_journal_package_imports_no_workflow_module(module: str) -> None:
     `run_log.py`. Phase 6's reader is the consumer this protects: a validator
     that dragged in `modules.assistant` would drag in its `temporalio` import
     with it.
+
+    PARAMETRISED OVER A DIRECTORY WALK, so a module added to the package is
+    covered on the commit that adds it rather than on the commit somebody
+    remembers to widen a list. `test_the_journal_package_walk_SEES_something`
+    below is the denominator: a walk that scoped itself wrongly would report a
+    clean sweep over nothing.
+
+    ⚠ ASKED OF THE IMPORTS, NOT OF THE TEXT — the same substring bug
+    `test_a_module_named_only_in_PROSE_is_not_reachable` above exists to rule
+    out, met here from the other side. `__init__.py` explains in prose why the
+    package imports no workflow module, and a text scan reported that sentence
+    as the violation it describes. The widened walk found it immediately; the
+    fixed list never reached the file.
     """
-    source = (REPO_ROOT / "scripts" / "workflows" / "temporal" / "modules" /
-              "journal" / f"{module}.py").read_text()
-    assert "modules.assistant" not in source
-    assert "from ..assistant" not in source
+    tree = ast.parse((_JOURNAL_PACKAGE / f"{module}.py").read_text())
+    imported: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            imported.append(f"{'.' * node.level}{node.module or ''}")
+        elif isinstance(node, ast.Import):
+            imported += [alias.name for alias in node.names]
+    offenders = [name for name in imported
+                 if name.startswith("modules.assistant")
+                 or name.startswith("..assistant")]
+    assert not offenders, (
+        f"`journal/{module}.py` imports {offenders}, which drags "
+        f"`temporalio` into every measurement helper and CPI sweep that loads "
+        f"the journal — Phase 6's reader is the consumer this protects")
+
+
+def test_the_journal_package_walk_SEES_something() -> None:
+    """A parametrised walk that matched no file passes by collecting no cases."""
+    assert len(_JOURNAL_MODULES) >= 10 and "emit" in _JOURNAL_MODULES, (
+        f"the isolation walk found {_JOURNAL_MODULES}; if it is empty or has "
+        f"lost the package's own modules, every case above is vacuous — and a "
+        f"parametrize over an empty list collects NO cases, which reads as "
+        f"green rather than as absent")

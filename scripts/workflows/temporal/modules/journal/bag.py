@@ -614,10 +614,15 @@ def _replace_tag_file(path: Path, lines: list[str]) -> None:
     worst output. The lock above serialises WRITERS; this is what protects a
     READER, which takes no lock at all.
 
-    `_write_tag_file` IS KEPT AND STILL USED for the manifest and the redaction
-    marker: both are written once by a caller already holding the lock, neither
-    is read concurrently by a flag check, and routing them through a rename
-    would add a temp file to the bag root for no property gained.
+    `_write_tag_file` IS KEPT FOR THE REDACTION MARKER AND FOR BAG CREATION —
+    a payload file each redaction writes once, and the two tag files a staging
+    directory gets before anything can reach it. Neither is read concurrently by
+    a flag check, and neither is a shared file two writers reach.
+    **The manifest is NOT one of them**: `seal` routes it through this function,
+    under the lock, because `validate_bag` reads it while a reseal may be
+    rewriting it. An earlier version of this paragraph claimed both the manifest
+    and the marker were "written once by a caller already holding the lock", and
+    that was false of both callers — `seal` held no lock at all.
     """
     fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=".tag-", suffix=".tmp")
     try:
@@ -711,22 +716,40 @@ def _set_tag_line(path: Path, label: str, value: str) -> None:
     # read-modify-write that drops any line appended between them — which for
     # this file means a gap record and the `Journal-Incomplete` flag beside it.
     with _tag_file_lock(path):
-        lines = path.read_text(encoding="utf-8").splitlines()
-        replacement = f"{label}: {value}"
-        kept: list[str] = []
-        written = False
-        for line in lines:
-            match = _LABEL_RE.match(line)
-            if match is not None and match.group(1).strip() == label:
-                if written:
-                    continue      # drop a duplicate written before this rule existed
-                kept.append(replacement)
-                written = True
-                continue
-            kept.append(line)
-        if not written:
+        _set_tag_line_locked(path, label, value)
+
+
+def _set_tag_line_locked(path: Path, label: str, value: str) -> None:
+    """`_set_tag_line`'s body, for a caller that ALREADY HOLDS the lock.
+
+    THE LOCK IS NOT REENTRANT — it is a `flock` on the containing directory, and
+    taking it twice on one thread deadlocks. `seal` writes four files that have
+    to move together, so it holds the lock once and calls this; every other
+    caller takes the wrapper. Split rather than made reentrant for the reason
+    `_tag_file_lock` states: a reentrant wrapper for a nesting nobody performs is
+    machinery guarding a hypothetical, and the one caller that does nest is right
+    here where a reader can see it.
+
+    `_refuse_folded_value` STILL RUNS IN THE WRAPPER and is not repeated here:
+    the composed line is validated before the lock is taken, so a refusal never
+    happens while a bag's tag file is held.
+    """
+    lines = path.read_text(encoding="utf-8").splitlines()
+    replacement = f"{label}: {value}"
+    kept: list[str] = []
+    written = False
+    for line in lines:
+        match = _LABEL_RE.match(line)
+        if match is not None and match.group(1).strip() == label:
+            if written:
+                continue          # drop a duplicate written before this rule existed
             kept.append(replacement)
-        _replace_tag_file(path, kept)
+            written = True
+            continue
+        kept.append(line)
+    if not written:
+        kept.append(replacement)
+    _replace_tag_file(path, kept)
 
 
 def read_tag_file(path: Path) -> list[tuple[str, str]]:
@@ -1078,13 +1101,30 @@ class Bag:
         """
         files = payload_files(self.path)
         lines = [f"{sha256_of(self.path / rel)}  {rel.as_posix()}" for rel in files]
-        _write_tag_file(self.manifest_path, lines)
-
         octets = sum((self.path / rel).stat().st_size for rel in files)
         sealed_at = utc_now()
-        _set_tag_line(self.info_path, "Payload-Oxum", f"{octets}.{len(files)}")
-        _set_tag_line(self.info_path, "Bagging-Date", sealed_at[:10])
-        _set_tag_line(self.info_path, LABEL_SEALED_AT, sealed_at)
+
+        # ⚠ ONE LOCK OVER ALL FOUR WRITES, AND IT USED NOT TO BE. The manifest
+        # was written OUTSIDE the lock, through the truncating `_write_tag_file`,
+        # while the three tag lines each took and released the lock separately —
+        # so `_tag_file_lock`'s own claim that "one lock covers `bag-info.txt`
+        # and `manifest-sha256.txt` together, which is what a reseal actually
+        # needs" was false about the function it was written for. Two concurrent
+        # reseals — and `mark_incomplete` reseals, which Phase 3 makes reachable
+        # from every emitter on a disk-full — could interleave two truncating
+        # writes of one manifest, and a reader between the manifest and the Oxum
+        # saw a manifest that did not match it.
+        #
+        # THE MANIFEST GOES THROUGH `_replace_tag_file` FOR THE READER's SAKE:
+        # the lock serialises writers, and `validate_bag` takes no lock at all,
+        # so only the atomic rename keeps it from reading a half-written
+        # manifest and reporting a bag that lost data.
+        with _tag_file_lock(self.info_path):
+            _replace_tag_file(self.manifest_path, lines)
+            _set_tag_line_locked(self.info_path, "Payload-Oxum",
+                                 f"{octets}.{len(files)}")
+            _set_tag_line_locked(self.info_path, "Bagging-Date", sealed_at[:10])
+            _set_tag_line_locked(self.info_path, LABEL_SEALED_AT, sealed_at)
         return self.manifest_path
 
     def _contained_payload_target(self, payload_relpath: str) -> Path:

@@ -267,6 +267,7 @@ TOTAL = "TOTAL"
 _MUTATORS: dict[str, str] = {
     "_write_tag_file": TOTAL,
     "_replace_tag_file": TOTAL,
+    "_set_tag_line_locked": TOTAL,
     "_append_tag_line": "refusable",
     "_set_tag_line": "refusable",
     "Bag.writer_dir": TOTAL,
@@ -293,6 +294,13 @@ _TOTAL_REASONS = {
         "`OSError` from the write or the rename, which is the filesystem "
         "refusing rather than this module refusing a caller's value — and it "
         "unlinks its own temp file on that path so the bag keeps no litter.",
+    "_set_tag_line_locked":
+        "`_set_tag_line`'s body, for a caller already holding the lock. TOTAL "
+        "because the refusal it used to contain stayed in the wrapper: "
+        "`_refuse_folded_value` runs BEFORE the lock is taken, so by the time "
+        "this runs the value has already been accepted and nothing here can "
+        "abort. Split out for `seal`, which writes four files that have to move "
+        "under one lock and cannot take a non-reentrant one twice.",
     "Bag.seal":
         "takes no caller argument. Every value it composes is module-derived — a "
         "byte count, a file count and `utc_now()` — and none can fold a tag line "
