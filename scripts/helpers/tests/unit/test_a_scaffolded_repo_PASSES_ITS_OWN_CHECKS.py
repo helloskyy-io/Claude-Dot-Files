@@ -11,6 +11,7 @@ IT RUNS THE REAL SCRIPT AND THE REAL CHECKS. A test that re-implemented what
 """
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -26,14 +27,68 @@ pytestmark = pytest.mark.skipif(
     reason="needs git and init-project.sh")
 
 
+#: THE IDENTITY IS SUPPLIED, NOT ASSUMED. `init-project.sh` ends in a `git
+#: commit`, which needs an author; a machine with no configured identity fails
+#: it with exit 128 after the scaffold is already written. That is git's
+#: behaviour and not this test's subject — what these tests assert is that a
+#: scaffolded repo is GREEN ON THE CHECKS IT SHIPS. Without this the fixture
+#: quietly asserted that the running host had a global git identity, which is
+#: true of a workstation and false of every clean CI runner.
+_IDENTITY = {
+    "GIT_AUTHOR_NAME": "scaffold probe",
+    "GIT_AUTHOR_EMAIL": "probe@example.invalid",
+    "GIT_COMMITTER_NAME": "scaffold probe",
+    "GIT_COMMITTER_EMAIL": "probe@example.invalid",
+}
+
+
 @pytest.fixture(scope="module")
 def scaffold(tmp_path_factory) -> Path:
     d = tmp_path_factory.mktemp("scaffold") / "probe-repo"
     d.mkdir()
     r = subprocess.run(["bash", str(INIT), "probe-repo", "--skip-remote"],
-                       cwd=d, capture_output=True, text=True, timeout=180)
+                       cwd=d, capture_output=True, text=True, timeout=180,
+                       env={**os.environ, **_IDENTITY})
     assert r.returncode == 0, f"init-project.sh failed:\n{r.stdout}\n{r.stderr}"
     return d
+
+
+def test_IT_REFUSES_BEFORE_WRITING_ANYTHING_WHEN_GIT_HAS_NO_IDENTITY(tmp_path: Path) -> None:
+    """The preflight refuses on an EMPTY directory, not after scaffolding.
+
+    Before this guard the script wrote ~16 files and only THEN failed at the
+    commit (git's exit 128), leaving a half-built repo with no commit. The
+    preflight checks `git var GIT_AUTHOR_IDENT` before Step 1, so a host with no
+    identity exits 1 having touched nothing. This also pins the probe against the
+    regression that shipped once: `git config user.name` cannot see the
+    GIT_AUTHOR_* env the fixture above supplies, so it would refuse an identity
+    `git commit` accepts. `git var GIT_AUTHOR_IDENT` reads the same source the
+    commit will, so the two never disagree.
+    """
+    d = tmp_path / "no-identity-repo"
+    d.mkdir()
+    # Remove EVERY identity source, host-INDEPENDENTLY. Dropping the env vars and
+    # neutralising system config is not enough: git falls back to EMAIL and then
+    # to a gecos/hostname guess, so on a host with a populated passwd GECOS the
+    # script would resolve an author and never refuse (this test would then fail
+    # for a reason that has nothing to do with the guard). A global config with
+    # user.useConfigOnly=true forbids that guess, so "no identity" holds anywhere.
+    env = {k: v for k, v in os.environ.items()
+           if k not in {"GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL",
+                        "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL", "EMAIL"}}
+    gc = tmp_path / "gitconfig-no-identity"
+    gc.write_text("[user]\n\tuseConfigOnly = true\n", encoding="utf-8")
+    env["GIT_CONFIG_GLOBAL"] = str(gc)
+    env["GIT_CONFIG_SYSTEM"] = os.devnull
+    r = subprocess.run(["bash", str(INIT), "no-identity-repo", "--skip-remote"],
+                       cwd=d, capture_output=True, text=True, timeout=180, env=env)
+    assert r.returncode == 1, (
+        f"expected the identity preflight to refuse with exit 1 (not git's late "
+        f"exit 128), got {r.returncode}:\n{r.stdout}\n{r.stderr}")
+    wrote = list(d.iterdir())
+    assert not wrote, (
+        f"the preflight let the script write before refusing — a half-scaffolded "
+        f"repo is the exact defect it exists to prevent: {[p.name for p in wrote]}")
 
 
 def test_IT_SCAFFOLDS_A_WORKFLOW_AND_ITS_POLICY_TOGETHER(scaffold: Path) -> None:

@@ -15,7 +15,8 @@ acquired their check separately, after each had drifted:
   * the roadmap's phase labels against the phase docs
     (`test_measurement_figures_are_cited.py`);
   * `scripts/helpers/measure/README.md`'s tool table against the tools on disk
-    (`test_measure_readme_names_a_consumer.py`).
+    (`test_every_producer_NAMES_ITS_CONSUMER.py`, which now covers three
+    surfaces rather than that one).
 
 A table checked against itself cannot see the entry that was never added to it.
 So the population here is read from `git ls-files` and the map is compared

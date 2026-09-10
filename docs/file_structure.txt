@@ -80,6 +80,7 @@ claude-dot-files/
 ├── scripts/                                         # ORGANIZING AXIS: *who invokes it?* — that one question explains every folder below
 │   ├── helpers/                                     # YOU run these. Pure bash, no AI, zero tokens
 │   │                                                #   (helpers/ = standalone executables you RUN; workflows/lib/ = bash you SOURCE. Different things, hence two folders)
+│   │   ├── README.md                  # Every tool here, and the path that INVOKES it — Phase 6's gate reads this population off disk
 │   │   ├── file_structure_check.py     # Holds docs/file_structure.txt to one line per entry, and refuses to grade a map it cannot read
 │   │   ├── sibling_checkouts.py       # Reports work left in a repo the dispatch was not pointed at — read-only, never tidies
 │   │   ├── standards_index.py         # Audits a standards corpus against the header
@@ -160,9 +161,10 @@ claude-dot-files/
 │   │           ├── test_replay_convergence_predicate.py  # Guards both early-fire counters — the OBSERVED one (a later pass reopened work)
 │   │           │                                    #   and the circular self-reported one — plus comment-order sequencing, the pass-1
 │   │           │                                    #   denominator, and absent-vs-false `converged`
-│   │           ├── test_measure_readme_names_a_consumer.py  # This directory's own version of Phase 6's finding: every tool ON DISK has a README row
-│   │           │                                    #   (read off disk, since a table checked against itself cannot see the tool never added to it)
-│   │           │                                    #   and every row names a consumer in `Read by`. run_log.py excluded BY NAME, exclusion asserted
+│   │           ├── test_every_producer_NAMES_ITS_CONSUMER.py # Phase 6's gate over THREE surfaces — measure/, helpers/ and the planning repo's
+│   │           │                                    #   tracked/ stores. Population read off disk; the cadence-and-runner clause binds only
+│   │           │                                    #   surfaces that ACCUMULATE (requirement 2, ruled 2026-09-10); run_log.py, this repo map,
+│   │           │                                    #   README.md and tracked/operations/ excluded BY NAME with each exclusion asserted
 │   │           ├── test_replay_pr_review_blocks.py  # Guards block extraction + absent-vs-false `converged`, which E7's cross-tab depends on (2 mutation-proven)
 │   │           ├── test_run_log.py                  # The run-log surface's declaration: declared members == actual writers (both directions), the
 │   │           │                                    #   publish check firing on a MODEL-AUTHORED VALUE not a key name — including a slug JOINED into

@@ -21,7 +21,13 @@ TOOL = Path(__file__).resolve().parents[3] / "helpers" / "sibling_checkouts.py"
 def _repo(root: Path, name: str) -> Path:
     """A checkout with an `origin` that has a real default branch."""
     origin = root / f"{name}.git"
-    subprocess.run(["git", "init", "-q", "--bare", str(origin)], check=True)
+    # `-b main` ON THE ORIGIN, because that is what the clone inherits. Without
+    # it the local branch comes from the CLONING MACHINE's `init.defaultBranch`,
+    # so this fixture built a checkout on `master` on any host that had not been
+    # configured — the sweep then correctly reported it as off its default
+    # branch and the POSITIVE control failed. Green on the author's box, red on
+    # every GitHub runner: the fixture was asserting a fact about the host.
+    subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(origin)], check=True)
     d = root / name
     subprocess.run(["git", "clone", "-q", str(origin), str(d)], check=True)
     subprocess.run(["git", "-C", str(d), "config", "user.email", "t@t"], check=True)
