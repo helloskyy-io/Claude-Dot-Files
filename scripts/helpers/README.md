@@ -27,13 +27,13 @@ trivially.
 | `check-settings.sh` | Merge-path wrapper over the above — the one control that operates during an autonomous run | `.github/workflows/tests.yml`, step *Validate settings.json* |
 | `file_structure_check.py` | Holds `docs/file_structure.txt` to one line per entry and to the paths that actually exist | `scripts/helpers/tests/unit/test_file_structure_check.py`, run by the master runner on every CI run |
 | `harvest-intake.py` | Drains the tracked-item intake into the four stores — **the named harvest cadence** Tracked Items §5.0 makes the exemption conditional on | `config/commands/standup.md`, Stage 2 action 2 |
-| `init-project.sh` | Scaffolds a new repo: git, remote, folder structure, the four stores, CI | `scripts/workflows/plan-new.sh` |
+| `init-project.sh` | Scaffolds a new repo: git, remote, folder structure, the four stores, CI | `scripts/helpers/tests/unit/test_a_scaffolded_repo_PASSES_ITS_OWN_CHECKS.py`, which runs the real script and grades its output |
 | `lint-prompts.sh` | Catches prompt-construction landmines `bash -n` cannot see | `.github/workflows/tests.yml`, step *Prompt-construction lint* |
 | `merge-pr.py` | Lands a reviewed PR set and drains the intake — the operator entry point | **NOBODY — baselined below.** No command file, CI step, workflow or test in this repo invokes it |
 | `sibling_checkouts.py` | Reports work a dispatch left in a repo it was not pointed at | **NOBODY — baselined below.** Nothing outside its own test names it |
-| `similar-candidates.py` | Ranks which existing tracked items to read before filing a new one | `scripts/workflows/temporal/modules/assistant/assistant_activities.py` |
+| `similar-candidates.py` | Ranks which existing tracked items to read before filing a new one | `scripts/workflows/temporal/modules/assistant/plan/plan_draft/plan_draft_workflow.py`, `scripts/workflows/temporal/modules/assistant/plan/plan_refine/plan_refine_workflow.py`, `scripts/workflows/temporal/modules/assistant/review_pr/review_pr_helper.py` — each injects its path into a prompt |
 | `standards_index.py` | Audits the standards corpus against the header contract and reports what is unreachable | `scripts/helpers/tests/unit/test_the_standards_index_is_ACTUALLY_CLEAN.py`, run against the live corpus |
-| `vendor-standards.sh` | Re-copies vendored standards from their canonical home; `--check` fails on local drift | `scripts/workflows/temporal/modules/assistant/plan/plan_activities.py` |
+| `vendor-standards.sh` | Re-copies vendored standards from their canonical home; `--check` fails on local drift | `scripts/helpers/tests/unit/test_vendor_target_resolves_per_destination.py`, which runs it; `testing/scripts/tests/unit/vendored_standards.py`, which reads the vendored set off it |
 
 **`README.md` — this file — is not a row either, and the reason is sharper than
 tidiness.** It is the surface's declaration, not a member of it: a check whose
@@ -77,3 +77,16 @@ the path is ever actually taken at runtime, or that the tool's output is read by
 a human once produced. Naming a reader is a much weaker claim than the reader
 being any good, and this table makes only the weaker one. Do not over-read a
 green suite.
+
+**The gap between *mentions* and *invokes* is real, and it was measured on this
+table's first draft: three of eleven cells named a file that only talked about
+the tool** — a docstring analogy for `vendor-standards.sh`, a prose rule about
+pre-existing scaffolding for `init-project.sh`, and the module that builds the
+path rather than the three workflows that inject it for
+`similar-candidates.py`. Every one of them resolved, mentioned the tool, and
+passed the gate. The check was not widened to close it: no cheap predicate
+separates `python3 scripts/helpers/harvest-intake.py` in a command file from
+*"same rule as `vendor-standards.sh`"* in a docstring, and a check that caught
+two of the three would be worse than one that is honest about catching neither.
+**So a cell is a claim to check when you touch it, not a proof** — the gate
+holds the population, and a person holds the cell.

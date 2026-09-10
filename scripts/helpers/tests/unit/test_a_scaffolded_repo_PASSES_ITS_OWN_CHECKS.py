@@ -11,6 +11,7 @@ IT RUNS THE REAL SCRIPT AND THE REAL CHECKS. A test that re-implemented what
 """
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -26,12 +27,28 @@ pytestmark = pytest.mark.skipif(
     reason="needs git and init-project.sh")
 
 
+#: THE IDENTITY IS SUPPLIED, NOT ASSUMED. `init-project.sh` ends in a `git
+#: commit`, which needs an author; a machine with no configured identity fails
+#: it with exit 128 after the scaffold is already written. That is git's
+#: behaviour and not this test's subject — what these tests assert is that a
+#: scaffolded repo is GREEN ON THE CHECKS IT SHIPS. Without this the fixture
+#: quietly asserted that the running host had a global git identity, which is
+#: true of a workstation and false of every clean CI runner.
+_IDENTITY = {
+    "GIT_AUTHOR_NAME": "scaffold probe",
+    "GIT_AUTHOR_EMAIL": "probe@example.invalid",
+    "GIT_COMMITTER_NAME": "scaffold probe",
+    "GIT_COMMITTER_EMAIL": "probe@example.invalid",
+}
+
+
 @pytest.fixture(scope="module")
 def scaffold(tmp_path_factory) -> Path:
     d = tmp_path_factory.mktemp("scaffold") / "probe-repo"
     d.mkdir()
     r = subprocess.run(["bash", str(INIT), "probe-repo", "--skip-remote"],
-                       cwd=d, capture_output=True, text=True, timeout=180)
+                       cwd=d, capture_output=True, text=True, timeout=180,
+                       env={**os.environ, **_IDENTITY})
     assert r.returncode == 0, f"init-project.sh failed:\n{r.stdout}\n{r.stderr}"
     return d
 

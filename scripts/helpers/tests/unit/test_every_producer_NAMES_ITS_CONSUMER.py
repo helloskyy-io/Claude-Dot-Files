@@ -32,8 +32,15 @@ check is built from it:
       * TESTS — `scripts/helpers/tests/` is read by the runner, not by the
         system.
       * A TRANSIENT ARTIFACT — a temp file, a log, a build output written for
-        the writer's own use. It falls out of the keying above rather than
-        needing a rule.
+        the writer's own use. `_is_transient` is the rule; unlike the three
+        above it is NOT asserted against the tree, because a transient
+        artifact's absence is the normal case.
+
+(This file supersedes `test_measure_readme_names_a_consumer.py`, deleted in the
+same change. All three of its properties — the population read off disk in both
+directions, every row naming a consumer, and `run_log.py`'s exclusion asserted
+against the tree — are carried below, with `measure/` as one row of `SURFACES`
+rather than a gate of its own.)
 
 WHY THE CADENCE CLAUSE IS CONDITIONAL (requirement 2, RULED 2026-09-10). The
 three properties were borrowed from `Tracked Items Standard` §0, which governs
@@ -88,6 +95,23 @@ _REPO = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(_REPO / "scripts" / "workflows" / "temporal" / "tests"))
 from planning_corpus import PLANNING_ROOT  # noqa: E402
 
+def _is_transient(p: Path) -> bool:
+    """The docstring's fourth exclusion class, in code rather than in prose.
+
+    A transient artifact is written for its writer's own use and is gitignored;
+    it has no consumer to name and no row to carry. It is NOT asserted against
+    the tree the way a named exclusion is — its absence is the normal case, so
+    a check that its subject still exists would fail on a clean checkout.
+
+    THIS IS WHY THE GATE WAS GREEN LOCALLY AND RED ON CI. `__pycache__` appears
+    under `scripts/helpers/` the moment anything imports a module from it, which
+    `test_the_standards_index_is_ACTUALLY_CLEAN.py` does. The authoring shell had
+    `PYTHONDONTWRITEBYTECODE=1` and the runner's did not, so the off-disk
+    subdirectory read asserted something true only of the machine that wrote it.
+    """
+    return p.name == "__pycache__" or p.name.startswith(".")
+
+
 #: A map mentions every file in the repo, so accepting it as an invoker would
 #: make every row pass trivially. Named, not inferred, so a reader can see the
 #: hole was considered rather than missed.
@@ -141,17 +165,27 @@ class Surface:
     #: whether a person emptied it, not whether it exists.
     cadence_exempt: dict = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        # THE TWO DICTS MEAN OPPOSITE THINGS and are merged in the exclusion
+        # check, where a name in both would let one silently win. Nothing
+        # populates both today; this is what keeps that true.
+        both = set(self.exclusions) & set(self.cadence_exempt)
+        assert not both, (
+            f"{self.name}: {sorted(both)} is declared NOT A MEMBER and also a "
+            f"member merely exempt from the cadence clause. Pick one."
+        )
+
 
 def _files(root: Path) -> set[str]:
-    return {p.name for p in root.iterdir() if p.is_file()}
+    return {p.name for p in root.iterdir() if p.is_file() and not _is_transient(p)}
 
 
 def _py(root: Path) -> set[str]:
-    return {p.name for p in root.glob("*.py")}
+    return {p.name for p in root.glob("*.py") if not _is_transient(p)}
 
 
 def _dirs(root: Path) -> set[str]:
-    return {p.name for p in root.iterdir() if p.is_dir()}
+    return {p.name for p in root.iterdir() if p.is_dir() and not _is_transient(p)}
 
 
 SURFACES = [
@@ -245,6 +279,31 @@ def _paths_in(cell: str) -> list[str]:
     """Backticked tokens in a consumer cell that look like repo-relative paths."""
     return [t for t in re.findall(r"`([^`]+)`", cell)
             if "/" in t and re.search(r"\.(py|sh|md|ya?ml|txt)$", t)]
+
+
+def test_the_ABSENT_SURFACE_SKIP_fires_ONLY_when_the_root_is_missing() -> None:
+    """The one failing path in this file that no control covered, and it is the
+    one that turns a whole surface green-by-absence.
+
+    Every other failing path here got a self-contained control because a path
+    nobody has seen run is a path nobody has seen work. This one was missed:
+    the sibling planning repo is present on every machine this suite is known to
+    run on, so `tracked/` has never actually skipped, and a typo in the skip
+    reason or a wrong `PLANNING_ROOT` fallback would go unnoticed until the day
+    coverage silently dropped from three surfaces to two.
+    """
+    def _probe(root: Path) -> Surface:
+        return Surface(name="probe", root=root, readme=root / "README.md",
+                       members=_files, accumulates=False)
+
+    _skip_if_absent(_probe(_REPO))  # a real directory must NOT skip
+
+    with pytest.raises(pytest.skip.Exception) as raised:
+        _skip_if_absent(_probe(_REPO / "__no_such_surface__"))
+    assert "__no_such_surface__" in str(raised.value), (
+        "the skip reason must name the path it looked for, or a reader cannot "
+        "tell a missing sibling repo from a renamed directory"
+    )
 
 
 @pytest.fixture(params=[s.name for s in SURFACES])
@@ -442,7 +501,11 @@ def test_a_named_invoker_RESOLVES_and_MENTIONS_the_tool() -> None:
         if tool in UNREAD:
             continue
         paths = _paths_in(cell)
-        assert paths, f"{tool}'s `Invoked by` cell names no path: {cell!r}"
+        assert paths, (
+            f"{tool}'s `Invoked by` cell names no backticked path ending in "
+            f"one of .py/.sh/.md/.yml/.yaml/.txt — widen `_paths_in` if the "
+            f"invoker is a real file of another kind: {cell!r}"
+        )
         rejected = [p for p in paths if p in NOT_AN_INVOKER]
         assert not rejected, (
             f"{tool} names {rejected} as its invoker, which is excluded by "
@@ -461,9 +524,16 @@ def test_a_named_invoker_RESOLVES_and_MENTIONS_the_tool() -> None:
                 f"was dropped and the table still claims it."
             )
             checked += 1
-    assert checked >= len(_listed(surface)) - len(UNREAD), (
-        f"only {checked} invocations were opened — this check scoped itself to "
-        f"nothing and would pass vacuously"
+    # MEASURED AGAINST DISK, NOT AGAINST THE TABLE. Comparing against
+    # `_listed()` — the same dict the loop just walked — cannot fail: every row
+    # that survived `assert paths` above already incremented `checked`. Read off
+    # disk it CAN fail, and the case it catches is the one that matters: a
+    # README whose table stops parsing yields zero rows, an empty loop, and a
+    # green result from a check that opened nothing.
+    assert checked >= len(_population(surface)) - len(UNREAD), (
+        f"only {checked} invocations were opened for {len(_population(surface))} "
+        f"tools on disk — this check scoped itself to nothing and would pass "
+        f"vacuously"
     )
 
 
@@ -541,6 +611,56 @@ def test_a_baselined_tool_that_GAINS_an_invoker_forces_its_line_out() -> None:
     )
 
 
+def _ruled_in_under(root: Path) -> set[str]:
+    """Surfaces that ARE a subdirectory of `root`, matched by resolved path.
+
+    MATCHED ON THE PATH, NEVER ON THE LAST SEGMENT OF THE NAME. `scripts/
+    helpers/` and `tracked/` end in `helpers` and `tracked`, and neither is
+    rooted under this directory — so a name-keyed membership test would treat a
+    local `scripts/helpers/tracked/` as already ruled in by a surface that has
+    never looked at it, with no README, no gate and no recorded reason. That is
+    the exact hole the check below exists to close, one level up.
+    """
+    return {s.root.name for s in SURFACES if s.root.parent == root}
+
+
+def test_the_RULED_IN_SET_is_matched_by_path_not_by_name() -> None:
+    """Live control for the collision above, on the real `SURFACES` list.
+
+    Two of the three surfaces have a last segment that could legally appear as
+    a subdirectory of `scripts/helpers/`, so this is a hole with two members
+    rather than a hypothetical.
+    """
+    under = _ruled_in_under(_REPO / "scripts" / "helpers")
+    assert under == {"measure"}, (
+        f"only `measure/` is a surface rooted under scripts/helpers/, got {under}"
+    )
+    for collision in ("helpers", "tracked"):
+        assert collision not in under, (
+            f"a directory named {collision!r} under scripts/helpers/ would read "
+            f"as ruled in by a surface rooted somewhere else entirely"
+        )
+
+
+def test_a_TRANSIENT_ARTIFACT_is_not_a_member_of_any_population() -> None:
+    """Live control for the exclusion class that made this gate host-coupled.
+
+    The failure it pins is a REGRESSION THIS FILE SHIPPED: `__pycache__` under
+    `scripts/helpers/` turned the surface-list check red on CI while it stayed
+    green on a shell exporting `PYTHONDONTWRITEBYTECODE=1`. It cannot be
+    demonstrated by creating the directory here — a test that writes into the
+    tree it is grading is the coupling one level up — so the predicate is driven
+    directly, which is what every population read below calls.
+    """
+    assert _is_transient(_REPO / "scripts" / "helpers" / "__pycache__"), \
+        "bytecode caches are a member of the population — the CI-red shape"
+    assert _is_transient(_REPO / ".git"), "dot-directories are tool state"
+    assert not _is_transient(_REPO / "scripts" / "helpers" / "measure"), \
+        "a real surface was filtered out as transient, which hides it entirely"
+    assert not _is_transient(_REPO / "scripts" / "helpers" / "merge-pr.py"), \
+        "a real tool was filtered out as transient, which hides it entirely"
+
+
 def test_the_SURFACE_LIST_itself_is_read_off_disk() -> None:
     """A hand-kept list of surfaces is the hole one level up from a hand-kept row.
 
@@ -549,10 +669,9 @@ def test_the_SURFACE_LIST_itself_is_read_off_disk() -> None:
     rather than escaping both lists silently.
     """
     root = _REPO / "scripts" / "helpers"
-    subdirs = {p.name for p in root.iterdir() if p.is_dir()}
+    subdirs = _dirs(root)
     assert subdirs, f"no subdirectories under {root} — this check read nothing"
-    ruled_in = {s.name.rstrip("/").rsplit("/", 1)[-1] for s in SURFACES}
-    unruled = subdirs - ruled_in - set(NOT_A_SURFACE)
+    unruled = subdirs - _ruled_in_under(root) - set(NOT_A_SURFACE)
     assert not unruled, (
         f"subdirectories of scripts/helpers/ that are neither a ruled-in "
         f"producer surface nor excluded by name: {sorted(unruled)}. Rule each "
