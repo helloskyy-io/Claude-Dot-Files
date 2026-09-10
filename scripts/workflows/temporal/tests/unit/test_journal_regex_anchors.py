@@ -200,8 +200,8 @@ def _literal_parts(node: ast.expr) -> list[str] | None:
     rather than by reading it, which is the only way it could have been found:
     a blind sweep and a clean package are the same colour.
 
-    So an expression this cannot read fails `test_no_pattern_is_unreadable`
-    below. A pattern nobody can check must not look like a pattern that checked
+    So an expression this cannot read fails
+    `test_no_pattern_is_unreadable_to_the_sweep` below. A pattern nobody can check must not look like a pattern that checked
     out.
     """
     if isinstance(node, ast.Constant):

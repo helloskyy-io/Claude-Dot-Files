@@ -27,11 +27,10 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "modules"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 
-from assistant.review_pr import review_pr_activities as act  # noqa: E402
-from assistant.review_pr import review_pr_helper as helper  # noqa: E402
+from modules.assistant.review_pr import review_pr_activities as act  # noqa: E402
+from modules.assistant.review_pr import review_pr_helper as helper  # noqa: E402
 
 RUNNERS = ("run_plan_refine.py", "run_plan_sprint.py")
 _SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"

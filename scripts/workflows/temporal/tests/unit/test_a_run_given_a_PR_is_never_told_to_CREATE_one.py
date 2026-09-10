@@ -31,7 +31,8 @@ tier had carried the latent form since it was written — it has always passed
 `plan_path` — and one predicate fixed both, which is why nothing here is
 parametrised on the tier that happened to be reported.
 
-`test_axis_CENSUS` IS WHAT MAKES THIS A CLASS CHECK RATHER THAN A CASE LIST. The
+`test_axis_CENSUS_no_selector_argument_is_unknown_to_the_cross_product` IS WHAT
+MAKES THIS A CLASS CHECK RATHER THAN A CASE LIST. The
 cross-product below can only cover the axes it knows about, so a new selector
 parameter appearing on any member of the population reds the census with an
 instruction to extend the product. Without it this file would silently degrade

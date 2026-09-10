@@ -119,6 +119,40 @@ def _journal_root_is_never_the_operators(tmp_path_factory):
     finally:
         journal_activities.CONFIG_PATH = real
 
+# --- the emit boundary must never leak from one test into the next ---------------
+
+# PMP PHASE 3 REGISTERS A PROCESS-SCOPED EMITTER FROM `open_run_bag`, and every
+# test that drives an entrypoint's `main()` therefore leaves one registered.
+# WITHOUT THIS FIXTURE the leak is worse than an untidy global: the emitter holds
+# a `Bag` under a `tmp_path` pytest has already removed, so a LATER test's store
+# write would emit into a directory that no longer exists — a write-path failure
+# manufactured entirely by test ordering, arriving in whichever test happened to
+# run next.
+#
+# FOUND BY RUNNING THE SUITE, not by reading the code: two assertions that
+# `current_emitter()` is `None` passed alone and failed in the full run, which is
+# the signature of exactly this class. Same discipline as the journal-root
+# sandbox above — durable process state a test creates is state the next test
+# inherits.
+#
+# AUTOUSE AND UNCONDITIONAL, because the tests that leak are the ones that never
+# mention the journal: they call `main()` and inherit bag-open from the
+# entrypoint. A fixture only the journal tests requested would miss every one of
+# them.
+import pytest as _pytest
+
+
+@_pytest.fixture(autouse=True)
+def _no_emitter_leaks_between_tests():
+    from modules.journal import emit as _emit
+
+    _emit.register_emitter(None)
+    try:
+        yield
+    finally:
+        _emit.register_emitter(None)
+
+
 # `tests/` on the path so a unit test can `from planning_corpus import ...`.
 # The corpus moved to the sibling planning repo on 2026-08-31 and seventeen tests
 # assert against the live one; they share ONE resolver rather than each deriving

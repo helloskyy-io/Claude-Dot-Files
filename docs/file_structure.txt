@@ -279,6 +279,35 @@ claude-dot-files/
 │           │                                        #   propose changing that set. The tag carries the population beside the hash so a
 │           │                                        #   reader can recompute it without this module; an unestablishable population is
 │           │                                        #   recorded as `unavailable reason=<slug>` and does NOT stop the run
+│           │                                        #   PHASE 3 ADDS THE EMIT RULE — every write to any store also emits to the journal — as four
+│           │                                        #   more files here, for the reason Phase 2's five are here: they write into a bag's payload.
+│           │                                        #   events.py is the event contract, SEPARATE from the typed exit record's and sharing one
+│           │                                        #   vocabulary with it (modules/vocabulary.py) — exit-protocol.md §2 forbids a field added for
+│           │                                        #   a consumer that does not exist and §2.5 bounds that record at 4096 bytes, and an event adds
+│           │                                        #   six such fields and carries content verbatim, so an extension is not available. Five event
+│           │                                        #   kinds, four admission fields (identity, edge_id, key_epoch, provenance), and two replay
+│           │                                        #   rules: dedupe on identity, and apply ONLY an intent that has a completion — which is what
+│           │                                        #   stops Phase 4 materialising content the store never got. edge_id.py persists the machine's
+│           │                                        #   name at the ROOT (per-machine, so not inside a bag) and refuses a digest-shaped id: a
+│           │                                        #   key-derived one orphans an edge's history on rotation AND is a confirmation oracle.
+│           │                                        #   capture_filter.py removes named credential shapes AT APPEND, before any byte reaches the
+│           │                                        #   root — not at seal, which would change written events. emit.py is the boundary: write-ahead
+│           │                                        #   ordering (intent, then the store write, then the completion carrying the store's address),
+│           │                                        #   the four write-failure cases, and case (d)'s two channels WITH their readers. It is
+│           │                                        #   registered by open_run_bag rather than threaded through forty signatures, and that trade is
+│           │                                        #   stated at register_emitter — an optional emit is a skipped emit. It reaches FLEET-CODE
+│           │                                        #   writes only; the model-issued half is Phase 10's post-exit harvest
+│           ├── modules/__init__.py                  # The package marker, and nothing else — every module under modules/ is
+│           │                                        #   imported by its own path, so this file exports nothing and re-exports nothing
+│           ├── modules/vocabulary.py                # ONE DECLARATION per concept the typed exit record and the journal event share
+│           │                                        #   (PMP Phase 3 r3) — Outcome, HoldKind, Disposition, TerminalState, plus
+│           │                                        #   SHARED_CONCEPTS, which a conformance test walks rather than re-typing. A LEAF AT
+│           │                                        #   modules/ belonging to NEITHER package, and that is the whole placement argument:
+│           │                                        #   modules/journal/ may import no workflow module (Phase 6's reader would otherwise
+│           │                                        #   drag in temporalio) and exit_record.py is dependency-free by design, so beside
+│           │                                        #   either one it would break the other. Two contracts, one spelling — two enums
+│           │                                        #   spelled alike compare UNEQUAL member-to-member while both still serialise to the
+│           │                                        #   same string, so a rebuild diffing them reports a difference that is not one
 │           ├── scripts/                             # Kickoff entrypoints, until an SDK path replaces them — plus preflight.py,
 │           │                                        #   validate_bag.py, verify_citations.py, compare_run_config.py, dispatch_identity.py
 │           │                                        #   and dispatch_context.py,
@@ -771,6 +800,53 @@ claude-dot-files/
 │                   │                                #   more. Sweeps every f"{label}: {value}" for an undeclared value; the battery beside it
 │                   │                                #   is DERIVED from splitlines() rather than from a remembered list, and the round trip
 │                   │                                #   is the property: for any accepted value, reading the file returns what was written
+│                   ├── test_journal_events.py        # PMP Phase 3's CONTRACT — what an event is, what makes it admissible, and the two replay
+│                   │                                #   rules. Owns no I/O; test_journal_emit.py drives the failure cases, and keeping them apart is
+│                   │                                #   what stops a contract written wrongly and exercised wrongly from agreeing with itself. Every
+│                   │                                #   admission check is asserted as a REFUSAL, because a test that built an admissible event and
+│                   │                                #   read its fields would leave all five untested while looking thorough. Two assertions carry
+│                   │                                #   the whole design: dedupe keys on (id, KIND) — keyed on id alone it drops every completion
+│                   │                                #   and replay applies nothing — and an intent with no completion is NOT applied, which is what
+│                   │                                #   stops Phase 4 materialising content the store never got. Identity is asserted deterministic
+│                   │                                #   AND discriminating on each of its three inputs, or the first assertion passes for a constant
+│                   ├── test_journal_emit.py          # The four write-failure cases, driven against REAL bags on a real filesystem — a mocked open()
+│                   │                                #   proves the code branches, not that the bag ends up in the state the branch claims. Ordering is
+│                   │                                #   asserted from INSIDE the store write, which is the only place write-ahead is visible: reading
+│                   │                                #   the file afterwards proves write order, not order relative to the side effect. Case (d) needs
+│                   │                                #   the tag FILE unwritable, not its directory — a 0500 directory refuses creation and an existing
+│                   │                                #   bag-info.txt still takes an append, which is how the first version of that test asserted case
+│                   │                                #   (d) and observed case (c). Mode-induced refusals skip under uid 0 rather than passing vacuously
+│                   ├── test_journal_edge_id_and_capture_filter.py # Two modules in one file because they share one argument: keeping a secret out of a durable
+│                   │                                #   record. A digest-shaped edge id is refused (hash(api_key) is ruled out twice — it changes on
+│                   │                                #   rotation, and a stored hash of a live credential is a confirmation oracle) and a PREFIXED
+│                   │                                #   random token is accepted, which is the control that keeps the refusal from being total. The
+│                   │                                #   filter's ten rules each fire on their own sample, ordinary prose and a git SHA do NOT fire it,
+│                   │                                #   and the STATED BLIND SPOTS — a bare password, a base64-ed token — are asserted AS blind spots
+│                   │                                #   so the suite reads as a boundary rather than as a completeness claim
+│                   ├── test_the_tag_namespace_is_HELD_BY_CODE.py # PMP Phase 3 r13. Separate from test_journal_tag_lines.py because that owns the LINE and this
+│                   │                                #   owns the NAMESPACE, and they failed independently — the line's rule leaked twice through
+│                   │                                #   different writers, the namespace never had a rule because it was closed by construction until
+│                   │                                #   WD Phase 5 took a tag from outside. Lifecycle labels refused, descriptive ones accepted, an
+│                   │                                #   unrecognised one VALIDATES and is REPORTED. (c) is deliberately open and a test holds it open:
+│                   │                                #   test_no_bag_level_version_field_was_invented goes red if a later change quietly settles it.
+│                   │                                #   Also drives the bag-info.txt race from three PROCESSES — an advisory flock is a cross-process
+│                   │                                #   control, so a threading test would exercise the GIL rather than the lock
+│                   ├── test_every_fleet_write_path_EMITS.py # PMP Phase 3 r1, wired. Two halves: a CENSUS that keeps requirement 9's inventory complete, and
+│                   │                                #   one behavioural test per inventoried path. The census walks for ONE shape — a subprocess whose
+│                   │                                #   argv[0] is `gh`, from an uninventoried module — and deliberately NOT for a bare write_text,
+│                   │                                #   which would be almost all false positives and teach a reader to add exemptions. It asserts a
+│                   │                                #   non-zero examined count, because a walk that scoped itself wrongly reports a clean sweep over
+│                   │                                #   nothing. The discriminators are the point: a gh READ must not emit, and the case-(d) report
+│                   │                                #   must not emit while an ORDINARY comment must — the exception is narrow or it is a hole
+│                   ├── test_shared_vocabulary_is_declared_once.py # PMP Phase 3 r3 as a test, and it exists because
+│                   │                                #   vocabulary.py CITED it while it did not — the module whose whole job is one spelling was
+│                   │                                #   held by prose, and SHARED_CONCEPTS was imported by nothing. Identity, never value: two
+│                   │                                #   enums spelled alike compare UNEQUAL member-to-member while every string test keeps
+│                   │                                #   passing, so a value assertion goes green on exactly the drift this catches. Walks
+│                   │                                #   SHARED_CONCEPTS rather than re-typing it, asks the SYNTAX TREE whether either contract
+│                   │                                #   re-declares a concept (an import binds the same name, so hasattr cannot tell), and binds
+│                   │                                #   the third consumer — convergence.py's open/closed partition, where an unlisted
+│                   │                                #   disposition silently counts as OPEN and the loop never converges
 │                   ├── test_dispatch_context.py     # The run context's behaviour: the worktree name follows the workflow key (every key,
 │                   │                                #   because the drift was in a single runner), the object is frozen, the echo is gated on
 │                   │                                #   `is_the_run` rather than on `minted` — a retry supplies its name and is exactly the
@@ -856,15 +932,17 @@ claude-dot-files/
 │                   │                                #   and no store function at all, so an import-only check is blind to every one.
 │                   │                                #   Families 1 and 2 each hold a fleet idiom, which is what makes them likely rather
 │                   │                                #   than exotic: a journal submodule bound as a name (journal_activities as journal in
-│                   │                                #   every entrypoint, verify and validate in the two operator tools — eighteen call
+│                   │                                #   every entrypoint, verify and validate in the two operator tools, emit in the four
+│                   │                                #   PMP-Phase-3 write paths — twenty-two call
 │                   │                                #   sites, and content_store is not among them) and from .. import journal, the workflow
 │                   │                                #   tree's dominant relative import. The package matcher binds by import SEMANTICS,
 │                   │                                #   never by the identifier text `journal`: `alias.name` is matched and never the asname,
 │                   │                                #   BOUNDARY_PARENT rejects a `journal` imported from a sibling, and an asname binds
 │                   │                                #   exactly the module named, so import modules.assistant as ma reaches nothing. The
-│                   │                                #   eighteen call sites trip the first two at once, so neither can be observed through
+│                   │                                #   the twenty-two call sites trip the first two at once, so neither can be observed through
 │                   │                                #   them and neither costs a false positive — measured, deleting either flags nothing on
-│                   │                                #   a clean tree, because those call sites only reach open_run_bag. Both are therefore
+│                   │                                #   a clean tree, because those call sites reach only open_run_bag and the emit
+│                   │                                #   boundary. Both are therefore
 │                   │                                #   asserted directly on _package_bindings, by the shapes that isolate one check each,
 │                   │                                #   plus a synthetic module the tree does not contain: reading "no instance here" as "no
 │                   │                                #   control can express it" is what left family 3 unenumerated, twice. The name checks
@@ -875,8 +953,8 @@ claude-dot-files/
 │                   │                                #   nothing passes every assertion, which is today's fleet. Its vacuity control
 │                   │                                #   asserts a floor PER swept directory after a mutation showed a single total floor
 │                   │                                #   of fifty stayed green with all 22 modules under scripts/ dropped from the
-│                   │                                #   population, modules/ alone holding 60 of the 82. EVERY FIGURE IN ITS OWN PROSE IS
-│                   │                                #   DERIVED and asserted — the ten shapes, the eighteen call sites, 60/22/82 — and each
+│                   │                                #   population, modules/ alone holding 61 of the 83. EVERY FIGURE IN ITS OWN PROSE IS
+│                   │                                #   DERIVED and asserted — the ten shapes, the twenty-two call sites, 61/22/83 — and each
 │                   │                                #   enumerated shape must have a fixture that writes it, so a shape added to the prose
 │                   │                                #   without a control goes red rather than reading as covered
 │                   ├── test_content_store.py        # PMP Phase 2 r7(b)/r7(d) — the on-disk path is a function of the COMPUTED DIGEST and

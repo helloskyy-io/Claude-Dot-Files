@@ -102,12 +102,16 @@ excusing it.
 
 ⚠ FAMILIES 1 AND 2 EACH CONTAIN THE FLEET'S OWN IDIOM, WHICH IS WHY NEITHER IS
 EXOTIC.
-Eighteen swept modules import a journal submodule as a name: the sixteen
-entrypoints take `journal_activities as journal`, and `verify_citations.py` and
-`validate_bag.py` take `verify` and `validate` — those two are operator tools
-that READ a finished bag rather than entrypoints, per
-`journal_entrypoint_facts.py`'s own classification, so this file says *call
-sites* wherever the eighteen are meant. `from .. import journal` is the
+Twenty-two swept modules import a journal submodule as a name: the sixteen
+entrypoints take `journal_activities as journal`, `verify_citations.py` and
+`validate_bag.py` take `verify` and `validate`, and FOUR fleet modules take
+`emit as journal_emit` — `assistant_activities.py`, `tracked_items.py`,
+`merge_pr.py` and `plan_project_activities.py`. The two operator tools READ a
+finished bag rather than being entrypoints, per `journal_entrypoint_facts.py`'s
+own classification, so this file says *call sites* wherever the twenty-two are
+meant. The four emit binders are PMP Phase 3's, and they are the first fleet
+modules to bind a journal submodule for a reason other than opening a bag: each
+is a WRITE PATH, wrapping its store write in the intent-then-completion pair. `from .. import journal` is the
 dominant relative-import spelling across the workflow tree (`from .. import
 routing`, `from .. import plan_activities as act`, `from . import
 tracked_items as ti`). So both are what a real bypass looks like: a line copied
@@ -125,13 +129,14 @@ attributed the whole job to one of them and MEASUREMENT SAID OTHERWISE:
     `from modules.assistant import journal`, a sibling exporting a colliding
     name.
 
-The eighteen call sites are excluded REDUNDANTLY, by both at once, which is
+The twenty-two call sites are excluded REDUNDANTLY, by both at once, which is
 why neither mechanism can be controlled through them: each shape above isolates
 exactly one, and the control below uses those rather than the idiom.
 
 ⚠ AND NEITHER COSTS THE EIGHTEEN FALSE POSITIVES THEY WERE PREDICTED TO COST.
 Deleting the parent check outright leaves every test in this file green and
-flags no fleet module: those eighteen only ever reach `journal.open_run_bag`,
+flags no fleet module: those twenty-two reach only `journal.open_run_bag` and
+Phase 3's `journal_emit.current_emitter` / `paired_write`,
 which is in neither `STORE_MODULES` nor `STORE_IO_NAMES`, so a reach-based
 matcher never looks at them. The trap is structurally unreachable rather than
 narrowly avoided — and the guard against it is therefore untestable through the
@@ -280,7 +285,7 @@ def _package_bindings(tree: ast.AST) -> dict[str, int]:
     the whole difficulty. Eighteen fleet modules write
     `from modules.journal import journal_activities as journal`, which binds the
     ACTIVITIES module to the name `journal` and reaches nothing — so a matcher
-    reading the identifier text fails the unmodified tree eighteen times over.
+    reading the identifier text fails the unmodified tree nineteen times over.
     What is collected here is the prefix through which the package's attributes
     become reachable:
 
@@ -301,7 +306,7 @@ def _package_bindings(tree: ast.AST) -> dict[str, int]:
     modules.assistant as ma` reaches nothing and must stay out. Both halves are
     controlled below, in each direction.
 
-    Two independent checks keep a non-package binding out, and the eighteen
+    Two independent checks keep a non-package binding out, and the nineteen
     `journal_activities as journal` entrypoints happen to trip both — so neither
     can be observed through them. `alias.name` (never the asname) rejects
     `from modules import journal_activities as journal`; `node.module` rejects
@@ -492,7 +497,7 @@ def test_the_sweep_is_not_vacuous() -> None:
     """A sweep that examined nothing satisfies the assertion above exactly.
 
     THE FLOOR IS PER DIRECTORY, AND A SINGLE AGGREGATE FLOOR IS WHAT THIS FILE
-    SHIPPED FIRST. `modules/` alone holds 60 of the 82, so a total-only floor of
+    SHIPPED FIRST. `modules/` alone holds 61 of the 83, so a total-only floor of
     fifty stayed green with `scripts/` — all 22 of its modules — dropped from
     the population entirely. That is the failure this control exists to catch,
     passing the control: a guard whose SCOPE has halved reports the same green
@@ -507,7 +512,7 @@ def test_the_sweep_is_not_vacuous() -> None:
                  if (FLEET_ROOT / name) in p.parents]
         assert len(found) >= floor, (
             f"only {len(found)} modules discovered under {FLEET_ROOT / name}; "
-            f"this fleet has 60 under modules/ (outside the journal package) "
+            f"this fleet has 61 under modules/ (outside the journal package) "
             f"and 22 under scripts/. The predicate has drifted from the tree "
             f"and the absence above proves nothing about this half of it.")
 
@@ -606,7 +611,7 @@ def test_the_SUBMODULE_AS_A_NAME_bypass_is_caught(tmp_path) -> None:
 
     `from modules.journal import content_store` names the package, not the
     module, and binds the module anyway — so neither a dotted-path check nor a
-    re-exported-function-name check sees it. It is also how eighteen fleet
+    re-exported-function-name check sees it. It is also how nineteen fleet
     modules already import a journal submodule, which is what makes it the
     likeliest bypass rather than an exotic one.
     """
@@ -903,9 +908,10 @@ def test_the_FLEET_IDIOM_binding_journal_to_the_activities_module_is_NOT_flagged
 
     ⚠ WHY THE PRIMARY ASSERTION IS ON THE FUNCTION AND NOT ON THE SWEEP, WHICH
     IS WHERE IT WAS FIRST WRITTEN. Deleting the parent check was expected to fail
-    this file loudly and to flag eighteen fleet modules. MEASURED, IT DOES
+    this file loudly and to flag nineteen fleet modules. MEASURED, IT DOES
     NEITHER: every test stayed green and the real-tree sweep named nothing,
-    because those eighteen call sites only reach `journal.open_run_bag`, which is
+    because those twenty-two call sites reach only `journal.open_run_bag` and
+    the emit boundary, neither of which is
     in neither name set. So a control routed through the sweep over THE REAL TREE
     is vacuous — it would begin discriminating only once some module writes
     `journal.load_object` off the activities alias, which is the moment the guard
@@ -951,7 +957,7 @@ def test_the_FLEET_IDIOM_binding_journal_to_the_activities_module_is_NOT_flagged
     # AND THE ONE `alias.name` ALONE HOLDS. This clears the parent check —
     # `modules` IS the package's parent — so only matching the original name
     # rather than the asname keeps it out. It is the isolated form of the
-    # eighteen entrypoints, which trip both checks at once and therefore
+    # nineteen entrypoints, which trip both checks at once and therefore
     # demonstrate neither.
     aliased_sibling = ast.parse(
         "from modules import journal_activities as journal\n")
@@ -1118,7 +1124,7 @@ def _journal_submodule_call_sites() -> dict[str, set[str]]:
 
     `from modules.journal import journal_activities as journal` and its two
     cousins. Derived rather than remembered: this file's prose rests on "the
-    eighteen call sites" and "the sixteen entrypoints", and a count with nothing
+    nineteen call sites" and "the sixteen entrypoints", and a count with nothing
     on the other end of it is what shipped wrong four times in this package.
     """
     submodules = {path.stem for path in BOUNDARY_DIR.glob("*.py")} - {"__init__"}
@@ -1186,12 +1192,12 @@ def test_the_FIGURES_this_files_prose_rests_on_are_DERIVED() -> None:
 
     # AND THE MAP'S COPY OF THE SAME FIGURES, because that is the surface where
     # one of them shipped FALSE — `docs/file_structure.txt` said `content_store`
-    # was the entrypoints' spelling in eighteen places, and no fleet module
+    # was the entrypoints' spelling in nineteen places, and no fleet module
     # imports `content_store` as a name at all. `test_journal_prose_figures_are_
     # DERIVED` sweeps that file but recognises only entrypoint-population forms,
     # so these figures sit in the one gap between the two guards.
     # ⚠ EVERY OCCURRENCE, NOT THE FIGURE'S PRESENCE SOMEWHERE. This assertion
-    # first asked whether `"eighteen call"` appeared in the annotation, and a
+    # first asked whether `"nineteen call"` appeared in the annotation, and a
     # mutation falsifying ONE of its three copies stayed green because the other
     # two still matched — predicted one red, observed zero. A presence check over
     # a repeated figure is exactly the vacuity this file is about, so each

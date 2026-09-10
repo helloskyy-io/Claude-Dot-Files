@@ -20,18 +20,20 @@ rather than remembered:
 
 Four instances, four different files, three different corpora, one shape.
 Enumerating them has not converged in five attempts. The repository already
-gates this class in three places and the pattern each uses is the same one:
+gates this class in two places and the pattern each uses is the same one:
 DERIVE THE NUMBER, DO NOT REMEMBER IT.
 
   * `test_journal_prose_figures_are_DERIVED.py` — entrypoint-population figures
     in the journal package, bound sentence-by-sentence to derivers.
   * `testing/scripts/tests/unit/test_measurement_figures_are_cited.py` — a
     cite-don't-restate rule for the phase docs that opt in.
-  * `testing/scripts/tests/unit/test_candidates_prose_matches_the_table.py` —
-    every declared total in `candidates.md` § Where things stand.
 
-The guards under `tests/unit/` were the fourth corpus and had no gate at all,
-which is why the defect kept landing there. This is that gate.
+A third was listed here — a gate over `candidates.md` § Where things stand — and
+it was deleted in `91925af` together with that corpus, when the candidates store
+became `tracked/candidates/`. The bullet outlived both.
+
+The guards under `tests/unit/` had no gate at all, which is why the defect kept
+landing there. This is that gate.
 
 WHAT IT KEYS ON, AND WHY THE SCOPE IS THIS NARROW. Prose that counts a
 collection the same module DEFINES — "the 12 names in `_WITHOUT_A_CONTROL_YET`",

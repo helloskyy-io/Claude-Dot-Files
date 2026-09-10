@@ -49,13 +49,22 @@ That is the failure this whole PR is about, committed by the file that states
 the rule: a coverage claim must either be a derived assertion that goes red, or
 must not be written as a universal. This file takes the first arm for its
 population and the second arm for its recogniser's boundary, and says which is
-which below. The repository gates this class in four corpora now —
+which below. The repository gates this class in three corpora now —
 `test_journal_prose_figures_are_DERIVED.py` for the journal package,
 `testing/scripts/tests/unit/test_measurement_figures_are_cited.py` for the
-phase docs that opt in, `test_candidates_prose_matches_the_table.py` for
-`candidates.md`, and `test_a_prose_COUNT_of_a_collection_is_DERIVED.py`, added
-alongside this correction, for prose in this directory that counts a collection
-the same module defines. That last one is what holds the one figure below.
+phase docs that opt in, and `test_a_prose_COUNT_of_a_collection_is_DERIVED.py`,
+added alongside this correction, for prose in this directory that counts a
+collection the same module defines. That last one is what holds the one figure
+below.
+
+⚠ AND THIS SENTENCE SAID `four`, NAMING A GATE DELETED IN `91925af` ALONGSIDE
+THE `candidates.md` CORPUS IT HELD — inside the file whose whole thesis is that
+an unbacked prose count of a collection must not be written as a universal. The
+count was wrong AND was the exact shape its neighbour exists to forbid.
+`test_EVERY_TEST_MODULE_PROSE_CITES_EXISTS` in
+`testing/scripts/tests/unit/test_prose_NAMES_a_symbol_that_RESOLVES.py` is the
+class check added with this correction, because the deleted name was cited at
+seven sites and correcting them one at a time is what has never converged.
 
 WHAT THIS GUARD DOES NOT LOOK AT:
 
@@ -210,7 +219,23 @@ _HERE = Path(__file__).resolve().parent
 # because it ships its own literal control: the shipped arrangement, the
 # corrected one, a function that never cuts, and a call that legitimately
 # needs the worktree.
-_PINNED = (44, 34)
+# 44 -> 45 and 34 -> 35 when a `build-refine` pass added
+# `test_shared_vocabulary_is_declared_once.py` — the test `modules/vocabulary.py`
+# had CITED while it did not exist, which is why the module's one invariant was
+# held by a paragraph. BOTH numbers moved because it arrived WITH its control:
+# six literal snippets drive its re-declaration predicate, and the two that
+# matter are an `import` (which binds the same name a declaration does, so
+# `hasattr` cannot tell them apart) and a DOCSTRING naming the class (the
+# substring bug a text scan gets wrong in the other direction).
+# 45 -> 46 and 35 -> 36 when the SECOND `build-refine` pass gave
+# `test_journal_emit.py` a walk over the production tree — the case-(d) channel
+# table's deriver, which asks every non-test module whether it passes
+# `case_d_report=True`. BOTH numbers moved because it arrived with its control:
+# three literal snippets, and the two that matter are a DOCSTRING mentioning the
+# flag (the substring bug this package has already met twice, once in `gh_attempt`
+# itself where reading the flag off the content skipped the journal entirely) and
+# a call passing it `False`.
+_PINNED = (46, 36)
 
 
 # GRANDFATHERED — walks the tree, has no literal control, PREDATES this rule.

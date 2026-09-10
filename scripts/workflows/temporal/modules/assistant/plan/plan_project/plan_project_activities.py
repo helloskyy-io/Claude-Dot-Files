@@ -52,6 +52,8 @@ import re
 from pathlib import Path
 from typing import NamedTuple
 
+from ....journal import emit as journal_emit
+from ....journal.events import Destination, Provenance
 from .. import plan_activities as act
 
 # Strips the leading marker so a section name is just its name.
@@ -371,16 +373,52 @@ def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> Scaf
             else:
                 result.extends.append((row.id, slug))
             continue
-        pool.mkdir(parents=True)
-        # `encoding` explicitly: the seed carries em dashes, and this is the one
-        # place in the family that WRITES rather than reads. A read that fails on
-        # a narrow locale fails before anything exists; a write that fails leaves
-        # the directory `mkdir` just made, half-built and indistinguishable from
-        # a component somebody is working on.
-        (pool / "synthesis.md").write_text(_seed(row, slug), encoding="utf-8")
+        # THE `mkdir` IS INSIDE THE EMIT, NOT ABOVE IT — see `_write_seed`. Run
+        # here, it produced a directory a failed journal write could not
+        # withhold, which is the half-built state the comment below is about.
+        _write_seed(pool / "synthesis.md", _seed(row, slug))
         result.created.append(slug)
 
     return result
+
+
+def _write_seed(path: Path, text: str) -> None:
+    """Seed one research pool, emitting the intent before the file exists.
+
+    PMP PHASE 3 REQUIREMENT 1: this is a fleet-code write to a store — the
+    planning corpus — so it emits. It is the only such write in the plan family
+    and it is easy to miss precisely because it does not look like one: no `gh`,
+    no `tracked/` item, just a `write_text` inside a loop. That is the class
+    requirement 9's enumeration exists to find, and Phase 4's rebuild test is
+    what keeps it found after this phase closes.
+
+    ⚠ THE DIRECTORY IS CREATED INSIDE `perform`, WHICH IS THE POINT. Created by
+    the caller, it was a write-ahead hole: a failed journal write left an empty
+    pool directory the record does not mention, half-built and
+    indistinguishable from a component somebody is working on — the caller's own
+    comment named that state as the failure it cares about. Inside `perform`,
+    nothing on disk moves unless the intent landed first.
+
+    `encoding` EXPLICITLY: the seed carries em dashes and this is the one place
+    in the plan family that WRITES rather than reads, so a narrow locale would
+    fail here rather than before anything existed.
+    """
+    def _perform() -> Path:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    emitter = journal_emit.current_emitter()
+    if emitter is None:
+        _perform()
+        return
+    emitter.paired_write(
+        write_path="planning:research-pool:seed",
+        destination=Destination(store="planning_corpus"),
+        content=text,
+        provenance=Provenance.FLEET_AUTHORED,
+        perform=_perform,
+        address_of=lambda written: str(written))
 
 
 def _is_unresearched(pool: Path) -> bool:
