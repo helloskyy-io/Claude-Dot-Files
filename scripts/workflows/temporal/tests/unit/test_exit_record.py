@@ -1933,6 +1933,13 @@ _WORKFLOW_MODULE_FUNCTIONS = {
     # rather than inline because BOTH the success path and the failure path
     # must run identical code — see its docstring and C-45bhs5cm.
     "_append_shadow_pair",
+    # NOT record-to-string and NOT deferred work either: it makes an ACTIVITY
+    # CALL (`pr_review_blocks`) against the PR this orchestration is reviewing,
+    # so it needs the PR number and the checkout — which is exactly what this
+    # layer holds and the pure layer does not. Same reason as
+    # `_read_thread_for_invariant` directly above it, and it falls back to the
+    # log surface when the thread cannot be read.
+    "_prose_shadow",
 }
 
 
