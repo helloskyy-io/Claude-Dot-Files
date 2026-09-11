@@ -109,14 +109,37 @@ WHAT THIS GATE DOES NOT LOOK AT. Stated here so nobody over-reads a green suite:
   * It does not reach INSIDE a ruled-out directory. `scripts/workflows/
     temporal/scripts/` is the one ruled out for being unruled rather than for
     a property of its own — see `RULED_OUT` — and `compare_run_config.py`
-    in it has no documented operator entry.
+    in it has no documented operator entry. ONE producer in it IS ruled, by
+    name: Phase 4's dispatch-context ECHO (`RunContext.echo`, shipped
+    2026-09-01), which the phase doc records as *a producer this gate is
+    expected to cover*. Its consumer is the operator reading stderr — the
+    human-only class — and that every entrypoint emits it is HELD BY ANOTHER
+    GATE (`HELD_BY`). #170 recorded the echo as un-landed; it had landed.
+  * It does not see a RECORD A RUN WRITES FOR A LATER RUN — a journal bag and
+    its tags, a typed exit record, the run log. Those are written under a
+    configured root OUTSIDE any tracked tree, so a `git ls-files` walk cannot
+    reach them, and the phase's own table calls this class *"probably in, and
+    this is where the real value is"*. It is NOT ruled here. What IS held:
+    the run log's writers equal its declaration (`HELD_BY`), and its readers
+    are the `measure/` tools, a ruled-in surface. The bag's readers —
+    `validate_bag.py`, `verify_citations.py`, `compare_run_config.py` — and
+    the exit record's reader, `review_pr/exit_record.py`, are named machine
+    readers invoked on demand (requirement 2's shape) that no check here
+    opens. Ruling that class is the extension after `temporal/scripts/`.
+  * A "HELD BY ANOTHER GATE" claim is a cross-file coverage claim, and one
+    whose holder was renamed covers nothing while reading as if it did. So
+    every holder is registered in `HELD_BY` and asserted to resolve to a test
+    function that exists, and a holder named in a ruling's prose must be in
+    that registry.
   * It does not DELETE an unread producer. Finding one is the output; ruling
     what happens to it is a separate decision with its own criteria. The four
     findings this sweep produced are baselined, not fixed, for that reason.
   * On a clone with no sibling planning repo the `tracked/` surface and the
     bash-workflow surface SKIP. That is a real coverage gap rather than a
-    neutral fallback (`C-8z8v04wk`); CI has both repos side by side, which is
-    where this is green.
+    neutral fallback (`C-8z8v04wk`), and THE GITHUB RUNNER IS SUCH A CLONE —
+    it checks out this repo alone, so those two surfaces assert nothing
+    there. The runner with both repos side by side is the planned own-CI
+    that candidate names, not the one that gates merges today.
 """
 
 from __future__ import annotations
@@ -176,13 +199,30 @@ def _names(member: str, text: str) -> bool:
     return re.search(rf"(?<![\w.-]){re.escape(member)}(?![\w.-])", text) is not None
 
 
+def _strip_trailing_comment(line: str) -> str:
+    """`line` up to a `#` that starts a comment: preceded by whitespace and
+    OUTSIDE quotes. `"PR #${pr}"` is not a comment and the invocation after it
+    is live — `wait-for-ci.sh` carries exactly that shape, which the first
+    version of this (a bare whitespace-then-`#`-to-end-of-line strip) cut the
+    line at. `${VAR#pat}` is left alone by the whitespace requirement."""
+    quote = None
+    for i, ch in enumerate(line):
+        if quote:
+            if ch == quote:
+                quote = None
+        elif ch in "\"'":
+            quote = ch
+        elif ch == "#" and i > 0 and line[i - 1].isspace():
+            return line[:i]
+    return line
+
+
 def _code_lines(text: str) -> str:
     """A shell file with its comments removed — whole comment lines AND a
     trailing `# ...` on a code line — so a header that merely describes a
     sibling, or `noop  # replaces activities/x.sh`, does not count as
-    consuming it. The trailing strip needs whitespace before the `#`, so a
-    parameter expansion like `${VAR#prefix}` is left alone."""
-    return "\n".join(re.sub(r"\s+#.*$", "", l)
+    consuming it."""
+    return "\n".join(_strip_trailing_comment(l)
                      for l in text.splitlines() if not l.lstrip().startswith("#"))
 
 
@@ -272,6 +312,28 @@ def _dirs(root: Path) -> set[str]:
 
 # --- derived-consumer predicates, one per invocation shape --------------------
 #
+# THREE corpus functions below are `lru_cache`d and read the module-level
+# `_REPO`. A control that repoints `_REPO` at a fixture must clear ALL of them,
+# before and after — clearing only the one it happens to call leaves a fixture-
+# derived result cached for the rest of the process the day a later edit adds a
+# second call. The `repo_at` fixture is the one way a control repoints the module.
+
+def _clear_corpus_caches() -> None:
+    for fn in (_dispatch_corpus, _bash_corpus, _operator_docs):
+        fn.cache_clear()
+
+
+@pytest.fixture
+def repo_at(monkeypatch):
+    """Point the module at a fixture tree for one test. `monkeypatch` undoes
+    the attribute on teardown but cannot undo a cache fill, so the caches are
+    cleared here on entry AND on exit."""
+    def _set(root: Path) -> None:
+        _clear_corpus_caches()
+        monkeypatch.setattr(sys.modules[__name__], "_REPO", root)
+    yield _set
+    _clear_corpus_caches()
+#
 # Each takes a member name and returns the repo-relative files that consume it.
 # Each has a self-contained control below, because a predicate that is wrong
 # in the permissive direction passes every member silently.
@@ -327,6 +389,15 @@ def _sourced_or_run_by(lib: str) -> list[str]:
     return _found_in(corpus, lib, text_of=lambda p: _code_lines(_text(p)))
 
 
+def _reads_from_services_dir(text: str, unit: str) -> bool:
+    """`text` opens `unit` under `$SERVICES_DIR` — `$SERVICES_DIR/x`,
+    `${SERVICES_DIR}/x` or the quote-closed `"$SERVICES_DIR"/x`. The last is
+    not in `install.sh` today; it is the idiom a quoting edit would produce,
+    and without it every service would flip to unread on that edit."""
+    pat = rf"\$\{{?SERVICES_DIR\}}?\"?/{re.escape(unit)}(?![\w.-])"
+    return re.search(pat, text) is not None
+
+
 def _installed_from_repo(unit: str) -> list[str]:
     """A service file is consumed by `install.sh` reading it FROM THE REPO —
     a `$SERVICES_DIR/<name>` reference. A bare mention is not enough, and the
@@ -334,8 +405,7 @@ def _installed_from_repo(unit: str) -> list[str]:
     `gh-monitor.service` as the file it GENERATES under `$SYSTEMD_DIR`, and
     never opens the repo's copy of it."""
     text = _text(_REPO / "install.sh")
-    pat = rf"\$\{{?SERVICES_DIR\}}?/{re.escape(unit)}(?![\w.-])"
-    return ["install.sh"] if re.search(pat, text) else []
+    return ["install.sh"] if _reads_from_services_dir(text, unit) else []
 
 
 def _frameworks_in_run_all(text: str) -> set[str]:
@@ -503,7 +573,13 @@ SURFACES = [
 ]
 
 _BY_NAME = {s.name: s for s in SURFACES}
-_ROOTS = {_rel(s.root) for s in SURFACES if s.root.is_relative_to(_REPO)}
+#: The ruled-in roots the fleet walk must reach: the surfaces of THIS repo.
+#: Keyed on "not under the planning repo" rather than on "under this repo",
+#: because with no sibling checkout `PLANNING_ROOT` falls back to a path INSIDE
+#: this tree — `tests/__no_planning_repo__/` — and the first form then demanded
+#: the walk reach a directory that exists on no runner. That was red on the
+#: GitHub runner and green on every machine with both repos, on the draft.
+_ROOTS = {_rel(s.root) for s in SURFACES if not s.root.is_relative_to(PLANNING_ROOT)}
 
 
 # --- the fleet: every directory is ruled ---------------------------------------
@@ -540,7 +616,11 @@ RULED_OUT = {
         "by import. Ruling the entrypoints against a documented operator entry "
         "— the claim made of the bash workflows — is the next extension; "
         "`compare_run_config.py` is named by nothing but tests and would be "
-        "its first finding",
+        "its first finding. ONE producer here is ruled by name: the "
+        "dispatch-context echo every entrypoint emits to stderr, whose reader "
+        "is the operator (human-only) and whose presence at every entrypoint "
+        "is HELD BY ANOTHER GATE: `test_every_entrypoint_BUILDS_a_context_"
+        "and_SAYS_IT`",
     "testing/config-hooks": "tests for `config/hooks/`, read by the runner — "
                             "placed here rather than beside the hooks for the "
                             "reason its README records",
@@ -572,6 +652,100 @@ CONTAINERS = {
 #: system. The Testing Standard's `<component>/tests/<category>/` convention is
 #: what makes a name-keyed class rule safe here.
 TESTS_DIR = "tests"
+
+#: Surfaces this gate does NOT hold itself, with the test that DOES: claim ->
+#: (test module, repo-relative; test function name). Every ruling above that
+#: says "HELD BY ANOTHER GATE" is a cross-file coverage claim, and a holder that
+#: was renamed or deleted leaves the claim covering nothing while it still
+#: reads as if it did — the highest-severity shape a load-bearing sentence can
+#: take, because it stops the next reader from checking. So each holder is
+#: asserted to resolve, by file AND by function name, and a `test_*` name in a
+#: ruling's prose must appear here (`test_every_HOLDER_named_in_a_ruling_is_
+#: REGISTERED`). Registering a holder claims only that the named test EXISTS
+#: and holds THAT surface — not that it is any good, which is the same weaker
+#: claim this whole gate makes.
+HELD_BY: dict[str, tuple[str, str]] = {
+    "the repo map, docs/file_structure.txt — population off git ls-files": (
+        "testing/scripts/tests/unit/test_file_structure_map_covers_the_tree.py",
+        "test_a_directory_the_map_ENUMERATES_is_enumerated_COMPLETELY"),
+    "the shared prompt pool — every fragment render-checked by a consumer": (
+        "scripts/workflows/temporal/tests/unit/"
+        "test_promoted_fragments_render_for_every_consumer.py",
+        "test_every_POOL_fragment_is_render_checked_by_some_consumer"),
+    "the prompt corpus — every placeholder has a supplier": (
+        "scripts/workflows/temporal/tests/unit/test_prompt_completeness.py",
+        "test_every_placeholder_has_a_supplier"),
+    "the shim<->runner pairs under temporal/scripts/": (
+        "scripts/workflows/temporal/tests/unit/test_shim_usage_names_itself.py",
+        "test_every_usage_line_invokes_this_shim"),
+    "Phase 4's dispatch-context echo, at every entrypoint": (
+        "scripts/workflows/temporal/tests/unit/test_dispatch_context.py",
+        "test_every_entrypoint_BUILDS_a_context_and_SAYS_IT"),
+    "the run log's WRITERS equal its declaration (its readers are measure/)": (
+        "scripts/helpers/tests/unit/test_run_log.py",
+        "test_the_declared_member_set_is_EXACTLY_what_the_fleet_writes"),
+}
+
+
+def _unresolved_holders(held_by: dict, *, repo: Path) -> list[str]:
+    """Registry entries whose module is missing or whose function is not
+    defined in it. The failure a renamed holder produces, made loud."""
+    out = []
+    for claim, (module, func) in held_by.items():
+        path = repo / module
+        if not path.is_file():
+            out.append(f"{claim}: {module} is not on disk")
+        elif not re.search(rf"^def {re.escape(func)}\(", _text(path), re.M):
+            out.append(f"{claim}: {module} defines no `{func}`")
+    return out
+
+
+_TEST_NAME_IN_PROSE = re.compile(r"`(test_[A-Za-z0-9_]+(?:\.py)?)`")
+
+
+def _unregistered_holders(prose: list[str], held_by: dict) -> list[str]:
+    """Backticked `test_*` names in ruling prose that the registry does not
+    carry, by module basename or by function name. A holder named only in
+    a sentence is the unasserted claim the registry exists to replace."""
+    known = set()
+    for module, func in held_by.values():
+        known.add(Path(module).name)
+        known.add(func)
+    return sorted({name for text in prose for name in _TEST_NAME_IN_PROSE.findall(text)
+                   if name not in known})
+
+
+def test_every_HOLDER_of_a_surface_this_gate_defers_to_RESOLVES() -> None:
+    """A "held by another gate" ruling whose holder is gone covers nothing."""
+    assert HELD_BY, "the registry is empty — every deferral above is unbacked"
+    assert _unresolved_holders(HELD_BY, repo=_REPO) == []
+
+
+def test_every_HOLDER_named_in_a_ruling_is_REGISTERED() -> None:
+    """The RULINGS, not the module docstring: the docstring cites a deleted
+    module as history (`test_prose_NAMES_a_symbol_that_RESOLVES.py` holds
+    that citation by site), and a ruling is where a holder is load-bearing."""
+    prose = [*RULED_OUT.values(), *CONTAINERS.values()]
+    assert _unregistered_holders(prose, HELD_BY) == [], (
+        "a ruling names a holder by prose alone — add it to HELD_BY so the "
+        "claim is asserted rather than read"
+    )
+
+
+def test_the_HOLDER_checks_fire_on_a_missing_module_a_missing_function_and_prose(tmp_path: Path) -> None:
+    """Self-contained control: one real holder, one module that is not there,
+    one module that is there without the function, and one name in prose the
+    registry does not carry."""
+    (tmp_path / "t_ok.py").write_text("def test_ok() -> None:\n    pass\n")
+    (tmp_path / "t_nofn.py").write_text("def test_other() -> None:\n    pass\n")
+    reg = {"ok": ("t_ok.py", "test_ok"),
+           "gone": ("t_gone.py", "test_ok"),
+           "nofn": ("t_nofn.py", "test_ok")}
+    bad = _unresolved_holders(reg, repo=tmp_path)
+    assert [b.split(":")[0] for b in bad] == ["gone", "nofn"], bad
+    assert _unregistered_holders(["held by `test_ok`, see `t_ok.py`"], reg) == []
+    assert _unregistered_holders(["held by `test_ok` and `test_vanished`"], reg) == ["test_vanished"], \
+        "a holder named in prose and absent from the registry was not reported"
 
 
 def _tracked_dirs() -> set[str]:
@@ -638,21 +812,40 @@ def test_every_DIRECTORY_in_the_repo_is_RULED() -> None:
     )
 
 
+def _ruling_defects(*, out: dict, containers: dict, roots: set,
+                    is_dir: Callable[[str], bool]) -> list[str]:
+    """The three ways the ruling tables can be wrong about themselves: a
+    ruling whose directory is gone (covers nothing after a rename), a
+    directory in two tables (one ruling silently wins), and the repo root
+    ruled OUT (one line covers everything — the vacuous pass)."""
+    defects = [f"{rel}: ruled by name but not a directory on disk — renamed or "
+               f"removed; update the ruling or it covers nothing"
+               for rel in [*out, *containers] if not is_dir(rel)]
+    twice = (set(out) & set(containers)) | (set(out) & roots) | (set(containers) & roots)
+    defects += [f"{rel}: ruled more than once" for rel in sorted(twice)]
+    if "." in out:
+        defects.append(".: the repo root ruled OUT covers every directory with "
+                       "one line, which is the vacuous pass this refuses")
+    return defects
+
+
 def test_every_RULING_still_has_a_subject_and_rules_ONE_thing() -> None:
     """A ruling outliving its directory is how a gate stops covering a rename;
     a directory in two lists is how one ruling silently wins."""
-    for rel in [*RULED_OUT, *CONTAINERS]:
-        assert (_REPO / rel).is_dir(), (
-            f"{rel} is ruled by name but is not a directory on disk — renamed "
-            f"or removed. Update the ruling, or it covers nothing."
-        )
-    twice = (set(RULED_OUT) & set(CONTAINERS)) | (set(RULED_OUT) & _ROOTS) \
-        | (set(CONTAINERS) & _ROOTS)
-    assert not twice, f"ruled more than once: {sorted(twice)}"
-    assert "." not in RULED_OUT, (
-        "ruling the repo root OUT would cover every directory with one line, "
-        "which is the vacuous pass this check exists to refuse"
-    )
+    assert _ruling_defects(out=RULED_OUT, containers=CONTAINERS, roots=_ROOTS,
+                           is_dir=lambda rel: (_REPO / rel).is_dir()) == []
+
+
+def test_the_RULING_INTEGRITY_check_fires_on_each_of_its_three_defects() -> None:
+    """Self-contained control: a conformant pair of tables reports nothing;
+    a stale subject, a double ruling and a root OUT ruling each report once."""
+    ok = _ruling_defects(out={"a": "r"}, containers={"c": "r"}, roots={"s"},
+                         is_dir=lambda rel: True)
+    assert ok == []
+    bad = _ruling_defects(out={"a": "r", "gone": "r", ".": "r"},
+                          containers={"c": "r", "a": "r"}, roots={"c"},
+                          is_dir=lambda rel: rel != "gone")
+    assert [d.split(":")[0] for d in bad] == ["gone", "a", "c", "."], bad
 
 
 def test_the_RULING_LOOKUP_fires_on_an_unruled_directory_and_honours_precedence() -> None:
@@ -964,15 +1157,18 @@ def test_a_HOOK_not_in_settings_is_found_by_nothing() -> None:
         assert _declared_in_settings(hook) == ["config/settings.json"], hook
 
 
-def test_a_SOURCE_line_counts_and_a_HEADER_COMMENT_does_not(tmp_path: Path, monkeypatch) -> None:
+def test_a_SOURCE_line_counts_and_a_HEADER_COMMENT_does_not(tmp_path: Path, repo_at) -> None:
     """Control for the bash-library predicate, on a corpus built here.
 
     The fixture varies the SHAPE: one file sources the library, one runs it as
     a command, one only describes it in a comment, one names it in a TRAILING
     comment on a live line (the shape review found the first `_code_lines`
     blind to), one invokes it after a `#` that is a parameter expansion
-    rather than a comment, and the library names itself in its own header.
-    Three are consumers: the source, the command, and the expansion line.
+    rather than a comment, one invokes it after a `#` INSIDE A QUOTED STRING
+    (the `"PR #${pr}"` shape `wait-for-ci.sh:36` carries, which a quote-blind
+    strip cuts the line at), and the library names itself in its own header.
+    Four are consumers: the source, the command, the expansion line and the
+    quoted-`#` line.
     """
     w = tmp_path / "scripts" / "workflows"
     (w / "activities").mkdir(parents=True)
@@ -985,15 +1181,13 @@ def test_a_SOURCE_line_counts_and_a_HEADER_COMMENT_does_not(tmp_path: Path, monk
     # line: if the trailing-comment strip fired on it, the invocation would
     # vanish and e.sh would wrongly drop out of the consumers.
     (w / "e.sh").write_text('X="${Y#pre}" "${SCRIPT_DIR}/common/lib.sh"\n')
+    (w / "f.sh").write_text('echo "PR #${pr} gone"; source "${SCRIPT_DIR}/activities/lib.sh"\n')
     (w / "activities" / "lib.sh").write_text("# lib.sh — usage: source activities/lib.sh\n")
-    monkeypatch.setattr(sys.modules[__name__], "_REPO", tmp_path)
-    _bash_corpus.cache_clear()
-    try:
-        assert _sourced_or_run_by("lib.sh") == ["scripts/workflows/a.sh",
-                                                "scripts/workflows/b.sh",
-                                                "scripts/workflows/e.sh"]
-    finally:
-        _bash_corpus.cache_clear()
+    repo_at(tmp_path)
+    assert _sourced_or_run_by("lib.sh") == ["scripts/workflows/a.sh",
+                                            "scripts/workflows/b.sh",
+                                            "scripts/workflows/e.sh",
+                                            "scripts/workflows/f.sh"]
 
 
 def test_every_DERIVED_consumer_path_is_one_the_RATCHET_can_see(surface: Surface) -> None:
@@ -1026,6 +1220,15 @@ def test_a_SERVICE_counts_only_when_install_sh_reads_it_FROM_THE_REPO() -> None:
         "a $SYSTEMD_DIR mention counted as reading the repo's copy"
     assert _installed_from_repo("gh-monitor.sh") == ["install.sh"]
     assert _installed_from_repo("gh-monitor.timer") == ["install.sh"]
+    # The three spellings of "open it from the repo", and the two that are not.
+    for live in ('ln -sf "$SERVICES_DIR/x.timer" "$T"',
+                 'ln -sf "${SERVICES_DIR}/x.timer" "$T"',
+                 'ln -sf "$SERVICES_DIR"/x.timer "$T"'):
+        assert _reads_from_services_dir(live, "x.timer"), live
+    assert not _reads_from_services_dir('cat > "$SYSTEMD_DIR/x.timer"', "x.timer"), \
+        "the file install.sh WRITES counted as one it reads"
+    assert not _reads_from_services_dir('"$SERVICES_DIR/x.timer.bak"', "x.timer"), \
+        "a longer name counted"
 
 
 def test_a_SUITE_counts_only_when_its_stem_is_in_FRAMEWORKS() -> None:
@@ -1145,7 +1348,7 @@ def test_a_named_invoker_RESOLVES_and_MENTIONS_the_tool() -> None:
     accepting, nothing empties it, and under a name-only check no suite goes red.
     """
     surface = _BY_NAME["scripts/helpers/"]
-    checked = 0
+    verified: set[str] = set()
     for tool, cell in _listed(surface).items():
         if tool in surface.unread:
             continue
@@ -1172,17 +1375,19 @@ def test_a_named_invoker_RESOLVES_and_MENTIONS_the_tool() -> None:
                 f"This is the failure the cell exists to catch: the invocation "
                 f"was dropped and the table still claims it."
             )
-            checked += 1
-    # MEASURED AGAINST DISK, NOT AGAINST THE TABLE. Comparing against
-    # `_listed()` — the same dict the loop just walked — cannot fail: every row
-    # that survived `assert paths` above already incremented `checked`. Read off
-    # disk it CAN fail, and the case it catches is the one that matters: a
-    # README whose table stops parsing yields zero rows, an empty loop, and a
-    # green result from a check that opened nothing.
-    assert checked >= len(_population(surface)) - len(surface.unread), (
-        f"only {checked} invocations were opened for {len(_population(surface))} "
-        f"tools on disk — this check scoped itself to nothing and would pass "
-        f"vacuously"
+        verified.add(tool)
+    # MEASURED AGAINST DISK, NOT AGAINST THE TABLE, AND BY TOOL, NOT BY PATH.
+    # Comparing against `_listed()` — the dict the loop just walked — cannot
+    # fail. Counting PATHS opened cannot fail the right way either: a tool with
+    # three invokers covers for two rows that dropped out of the parse. So the
+    # set of tools verified must equal the population on disk less the
+    # baselined ones — a README whose table half-parses shows up as the
+    # missing names, not as a count that still clears a floor.
+    expected = _population(surface) - set(surface.unread)
+    assert verified == expected, (
+        f"tools on disk whose invoker was never opened: "
+        f"{sorted(expected - verified)} — this check scoped itself past them "
+        f"and would have passed vacuously"
     )
 
 
@@ -1270,7 +1475,7 @@ def test_the_RATCHET_fires_when_a_baselined_member_is_wired_up() -> None:
         "a real, resolving, tool-mentioning invoker did not force the line out"
 
 
-def test_the_RATCHET_fires_on_a_DERIVED_surface_too(tmp_path: Path, monkeypatch) -> None:
+def test_the_RATCHET_fires_on_a_DERIVED_surface_too(tmp_path: Path, repo_at) -> None:
     """The derived cell is built by the gate, so the control must go through
     `_listed` rather than hand a cell in: a baselined member whose predicate
     now finds a real, resolving, member-mentioning consumer must be reported
@@ -1287,7 +1492,7 @@ def test_the_RATCHET_fires_on_a_DERIVED_surface_too(tmp_path: Path, monkeypatch)
     (lib / "frozen.sh").write_text("")
     (lib / "still.sh").write_text("")
     (tmp_path / "uses.sh").write_text("source lib/frozen.sh\n")
-    monkeypatch.setattr(sys.modules[__name__], "_REPO", tmp_path)
+    repo_at(tmp_path)
     probe = Surface(
         name="probe", root=lib, members=_files, accumulates=False,
         consumers=lambda m: ["uses.sh"] if m == "frozen.sh" else [],
