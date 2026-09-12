@@ -293,6 +293,21 @@ claude-dot-files/
 │           │                                        #   registered by open_run_bag rather than threaded through forty signatures, and that trade is
 │           │                                        #   stated at register_emitter — an optional emit is a skipped emit. It reaches FLEET-CODE
 │           │                                        #   writes only; the model-issued half is Phase 10's post-exit harvest
+│           │                                        #   PHASE 10 ADDS THAT HARVEST as two more files here, for the same reason: what they
+│           │                                        #   write is journal events. harvest.py reads a run's GitHub surfaces AFTER the child
+│           │                                        #   exits — the PR body and every comment, two `gh api` GETs per surface, paginated —
+│           │                                        #   and emits each verbatim through unpairable_write, so the capture-time filter is
+│           │                                        #   inherited rather than re-applied. It RESOLVES a run id to an existing open bag and
+│           │                                        #   refuses otherwise (never open_bag, which would create one and attribute the prose
+│           │                                        #   to a guessed id); a surface it cannot read becomes a SURFACE_UNREADABLE gap and an
+│           │                                        #   incomplete flag, and the next surface is still read. The window is stated on a
+│           │                                        #   Journal-Harvest tag and in an index beside the events, and reconcile_surface
+│           │                                        #   measures it later: captured / late / missed / deleted / edited, with only `missed`
+│           │                                        #   failing. Harvest, NOT intercept — a wrapper is only as complete as the paths it
+│           │                                        #   covers and the model chooses its own. harvest_activities.py is the step every
+│           │                                        #   entrypoint invokes in the `finally` around its workflow handoff — the window opens
+│           │                                        #   at CHILD EXIT, so a parent that raised after its child posted still harvests —
+│           │                                        #   resolving the bag (r2) BEFORE the login probe, then deriving root, slug and login once
 │           ├── modules/__init__.py                  # The package marker, and nothing else — every module under modules/ is
 │           │                                        #   imported by its own path, so this file exports nothing and re-exports nothing
 │           ├── modules/vocabulary.py                # ONE DECLARATION per concept the typed exit record and the journal event share
@@ -305,15 +320,17 @@ claude-dot-files/
 │           │                                        #   spelled alike compare UNEQUAL member-to-member while both still serialise to the
 │           │                                        #   same string, so a rebuild diffing them reports a difference that is not one
 │           ├── scripts/                             # Kickoff entrypoints, until an SDK path replaces them — plus preflight.py,
-│           │                                        #   validate_bag.py, verify_citations.py, compare_run_config.py, dispatch_identity.py
-│           │                                        #   and dispatch_context.py,
+│           │                                        #   validate_bag.py, verify_citations.py, compare_run_config.py, reconcile_harvest.py,
+│           │                                        #   dispatch_identity.py and dispatch_context.py,
 │           │                                        #   which are NOT kickoffs: they are what a run checks before, what an operator checks
 │           │                                        #   after (validate_bag asks whether a bag's bytes match its manifest; verify_citations
 │           │                                        #   asks whether the claims in it still stand against the sources they were made from;
 │           │                                        #   compare_run_config asks whether two runs absorbed the same configuration, from the
 │           │                                        #   two bags alone — no network, no live read of ~/.claude, and no cadence: it is run
-│           │                                        #   ON DEMAND when two runs are suspected to disagree),
-│           │                                        #   who NAMES the run, and what the run DERIVED. All six live here because they are
+│           │                                        #   ON DEMAND when two runs are suspected to disagree; reconcile_harvest re-reads the
+│           │                                        #   GitHub surfaces a bag's harvest index names and prints the window's cost with its
+│           │                                        #   denominator — late comments exit 0, a comment that was there and was MISSED exits 1),
+│           │                                        #   who NAMES the run, and what the run DERIVED. All seven live here because they are
 │           │                                        #   launch concerns rather than workflow concerns. None is named run_*.py, and that
 │           │                                        #   is load-bearing — the entrypoint sweeps glob that prefix, so a helper wearing it
 │           │                                        #   is swept as a runner and fails five guards at once (measured 2026-09-01)
@@ -382,6 +399,12 @@ claude-dot-files/
 │               │   │                                #   where no dispatch has run, because a clone has no journal and there is nothing
 │               │   │                                #   honest to assert about that. Does NOT substitute for the entrypoint sweep: a fleet
 │               │   │                                #   where ten of eleven had stopped opening bags would still pass on the eleventh's output
+│               │   ├── test_a_real_harvest.py       # PMP Phase 10's integration tier — one real harvest of a real, merged pull request
+│               │   │                                #   (#175) into a tmp_path bag, the body checked byte-for-byte against a second
+│               │   │                                #   independent `gh` read, and the vendor facts the design rests on (slurped pages,
+│               │   │                                #   the surface's own comment count, per_page honoured) re-read from the live API.
+│               │   │                                #   SKIPS — distinctly from passing — where `gh` is not authenticated: CI carries no
+│               │   │                                #   token by design, so this runs for real only on a machine that dispatches
 │               │   └── test_citations_verify_offline.py # PMP Phase 2 r2 — the offline demonstration, and the network is DENIED rather
 │               │                                    #   than asserted absent: an LD_PRELOAD shim fails socket(), connect() and
 │               │                                    #   getaddrinfo() at the C library, below the code under test. A control fetch runs
@@ -435,7 +458,10 @@ claude-dot-files/
 │                   │                                #   orphaned worktree behind it (#49). Also holds `refuse()` — the family's ONE
 │                   │                                #   operator-facing refusal, extracted 2026-09-02 from 24 byte-identical copies
 │                   │                                #   across the 17 runners AND validate_bag.py / verify_citations.py (which pass
-│                   │                                #   `exit_code=`, the reason the helper takes one) — plus the AST sweep that stops
+│                   │                                #   `exit_code=`, the reason the helper takes one), which since PMP Phase 10 also
+│                   │                                #   prints an exception raised WHILE HANDLING another beneath it (the harvest in a
+│                   │                                #   `finally` must not hide the workflow's error) and walks only the implicit chain,
+│                   │                                #   never an explicit `from` — plus the AST sweep that stops
 │                   │                                #   it being re-inlined. That sweep is the only duplication guard this repo has
 │                   │                                #   over Python: the prompt ratchet's population is `prompts/*.md`
 │                   ├── test_render_opaque_operator_text.py # An operator's literal `${...}` reaches the model UNSUBSTITUTED — two
@@ -827,6 +853,28 @@ claude-dot-files/
 │                   │                                #   test_no_bag_level_version_field_was_invented goes red if a later change quietly settles it.
 │                   │                                #   Also drives the bag-info.txt race from three PROCESSES — an advisory flock is a cross-process
 │                   │                                #   control, so a threading test would exercise the GIL rather than the lock
+│                   ├── test_journal_harvest.py       # PMP Phase 10's mechanism, driven against a FAKE `gh` and REAL bags: references resolve or
+│                   │                                #   are refused (a bare number with no repository is never guessed); r2's three refusals create
+│                   │                                #   nothing; every body lands verbatim as a completion addressed to its URL with the login
+│                   │                                #   deciding provenance; the bag carries the Journal-Harvest tag and an index with no prose in
+│                   │                                #   it; an unreadable surface leaves a SURFACE_UNREADABLE gap naming it, marks the bag, and the
+│                   │                                #   NEXT surface is still read; a credential in a harvested comment is filtered on the same
+│                   │                                #   path with the placeholder beside it; pages flatten and the surface's own count is the
+│                   │                                #   denominator (3/4 when one landed between the two requests); and reconcile_surface sorts a
+│                   │                                #   later snapshot into exactly one of captured / late / missed / deleted, with only `missed`
+│                   │                                #   failing and the same-second boundary counted as missed rather than late
+│                   ├── test_every_parent_HARVESTS_its_github_surfaces.py # PMP Phase 10 r4 — THE STANDING CHECK, and the build
+│                   │                                #   decision stated in its docstring: the enumerating sweep rather than the reconciliation,
+│                   │                                #   because a sweep runs on every push and a reconciliation runs when pointed at a bag. Four
+│                   │                                #   properties per run_*.py: harvest_github_surfaces is invoked ONCE; in the `finally` of a
+│                   │                                #   `try` whose body is the workflow handoff (EVERY PATH — the window opens at child exit,
+│                   │                                #   and the first cut asserted line order only, so a parent that raised after its child
+│                   │                                #   posted harvested nothing); that `try` comes AFTER bag-open; and the refs are ctx.pr_number
+│                   │                                #   plus an expression consuming the handoff's own target, pre-bound to None above the `try`
+│                   │                                #   (an entrypoint whose child creates no PR passes a literal None and is DECLARED in
+│                   │                                #   SINGLE_SURFACE_ENTRYPOINTS with its reason). Predicates driven on literal compliant /
+│                   │                                #   success-path-only / unbound / one-ref snippets so a shape change cannot leave the sweep
+│                   │                                #   green over a fleet it stopped examining
 │                   ├── test_every_fleet_write_path_EMITS.py # PMP Phase 3 r1, wired. Two halves: a CENSUS that keeps requirement 9's inventory complete, and
 │                   │                                #   one behavioural test per inventoried path. The census walks for ONE shape — a subprocess whose
 │                   │                                #   argv[0] is `gh`, from an uninventoried module — and deliberately NOT for a bare write_text,
@@ -928,8 +976,9 @@ claude-dot-files/
 │                   │                                #   and no store function at all, so an import-only check is blind to every one.
 │                   │                                #   Families 1 and 2 each hold a fleet idiom, which is what makes them likely rather
 │                   │                                #   than exotic: a journal submodule bound as a name (journal_activities as journal in
-│                   │                                #   every entrypoint, verify and validate in the two operator tools, emit in the four
-│                   │                                #   PMP-Phase-3 write paths — twenty-two call
+│                   │                                #   every entrypoint plus harvest_activities as harvest since PMP Phase 10, verify /
+│                   │                                #   validate in two operator tools (reconcile_harvest imports its readers by name),
+│                   │                                #   emit in the four PMP-Phase-3 write paths — twenty-two call
 │                   │                                #   sites, and content_store is not among them) and from .. import journal, the workflow
 │                   │                                #   tree's dominant relative import. The package matcher binds by import SEMANTICS,
 │                   │                                #   never by the identifier text `journal`: `alias.name` is matched and never the asname,
@@ -948,9 +997,9 @@ claude-dot-files/
 │                   │                                #   reaches PAST the boundary, never that anybody reaches it — a fleet capturing
 │                   │                                #   nothing passes every assertion, which is today's fleet. Its vacuity control
 │                   │                                #   asserts a floor PER swept directory after a mutation showed a single total floor
-│                   │                                #   of fifty stayed green with all 22 modules under scripts/ dropped from the
-│                   │                                #   population, modules/ alone holding 61 of the 83. EVERY FIGURE IN ITS OWN PROSE IS
-│                   │                                #   DERIVED and asserted — the ten shapes, the twenty-two call sites, 61/22/83 — and each
+│                   │                                #   of fifty stayed green with all 23 modules under scripts/ dropped from the
+│                   │                                #   population, modules/ alone holding 61 of the 84. EVERY FIGURE IN ITS OWN PROSE IS
+│                   │                                #   DERIVED and asserted — the ten shapes, the twenty-two call sites, 61/23/84 — and each
 │                   │                                #   enumerated shape must have a fixture that writes it, so a shape added to the prose
 │                   │                                #   without a control goes red rather than reading as covered
 │                   ├── test_content_store.py        # PMP Phase 2 r7(b)/r7(d) — the on-disk path is a function of the COMPUTED DIGEST and

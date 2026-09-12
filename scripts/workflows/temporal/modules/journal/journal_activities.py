@@ -56,7 +56,7 @@ from .config_digest import (LABEL_CONFIG_DIGEST, ConfigDigestError,
 from .emit import Emitter, register_emitter
 from .root import JournalRootError, resolve_journal_root
 
-__all__ = ["mint_run_id", "open_run_bag", "load_journal_config",
+__all__ = ["mint_run_id", "open_run_bag", "load_journal_config", "origin_remote",
            "JournalRootError"]
 
 # `config.yaml` sits at the repo root of THIS repo — the fleet's own
@@ -262,6 +262,20 @@ def _git(repo_root: Path, *args: str) -> str:
     return probe.stdout.strip()
 
 
+def origin_remote(repo_root: Path) -> str:
+    """The `origin` remote's URL, or `""` when the repo has none.
+
+    PROMOTED AT TWO CONSUMERS: the bag's `Journal-Origin-Remote` tag below, and
+    Phase 10's harvest, which reads the repository slug off it to address a
+    bare `--pr N`. Public so the harvest activity does not reach into this
+    module's private probe — the one cross-module underscore import the
+    package had. The empty-string contract is `_git`'s, restated at the
+    consumer: a repo with no `origin` genuinely has no remote, and the harvest
+    then refuses bare numbers rather than guessing a slug.
+    """
+    return _git(repo_root, "remote", "get-url", "origin")
+
+
 def open_run_bag(*, run_id: str, writer: str | None, repo_root: Path,
                  workflow_key: str, worktree_name: str | None,
                  journal_root: Path | None = None,
@@ -378,7 +392,7 @@ def open_run_bag(*, run_id: str, writer: str | None, repo_root: Path,
     root = journal_root if journal_root is not None else resolve_journal_root(
         config=load_journal_config(config_path), env=env)
 
-    remote = _git(repo_root, "remote", "get-url", "origin")
+    remote = origin_remote(repo_root)
     commit = _git(repo_root, "rev-parse", "HEAD")
 
     try:

@@ -235,7 +235,16 @@ _HERE = Path(__file__).resolve().parent
 # flag (the substring bug this package has already met twice, once in `gh_attempt`
 # itself where reading the flag off the content skipped the journal entirely) and
 # a call passing it `False`.
-_PINNED = (46, 36)
+# 46 -> 47 and 36 -> 37 when the PMP Phase 10 `build-refine` pass widened
+# `test_every_fleet_write_path_EMITS.py`'s journal-`gh` census from one file to
+# a walk over every module in the package — the login probe in
+# `harvest_activities.py` composed a `gh api` argv through the launcher's runner
+# in a file that never spells `"gh"`, and a launcher-only scan could not see it.
+# The walk is what made this file's recogniser see that guard; BOTH numbers
+# moved because it already carried its literal control (the census's own
+# `test_the_predicate_answers_correctly_on_a_LITERAL` family), and the widening
+# was proven by mutation: a `-X PATCH` on the probe went red.
+_PINNED = (47, 37)
 
 
 # GRANDFATHERED — walks the tree, has no literal control, PREDATES this rule.

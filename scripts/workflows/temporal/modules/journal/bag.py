@@ -185,6 +185,12 @@ RESERVED_JOURNAL_LABELS = frozenset({
 DESCRIPTIVE_JOURNAL_LABELS = frozenset({
     "Journal-Workflow", "Journal-Origin-Repo", "Journal-Origin-Remote",
     "Journal-Origin-Commit", "Journal-Worktree", "Journal-Config-Digest",
+    # PMP Phase 10 r3(b): one line per harvested surface — when the harvest ran
+    # and what it covered — so a bag SAYS what its harvest window was rather
+    # than leaving a reader to infer it from event timestamps. Written by
+    # `harvest.py` through `add_tag`, repeatable, and descriptive rather than
+    # lifecycle: it states what was done, not what happened to the run.
+    "Journal-Harvest",
 })
 
 

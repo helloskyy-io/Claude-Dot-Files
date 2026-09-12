@@ -17,6 +17,7 @@ from dispatch_identity import add_identity_arguments, resolve_identity  # noqa: 
 from dispatch_context import RunContext  # noqa: E402
 
 from modules.journal import journal_activities as journal  # noqa: E402
+from modules.journal import harvest_activities as harvest  # noqa: E402
 from modules.assistant import routing  # noqa: E402
 from modules.assistant.plan.plan_project.plan_project_workflow import run_plan_project  # noqa: E402
 
@@ -111,19 +112,36 @@ def main(argv: list[str] | None = None) -> int:
                              worktree_name=ctx.worktree_name,
                              journal_root=ctx.journal_root)
 
-        url, verdict, loops, notes = run_plan_project(
-            repo_root=repo_root,
-            worktree_name=ctx.worktree_name,
-            # DERIVED FROM AN ALREADY-CONTAINED PATH, so it needs no declaration
-            # of its own: `repo_root` is proven by preflight and two literal
-            # segments cannot walk back out of it. This is not an operator path.
-            # Root-relative rather than under the research tree, because the
-            # store is root-relative in EVERY repo that adopts the contract —
-            # that is what makes one implementation possible (Tracked Items §1).
-            candidates_path=repo_root / "tracked" / "candidates",
-            research_dir=research_dir,
-            pr_number=a.pr_number, repo_target=a.repo_target, verbose=a.verbose,
-        )
+        url = verdict = loops = notes = None
+        try:
+            url, verdict, loops, notes = run_plan_project(
+                repo_root=repo_root,
+                worktree_name=ctx.worktree_name,
+                # DERIVED FROM AN ALREADY-CONTAINED PATH, so it needs no declaration
+                # of its own: `repo_root` is proven by preflight and two literal
+                # segments cannot walk back out of it. This is not an operator path.
+                # Root-relative rather than under the research tree, because the
+                # store is root-relative in EVERY repo that adopts the contract —
+                # that is what makes one implementation possible (Tracked Items §1).
+                candidates_path=repo_root / "tracked" / "candidates",
+                research_dir=research_dir,
+                pr_number=a.pr_number, repo_target=a.repo_target, verbose=a.verbose,
+            )
+        finally:
+            # PHASE 10 r7 — THE POST-EXIT HARVEST, in a `finally` because the window
+            # OPENS AT CHILD EXIT, not at the workflow's return: a child that posted
+            # and then had its parent raise still wrote to GitHub, and the runs an
+            # operator reconstructs are the ones that failed. Only the parent holds
+            # both the run's identity and the PR its child reported; on the failure
+            # path the second is unknown and `None` harvests nothing, recorded as
+            # such. A harvest that raises here chains the workflow's own error as
+            # its `__context__`, which `preflight.refuse` prints beneath it. What
+            # the sweep enforcing this can and cannot see:
+            # `harvest_activities.py`'s docstring and
+            # `tests/unit/test_every_parent_HARVESTS_its_github_surfaces.py`.
+            harvest.harvest_github_surfaces(run_id=ctx.run_id, repo_root=repo_root,
+                                            refs=(ctx.pr_number, url),
+                                            journal_root=ctx.journal_root)
     except (RuntimeError, FileNotFoundError, ValueError) as exc:
         # These carry operator-facing recovery instructions from the layer that
         # knew what failed. Do not wrap or reformat them.

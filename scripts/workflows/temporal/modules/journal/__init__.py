@@ -32,6 +32,21 @@ so they are the journal's own I/O rather than a capability sitting beside it.
                              channels — `CASE_D_CHANNELS` declares which of the
                              three actually has a producer (r4, r11, r12)
 
+PHASE 10 ADDS THE POST-EXIT HARVEST — the emit rule's OTHER half, for the
+writes the model issues itself on a prompt instruction and no call site can
+wrap — as two more files here, because what they write is journal events on
+Phase 3's contract and nothing else:
+
+  `harvest.py`             — the mechanism: surface references, the two-request
+                             fetch with pagination, run-id → bag resolution
+                             that REFUSES rather than creates (r2), the emit
+                             of every body verbatim through `unpairable_write`
+                             (so r6's filter is inherited, not re-applied), the
+                             gap path (r5), the per-surface window statement
+                             (r3), and the reconciliation that measures it
+  `harvest_activities.py`  — the activity a parent invokes after its workflow
+                             returns (r7); derives root, slug and login once
+
 THE EVENT CONTRACT IS SEPARATE FROM THE TYPED EXIT RECORD'S AND SHARES ONE
 VOCABULARY WITH IT (r3). `modules/vocabulary.py` is that vocabulary — a leaf at
 `modules/` belonging to neither package, because this package may not import
@@ -96,6 +111,11 @@ decisions with no reachable authority:
   `phase2_content_store.md`    — the store's shape (r7a), its path derivation
                                  (r7b), its fetch policy (r7c), its single read
                                  path (r7d), and the capture-provenance ruling
+  `phase3_the_emit_rule.md`    — the event contract, the four write-failure
+                                 cases, the write-path inventory (both halves)
+  `phase10_the_model_issued_harvest.md` — the harvest, its window, its
+                                 standing check, and why it harvests rather
+                                 than intercepts
 """
 
 from __future__ import annotations
@@ -132,6 +152,13 @@ from .content_activities import (capture_code_citation, capture_fetched_source,
                                  capture_source, resolve_citation)
 from .content_store import (ContentStoreError, digest_of_bytes, load_object,
                             object_relpath, store_bytes)
+from .harvest import (HarvestError, HarvestReport, HarvestedSurface,
+                      Reconciliation, SurfaceRef, SurfaceUnreadable,
+                      fetch_surface, harvest_run, parse_ref,
+                      read_harvest_indexes, reconcile_surface,
+                      render_reconciliation, repo_slug_of, resolve_bag,
+                      surface_refs)
+from .harvest_activities import fleet_login, harvest_github_surfaces
 from .journal_activities import (load_journal_config, mint_run_id,
                                  open_run_bag)
 from .root import JournalRootError, resolve_journal_root
@@ -146,19 +173,25 @@ __all__ = [
     "Citation", "CitationError", "CitationResult", "ConfigDigest",
     "ConfigDigestError", "ContentStoreError", "Destination", "EdgeIdError",
     "EmitFailed", "Emitter", "EventError", "EventKind", "FetchPolicy",
-    "FetchRefused", "FilterResult", "GapClass", "JournalEvent",
-    "JournalRootError", "JournalUnwritable", "Lineage", "Provenance", "Rule",
-    "StoreWriteFailed", "VerifyReport", "adopt_edge_id", "applied_intents",
+    "FetchRefused", "FilterResult", "GapClass", "HarvestError",
+    "HarvestReport", "HarvestedSurface", "JournalEvent",
+    "JournalRootError", "JournalUnwritable", "Lineage", "Provenance",
+    "Reconciliation", "Rule", "StoreWriteFailed", "SurfaceRef",
+    "SurfaceUnreadable", "VerifyReport", "adopt_edge_id", "applied_intents",
     "capture_code_citation", "capture_fetched_source", "capture_source",
     "decode_event", "dedupe_on_identity", "digest_of_bytes", "encode_event",
-    "event_identity", "evidence_set_hash", "fetch_source", "filter_capture",
-    "placeholder_for",
-    "gap_class_for", "gap_event", "installer_targets", "load_journal_config",
+    "event_identity", "evidence_set_hash", "fetch_source", "fetch_surface",
+    "filter_capture", "fleet_login", "placeholder_for",
+    "gap_class_for", "gap_event", "harvest_github_surfaces", "harvest_run",
+    "installer_targets", "load_journal_config",
     "load_object", "mint_run_id", "new_citation", "object_relpath", "open_bag",
-    "open_run_bag", "parse_tag_value", "read_citations", "read_edge_id",
-    "read_tag_file", "record_citation", "redaction_placeholder_event",
-    "render_report", "resolve_citation", "resolve_edge_id",
+    "open_run_bag", "parse_ref", "parse_tag_value", "read_citations",
+    "read_edge_id", "read_harvest_indexes",
+    "read_tag_file", "reconcile_surface", "record_citation",
+    "redaction_placeholder_event", "render_reconciliation", "render_report",
+    "repo_slug_of", "resolve_bag", "resolve_citation", "resolve_edge_id",
     "resolve_journal_root", "stage_evidence_hashes", "store_bytes",
+    "surface_refs",
     "unavailable_tag_value", "unwritable_journal_in_text",
     "unwritable_journal_report", "utc_now", "validate_bag", "verify_bag",
     "verify_citation",

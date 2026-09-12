@@ -107,6 +107,19 @@ _DECLARED_TAG_VALUES = {
         "git, which resolves it inside an OBJECT DATABASE rather than on the "
         "filesystem, and it reaches no tag file; a line break in it makes git "
         "report an unknown object, which surfaces as a `missing` outcome.",
+    # ⚠ THE TWO ROWS BELOW ARE THE SAME SHAPE-NOT-A-TAG-LINE CASE AS `verify.py`
+    # ABOVE: the harvest composes an event's `write_path` as
+    # `<surface>:comment:<id>`, which is a JSON field on a journal event and
+    # never a `bag-info.txt` line. `harvest.py`'s one real tag line goes through
+    # `Bag.add_tag`, which is the composer this sweep exists for.
+    ("harvest.py", "ref.write_path"):
+        "`SurfaceRef.write_path` is composed from a repository slug that "
+        "`_SURFACE_URL`/`_SLUG_RE` matched as `[^/\\s]+/[^/\\s]+` — no "
+        "whitespace of any kind, so no line terminator — and an int. It reaches "
+        "`Emitter.unpairable_write` as a write path, not a tag composer.",
+    ("harvest.py", "comment.id"):
+        "an `int`, checked by `isinstance` in `_comment_from` before a `Comment` "
+        "exists; an integer's str() cannot fold a line.",
     # ⚠ THIS ROW APPEARED WHEN A COMPOSITION WAS REFORMATTED, NOT WHEN A VALUE
     # BECAME REACHABLE — and it is declared rather than reformatted back around,
     # because hiding from the predicate by punctuation is not a guarantee. The
