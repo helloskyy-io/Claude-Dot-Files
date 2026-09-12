@@ -420,7 +420,7 @@ def _comment_from(obj: object, *, surface: SurfaceRef) -> Comment:
 def fetch_surface(ref: SurfaceRef, *, cwd: Path,
                   runner: Runner | None = None,
                   clock: Callable[[], str] = utc_now) -> Snapshot:
-    """What `ref` holds right now: its body and every comment, paginated.
+    """What `ref` holds right now: its title, its body and every comment, paginated.
 
     TWO REQUESTS. `repos/{repo}/issues/{n}` answers for a pull request as well
     as for an issue — GitHub's issue object IS the PR's conversation head, and
@@ -533,6 +533,9 @@ class HarvestedSurface:
     comments_on_surface: int = 0
     #: `(comment id, event id or None)`, in surface order.
     comment_events: tuple[tuple[int, str | None], ...] = ()
+    #: Bytes the surface HELD — title, body and comments as fetched — whether
+    #: or not each append landed; a gapped append's gap record carries its
+    #: `lost_bytes`, so the two together account for every byte read.
     bytes_harvested: int = 0
     #: Operator-facing detail when `captured` is False. Never in the record.
     failure: str = ""

@@ -40,10 +40,11 @@ Phase 3's contract and nothing else:
   `harvest.py`             — the mechanism: surface references, the two-request
                              fetch with pagination, run-id → bag resolution
                              that REFUSES rather than creates (r2), the emit
-                             of every body verbatim through `unpairable_write`
-                             (so r6's filter is inherited, not re-applied), the
-                             gap path (r5), the per-surface window statement
-                             (r3), and the reconciliation that measures it
+                             of every title, body and comment verbatim through
+                             `unpairable_write` (so r6's filter is inherited,
+                             not re-applied), the gap path (r5), the per-surface
+                             window statement (r3), and the reconciliation that
+                             measures it
   `harvest_activities.py`  — the activity a parent invokes in the `finally`
                              around its workflow handoff, on every path out
                              (r7); derives root, slug and login once

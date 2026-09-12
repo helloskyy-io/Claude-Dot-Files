@@ -391,6 +391,9 @@ def test_a_TITLE_append_that_became_a_gap_makes_the_harvest_NOT_ok(
     assert bag.incomplete
     entry, = h.read_harvest_indexes(bag.path)[0]["surfaces"]
     assert entry["title"]["event_id"] is None
+    # The figure counts what the surface HELD, gapped title included — the
+    # gap record beside it carries the 12 lost bytes, not this field.
+    assert surface.bytes_harvested == entry["bytes_harvested"] == 12 + 11 + 1
     assert "title (GAP)" in report.as_note()
 
 
