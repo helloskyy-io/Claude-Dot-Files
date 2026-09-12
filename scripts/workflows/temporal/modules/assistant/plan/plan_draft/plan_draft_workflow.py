@@ -257,6 +257,7 @@ def prompt_values(rel_component: Path, rel_candidates: Path, tree: Path,
         # teaches the pool convention and names the thesis; `RESEARCH_INVENTORY`
         # says which pool is THIS run's, which the shared block cannot know.
         "EVIDENCE_BLOCK": act.evidence_block(tree),
+        "WRITE_IT_ONCE": act.shared_prompt("write_it_once"),
         "FILING_A_CANDIDATE_ROW": act.shared_prompt("filing_a_candidate_row"),
         "DEPENDS_ON_LINE": act.shared_prompt("depends_on_line"),
         "SIMILAR_CANDIDATES": act.helper_script("similar-candidates.py"),

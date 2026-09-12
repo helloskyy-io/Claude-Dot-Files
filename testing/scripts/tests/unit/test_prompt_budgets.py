@@ -506,7 +506,7 @@ BUDGETS: dict[str, int] = {
     # `skyy-command` cites its planning repo the same way, hundreds of times —
     # and it is the only form that resolves from a worktree of another repo.
     # NO INSTRUCTION WAS ADDED; the same sentences got longer.
-    "plan/plan_draft/prompts/plan_draft.md": 24_787,
+    "plan/plan_draft/prompts/plan_draft.md": 24_341,
     # 15_510 -> 13_204: the `research-analyst` re-dispatch is gone. The verify
     # child holds Write/Edit and applies the critic's findings itself, so the
     # rules that existed only to coordinate a second writing agent went with it
@@ -518,7 +518,7 @@ BUDGETS: dict[str, int] = {
     # all three edits CORRECT, none of them its to make, and one against a runway's
     # explicit DO-NOT-TOUCH. The block carries its own exit: report it, do not fix
     # it, because a boundary with no route turns a real finding into a silent drop.
-    "research/research_refine/prompts/refine.md": 15_084,
+    "research/research_refine/prompts/refine.md": 14_583,
     # SET AT ITS SIZE ON THE DAY IT LANDED, like `plan_draft.md` above and for
     # the same reason: this prompt is new, so it MEETS this gate rather than
     # being measured into it. Measured in BYTES with `wc -c`, never eyeballed —
@@ -588,7 +588,7 @@ BUDGETS: dict[str, int] = {
     # `skyy-command` cites its planning repo the same way, hundreds of times —
     # and it is the only form that resolves from a worktree of another repo.
     # NO INSTRUCTION WAS ADDED; the same sentences got longer.
-    "plan/plan_refine/prompts/plan_refine.md": 18_776,
+    "plan/plan_refine/prompts/plan_refine.md": 18_794,
     # RATCHETED DOWN 14_437 -> 9_896, the other side of the same move. It stays
     # above the FLOOR, so it keeps its line rather than dropping off the table.
     # Then 9_896 -> 9_908, the same twelve substituted-away bytes as above.
@@ -711,7 +711,7 @@ BUDGETS: dict[str, int] = {
     # `skyy-command` cites its planning repo the same way, hundreds of times —
     # and it is the only form that resolves from a worktree of another repo.
     # NO INSTRUCTION WAS ADDED; the same sentences got longer.
-    "research/research_draft/prompts/draft.md": 21_104,
+    "research/research_draft/prompts/draft.md": 21_122,
     "build/build_draft_minor/prompts/update_pr.md": 10_675,
     # SHARED FRAGMENTS ARE THE EXPENSIVE ONES — every workflow that includes one
     # pays for it, so a byte here costs more than a byte in any single prompt.
@@ -835,6 +835,12 @@ BUDGETS: dict[str, int] = {
     # RAISED for the `plan_sprint` exception, which the prompt contradicted itself about.
     "review_pr/prompts/criteria_planning.md": 2_328,
     "review_pr/prompts/criteria_research.md": 3_162,
+    # `write_it_once.md` — the documentation-economy rule, rendered by every
+    # workflow whose deliverable is a DOCUMENT. ONE fragment rather than a copy
+    # per prompt, because a no-repetition rule stated five times is the defect
+    # it describes. Its cost is paid back by the documents it stops producing:
+    # an operator cleaning a few components removed a THIRD of their content.
+    "prompts/write_it_once.md": 2_338,
 }
 
 # A prompt below this is not worth a budget line; the total of all of them is

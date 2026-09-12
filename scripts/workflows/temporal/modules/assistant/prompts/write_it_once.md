@@ -1,0 +1,11 @@
+**WRITE THE DOCUMENT SOMEONE WILL READ, NOT THE RECORD OF HOW IT GOT THERE.** Three prohibitions, binding — [Documentation Standard § *Every document states what is true NOW, ONCE, in the place a reader looks first*](/opt/skyy-net/skyynet-master-planning/standards/documentation/documentation_standard.md).
+
+**1 · NO HISTORY.** State what is true now. **Not what it used to say, not when it changed, not which PR changed it** — git records that. *"This used to read X until 2026-09-08"*, *"superseded 2026-08-12"*, *"an earlier draft argued Y"*: delete them. **The only survivor is a note saying why the CURRENT state is deliberate**, where a reader would otherwise undo it — *"ordered this way because the later phase reads what this one writes"* belongs; *"was ordered the other way until Tuesday"* does not. **The test: would a reader who never saw the old version be worse off without this sentence?**
+
+**2 · NO REPETITION.** A fact has **one carrier — the place a reader looks first** — and every other document LINKS to it. **A count, a total, a status and a date are the four that drift fastest**, because each is cheap to restate and none announces it has gone stale. If a machine can derive it, do not write it by hand at all.
+
+**3 · NOTHING THAT IS NOT THIS DOCUMENT'S JOB.** A map states location. A standard states the rule. A phase doc states what will be built and how it is verified. A roadmap states sequence and why that order. **Content belonging to another kind is out — even when true, even when interesting, even when it appears nowhere else.**
+
+**WHY THIS IS NOT STYLE ADVICE, MEASURED:** an operator cleaning up a few components removed **a third of their content** and lost nothing. Before that, the corpus had reached a state where *"every change and every correction flagged more than the last round"* — because a fact with five carriers takes five edits, a reviewer finds the four you missed, and the next correction re-scatters it. **The review loop stops converging.** You are not being asked to write less; you are being asked to write each thing once, so a correction is one edit.
+
+**WHEN YOU ARE CORRECTING SOMETHING, THE SAME RULES APPLY TO YOUR CORRECTION.** The commonest way this class regenerates is a fix that narrates what it replaced. **Change the sentence; do not annotate it.**
