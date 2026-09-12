@@ -22,12 +22,33 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 SCRIPT = Path(__file__).resolve().parents[2] / "vendor-standards.sh"
-SMP = Path("/opt/skyy-net/skyynet-master-planning")
+
+# ⚠ DERIVED THE WAY THE SCRIPT UNDER TEST DERIVES IT, never as a host literal.
+# This read `Path("/opt/skyy-net/skyynet-master-planning")`, while
+# `vendor-standards.sh` resolves its source as a SIBLING of the checkout
+# (`_SIBLINGS="$(cd "$_CDF/.." && pwd)"`). On any layout where those differ the
+# skip mis-fires: a clone anywhere else on a box that still HAS `/opt/skyy-net/`
+# sees the literal exist, declines to skip, runs against a planning repo that is
+# not its sibling, and produces three reds that have nothing to do with the
+# change under test. Reported by SN-PM2, reproduced on a `/tmp` clone.
+#
+# THE COST IS THE HABIT, NOT THE MINUTES. Anyone reproducing CI from a relocated
+# clone either burns a pass diagnosing unrelated reds or LEARNS TO DISCOUNT REDS,
+# and the second is what makes the next real failure invisible.
+#
+# `planning_root()` performs the same sibling walk, so the test and the script now
+# agree on every layout rather than on this one.
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]
+                       / "workflows" / "temporal" / "tests"))
+from planning_corpus import planning_root  # noqa: E402
+
+SMP = planning_root()
 
 
 def _run(*args: str) -> subprocess.CompletedProcess:
