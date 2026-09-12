@@ -120,3 +120,5 @@ RULES:
 - **Prefer relative paths inside the worktree** for Read/Grep/Glob/Edit/Write of worktree files.
 - If this run created new files or directories, run `git status` before the final commit and confirm each appears as untracked; if not, grep .gitignore for unanchored patterns hiding them and add `!path/` allowlist entries.
 - If you cannot complete a stage, stop and clearly report why.
+
+${WRITE_IT_ONCE}

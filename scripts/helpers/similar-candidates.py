@@ -127,11 +127,36 @@ def main(argv: list[str] | None = None) -> int:
         # ADDRESSED BY `cwd`, NEVER `--repo` — `intake.open_intakes` documents why:
         # every `--repo` in this fleet is a filesystem path, so handing one to `gh`
         # fails with a message about slug format that reads as an unreadable repo.
-        try:
-            issues, err = intake.open_intakes(cwd=repo_root), None
-        except Exception as exc:               # IntakeError, and anything gh raises
-            issues, err = None, str(exc)
-        out += recurrence.intake_block(issues, args.text, limit=args.limit, error=err)
+        #
+        # ⚠ AND THE QUEUE IS SCOPED BY `--repo-root`, WHICH MAKES A CROSS-REPO
+        # FINDING BLIND. `tracked/` lives in the planning repo, so a finding ABOUT
+        # `claude-dot-files` is searched with the PLANNING repo as root — and the
+        # queue it reads is the planning repo's, while this repo's own open intakes
+        # stay invisible. Reported by SN-PM2 after it bit on all three passes of one
+        # PR: the near-neighbour of the filing about to be made was found only by a
+        # manual `gh issue list --label tracked-intake`.
+        #
+        # So when `--repo` names a DIFFERENT repository, its own checkout is searched
+        # too. Resolved as a sibling of the store's root, which is how this workspace
+        # is laid out; if it is not there, that is REPORTED rather than skipped —
+        # a queue nobody searched must not read as a queue with no matches.
+        roots = [("store", repo_root)]
+        if args.repo and args.repo.strip().rstrip("/") != repo_root.name:
+            sibling = repo_root.parent / args.repo.strip().rstrip("/")
+            roots.append(("--repo", sibling))
+        for label, root_dir in roots:
+            if not (root_dir / ".git").exists():
+                out += (f"\n**Intake queue for `{root_dir.name}` ({label}) NOT SEARCHED** — "
+                        f"no checkout at `{root_dir}`. Its open intakes are unread, so a "
+                        f"duplicate filed there would not appear above.\n")
+                continue
+            try:
+                issues, err = intake.open_intakes(cwd=root_dir), None
+            except Exception as exc:           # IntakeError, and anything gh raises
+                issues, err = None, str(exc)
+            if len(roots) > 1:
+                out += f"\n**Intake queue — `{root_dir.name}`:**\n"
+            out += recurrence.intake_block(issues, args.text, limit=args.limit, error=err)
     print(out)
     return 0
 

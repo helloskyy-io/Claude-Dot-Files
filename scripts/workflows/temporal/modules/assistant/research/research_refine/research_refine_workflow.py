@@ -81,6 +81,7 @@ def run_verify(*, research_dir: Path, pr_number: str, repo_root: Path,
             if correction_pass else ""
         ),
         "SUBMIT_PROMPT": act.submit_prompt(pr_number, f"research-refine: {research_dir}"),
+        "WRITE_IT_ONCE": act.shared_prompt("write_it_once"),
         "RESOLVE_APPLY_THE_REMEDY_YOU_WROTE": act.shared_prompt("resolve_apply_the_remedy_you_wrote"),
         "SWEEP_THE_CLASS": act.shared_prompt("resolve_sweep_the_class"),
         "RESOLVE_REJECTING_IS_LEGITIMATE": act.shared_prompt("resolve_rejecting_is_legitimate"),

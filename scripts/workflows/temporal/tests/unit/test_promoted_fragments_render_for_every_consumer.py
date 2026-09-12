@@ -761,6 +761,12 @@ def test_an_UNSUPPLIED_fragment_placeholder_stops_the_dispatch(monkeypatch, tmp_
 _FRAGMENT_FLOOR = {
     "open_pr_for_this_work": 7,
     "depends_on_line": 12,
+    # 6 — the three prohibitions, the why-this-is-not-style-advice paragraph with
+    # its measurement, and the clause about corrections re-scattering the class.
+    # Each is load-bearing separately: prohibition 3 catches what 2 cannot (content
+    # that is not a COPY of anything, just the wrong document's job), and the
+    # correction clause is the mechanism by which the class regenerates.
+    "write_it_once": 6,
     "filing_a_candidate_row": 4,
     "build_from_plan": 9,
     # 44, lowered from 46 on 2026-08-19, and the reason is recorded because this
