@@ -264,7 +264,17 @@ BUDGETS: dict[str, int] = {
     # + no files -> ALREADY DONE, STOP" tells the executor the fix is in place,
     # so the correction loop closes on work nobody did. Two consecutive passes
     # shipped `env -u VAR NAME=VALUE`, which GNU env rejects; both exited 127.
-    "review_pr/prompts/disposition.md": 91_894,
+    # RAISED for SN-PM2's N1, N2, N5 and N6 from PR #175.
+    # N2 is most of it and earned it: re-executing the PRODUCING run's own cited
+    # measurements produced FOUR of one pass's five holds, two of them measurements
+    # wrong in ways that changed where the item belonged — one inverted what a
+    # requirement said. A reviewer who does not re-run them inherits those as fact.
+    # N1: `tier_actual` — a correction whose class outgrew its `-minor` runway had no
+    # structured way to say so, making a legitimate expansion indistinguishable from
+    # scope creep. N5: a prose precheck testing for the OLD words' absence reports
+    # finished work as outstanding, so an executor re-applies a landed fix. N6: one
+    # enum member for a fix that belongs on main rather than in this PR.
+    "review_pr/prompts/disposition.md": 94_633,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-f0lfdhmm's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the
     # residue is 19 bytes. Worth stating because this is the mechanism working
@@ -308,7 +318,12 @@ BUDGETS: dict[str, int] = {
     # this comment had them in characters — off by 90 on this file — which is the
     # exact error the `plan_refine` note below warns about. Em-dashes are three
     # bytes each and this prompt is full of them.
-    "build/build_refine/prompts/stages_2_to_4.md": 10294,
+    # RAISED for one command before the write-up: fetch the base branch's last two
+    # runs before attributing a red check to this PR. A check red on main too is a
+    # pre-existing failure this PR surfaced — real either way, but its owner,
+    # severity and disposition all flip on that query, and the wrong answer sends a
+    # run to fix somebody else's defect inside its own diff.
+    "build/build_refine/prompts/stages_2_to_4.md": 9_897,
     # 21_619 -> 8_466 in the 2026-08-19 rebuild. It SHRANK BY 61% while gaining
     # the job it was missing. What left: the five-condition bar for "does this
     # warrant a sprint section", and the ranked placement choice over ruled
@@ -506,7 +521,7 @@ BUDGETS: dict[str, int] = {
     # `skyy-command` cites its planning repo the same way, hundreds of times —
     # and it is the only form that resolves from a worktree of another repo.
     # NO INSTRUCTION WAS ADDED; the same sentences got longer.
-    "plan/plan_draft/prompts/plan_draft.md": 24_787,
+    "plan/plan_draft/prompts/plan_draft.md": 24_341,
     # 15_510 -> 13_204: the `research-analyst` re-dispatch is gone. The verify
     # child holds Write/Edit and applies the critic's findings itself, so the
     # rules that existed only to coordinate a second writing agent went with it
@@ -518,7 +533,7 @@ BUDGETS: dict[str, int] = {
     # all three edits CORRECT, none of them its to make, and one against a runway's
     # explicit DO-NOT-TOUCH. The block carries its own exit: report it, do not fix
     # it, because a boundary with no route turns a real finding into a silent drop.
-    "research/research_refine/prompts/refine.md": 15_084,
+    "research/research_refine/prompts/refine.md": 14_583,
     # SET AT ITS SIZE ON THE DAY IT LANDED, like `plan_draft.md` above and for
     # the same reason: this prompt is new, so it MEETS this gate rather than
     # being measured into it. Measured in BYTES with `wc -c`, never eyeballed —
@@ -588,7 +603,7 @@ BUDGETS: dict[str, int] = {
     # `skyy-command` cites its planning repo the same way, hundreds of times —
     # and it is the only form that resolves from a worktree of another repo.
     # NO INSTRUCTION WAS ADDED; the same sentences got longer.
-    "plan/plan_refine/prompts/plan_refine.md": 18_776,
+    "plan/plan_refine/prompts/plan_refine.md": 18_794,
     # RATCHETED DOWN 14_437 -> 9_896, the other side of the same move. It stays
     # above the FLOOR, so it keeps its line rather than dropping off the table.
     # Then 9_896 -> 9_908, the same twelve substituted-away bytes as above.
@@ -711,7 +726,7 @@ BUDGETS: dict[str, int] = {
     # `skyy-command` cites its planning repo the same way, hundreds of times —
     # and it is the only form that resolves from a worktree of another repo.
     # NO INSTRUCTION WAS ADDED; the same sentences got longer.
-    "research/research_draft/prompts/draft.md": 21_104,
+    "research/research_draft/prompts/draft.md": 21_122,
     "build/build_draft_minor/prompts/update_pr.md": 10_675,
     # SHARED FRAGMENTS ARE THE EXPENSIVE ONES — every workflow that includes one
     # pays for it, so a byte here costs more than a byte in any single prompt.
@@ -768,7 +783,12 @@ BUDGETS: dict[str, int] = {
     # Fixing the count is most of the value; the additions are the test-population
     # variant (assertion and subject sharing one text surface) and a name for a
     # DECLARED blind spot, which until now read identically to an oversight.
-    "prompts/mutation_discipline.md": 7_405,
+    # RAISED for the fifth mutation-miss cause: THE PROPERTY IS NOT SEPARABLE AT
+    # THIS BOUNDARY. Reordering an intent-write after a store-write also deletes it
+    # from the failure path — the ordering IS the failure semantics, so no smaller
+    # mutation exists. The nearest listed cause prescribes NARROWING, which is
+    # impossible here, which is exactly why it needed its own name.
+    "prompts/mutation_discipline.md": 7_984,
 
     # ── THE OTHER 43, SEEDED 2026-09-09 AT THEIR CURRENT SIZE ──────────────────
     # The dict covered 14 of 57 prompt files. The 14 were the big ones, so the
@@ -835,6 +855,12 @@ BUDGETS: dict[str, int] = {
     # RAISED for the `plan_sprint` exception, which the prompt contradicted itself about.
     "review_pr/prompts/criteria_planning.md": 2_328,
     "review_pr/prompts/criteria_research.md": 3_162,
+    # `write_it_once.md` — the documentation-economy rule, rendered by every
+    # workflow whose deliverable is a DOCUMENT. ONE fragment rather than a copy
+    # per prompt, because a no-repetition rule stated five times is the defect
+    # it describes. Its cost is paid back by the documents it stops producing:
+    # an operator cleaning a few components removed a THIRD of their content.
+    "prompts/write_it_once.md": 2_338,
 }
 
 # A prompt below this is not worth a budget line; the total of all of them is

@@ -86,6 +86,8 @@ unavailable, say the anchors were not checked**: an unchecked anchor is a known 
 broken one is a wrong answer where it looks official, and a batch of noisy anchor findings
 teaches the operator to discount the real ones.
 
+**RE-EXECUTE THE PRODUCING RUN'S OWN MEASUREMENTS — the highest-yield sweep on a self-reporting run.** Its Decision Log and PR body cite experiments: *"all four call sites pass literals"*, *"r8 forbids changing a field's material"*, counts, greps, quoted clauses. **Run them again.** This is not re-reviewing the code — it is checking the EVIDENCE the run asked you to reason from, and it is distinct from re-running a prior pass's precheck, which tests the FIX. **Measured: four of one pass's five holds came from this single move**, and two of them were measurements wrong in ways that changed where the item belonged — one claim inverted what a requirement said (it mandates versioning; the run reported it forbids change), and one count missed that two of four call sites pass derived values. **A reviewer who does not re-run them inherits the producing run's errors as fact**, and every disposition downstream rests on them.
+
 **COMPLETION-CHECKBOX SWEEP — mandatory whenever this PR flips `[ ]` → `[x]` in any planning artifact** (phase doc, `roadmap.md`, epic breakdown). The global rule `standards-governance.md` § *Completion checkboxes* (`~/.claude/rules/`, sourced from `config/rules/` in this repo) puts the flip in dispatch scope and puts the **verification on you**: you MUST check every flip against the artifact it claims, **not against the run's account of it**. Read the rule — it is binding, it records why the check and not the human is the safeguard, and it is deliberately not restated here.
 
 The check is per-box, and it is the same shape as the deleted-artifact sweep: `git diff` the planning artifacts, list every flipped line, and for each one name the thing in **this PR's diff** that satisfies it. **An unverified flip is a finding. A flip for work not in this diff HOLDS the PR** — categorize it `correctness`, because the durable consequence is that the default branch acquires an `[x]` for work the default branch does not contain, and the next dispatch sequences off it. Blanket-checking a section is the shape to watch for: a run that flipped every box in a block rather than the ones its diff earns.
@@ -118,6 +120,7 @@ For EACH enumerated item, reach exactly one terminal disposition using genuine /
 - `extend-upstream-artifact` — **the upstream INPUT is incomplete: more research, more planning, more evidence is needed.** Reach for this whenever the real problem is that the work was built on a thin or partial foundation — a missing-coverage finding is almost always this, NOT a relabel
 - `create-missing-surface` — the item is legitimate but no home exists for it (the homeless class)
 - `ratify-standard-change` — a binding rule must change; human-gated
+- `escalate-to-main` — **a small correction that belongs on the DEFAULT BRANCH, not in this PR.** Reach for it when the defect is real, the fix is code rather than infrastructure, and riding this PR would widen its diff into a file the PR is not about. `fix-in-place` is wrong because the fix does not belong here; `operator-action` is wrong because its gloss reads as infra/sudo and this is a commit anyone with the repo can make.
 - `operator-action` — infra/sudo/live-system act only the operator can take
 
 - **FIXED** — the CONCERN is already correctly resolved in this PR, **by any means**. This does NOT require that the reviewer's proposed remedy was the one applied: a finding is a concern, and the remedy beside it is a suggestion. If you resolved it differently, this is still FIXED — say what you did instead and why. **Do NOT reach for REJECTED to express "real concern, wrong remedy"** — that records a live concern as not-an-issue. VERIFY against the code (Read/Grep/Glob) that it truly is; do not take the producing run's word.
@@ -353,6 +356,8 @@ Reach exactly ONE verdict:
 
 **REFINE RE-SIZES AND SPRINT RE-TOTALS, which is why those two are the whole loop.** The old concern — a roadmap edit landing phase changes that nothing re-sizes and nothing re-totals — is answered by naming them, not by adding a step in front that never runs.
 
+**IF THE WORK OUTGREW THE TIER YOU WERE DISPATCHED AS, SAY SO IN THE BLOCK — `tier_actual:`.** A correction told to fix a CLASS and dispatched as `-minor` has no structured way to report that the class was larger than the runway described, so a legitimately-major correction is indistinguishable in the output from silent scope creep, and tier routing becomes something a reviewer reconstructs from a Decision Log. **Emit `tier_actual: major` and a per-item site count** — *`item-slug: 8 sites`* — beside the existing exhaustive-vs-sample flag. Measured: three runway items expanded to 8, 3 and 9 sites while two consecutive passes reported "sized to `build.sh`, dispatched as `-minor`" in prose that nothing reads.
+
 **The tiers run the SAME MODEL — `-minor` is smaller, not weaker** (ruled 2026-08-18). So size on SCOPE and on how much review the change warrants, and stop treating `-minor` as the tier for easy work: a small task can need judgement, and this tier can now carry it. **Reach for `build.sh` when the change should be seen by two lenses rather than one, or when it will not fit in 200 turns** — not when it merely looks hard.
   2. **needs-assistance** — human-in-the-loop is genuinely required. Use this when: you cannot confidently resolve an item; a follow-up has no home and where it belongs is a judgment call; the fix's economics/scope is the operator's call; the review uncovered something BIGGER than the PR (**a gap in the architecture or the plan**); or the PR's inputs include research artifacts and you find a **research defect** — apply the materiality test: *does correcting the defect change the outcome of the decision built on it?* NO → it rides the scheduled revalidation sweep (note it, do not hold on it). YES → needs-assistance with why_human `research-defect`: the research must be re-validated (a research-currency re-run) and any dependent planning re-run before this can merge. For each needs-assistance item, present your best RECOMMENDED resolution reasoned through /decide + /best-practices — and print the working: a one-line `reframe:` (the /decide reframed question) and a one-line `bp:` (the best-practice alignment) BEFORE the recommendation, so the operator audits your judgment at standup speed instead of trusting lens-flavored prose. Surfacing a real gap and asking for direction is a success, not a failure.
 
@@ -484,6 +489,13 @@ pr_review:
              'if the command errors rather than reporting, the precheck is broken: report that
              and do not act on it.' A precheck is evidence, and evidence you did not observe is
              not evidence.
+         (6) A MEASUREMENT finding's precheck tests whether the METHOD is stated, not whether
+             the number still matches — a number that moved is the finding working, not the
+             finding gone. And a PROSE correction's precheck tests for the REPLACEMENT's
+             PRESENCE, never the old words' ABSENCE: a fix that narrates what it replaced
+             leaves the old words on the page, so "old phrase still present" reports finished
+             work as outstanding and an executor re-applies a landed fix. Same root as (5) —
+             the check tests a proxy rather than the property — pointed the other way.
          (4) SCOPE-MATCH THE DISPATCH_CONTEXT — the precheck must be checkable against EXACTLY the
              set the dispatch_context enumerates. Do not pair an enumeration with a broader general
              predicate: 'mirror these four candidates' + 'the requirement is set-equality between the

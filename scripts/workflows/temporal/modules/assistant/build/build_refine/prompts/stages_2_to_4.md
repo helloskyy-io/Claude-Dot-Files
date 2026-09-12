@@ -103,6 +103,8 @@ ${VERIFY_AND_CI_GATE}
 
 **MUTATE AN ASSERTION'S SCOPE, NOT ONLY ITS SUBJECT — its own named mutation class.** Predicting outcomes catches a weak guard; only attacking the scope catches a check that is reading a NEIGHBOUR'S evidence. A green test quoting the wrong region is invisible to every other technique in this prompt.
 
+**BEFORE ATTRIBUTING A RED CHECK TO THIS PR, FETCH THE BASE BRANCH'S LAST TWO RUNS.** `gh run list --branch main --limit 2`. A check that is red on `main` too is a PRE-EXISTING failure this PR merely surfaced — real either way, but its OWNER, its severity and its disposition all flip on that one query, and the wrong answer sends you to fix somebody else's defect inside your diff. Measured: a refine run nearly wrote up two host-coupled tests as this PR's regression before checking. **One command, before the write-up, not after.**
+
 **COMPARE THE CHECK SET, NOT ONLY EACH CHECK'S RESULT.** A push can trigger some workflows and not others: one push produced `Analyze` and `CodeQL` runs and NO `tests` run, and `gh pr checks` reported three passing checks while simply omitting the merge gate — which reads identically to all-green. **Check the set against the previous head's**, and treat a missing gate as a failure. An absent gate and a passing gate are different facts, which is the same distinction this fleet's readers draw between *not measured* and *zero*.
 
 If anything fails, fix it. Do not proceed to Stage 5 with failing tests.

@@ -161,10 +161,6 @@ claude-dot-files/
 │   │           ├── test_replay_convergence_predicate.py  # Guards both early-fire counters — the OBSERVED one (a later pass reopened work)
 │   │           │                                    #   and the circular self-reported one — plus comment-order sequencing, the pass-1
 │   │           │                                    #   denominator, and absent-vs-false `converged`
-│   │           ├── test_every_producer_NAMES_ITS_CONSUMER.py # Phase 6's gate over THREE surfaces — measure/, helpers/ and the planning repo's
-│   │           │                                    #   tracked/ stores. Population read off disk; the cadence-and-runner clause binds only
-│   │           │                                    #   surfaces that ACCUMULATE (requirement 2, ruled 2026-09-10); run_log.py, this repo map,
-│   │           │                                    #   README.md and tracked/operations/ excluded BY NAME with each exclusion asserted
 │   │           ├── test_replay_pr_review_blocks.py  # Guards block extraction + absent-vs-false `converged`, which E7's cross-tab depends on (2 mutation-proven)
 │   │           ├── test_run_log.py                  # The run-log surface's declaration: declared members == actual writers (both directions), the
 │   │           │                                    #   publish check firing on a MODEL-AUTHORED VALUE not a key name — including a slug JOINED into
@@ -1174,6 +1170,17 @@ claude-dot-files/
 │   │       │                                        #   prompt still describing a contract the code replaced. The largest
 │   │       │                                        #   finding class measured — 33 across 12 PRs. PR #105 changed what
 │   │       │                                        #   research-minor IS and left four surfaces stating the old one
+│   │       ├── test_every_producer_NAMES_ITS_CONSUMER.py # Phase 6's gate: every ruled-in producer surface names its consumer, and
+│   │       │                                        #   EVERY DIRECTORY in the repo is ruled in, out-with-reason, or container (walked
+│   │       │                                        #   off `git ls-files`). Table surfaces (measure/, helpers/, the planning repo's
+│   │       │                                        #   tracked/) name consumers in a README; derived surfaces (hooks, agents, the bash
+│   │       │                                        #   libraries, services, suites, the three bash workflows) have them FOUND on disk by
+│   │       │                                        #   a per-shape predicate, each with a control. Cadence clause binds only surfaces
+│   │       │                                        #   that ACCUMULATE (req 2, ruled 2026-09-10). Four unread producers the sweep found
+│   │       │                                        #   are baselined on a two-way ratchet, not fixed. HELD_BY registers every surface
+│   │       │                                        #   deferred to another gate (prompt pool, repo map, shims, Phase 4's echo, run log)
+│   │       │                                        #   and asserts each holder resolves by file and function. Moved here from
+│   │       │                                        #   scripts/helpers/tests/ when its population stopped being one directory's
 │   │       ├── test_no_SURFACE_NAMES_A_RETIRED_AGENT.py # No live prompt, skill or rule may dispatch
 │   │       │                                        #   an agent that no longer exists. The 2026-08-18 consolidation folded
 │   │       │                                        #   refactoring-evaluator into code-reviewer and standards-auditor into
