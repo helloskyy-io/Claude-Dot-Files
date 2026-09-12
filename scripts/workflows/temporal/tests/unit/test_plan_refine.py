@@ -1220,6 +1220,13 @@ def _record_side_effects(monkeypatch: pytest.MonkeyPatch, runner, calls: list,
                                                     repo_root)[1])
     monkeypatch.setattr(wf, "run_plan_refine",
                         lambda **k: (calls.append("run_plan_refine"), url)[1])
+    # THE FOURTH SIDE EFFECT, ADDED WITH PMP PHASE 10: the post-exit harvest
+    # reads the PR back through a real `gh api` and writes into the run's bag.
+    # Left unstubbed it would have reached GitHub for `o/r/pull/132` from a
+    # unit test — and, with `open_run_bag` stubbed above, found no bag and
+    # refused the whole run (r2), which is exactly how this line was found.
+    monkeypatch.setattr(runner.harvest, "harvest_github_surfaces",
+                        lambda **k: calls.append("harvest_github_surfaces"))
 
 
 def test_a_PR_pass_is_NOT_refused_when_the_plan_is_only_on_the_PRs_BRANCH(
@@ -1258,6 +1265,9 @@ def test_a_PR_pass_is_NOT_refused_when_the_plan_is_only_on_the_PRs_BRANCH(
         f"the run never reached the dispatch, so the `not in calls` assertions "
         f"in the refusing cases below are vacuous — the recorder never fires; "
         f"the calls were {calls!r}")
+    assert calls.index("harvest_github_surfaces") > calls.index("run_plan_refine"), (
+        f"the post-exit harvest must run AFTER the workflow returns — it reads "
+        f"the PR the child made — and here the order was {calls!r}")
     assert ls_tree in calls, (
         f"the lookup asked for something other than the roadmap's repo-relative "
         f"path on origin/<the PR's branch>; it asked {calls!r}")

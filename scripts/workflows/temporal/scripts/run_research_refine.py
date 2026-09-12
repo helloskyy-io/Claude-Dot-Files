@@ -41,6 +41,7 @@ from dispatch_identity import add_identity_arguments, resolve_identity  # noqa: 
 from dispatch_context import RunContext  # noqa: E402
 
 from modules.journal import journal_activities as journal  # noqa: E402
+from modules.journal import harvest_activities as harvest  # noqa: E402
 from modules.assistant import assistant_activities as act  # noqa: E402
 from modules.assistant.research.research_refine.research_refine_workflow import (  # noqa: E402
     run_verify)
@@ -106,6 +107,16 @@ def main(argv: list[str] | None = None) -> int:
             research_dir=research_dir, pr_number=a.pr_number, repo_root=repo_root,
             worktree=worktree, correction_pass=a.correction_pass, verbose=a.verbose,
         )
+        # PHASE 10 r7 — THE POST-EXIT HARVEST, invoked here because this is the only
+        # place that holds both the run's identity and the PR its child reported.
+        # What the model wrote to GitHub on a prompt instruction has no call site
+        # to wrap; this reads the surface after the fact and emits it verbatim.
+        # Why an activity and not a helper, and what the sweep that enforces it can
+        # and cannot see: `harvest_activities.py`'s docstring and
+        # `tests/unit/test_every_parent_HARVESTS_its_github_surfaces.py`.
+        harvest.harvest_github_surfaces(run_id=ctx.run_id, repo_root=repo_root,
+                                        refs=(ctx.pr_number, pr_url),
+                                        journal_root=ctx.journal_root)
     except (RuntimeError, FileNotFoundError, ValueError) as exc:
         return refuse(exc)
 

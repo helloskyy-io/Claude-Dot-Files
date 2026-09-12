@@ -323,7 +323,7 @@ def gap_class_for(exc: BaseException) -> GapClass:
     THE MESSAGE IS DELIBERATELY DISCARDED. A gap event reports that content was
     lost; a `why` carrying `exc.strerror` or `exc.filename` would put the failing
     path — and, for some filesystems, a fragment of what was being written — into
-    the record that exists to say those bytes were dropped. Four classes, a byte
+    the record that exists to say those bytes were dropped. Five classes, a byte
     count and a timestamp cost a few hundred bytes and cannot leak.
 
     THE OPERATOR STILL GETS THE MESSAGE — on stderr, and in the exception this
@@ -674,8 +674,17 @@ class Emitter:
                          content: str,
                          provenance: Provenance = Provenance.FLEET_AUTHORED,
                          lineage: Lineage | None = None,
-                         stop_on_failure: bool = False) -> None:
+                         stop_on_failure: bool = False) -> str | None:
         """A write with no store write to withhold — recorded, not prevented.
+
+        RETURNS THE LANDED EVENT'S IDENTITY, OR `None` WHEN THE WRITE BECAME A
+        GAP. Phase 10's harvest files an index beside its events naming which
+        event holds which comment, and it needs the identity of the event that
+        actually landed rather than one it re-derived — a re-derivation would
+        assume the sequence, and the sequence is this emitter's to allocate.
+        `None` is a real answer, not an absence: the caller records that the
+        comment was NOT captured, which is the only honest thing an index can
+        say about a gap.
 
         The CLI transcript, the execution facts and Phase 10's post-exit harvest
         are this case: the content already exists and the only question is
@@ -729,10 +738,40 @@ class Emitter:
                     f"bypassed permissions; continuing past it would be evidence "
                     f"loss wearing a routine defect's clothes."
                 ) from exc
+            return None
+        return event.event_id
 
     def _record_gap(self, *, write_path: str, exc: BaseException,
                     destination: Destination, lost_bytes: int) -> None:
+        """Case (c)'s record for a FAILED APPEND: classify the exception, then record.
+
+        The classification is the only thing this adds over `record_gap` below,
+        and it is split out so the two callers that already HOLD a class — the
+        harvest, whose failure is a surface it could not read rather than a
+        byte it could not write — reach the record without inventing an
+        exception to classify.
+        """
+        # ONE DERIVATION, READ TWICE. Computed once so the event's class and the
+        # flag's reason cannot disagree about what happened — two calls agree
+        # today only because the function is pure, which is agreement by
+        # accident rather than by construction.
+        self.record_gap(write_path=write_path, gap_class=gap_class_for(exc),
+                        destination=destination, lost_bytes=lost_bytes,
+                        detail=failure_detail(exc))
+
+    def record_gap(self, *, write_path: str, gap_class: GapClass,
+                   destination: Destination, lost_bytes: int,
+                   detail: str = "") -> None:
         """Case (c)'s record, and case (d) is what happens when even this fails.
+
+        PUBLIC AS OF PHASE 10, because the harvest has a gap with no append
+        behind it: a GitHub surface it could not READ. That is still case (c)
+        — content that exists somewhere and did not land in the journal — so it
+        takes this record rather than a second one, with `GapClass.SURFACE_
+        UNREADABLE` as its class and the surface's address as its destination.
+        `detail` is the operator-facing line and reaches the EXCEPTION MESSAGE
+        on the case-(d) path only; the record gets the class and the count, for
+        the reason `gap_class_for` gives.
 
         TWO WRITES, AND EITHER CAN FAIL. The gap EVENT goes in the writer's own
         `events.jsonl`; the `incomplete` FLAG plus its record go in
@@ -754,19 +793,15 @@ class Emitter:
         missing flag is a bag that lost data and reads as complete, which is the
         outcome this function exists to prevent.
         """
-        # ONE DERIVATION, READ TWICE. Computed once so the event's class and the
-        # flag's reason cannot disagree about what happened — two calls agree
-        # today only because the function is pure, which is agreement by
-        # accident rather than by construction.
-        gap_class = gap_class_for(exc)
         event_written = True
         # THE EVENT IS BUILT INSIDE THE GUARD, third member of the same class as
         # the two sites in `paired_write`. `gap_event` constructs a
         # `JournalEvent`, whose `__post_init__` raises `EventError` — and this
         # function's whole job is to run on the failure path, so an exception
         # escaping it loses the gap record AND masks the failure it was called to
-        # record. `gap_class_for` stays outside because it cannot raise and the
-        # flag below reads the same derivation (ONE derivation, read twice).
+        # record. The class arrives already derived — by `gap_class_for` on the
+        # append path, by the harvest on the read path — so the flag below reads
+        # the SAME value the event carries (ONE derivation, read twice).
         try:
             gap = gap_event(run_id=self.run_id, edge_id=self.edge_id,
                             key_epoch=self.key_epoch, write_path=write_path,
@@ -798,7 +833,7 @@ class Emitter:
             raise JournalUnwritable(
                 f"{UNWRITABLE_JOURNAL_MARKER}: the journal cannot be "
                 f"written and neither can the record of that. "
-                f"{write_path} failed with {failure_detail(exc)}, and the "
+                f"{write_path} failed with {detail or gap_class.value}, and the "
                 f"`incomplete` flag failed after it with "
                 f"{failure_detail(flag_exc)} — {landed}.\n"
                 f"  bag: {self.bag.path}\n"

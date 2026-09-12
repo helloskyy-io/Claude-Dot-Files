@@ -137,18 +137,66 @@ def test_no_UNINVENTORIED_module_reaches_a_store_write_shape() -> None:
         f"add the module to `FLEET_CODE_WRITE_PATHS` with the emit it performs.")
 
 
+#: The one journal module permitted to launch `gh`, and the flags that would
+#: turn a `gh api` call into a mutation. `gh api` documents its method as *"GET
+#: normally and POST if any parameters were added"*, so a parameter flag IS a
+#: write even with no `--method`; every one of them is listed rather than the
+#: obvious two.
+_JOURNAL_GH_READER = "harvest.py"
+_GH_API_MUTATING_FLAGS = frozenset({"-X", "--method", "-f", "--raw-field",
+                                    "-F", "--field", "--input"})
+
+
 def test_the_journal_package_is_EXCLUDED_from_the_census_deliberately() -> None:
     """It is the record, not a store, so its writes are not writes-to-a-store.
 
     Stated as a test rather than as a comment because the exclusion is the one
     line of this file a reader would suspect of hiding something: if the journal
-    package could reach `gh`, the exclusion WOULD be hiding something.
+    package could reach `gh` AS A WRITER, the exclusion WOULD be hiding
+    something.
+
+    ⚠ PHASE 10 GAVE THE PACKAGE ONE `gh` READER, AND THIS TEST NOW DISCRIMINATES
+    RATHER THAN FORBIDS. The post-exit harvest asks GitHub what a surface holds
+    — `gh api` in GET mode, two requests per surface — and it lives in the
+    journal package because what it writes is journal events. So the property
+    is no longer *nothing here spells `gh`*; it is *exactly one module does, and
+    every argv it composes is a read*. Both halves are asserted: the module set
+    (a second `gh`-launching file here is a second reader nobody classified),
+    and the shape of every argv list handed to the runner (`api` first, no
+    method or parameter flag). A write reached through this module would be a
+    write with no intent event, which is the class the census exists to refuse.
+
+    WHAT THIS DOES NOT LOOK AT: an argv assembled from a variable rather than a
+    list literal, and a flag arriving inside an f-string element. Both are the
+    shape somebody writes deliberately; the accidental shape is a literal.
     """
-    offenders = [str(p) for p in (MODULES / "journal").rglob("*.py")
-                 if '"gh"' in p.read_text(encoding="utf-8")]
+    spellers = sorted(p.name for p in (MODULES / "journal").rglob("*.py")
+                      if '"gh"' in p.read_text(encoding="utf-8"))
+    assert spellers == [_JOURNAL_GH_READER], (
+        f"the journal package launches `gh` from {spellers}; only "
+        f"{_JOURNAL_GH_READER} may, and only as a reader. A second launcher "
+        f"here is a write path the census above cannot see.")
+
+    source = (MODULES / "journal" / _JOURNAL_GH_READER).read_text(encoding="utf-8")
+    argv_lists = [node for node in ast.walk(ast.parse(source))
+                  if isinstance(node, ast.List) and node.elts
+                  and isinstance(node.elts[0], ast.Constant)
+                  and node.elts[0].value in ("gh", "api")]
+    assert len(argv_lists) >= 3, (
+        f"found {len(argv_lists)} `gh`/`api` argv literals in "
+        f"{_JOURNAL_GH_READER}; a shape check over fewer than the launch plus "
+        f"the two known reads has scoped itself wrongly")
+    offenders = []
+    for node in argv_lists:
+        literals = [e.value for e in node.elts if isinstance(e, ast.Constant)]
+        if literals[0] == "gh":
+            continue                     # `["gh", *args]` — the launch itself
+        if literals[0] != "api" or _GH_API_MUTATING_FLAGS.intersection(literals):
+            offenders.append(f"line {node.lineno}: {literals}")
     assert not offenders, (
-        f"the journal package launches `gh`, so excluding it from the census "
-        f"above hides a real write path: {offenders}")
+        f"{_JOURNAL_GH_READER} composes a `gh` argv that is not a plain "
+        f"`gh api` GET: {offenders}. The harvest READS surfaces; a mutation "
+        f"from inside the journal package has no intent event and no census row.")
 
 
 # --- one behavioural test per inventoried path ------------------------------
