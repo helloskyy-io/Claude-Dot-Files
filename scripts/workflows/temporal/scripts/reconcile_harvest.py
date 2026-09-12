@@ -40,7 +40,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from preflight import refuse  # noqa: E402
-from modules.journal import harvest  # noqa: E402
+# THE READER IS IMPORTED BY NAME, which is what makes this tool a member of
+# `test_journal_operator_tools_separate_typo_from_finding.py`'s population —
+# that sweep keys membership on a bag reader imported by name, never on a
+# module, so `from modules.journal import harvest` would have left the fourth
+# operator tool outside the check that holds its usage/finding split.
+from modules.journal.harvest import (SurfaceRef, SurfaceUnreadable,  # noqa: E402
+                                     fetch_surface, read_harvest_indexes,
+                                     reconcile_surface, render_reconciliation)
 from modules.journal.bag import BAGIT_FILE  # noqa: E402
 
 _FLEET_ROOT = Path(__file__).resolve().parents[4]
@@ -69,7 +76,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"not a directory: {repo_root}", file=sys.stderr)
         return 2
 
-    indexes = harvest.read_harvest_indexes(bag_path)
+    indexes = read_harvest_indexes(bag_path)
     if not indexes:
         print(f"no harvest index in {bag_path} — this run was never harvested, "
               f"or its harvest died before writing one", file=sys.stderr)
@@ -86,14 +93,13 @@ def main(argv: list[str] | None = None) -> int:
                   f"nothing to reconcile\n")
             shortfall = True
             continue
-        ref = harvest.SurfaceRef(repo=entry["repo"], kind=entry["kind"],
-                                 number=entry["number"])
+        ref = SurfaceRef(repo=entry["repo"], kind=entry["kind"], number=entry["number"])
         try:
-            now = harvest.fetch_surface(ref, cwd=repo_root)
-        except harvest.SurfaceUnreadable as exc:
+            now = fetch_surface(ref, cwd=repo_root)
+        except SurfaceUnreadable as exc:
             return refuse(exc, exit_code=2)
-        rec = harvest.reconcile_surface(entry, now)
-        print(harvest.render_reconciliation(rec))
+        rec = reconcile_surface(entry, now)
+        print(render_reconciliation(rec))
         print()
         shortfall = shortfall or not rec.ok
     return 1 if shortfall else 0

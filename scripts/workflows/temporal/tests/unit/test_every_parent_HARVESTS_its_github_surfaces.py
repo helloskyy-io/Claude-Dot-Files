@@ -16,21 +16,36 @@ family `test_every_parent_opens_a_run_bag` established.
 WHY EVERY ENTRYPOINT AND NOT A SUBSET. The requirement says *"every workflow
 which posts to a GitHub surface"*. Enumerated 2026-09-12 from the tree: every
 `run_*.py` in the population ends in a pull-request URL or a review verdict
-posted to one — `grep -l "pr_url\\|url\\|pr_number" scripts/run_*.py` matches
-all of them, and Phase 3's inventory has no workflow that writes only to a
-file store. So the swept population IS the posting population, and a future
+posted to one — `grep -l "pr_url\\|url = wf\\.\\|url, verdict\\|result.pr_number"
+scripts/run_*.py` matched 16 of 16 (an earlier spelling of this command matched
+on the bare substring `url`, which every file contains, and enumerated
+nothing) — and Phase 3's inventory has no workflow that writes only to a file
+store. So the swept population IS the posting population, and a future
 entrypoint that posts nowhere is a classification this sweep would force
 someone to state rather than assume — the same discipline `NON_STARTING_FILES`
 applies one level up.
 
-THE THREE PROPERTIES, EACH ITS OWN TEST:
+THE FOUR PROPERTIES, EACH ITS OWN TEST:
 
-  1. PRESENCE — every entrypoint calls `harvest_github_surfaces`.
-  2. ORDER — the call comes AFTER the workflow handoff, because it reads the
-     PR the child made, and AFTER bag-open, because it writes into that bag.
-  3. THE REFS ARE THE RIGHT ONES — the call passes `ctx.pr_number` (the PR the
-     run was dispatched against) and a second expression (the PR the child
-     reported). A harvest of only one of the two misses the other.
+  1. PRESENCE — every entrypoint calls `harvest_github_surfaces`, once.
+  2. EVERY PATH — the call sits in the `finally` of a `try` whose body IS the
+     workflow handoff. THE WINDOW OPENS AT CHILD EXIT, NOT AT THE WORKFLOW'S
+     RETURN: a child that posted and then had its parent raise still wrote to
+     GitHub, and the failed runs are the ones an operator reconstructs. The
+     first cut of this sweep asserted line ORDER only — handoff line < harvest
+     line — which every entrypoint satisfied while the harvest sat on the
+     success path alone, so a workflow that raised after posting harvested
+     nothing and recorded no gap. Found in review 2026-09-12; the `finally` is
+     the structural form of "after the child exits, whatever happened".
+  3. ORDER — the guarding `try` comes AFTER bag-open, because the harvest
+     writes into that bag and would refuse the run without it (r2).
+  4. THE REFS ARE THE RIGHT ONES — the call passes `ctx.pr_number` (the PR the
+     run was dispatched against) and a second expression that CONSUMES the
+     value the handoff assigned (the PR the child reported), pre-bound to
+     `None` ABOVE the `try` so the `finally` can read it on the failure path.
+     An entrypoint whose child never creates a PR passes a literal `None` and
+     is DECLARED in `SINGLE_SURFACE_ENTRYPOINTS` with the reason — a second
+     expression that silently duplicated the first was the earlier shape.
 
 ⚠ WHAT THIS DOES NOT COVER, stated here AND in the failure messages:
 
@@ -46,10 +61,13 @@ THE THREE PROPERTIES, EACH ITS OWN TEST:
     places the call after bag-open, which every dry run already returns
     before.
   * Whether the second ref expression is CORRECT for that entrypoint's result
-    shape. The sweep can see that a second expression exists; it cannot know
-    that `result.pr_url` is the field the workflow fills. The entrypoint tests
-    that stub the workflow and assert on the harvest call's arguments own that
-    per file.
+    shape. The sweep can see that it consumes the handoff's target; it cannot
+    know that `result.pr_url` is the field the workflow fills. The entrypoint
+    tests that stub the workflow and assert on the harvest call's arguments
+    own that per file.
+  * A `KeyboardInterrupt` during the workflow now runs the harvest before the
+    process exits — bounded (`harvest.GH_TIMEOUT_SECONDS` per request) and
+    interruptible by a second interrupt. Named rather than special-cased.
 """
 
 from __future__ import annotations
@@ -60,11 +78,23 @@ from pathlib import Path
 import pytest
 
 from journal_entrypoint_facts import (BAG_OPEN, ENTRYPOINTS_DIR,  # noqa: E402
-                                      entrypoints as _entrypoints,
-                                      side_effect_lines as _side_effect_lines)
+                                      entrypoints as _entrypoints)
 
 HARVEST = "harvest_github_surfaces"
 FIRST_REF = "ctx.pr_number"
+
+#: Entrypoints whose child creates no pull request, so the dispatched PR is the
+#: ONLY surface and the second ref is a literal `None`. Declared with the
+#: reason, in the family's style, so a new entrypoint that passes `None` out of
+#: laziness is a red test rather than a quiet half-harvest.
+SINGLE_SURFACE_ENTRYPOINTS = {
+    "run_review_pr.py":
+        "a review is dispatched AGAINST a PR and posts its verdict there; the "
+        "child cuts no branch and opens nothing. `ReviewResult.pr_number` is "
+        "`task.pr_number` passed through — the same value as `ctx.pr_number` — "
+        "and passing it as the second ref read as multi-surface support the "
+        "workflow does not have.",
+}
 
 
 def harvest_calls(tree: ast.AST) -> list[ast.Call]:
@@ -93,25 +123,63 @@ def refs_argument(call: ast.Call) -> list[str] | None:
     return None
 
 
-def handoff_lines(tree: ast.AST, refs: list[str]) -> set[int]:
-    """Where the workflow was handed off to — the lines the harvest must follow.
+def guarding_try(tree: ast.AST) -> ast.Try | None:
+    """The `try` whose `finally` holds the harvest call, or None.
 
-    Two recognisers. `side_effect_lines` sees a by-name `*_workflow` call and
-    `act.worktree_add`; this adds *the assignment whose target the harvest's
-    own `refs` then consumes* — `pr_url = run_draft(...)` followed by
-    `refs=(ctx.pr_number, pr_url)` — which is what reaches the aliased-module
-    handoffs (`rw.run_research`, `wf.run_review`) the first cannot see.
+    THE `finally` IS THE PROPERTY. A harvest that runs only when the workflow
+    returns is a harvest that skips every run whose parent raised after the
+    child posted — and `finally` is the one construct that runs on the return,
+    the raise and the interrupt alike. The `try` body is the handoff by
+    construction: whatever the parent was doing when the child could have
+    written is what the `finally` covers.
     """
-    lines = set(_side_effect_lines(tree))
-    consumed = {r.split(".")[0].split("[")[0] for r in refs} - {"ctx"}
     for node in ast.walk(tree):
-        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
-            targets = {ast.unparse(t) for t in node.targets}
-            targets |= {ast.unparse(e) for t in node.targets
-                        if isinstance(t, ast.Tuple) for e in t.elts}
-            if targets & consumed:
-                lines.add(node.lineno)
-    return lines
+        if not isinstance(node, ast.Try):
+            continue
+        for stmt in node.finalbody:
+            if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call) \
+                    and stmt.value in harvest_calls(stmt):
+                return node
+    return None
+
+
+def handoff_lines(try_node: ast.Try) -> set[int]:
+    """The calls the `try` body makes — what the `finally` is guarding."""
+    return {node.lineno for stmt in try_node.body for node in ast.walk(stmt)
+            if isinstance(node, ast.Call)}
+
+
+def assigned_in(stmts: list[ast.stmt]) -> set[str]:
+    """Every name bound by an assignment among `stmts`, tuple targets unpacked."""
+    names: set[str] = set()
+    for stmt in stmts:
+        if not isinstance(stmt, ast.Assign):
+            continue
+        for target in stmt.targets:
+            elts = target.elts if isinstance(target, ast.Tuple) else [target]
+            names |= {ast.unparse(e) for e in elts}
+    return names
+
+
+def none_bound_before(tree: ast.AST, try_node: ast.Try) -> set[str]:
+    """Names bound to a literal `None` at any line above the guarding `try`.
+
+    The `finally` reads the handoff's target on the FAILURE path too, where the
+    assignment never ran; a name not pre-bound is a `NameError` raised while
+    handling the workflow's exception, which would hide it.
+    """
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and node.lineno < try_node.lineno \
+                and isinstance(node.value, ast.Constant) and node.value.value is None:
+            for target in node.targets:
+                names.add(ast.unparse(target))
+    return names
+
+
+def base_name(expr: str) -> str:
+    """`result.pr_url if result is not None else None` → `result`."""
+    return expr.split(" if ")[0].split(".")[0].split("[")[0].split("(")[0].strip()
 
 
 def _sources() -> dict[str, str]:
@@ -131,63 +199,75 @@ def test_every_entrypoint_INVOKES_the_harvest() -> None:
         f"these entrypoints never invoke `{HARVEST}`, so the PR body, decision "
         f"log and reflection their child posts are recorded NOWHERE — the "
         f"emit rule's headline claim is false of prose for every run they "
-        f"start: {missing}. Add the call after the workflow returns, passing "
-        f"`refs=({FIRST_REF}, <the URL the workflow returned>)`.\n"
+        f"start: {missing}. Add the call in a `finally` around the workflow "
+        f"handoff, passing `refs=({FIRST_REF}, <the URL the workflow returned>)`.\n"
         f"SCOPE: {ENTRYPOINTS_DIR.relative_to(Path(__file__).resolve().parents[5])}"
         f"/run_*.py and nothing else — a run started elsewhere is invisible here.")
 
 
-# --- 2. order ---------------------------------------------------------------
+# --- 2. every path ----------------------------------------------------------
 
 @pytest.mark.parametrize("name", sorted(_sources()))
-def test_the_harvest_comes_AFTER_the_workflow_and_AFTER_bag_open(name: str) -> None:
-    """It reads the PR the child made and writes into the bag the run opened.
+def test_the_harvest_runs_on_EVERY_path_out_of_the_workflow(name: str) -> None:
+    """The call is in the `finally` of a `try` whose body is the handoff.
 
-    THE WORKFLOW HANDOFF IS FOUND TWO WAYS, and the second is the one
-    `journal_entrypoint_facts.side_effect_lines` cannot see. That helper
-    recognises a by-name call to a `*_workflow` import and `act.worktree_add`;
-    the two entrypoints it names as `ORDERING_UNCOVERED` reach their workflow
-    through an aliased module (`rw.run_research`, `wf.run_review`). Here the
-    handoff is ALSO recognised as *the assignment whose value is a call and
-    whose target the harvest's `refs` then names* — `pr_url = run_draft(...)`
-    followed by `refs=(ctx.pr_number, pr_url)`. That closes the two, because
-    the harvest call itself says which value it consumes.
+    A child that posted its PR body, its decision log and its reflection and
+    then had its parent raise — a verdict that would not parse, a URL that
+    could not be extracted, a worktree that would not cut — still wrote to
+    GitHub, and the record of that is the one an operator opens first. Line
+    order cannot see this: the first cut of this sweep passed on all sixteen
+    entrypoints with the harvest on the success path alone.
     """
-    src = _sources()[name]
-    tree = ast.parse(src, filename=name)
+    tree = ast.parse(_sources()[name], filename=name)
     calls = harvest_calls(tree)
     assert calls, f"{name} has no harvest call — presence test owns this"
-    harvest_line = min(c.lineno for c in calls)
+    guard = guarding_try(tree)
+    assert guard is not None, (
+        f"{name}: the harvest at line {min(c.lineno for c in calls)} is not in the "
+        f"`finally` of a `try` around the workflow handoff, so a workflow that "
+        f"raises AFTER its child posted never harvests, records no gap, and the "
+        f"bag reads as a run that posted nothing. Wrap the handoff: "
+        f"`<target> = None; try: <target> = <workflow>(...) finally: {HARVEST}(...)`.")
+    assert handoff_lines(guard), (
+        f"{name}: the guarded `try` body at line {guard.lineno} makes no call, so "
+        f"the `finally` guards nothing — the handoff is elsewhere")
+    assert len(calls) == 1, (
+        f"{name}: {len(calls)} harvest calls; one run harvests once, in the finally")
 
+
+# --- 3. order ---------------------------------------------------------------
+
+@pytest.mark.parametrize("name", sorted(_sources()))
+def test_the_harvest_comes_AFTER_bag_open(name: str) -> None:
+    """It writes into the bag the run opened; before bag-open it refuses (r2)."""
+    tree = ast.parse(_sources()[name], filename=name)
+    guard = guarding_try(tree)
+    assert guard is not None, f"{name}: every-path test owns this"
     opens = bag_open_lines(tree)
-    assert opens and min(opens) < harvest_line, (
-        f"{name}: the harvest at line {harvest_line} precedes bag-open "
-        f"({opens}); it would find no bag and refuse the run (r2)")
-
-    refs = refs_argument(calls[0]) or []
-    handoffs = handoff_lines(tree, refs)
-    assert handoffs, (
-        f"{name}: no workflow handoff could be located, so the order claim "
-        f"below would be vacuous — the harvest's refs are {refs}")
-    assert max(handoffs) < harvest_line, (
-        f"{name}: the harvest at line {harvest_line} runs BEFORE the workflow "
-        f"handoff at {sorted(handoffs)} — it would harvest a PR that does not "
-        f"exist yet, record a gap, and miss everything the child then posts")
+    assert opens and min(opens) < guard.lineno, (
+        f"{name}: the guarded handoff at line {guard.lineno} precedes bag-open "
+        f"({opens}); the harvest would find no bag and refuse the run (r2)")
 
 
-# --- 3. the refs ------------------------------------------------------------
+# --- 4. the refs ------------------------------------------------------------
 
 @pytest.mark.parametrize("name", sorted(_sources()))
 def test_the_harvest_is_handed_BOTH_the_dispatched_PR_and_the_reported_one(
         name: str) -> None:
-    """`refs=(ctx.pr_number, <what the workflow returned>)` — two, not one.
+    """`refs=(ctx.pr_number, <what the handoff assigned>)` — two, not one.
 
     A `--pr` correction pass posts to the PR it was dispatched against; a fresh
     pass posts to the PR its child created. One expression covers one of the
     two, and a run that harvested only `ctx.pr_number` would record nothing for
-    every first pass in the fleet.
+    every first pass in the fleet. The second expression must CONSUME the
+    handoff's own target — the sweep cannot know the field is right, but it
+    can know the value came from the workflow and not from thin air — and that
+    target must be bound to `None` above the `try`, or the `finally` raises
+    `NameError` on exactly the failure path it exists for.
     """
     tree = ast.parse(_sources()[name], filename=name)
+    guard = guarding_try(tree)
+    assert guard is not None, f"{name}: every-path test owns this"
     refs = refs_argument(harvest_calls(tree)[0])
     assert refs is not None, (
         f"{name}: the harvest call passes no literal `refs=(...)` tuple; the "
@@ -195,9 +275,36 @@ def test_the_harvest_is_handed_BOTH_the_dispatched_PR_and_the_reported_one(
     assert refs[0] == FIRST_REF, (
         f"{name}: the first ref is {refs[0]!r}, not `{FIRST_REF}` — the PR the "
         f"run was dispatched against would not be harvested on a `--pr` pass")
-    assert len(refs) >= 2 and refs[1] != FIRST_REF, (
+    assert len(refs) >= 2, (
         f"{name}: the harvest is handed only the dispatched PR ({refs}); the "
         f"PR the child CREATED on a first pass would never be harvested")
+    second = refs[1]
+    if name in SINGLE_SURFACE_ENTRYPOINTS:
+        assert second == "None", (
+            f"{name} is declared single-surface ({SINGLE_SURFACE_ENTRYPOINTS[name]!r}) "
+            f"but passes {second!r} as a second ref — either the declaration is "
+            f"stale or the ref is a duplicate of the first dressed as a second")
+        return
+    assert second != FIRST_REF and second != "None", (
+        f"{name}: the second ref is {second!r} — the PR the child CREATED is "
+        f"never harvested. If this entrypoint's child truly creates no PR, "
+        f"declare it in SINGLE_SURFACE_ENTRYPOINTS with the reason.")
+    target = base_name(second)
+    assert target in assigned_in(guard.body), (
+        f"{name}: the second ref {second!r} does not consume anything the guarded "
+        f"handoff assigns ({sorted(assigned_in(guard.body))}); the value the "
+        f"harvest reads did not come from the workflow")
+    assert target in none_bound_before(tree, guard), (
+        f"{name}: `{target}` is not bound to None above the `try` at line "
+        f"{guard.lineno}; on the failure path the `finally` would raise NameError "
+        f"while handling the workflow's exception and hide it")
+
+
+def test_every_declared_single_surface_entrypoint_EXISTS() -> None:
+    """A declaration for a file that is gone is a reason nobody reads."""
+    stale = sorted(set(SINGLE_SURFACE_ENTRYPOINTS) - set(_sources()))
+    assert not stale, (
+        f"SINGLE_SURFACE_ENTRYPOINTS names entrypoints that do not exist: {stale}")
 
 
 # --- the control: the predicate against literal source --------------------------
@@ -206,30 +313,49 @@ _COMPLIANT = '''
 def main():
     ctx = build()
     journal.open_run_bag(run_id=ctx.run_id)
+    pr_url = None
+    try:
+        pr_url = run_thing(task)
+    finally:
+        harvest.harvest_github_surfaces(run_id=ctx.run_id, repo_root=repo_root,
+                                        refs=(ctx.pr_number, pr_url),
+                                        journal_root=ctx.journal_root)
+'''
+
+# THE SHAPE THE FIRST CUT OF THIS SWEEP ACCEPTED: line order right, no `finally`.
+_SUCCESS_PATH_ONLY = '''
+def main():
+    ctx = build()
+    journal.open_run_bag(run_id=ctx.run_id)
     pr_url = run_thing(task)
     harvest.harvest_github_surfaces(run_id=ctx.run_id, repo_root=repo_root,
                                     refs=(ctx.pr_number, pr_url),
                                     journal_root=ctx.journal_root)
 '''
 
-_INVERTED = '''
+_UNBOUND_ON_FAILURE = '''
 def main():
     ctx = build()
     journal.open_run_bag(run_id=ctx.run_id)
-    harvest.harvest_github_surfaces(run_id=ctx.run_id, repo_root=repo_root,
-                                    refs=(ctx.pr_number, pr_url),
-                                    journal_root=ctx.journal_root)
-    pr_url = run_thing(task)
+    try:
+        pr_url = run_thing(task)
+    finally:
+        harvest.harvest_github_surfaces(run_id=ctx.run_id, repo_root=repo_root,
+                                        refs=(ctx.pr_number, pr_url),
+                                        journal_root=ctx.journal_root)
 '''
 
 _ONE_REF = '''
 def main():
     ctx = build()
     journal.open_run_bag(run_id=ctx.run_id)
-    pr_url = run_thing(task)
-    harvest.harvest_github_surfaces(run_id=ctx.run_id, repo_root=repo_root,
-                                    refs=(ctx.pr_number,),
-                                    journal_root=ctx.journal_root)
+    pr_url = None
+    try:
+        pr_url = run_thing(task)
+    finally:
+        harvest.harvest_github_surfaces(run_id=ctx.run_id, repo_root=repo_root,
+                                        refs=(ctx.pr_number,),
+                                        journal_root=ctx.journal_root)
 '''
 
 
@@ -245,19 +371,26 @@ def test_the_predicates_DISCRIMINATE_on_literal_source() -> None:
     assert len(harvest_calls(good)) == 1
     assert bag_open_lines(good) == [4]
     assert refs_argument(harvest_calls(good)[0]) == ["ctx.pr_number", "pr_url"]
+    guard = guarding_try(good)
+    assert guard is not None and guard.lineno == 6
+    assert handoff_lines(guard) == {7}
+    assert assigned_in(guard.body) == {"pr_url"}
+    assert none_bound_before(good, guard) == {"pr_url"}
+    assert min(bag_open_lines(good)) < guard.lineno
 
     assert harvest_calls(ast.parse("def main():\n    return 1\n")) == []
 
-    assert handoff_lines(good, ["ctx.pr_number", "pr_url"]) == {5}
-    assert max(handoff_lines(good, ["ctx.pr_number", "pr_url"])) < \
-        harvest_calls(good)[0].lineno
+    # Line order right, no `finally`: no guard is located, which is what the
+    # every-path test fails on.
+    assert guarding_try(ast.parse(_SUCCESS_PATH_ONLY)) is None
 
-    inverted = ast.parse(_INVERTED)
-    assert handoff_lines(inverted, ["ctx.pr_number", "pr_url"]) == {8}
-    assert max(handoff_lines(inverted, ["ctx.pr_number", "pr_url"])) > \
-        harvest_calls(inverted)[0].lineno, "the inverted snippet must invert"
-    # A refs tuple naming NOTHING the module assigns locates no handoff — the
-    # vacuity the order test asserts against rather than passing over.
-    assert handoff_lines(good, ["ctx.pr_number"]) == set()
+    # A `finally` whose target was never pre-bound raises NameError on the
+    # failure path; the helper must report the name as unbound.
+    unbound = ast.parse(_UNBOUND_ON_FAILURE)
+    assert none_bound_before(unbound, guarding_try(unbound)) == set()
 
     assert refs_argument(harvest_calls(ast.parse(_ONE_REF))[0]) == ["ctx.pr_number"]
+
+    assert base_name("result.pr_url if result is not None else None") == "result"
+    assert base_name('result.get("pr_url") if result is not None else None') == "result"
+    assert base_name("pr_url") == "pr_url"

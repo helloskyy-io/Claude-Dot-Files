@@ -166,35 +166,46 @@ def test_the_journal_package_is_EXCLUDED_from_the_census_deliberately() -> None:
     method or parameter flag). A write reached through this module would be a
     write with no intent event, which is the class the census exists to refuse.
 
+    THE ARGV SCAN COVERS THE WHOLE PACKAGE, NOT ONLY THE LAUNCHER. The runner
+    `harvest.py` builds is handed to `harvest_activities.py`, whose login probe
+    composes `["api", "user", …]` in a file that never spells `"gh"` — so a
+    scan of the launcher alone would have missed exactly the argv a sibling
+    module writes through the launcher's runner. Every `["api", …]` literal
+    under `modules/journal/` is checked; the first cut scanned one file.
+
     WHAT THIS DOES NOT LOOK AT: an argv assembled from a variable rather than a
     list literal, and a flag arriving inside an f-string element. Both are the
     shape somebody writes deliberately; the accidental shape is a literal.
     """
-    spellers = sorted(p.name for p in (MODULES / "journal").rglob("*.py")
+    journal_files = sorted((MODULES / "journal").rglob("*.py"))
+    spellers = sorted(p.name for p in journal_files
                       if '"gh"' in p.read_text(encoding="utf-8"))
     assert spellers == [_JOURNAL_GH_READER], (
         f"the journal package launches `gh` from {spellers}; only "
         f"{_JOURNAL_GH_READER} may, and only as a reader. A second launcher "
         f"here is a write path the census above cannot see.")
 
-    source = (MODULES / "journal" / _JOURNAL_GH_READER).read_text(encoding="utf-8")
-    argv_lists = [node for node in ast.walk(ast.parse(source))
+    argv_lists = [(p.name, node) for p in journal_files
+                  for node in ast.walk(ast.parse(p.read_text(encoding="utf-8")))
                   if isinstance(node, ast.List) and node.elts
                   and isinstance(node.elts[0], ast.Constant)
                   and node.elts[0].value in ("gh", "api")]
-    assert len(argv_lists) >= 3, (
-        f"found {len(argv_lists)} `gh`/`api` argv literals in "
-        f"{_JOURNAL_GH_READER}; a shape check over fewer than the launch plus "
-        f"the two known reads has scoped itself wrongly")
+    assert len(argv_lists) >= 4, (
+        f"found {len(argv_lists)} `gh`/`api` argv literals under modules/journal; "
+        f"a shape check over fewer than the launch, the two surface reads and "
+        f"the login probe has scoped itself wrongly")
+    assert {name for name, _ in argv_lists} >= {_JOURNAL_GH_READER, "harvest_activities.py"}, (
+        f"the scan reached {sorted({n for n, _ in argv_lists})}; the login probe "
+        f"in harvest_activities.py is the argv a launcher-only scan missed")
     offenders = []
-    for node in argv_lists:
+    for name, node in argv_lists:
         literals = [e.value for e in node.elts if isinstance(e, ast.Constant)]
         if literals[0] == "gh":
             continue                     # `["gh", *args]` — the launch itself
         if literals[0] != "api" or _GH_API_MUTATING_FLAGS.intersection(literals):
-            offenders.append(f"line {node.lineno}: {literals}")
+            offenders.append(f"{name} line {node.lineno}: {literals}")
     assert not offenders, (
-        f"{_JOURNAL_GH_READER} composes a `gh` argv that is not a plain "
+        f"the journal package composes a `gh` argv that is not a plain "
         f"`gh api` GET: {offenders}. The harvest READS surfaces; a mutation "
         f"from inside the journal package has no intent event and no census row.")
 

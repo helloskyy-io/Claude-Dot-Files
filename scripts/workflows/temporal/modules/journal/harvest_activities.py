@@ -5,10 +5,14 @@ EMIT, applied to the one write path that has no call site to wrap. As a library
 each parent is asked to remember to call after its child exits, the harvest is
 optional — and this fleet's own history is that an optional control is a
 skipped control. So it is one function with one signature, invoked by every
-entrypoint after its workflow returns and before it prints its banner, and
-`tests/unit/test_every_parent_HARVESTS_its_github_surfaces.py` is the
+entrypoint in the `finally` of a `try` around its workflow handoff — on the
+return, the raise and the interrupt alike, because THE WINDOW OPENS AT CHILD
+EXIT and a child whose parent raised after it posted still wrote to GitHub —
+and `tests/unit/test_every_parent_HARVESTS_its_github_surfaces.py` is the
 enumerating sweep that fails the entrypoint that does not — in the family of
 `test_every_parent_opens_a_run_bag`, which is where r4's standing check lives.
+The first cut invoked it on the success path only, one line after the
+workflow returned; every failed run harvested nothing and recorded no gap.
 
 WHAT IS BUILDABLE TODAY AND WHAT IS PORT-TIME, the same split as the other two
 activities: layer placement, invocation and fail-stop are here; orchestrator-
@@ -31,9 +35,11 @@ WHY THE PARENT INVOKES IT AND NOT `run_claude`. The child-exit boundary inside
 `run_claude` does not know which PR the child made — the parent extracts that
 URL from the child's output and carries it in its result, and a `--pr` run
 carries its number in the context. The parent is the only actor holding both,
-so the parent passes them. Everything else — the journal root, the run id, the
-repository slug, the fleet's own login — is derived here once so every
-call site stays one line.
+so the parent passes them — and on the failure path it holds only the first,
+so it passes `None` for the second and a run that died before reporting a URL
+harvests the dispatched PR alone, or nothing, recorded as such. Everything
+else — the journal root, the run id, the repository slug, the fleet's own
+login — is derived here once so every call site stays one line.
 
 CONSUMER: Phase 6's evidence sweep reads what this emits (`phase6_cpi_reads_
 the_journal.md` r3's producer/consumer table); `scripts/reconcile_harvest.py`
@@ -45,9 +51,9 @@ from __future__ import annotations
 from collections.abc import Iterable
 from pathlib import Path
 
-from .harvest import (HarvestError, HarvestReport, Runner, _run_gh,
-                      harvest_run, repo_slug_of)
-from .journal_activities import _git, load_journal_config
+from .harvest import (HarvestError, HarvestReport, Runner, gh_runner,
+                      harvest_run, repo_slug_of, resolve_bag)
+from .journal_activities import load_journal_config, origin_remote
 from .root import resolve_journal_root
 
 __all__ = ["harvest_github_surfaces", "HarvestError", "fleet_login"]
@@ -96,10 +102,17 @@ def harvest_github_surfaces(*, run_id: str, repo_root: Path,
     """
     root = journal_root if journal_root is not None else resolve_journal_root(
         config=load_journal_config(config_path), create=False)
-    run = runner if runner is not None else _run_gh(repo_root)
+    # r2 FIRST, BEFORE THE LOGIN PROBE. `harvest_run` resolves the bag again —
+    # three stat calls, idempotent — but it takes the login as a VALUE, and the
+    # probe is a network request. Resolving here is what makes "a run id with
+    # no bag costs nothing and touches nothing" true of the activity and not
+    # only of the mechanism; the first cut probed first, and the test written
+    # to hold the order had been loosened to let the probe through.
+    resolve_bag(root, run_id)
+    run = runner if runner is not None else gh_runner(repo_root)
     report = harvest_run(
         journal_root=root, run_id=run_id, repo_root=repo_root, refs=refs,
-        default_repo=repo_slug_of(_git(repo_root, "remote", "get-url", "origin")),
+        default_repo=repo_slug_of(origin_remote(repo_root)),
         fleet_login=fleet_login(run), runner=run)
     print(report.as_note(), flush=True)
     return report

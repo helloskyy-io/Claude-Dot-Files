@@ -309,7 +309,9 @@ claude-dot-files/
 │           │                                        #   measures it later: captured / late / missed / deleted / edited, with only `missed`
 │           │                                        #   failing. Harvest, NOT intercept — a wrapper is only as complete as the paths it
 │           │                                        #   covers and the model chooses its own. harvest_activities.py is the step every
-│           │                                        #   entrypoint invokes after its workflow returns, deriving root, slug and login once
+│           │                                        #   entrypoint invokes in the `finally` around its workflow handoff — the window opens
+│           │                                        #   at CHILD EXIT, so a parent that raised after its child posted still harvests —
+│           │                                        #   resolving the bag (r2) BEFORE the login probe, then deriving root, slug and login once
 │           ├── modules/__init__.py                  # The package marker, and nothing else — every module under modules/ is
 │           │                                        #   imported by its own path, so this file exports nothing and re-exports nothing
 │           ├── modules/vocabulary.py                # ONE DECLARATION per concept the typed exit record and the journal event share
@@ -460,7 +462,10 @@ claude-dot-files/
 │                   │                                #   orphaned worktree behind it (#49). Also holds `refuse()` — the family's ONE
 │                   │                                #   operator-facing refusal, extracted 2026-09-02 from 24 byte-identical copies
 │                   │                                #   across the 17 runners AND validate_bag.py / verify_citations.py (which pass
-│                   │                                #   `exit_code=`, the reason the helper takes one) — plus the AST sweep that stops
+│                   │                                #   `exit_code=`, the reason the helper takes one), which since PMP Phase 10 also
+│                   │                                #   prints an exception raised WHILE HANDLING another beneath it (the harvest in a
+│                   │                                #   `finally` must not hide the workflow's error) and walks only the implicit chain,
+│                   │                                #   never an explicit `from` — plus the AST sweep that stops
 │                   │                                #   it being re-inlined. That sweep is the only duplication guard this repo has
 │                   │                                #   over Python: the prompt ratchet's population is `prompts/*.md`
 │                   ├── test_render_opaque_operator_text.py # An operator's literal `${...}` reaches the model UNSUBSTITUTED — two
@@ -864,13 +869,16 @@ claude-dot-files/
 │                   │                                #   failing and the same-second boundary counted as missed rather than late
 │                   ├── test_every_parent_HARVESTS_its_github_surfaces.py # PMP Phase 10 r4 — THE STANDING CHECK, and the build
 │                   │                                #   decision stated in its docstring: the enumerating sweep rather than the reconciliation,
-│                   │                                #   because a sweep runs on every push and a reconciliation runs when pointed at a bag. Every
-│                   │                                #   run_*.py must invoke harvest_github_surfaces AFTER bag-open and AFTER the workflow handoff
-│                   │                                #   (found two ways — side_effect_lines, plus the assignment whose target the harvest's own
-│                   │                                #   refs consume, which reaches the two aliased-module entrypoints the older recogniser
-│                   │                                #   cannot), passing BOTH ctx.pr_number and the URL the workflow returned. Predicates driven
-│                   │                                #   on literal compliant / inverted / one-ref snippets so a shape change cannot leave the
-│                   │                                #   sweep green over a fleet it stopped examining
+│                   │                                #   because a sweep runs on every push and a reconciliation runs when pointed at a bag. Four
+│                   │                                #   properties per run_*.py: harvest_github_surfaces is invoked ONCE; in the `finally` of a
+│                   │                                #   `try` whose body is the workflow handoff (EVERY PATH — the window opens at child exit,
+│                   │                                #   and the first cut asserted line order only, so a parent that raised after its child
+│                   │                                #   posted harvested nothing); that `try` comes AFTER bag-open; and the refs are ctx.pr_number
+│                   │                                #   plus an expression consuming the handoff's own target, pre-bound to None above the `try`
+│                   │                                #   (an entrypoint whose child creates no PR passes a literal None and is DECLARED in
+│                   │                                #   SINGLE_SURFACE_ENTRYPOINTS with its reason). Predicates driven on literal compliant /
+│                   │                                #   success-path-only / unbound / one-ref snippets so a shape change cannot leave the sweep
+│                   │                                #   green over a fleet it stopped examining
 │                   ├── test_every_fleet_write_path_EMITS.py # PMP Phase 3 r1, wired. Two halves: a CENSUS that keeps requirement 9's inventory complete, and
 │                   │                                #   one behavioural test per inventoried path. The census walks for ONE shape — a subprocess whose
 │                   │                                #   argv[0] is `gh`, from an uninventoried module — and deliberately NOT for a bare write_text,
@@ -973,14 +981,14 @@ claude-dot-files/
 │                   │                                #   Families 1 and 2 each hold a fleet idiom, which is what makes them likely rather
 │                   │                                #   than exotic: a journal submodule bound as a name (journal_activities as journal in
 │                   │                                #   every entrypoint plus harvest_activities as harvest since PMP Phase 10, verify /
-│                   │                                #   validate / harvest in the three operator tools, emit in the four
-│                   │                                #   PMP-Phase-3 write paths — twenty-three call
+│                   │                                #   validate in two operator tools (reconcile_harvest imports its readers by name),
+│                   │                                #   emit in the four PMP-Phase-3 write paths — twenty-two call
 │                   │                                #   sites, and content_store is not among them) and from .. import journal, the workflow
 │                   │                                #   tree's dominant relative import. The package matcher binds by import SEMANTICS,
 │                   │                                #   never by the identifier text `journal`: `alias.name` is matched and never the asname,
 │                   │                                #   BOUNDARY_PARENT rejects a `journal` imported from a sibling, and an asname binds
 │                   │                                #   exactly the module named, so import modules.assistant as ma reaches nothing. The
-│                   │                                #   the twenty-three call sites trip the first two at once, so neither can be observed through
+│                   │                                #   the twenty-two call sites trip the first two at once, so neither can be observed through
 │                   │                                #   them and neither costs a false positive — measured, deleting either flags nothing on
 │                   │                                #   a clean tree, because those call sites reach only open_run_bag and the emit
 │                   │                                #   boundary. Both are therefore
@@ -995,7 +1003,7 @@ claude-dot-files/
 │                   │                                #   asserts a floor PER swept directory after a mutation showed a single total floor
 │                   │                                #   of fifty stayed green with all 23 modules under scripts/ dropped from the
 │                   │                                #   population, modules/ alone holding 61 of the 84. EVERY FIGURE IN ITS OWN PROSE IS
-│                   │                                #   DERIVED and asserted — the ten shapes, the twenty-three call sites, 61/23/84 — and each
+│                   │                                #   DERIVED and asserted — the ten shapes, the twenty-two call sites, 61/23/84 — and each
 │                   │                                #   enumerated shape must have a fixture that writes it, so a shape added to the prose
 │                   │                                #   without a control goes red rather than reading as covered
 │                   ├── test_content_store.py        # PMP Phase 2 r7(b)/r7(d) — the on-disk path is a function of the COMPUTED DIGEST and

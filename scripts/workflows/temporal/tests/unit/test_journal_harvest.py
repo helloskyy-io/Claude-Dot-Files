@@ -461,6 +461,25 @@ def test_a_comment_whose_event_became_a_GAP_counts_as_NOT_harvested() -> None:
     assert rec.missed == (1,) and not rec.ok
 
 
+def test_a_GAPPED_comment_DELETED_since_is_still_a_miss_not_a_vanishing() -> None:
+    """The one shape the first cut sorted into NO set: seen, lost, then deleted.
+
+    `then` was built only from comments with an event, so a gapped comment
+    absent from the surface now was in neither `then` nor `now` and the
+    verdict read OK over a bag that had lost it. The index says the harvest
+    saw it; the record does not hold it; that is a miss whatever the surface
+    did afterwards.
+    """
+    at = "2026-09-12T12:00:00Z"
+    kept = _comment(1, "x", created="2026-09-12T11:00:00Z")
+    lost = _comment(2, "y", created="2026-09-12T11:30:00Z")
+    entry = _index_entry(at, kept, lost)
+    entry["comments"][1]["event_id"] = None
+    rec = h.reconcile_surface(entry, _snapshot(kept))       # 2 is gone now
+    assert rec.missed == (2,) and rec.deleted_since == () and not rec.ok, (
+        f"a comment the harvest saw and lost vanished from the reconciliation: {rec}")
+
+
 def test_indexes_are_read_OLDEST_WRITER_FIRST(journal: Path) -> None:
     bag = _bag(journal)
     gh = FakeGh({f"{REPO}#7": (_head(count=0), [[]])})
@@ -475,8 +494,8 @@ def test_the_activity_resolves_root_slug_and_login_ONCE_and_prints(journal, caps
                                                                   monkeypatch):
     _bag(journal)
     gh = FakeGh({f"{REPO}#7": (_head(count=1), [[_comment(11, "x")]])})
-    monkeypatch.setattr("modules.journal.harvest_activities._git",
-                        lambda repo_root, *a: f"git@github.com:{REPO}.git")
+    monkeypatch.setattr("modules.journal.harvest_activities.origin_remote",
+                        lambda repo_root: f"git@github.com:{REPO}.git")
     report = harvest_github_surfaces(run_id="run-1", repo_root=journal,
                                      refs=("7", None), journal_root=journal,
                                      runner=gh)
@@ -488,21 +507,22 @@ def test_the_activity_resolves_root_slug_and_login_ONCE_and_prints(journal, caps
 def test_the_activity_REFUSES_a_run_id_with_no_bag_before_touching_the_network(
         journal, monkeypatch):
     gh = FakeGh({})
-    monkeypatch.setattr("modules.journal.harvest_activities._git",
-                        lambda repo_root, *a: f"git@github.com:{REPO}.git")
+    monkeypatch.setattr("modules.journal.harvest_activities.origin_remote",
+                        lambda repo_root: f"git@github.com:{REPO}.git")
     with pytest.raises(h.HarvestError, match="resolves to no bag"):
         harvest_github_surfaces(run_id="ghost", repo_root=journal, refs=("7",),
                                 journal_root=journal, runner=gh)
-    assert all(call[:2] == ["api", "user"] for call in gh.calls), (
-        f"a surface was requested for a run with no bag: {gh.calls}")
+    assert gh.calls == [], (
+        f"`gh` was launched for a run with no bag — the refusal must cost "
+        f"nothing and touch nothing, and the login probe is a request: {gh.calls}")
 
 
 def test_the_activity_needs_NO_repository_slug_when_every_ref_is_a_URL(journal,
                                                                        monkeypatch):
     _bag(journal)
     gh = FakeGh({f"{REPO}#7": (_head(count=0), [[]])})
-    monkeypatch.setattr("modules.journal.harvest_activities._git",
-                        lambda repo_root, *a: "")            # no origin remote
+    monkeypatch.setattr("modules.journal.harvest_activities.origin_remote",
+                        lambda repo_root: "")                # no origin remote
     report = harvest_github_surfaces(run_id="run-1", repo_root=journal,
                                      refs=(None, PR), journal_root=journal, runner=gh)
     assert report.ok

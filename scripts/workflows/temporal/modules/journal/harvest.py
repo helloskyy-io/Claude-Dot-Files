@@ -117,7 +117,7 @@ __all__ = ["HarvestError", "SurfaceUnreadable", "SurfaceRef", "Comment",
            "Snapshot", "HarvestedSurface", "HarvestReport", "Reconciliation",
            "parse_ref", "surface_refs", "repo_slug_of", "fetch_surface",
            "resolve_bag", "harvest_run", "read_harvest_indexes",
-           "reconcile_surface", "render_reconciliation",
+           "reconcile_surface", "render_reconciliation", "gh_runner", "Runner",
            "GH_TIMEOUT_SECONDS", "PER_PAGE", "LABEL_HARVEST",
            "HARVEST_WRITER", "HARVEST_INDEX_FILE", "HARVEST_INDEX_SCHEMA"]
 
@@ -326,7 +326,9 @@ class Snapshot:
     fetched_at: str
 
 
-def _run_gh(cwd: Path) -> Runner:
+def gh_runner(cwd: Path) -> Runner:
+    """The real `gh`, bounded. Public because the activity builds it once and
+    hands the same runner to the login probe and the fetch."""
     def run(args: list[str]) -> subprocess.CompletedProcess:
         try:
             return subprocess.run(["gh", *args], cwd=str(cwd),
@@ -427,7 +429,7 @@ def fetch_surface(ref: SurfaceRef, *, cwd: Path,
     stamping afterwards would call such a comment "inside the window and
     missed" when it was neither.
     """
-    run = runner if runner is not None else _run_gh(cwd)
+    run = runner if runner is not None else gh_runner(cwd)
     fetched_at = clock()
     head = _gh_json(run, ["api", f"repos/{ref.repo}/issues/{ref.number}"],
                     expect=dict, surface=ref)
@@ -741,10 +743,15 @@ class Reconciliation:
       * `late`           — on the surface now, created AFTER `harvested_at`,
                            not in the record. THE WINDOW'S COST. Expected,
                            counted, never a failure.
-      * `missed`         — on the surface now, created AT OR BEFORE
-                           `harvested_at`, not in the record. A HARVEST DEFECT:
+      * `missed`         — created AT OR BEFORE `harvested_at` and not in the
+                           record: on the surface now and never captured, OR
+                           seen by the harvest and lost to a gap — whether or
+                           not it is still on the surface. A HARVEST DEFECT:
                            the comment was there to be read and was not. The
-                           only set that fails the check.
+                           only set that fails the check. The first cut built
+                           `then` only from comments with an event, so a gapped
+                           comment that was later deleted fell into NO set and
+                           the verdict read OK over a bag that had lost it.
       * `deleted_since`  — in the record, absent from the surface now. The
                            record is what the surface held; this is why it was
                            harvested at all.
@@ -776,13 +783,23 @@ def reconcile_surface(index_entry: dict, now: Snapshot) -> Reconciliation:
 
     STRING COMPARISON ON ISO-8601 UTC TIMESTAMPS IS ORDER-PRESERVING, because
     both sides are `YYYY-MM-DDTHH:MM:SSZ` at second precision — the vendor's
-    format and `utc_now`'s. `<=` rather than `<` on the boundary: a comment
-    created in the same second the harvest read the surface was there to be
-    read, and calling it late would hide a miss behind a coincidence.
+    format and `utc_now`'s.
+
+    ⚠ THE BOUNDARY SECOND IS AMBIGUOUS, AND THE AMBIGUITY IS RESOLVED TOWARD A
+    FALSE ALARM. `harvested_at` is the LOCAL clock at second precision and a
+    comment's `created_at` is the VENDOR'S; a comment posted later in the same
+    second as the read — or within whatever skew the two clocks carry — has
+    `created_at <= harvested_at` and is counted `missed`, so the check goes
+    red on a comment the harvest could not have seen. `<=` rather than `<` all
+    the same: the other direction hides a real miss behind a coincidence, and
+    a false SHORTFALL costs an operator one look at the timestamps while a
+    hidden miss costs the record. Closing this needs the read instant on the
+    vendor's clock, which `gh api` does not return beside the JSON.
     """
     harvested_at = index_entry["harvested_at"]
-    then = {c["id"]: c for c in index_entry.get("comments", [])
-            if c.get("event_id") is not None}
+    seen = {c["id"]: c for c in index_entry.get("comments", [])}
+    then = {cid: c for cid, c in seen.items() if c.get("event_id") is not None}
+    gapped = [cid for cid in seen if cid not in then]
     now_by_id = {c.id: c for c in now.comments}
     captured, late, missed, edited = [], [], [], []
     for cid, comment in now_by_id.items():
@@ -794,6 +811,11 @@ def reconcile_surface(index_entry: dict, now: Snapshot) -> Reconciliation:
             missed.append(cid)
         else:
             late.append(cid)
+    # A GAPPED COMMENT THAT IS GONE FROM THE SURFACE IS STILL A MISS. It was
+    # there at harvest time — the index says so — and it is not in the record;
+    # its deletion since changes nothing about that. One still on the surface
+    # has already been sorted into `missed` above by its `created_at`.
+    missed.extend(cid for cid in gapped if cid not in now_by_id)
     deleted = [cid for cid in then if cid not in now_by_id]
     return Reconciliation(
         url=index_entry["url"], harvested_at=harvested_at,
