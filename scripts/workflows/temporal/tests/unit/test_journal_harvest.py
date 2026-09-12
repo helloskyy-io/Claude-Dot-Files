@@ -12,10 +12,11 @@ WHAT IS PROVEN HERE, one section each:
                   bare number with no repository is refused rather than guessed.
   * RESOLUTION  — r2: an absent bag, a folder that is not a bag, and a sealed
                   bag are each refused with the path named. Nothing is created.
-  * THE HARVEST — r1: every body lands verbatim as a `completion` with the
-                  GitHub URL as its destination and the fleet's login deciding
-                  provenance; r3(b): the bag carries a `Journal-Harvest` tag and
-                  an index naming what was covered and when.
+  * THE HARVEST — r1: the title, the body and every comment land verbatim as
+                  a `completion` with the GitHub URL as its destination and the
+                  fleet's login deciding provenance; r3(b): the bag carries a
+                  `Journal-Harvest` tag and an index naming what was covered
+                  and when.
   * THE GAP     — r5: a surface that cannot be read leaves a typed gap naming
                   it, the bag is `incomplete`, and the NEXT surface is still
                   harvested. The fetch's three failure shapes are one class.
@@ -92,8 +93,9 @@ class FakeGh:
         return _reply(json.dumps(head))
 
 
-def _head(body: str = "the PR body", *, author: str = ME, count: int = 0) -> dict:
-    return {"body": body, "user": {"login": author}, "html_url": PR,
+def _head(body: str = "the PR body", *, author: str = ME, count: int = 0,
+          title: str = "the PR title") -> dict:
+    return {"title": title, "body": body, "user": {"login": author}, "html_url": PR,
             "created_at": "2026-09-12T09:00:00Z",
             "updated_at": "2026-09-12T09:00:00Z", "comments": count,
             "pull_request": {"url": "…"}}
@@ -215,18 +217,53 @@ def test_every_body_lands_VERBATIM_as_a_completion_addressed_to_its_URL(journal:
 
     assert report.ok
     events = _events(report.writer_dir)
-    assert [e.kind for e in events] == [EventKind.COMPLETION] * 3
+    assert [e.kind for e in events] == [EventKind.COMPLETION] * 4
     assert [e.content for e in events] == [
-        "Body — with «unicode» and\n\nblank lines", "first", "second — by a human"]
-    assert [e.destination.store for e in events] == ["github"] * 3
+        "the PR title", "Body — with «unicode» and\n\nblank lines", "first",
+        "second — by a human"]
+    assert [e.destination.store for e in events] == ["github"] * 4
     assert [e.destination.address for e in events] == [
-        PR, f"{PR}#issuecomment-11", f"{PR}#issuecomment-12"]
+        PR, PR, f"{PR}#issuecomment-11", f"{PR}#issuecomment-12"]
     assert [e.provenance for e in events] == [
-        Provenance.FLEET_AUTHORED, Provenance.FLEET_AUTHORED, Provenance.FETCHED]
+        Provenance.FLEET_AUTHORED, Provenance.FLEET_AUTHORED,
+        Provenance.FLEET_AUTHORED, Provenance.FETCHED]
     assert [e.write_path for e in events] == [
-        f"harvest:github:{REPO}#7:body", f"harvest:github:{REPO}#7:comment:11",
-        f"harvest:github:{REPO}#7:comment:12"]
+        f"harvest:github:{REPO}#7:title", f"harvest:github:{REPO}#7:body",
+        f"harvest:github:{REPO}#7:comment:11", f"harvest:github:{REPO}#7:comment:12"]
     assert all(e.run_id == "run-1" for e in events)
+
+
+def test_the_TITLE_lands_verbatim_as_its_own_event_addressed_to_the_SURFACE(
+        journal: Path) -> None:
+    """The run authored the title (`gh pr create` names a format for it) and a
+    retitle leaves no history, so it is one more verbatim event — addressed to
+    the surface itself, as the body is, because there is no narrower URL for a
+    headline."""
+    _bag(journal)
+    title = "build-draft: PMP Phase 10 — «the» model-issued harvest"
+    gh = FakeGh({f"{REPO}#7": (_head("body", count=0, title=title), [[]])})
+    report = _harvest(journal, gh, (PR,))
+
+    assert report.ok
+    title_event, body_event = _events(report.writer_dir)
+    assert title_event.kind is EventKind.COMPLETION
+    assert title_event.content == title
+    assert title_event.destination.store == "github"
+    assert title_event.destination.address == PR == body_event.destination.address
+    assert title_event.write_path == f"harvest:github:{REPO}#7:title"
+    assert title_event.event_id == report.surfaces[0].title_event
+    surface, = h.read_harvest_indexes(report.bag_path)[0]["surfaces"]
+    assert surface["title"] == {"event_id": title_event.event_id,
+                                "bytes": len(title.encode("utf-8"))}
+    assert surface["bytes_harvested"] == len(title.encode("utf-8")) + len(b"body")
+
+
+def test_a_TITLE_the_surface_carries_as_a_non_string_is_REFUSED_not_recorded_empty() -> None:
+    """`body: null` is a real state and is recorded as empty; a title is never
+    null on GitHub, so its absence is a surface defect, not a value."""
+    gh = FakeGh({f"{REPO}#7": ({**_head(count=0), "title": None}, [[]])})
+    with pytest.raises(h.SurfaceUnreadable, match="no string 'title'"):
+        h.fetch_surface(h.SurfaceRef(REPO, "pull", 7), cwd=Path("."), runner=gh)
 
 
 def test_the_bag_SAYS_what_the_harvest_covered_and_when(journal: Path) -> None:
@@ -235,7 +272,7 @@ def test_the_bag_SAYS_what_the_harvest_covered_and_when(journal: Path) -> None:
     report = _harvest(journal, gh, (PR,), clock=lambda: "2026-09-12T12:00:00Z")
 
     tags = [v for label, v in read_tag_file(bag.info_path) if label == h.LABEL_HARVEST]
-    assert tags == [f"2026-09-12T12:00:00Z {PR} comments=1/1 body=captured bytes=12"]
+    assert tags == [f"2026-09-12T12:00:00Z {PR} comments=1/1 body=captured bytes=24"]
 
     indexes = h.read_harvest_indexes(bag.path)
     assert len(indexes) == 1
@@ -245,6 +282,7 @@ def test_the_bag_SAYS_what_the_harvest_covered_and_when(journal: Path) -> None:
     assert surface["harvested_at"] == "2026-09-12T12:00:00Z"
     assert surface["captured"] is True
     assert surface["comments_harvested"] == surface["comments_on_surface"] == 1
+    assert surface["title"]["event_id"] == report.surfaces[0].title_event
     assert surface["body"]["event_id"] == report.surfaces[0].body_event
     assert surface["comments"][0]["id"] == 11
     assert surface["comments"][0]["event_id"] == report.surfaces[0].comment_events[0][1]
@@ -278,7 +316,7 @@ def test_a_SECOND_harvest_derives_the_SAME_identities_so_replay_dedupes(journal:
     assert second.writer_dir.name == "harvest-2"
     from modules.journal.events import dedupe_on_identity
     both = _events(first.writer_dir) + _events(second.writer_dir)
-    assert len(both) == 4 and len(dedupe_on_identity(both)) == 2
+    assert len(both) == 6 and len(dedupe_on_identity(both)) == 3
 
 
 def test_provenance_DEGRADES_to_fetched_when_the_login_is_unknown(journal: Path):
@@ -293,7 +331,8 @@ def test_a_PR_with_a_null_body_is_recorded_EMPTY_not_refused(journal: Path) -> N
     _bag(journal)
     gh = FakeGh({f"{REPO}#7": ({**_head(count=0), "body": None}, [[]])})
     report = _harvest(journal, gh, (PR,))
-    assert report.ok and _events(report.writer_dir)[0].content == ""
+    title_event, body_event = _events(report.writer_dir)
+    assert report.ok and body_event.content == "" and title_event.content == "the PR title"
 
 
 # --- the gap (r5) ---------------------------------------------------------------------
@@ -320,13 +359,48 @@ def test_an_UNREADABLE_surface_leaves_a_typed_gap_and_marks_the_bag(journal: Pat
     assert "NOT READ" in report.as_note()
 
 
+def test_a_TITLE_append_that_became_a_gap_makes_the_harvest_NOT_ok(
+        journal: Path, monkeypatch) -> None:
+    """`HarvestReport.ok` requires the title event exactly as it requires the
+    body's — a surface whose headline did not land is not a captured surface.
+    The append is failed for the `:title` path ALONE, the way `ENOSPC` would
+    fail one write and not the next, so the gap record itself still lands."""
+    import errno
+    from modules.journal.emit import Emitter
+    real_append = Emitter._append
+
+    def failing_title_append(self, event):
+        # The gap record is filed under the SAME write path, so the failure is
+        # keyed on the completion alone — otherwise the record of the loss
+        # would be lost with it, which is case (d) and a different test.
+        if event.kind is EventKind.COMPLETION and event.write_path.endswith(":title"):
+            raise OSError(errno.ENOSPC, "No space left on device")
+        return real_append(self, event)
+
+    monkeypatch.setattr(Emitter, "_append", failing_title_append)
+    bag = _bag(journal)
+    gh = FakeGh({f"{REPO}#7": (_head(count=1), [[_comment(11, "x")]])})
+    report = _harvest(journal, gh, (PR,))
+
+    assert not report.ok
+    surface, = report.surfaces
+    assert surface.captured and surface.title_event is None
+    assert surface.body_event is not None and surface.comments_harvested == 1
+    kinds = [e.kind for e in _events(report.writer_dir)]
+    assert kinds == [EventKind.GAP, EventKind.COMPLETION, EventKind.COMPLETION]
+    assert bag.incomplete
+    entry, = h.read_harvest_indexes(bag.path)[0]["surfaces"]
+    assert entry["title"]["event_id"] is None
+    assert "title (GAP)" in report.as_note()
+
+
 def test_the_harvest_CONTINUES_past_an_unreadable_surface(journal: Path) -> None:
     _bag(journal)
     gh = FakeGh({f"{REPO}#7": (_head("pr", count=0), [[]])})
     report = _harvest(journal, gh, (f"https://github.com/{REPO}/issues/404", PR))
     assert [s.captured for s in report.surfaces] == [False, True]
     kinds = [e.kind for e in _events(report.writer_dir)]
-    assert kinds == [EventKind.GAP, EventKind.COMPLETION]
+    assert kinds == [EventKind.GAP, EventKind.COMPLETION, EventKind.COMPLETION]
 
 
 @pytest.mark.parametrize("stdout, code, why", [
@@ -359,11 +433,11 @@ def test_a_credential_in_a_HARVESTED_comment_is_filtered_on_the_same_path(journa
     report = _harvest(journal, gh, (PR,))
     events = _events(report.writer_dir)
     kinds = [e.kind for e in events]
-    assert kinds == [EventKind.COMPLETION, EventKind.REDACTION_PLACEHOLDER,
-                     EventKind.COMPLETION]
+    assert kinds == [EventKind.COMPLETION, EventKind.COMPLETION,
+                     EventKind.REDACTION_PLACEHOLDER, EventKind.COMPLETION]
     assert secret not in (report.writer_dir / EVENTS_FILE).read_text(encoding="utf-8")
-    assert "github-token" in events[1].content
-    assert events[2].content.startswith("token is [FILTERED")
+    assert "github-token" in events[2].content
+    assert events[3].content.startswith("token is [FILTERED")
     assert report.ok, "a filtered comment is a captured comment"
 
 
@@ -404,7 +478,7 @@ def _snapshot(*comments: dict, count: int | None = None) -> h.Snapshot:
     parsed = tuple(h.Comment(id=c["id"], url=c["html_url"], author=c["user"]["login"],
                              created_at=c["created_at"], updated_at=c["updated_at"],
                              body=c["body"]) for c in comments)
-    return h.Snapshot(ref=h.SurfaceRef(REPO, "pull", 7), url=PR, author=ME,
+    return h.Snapshot(ref=h.SurfaceRef(REPO, "pull", 7), url=PR, title="t", author=ME,
                       created_at="t0", updated_at="t0", body="",
                       comment_count=len(parsed) if count is None else count,
                       comments=parsed, fetched_at="now")
@@ -501,7 +575,7 @@ def test_the_activity_resolves_root_slug_and_login_ONCE_and_prints(journal, caps
                                      runner=gh)
     assert report.ok
     assert gh.calls[0] == ["api", "user", "--jq", ".login"]
-    assert f"harvest: {PR} — body + 1/1 comments" in capsys.readouterr().out
+    assert f"harvest: {PR} — title + body + 1/1 comments" in capsys.readouterr().out
 
 
 def test_the_activity_REFUSES_a_run_id_with_no_bag_before_touching_the_network(

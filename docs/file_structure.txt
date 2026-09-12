@@ -295,8 +295,9 @@ claude-dot-files/
 │           │                                        #   writes only; the model-issued half is Phase 10's post-exit harvest
 │           │                                        #   PHASE 10 ADDS THAT HARVEST as two more files here, for the same reason: what they
 │           │                                        #   write is journal events. harvest.py reads a run's GitHub surfaces AFTER the child
-│           │                                        #   exits — the PR body and every comment, two `gh api` GETs per surface, paginated —
-│           │                                        #   and emits each verbatim through unpairable_write, so the capture-time filter is
+│           │                                        #   exits — the PR title, its body and every comment, two `gh api` GETs per surface,
+│           │                                        #   paginated — and emits each verbatim through unpairable_write (the title as its own
+│           │                                        #   event: a retitle leaves no history), so the capture-time filter is
 │           │                                        #   inherited rather than re-applied. It RESOLVES a run id to an existing open bag and
 │           │                                        #   refuses otherwise (never open_bag, which would create one and attribute the prose
 │           │                                        #   to a guessed id); a surface it cannot read becomes a SURFACE_UNREADABLE gap and an
@@ -400,7 +401,7 @@ claude-dot-files/
 │               │   │                                #   honest to assert about that. Does NOT substitute for the entrypoint sweep: a fleet
 │               │   │                                #   where ten of eleven had stopped opening bags would still pass on the eleventh's output
 │               │   ├── test_a_real_harvest.py       # PMP Phase 10's integration tier — one real harvest of a real, merged pull request
-│               │   │                                #   (#175) into a tmp_path bag, the body checked byte-for-byte against a second
+│               │   │                                #   (#175) into a tmp_path bag, the title and body checked byte-for-byte against a second
 │               │   │                                #   independent `gh` read, and the vendor facts the design rests on (slurped pages,
 │               │   │                                #   the surface's own comment count, per_page honoured) re-read from the live API.
 │               │   │                                #   SKIPS — distinctly from passing — where `gh` is not authenticated: CI carries no
@@ -855,7 +856,8 @@ claude-dot-files/
 │                   │                                #   control, so a threading test would exercise the GIL rather than the lock
 │                   ├── test_journal_harvest.py       # PMP Phase 10's mechanism, driven against a FAKE `gh` and REAL bags: references resolve or
 │                   │                                #   are refused (a bare number with no repository is never guessed); r2's three refusals create
-│                   │                                #   nothing; every body lands verbatim as a completion addressed to its URL with the login
+│                   │                                #   nothing; the title, the body and every comment land verbatim as completions addressed to
+│                   │                                #   their URL (a title-append gap alone makes the report not ok) with the login
 │                   │                                #   deciding provenance; the bag carries the Journal-Harvest tag and an index with no prose in
 │                   │                                #   it; an unreadable surface leaves a SURFACE_UNREADABLE gap naming it, marks the bag, and the
 │                   │                                #   NEXT surface is still read; a credential in a harvested comment is filtered on the same

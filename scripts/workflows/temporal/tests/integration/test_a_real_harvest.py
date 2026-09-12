@@ -70,23 +70,31 @@ def test_a_real_pull_request_is_harvested_VERBATIM_into_a_scratch_bag(
     events = [decode_event(line) for line in
               (report.writer_dir / EVENTS_FILE).read_text(encoding="utf-8").splitlines()]
     assert all(e.kind is EventKind.COMPLETION for e in events)
-    assert len(events) == 1 + surface.comments_harvested
+    assert len(events) == 2 + surface.comments_harvested, "title, body, comments"
+    title_event, body_event = events[:2]
 
-    # AGREEMENT WITH A SECOND, INDEPENDENT READ of the same surface: the body on
-    # the first event is byte-identical to what `gh` hands back directly. This
-    # is what "verbatim" means here, checked rather than asserted.
-    direct = subprocess.run(
-        ["gh", "api", "repos/helloskyy-io/Claude-Dot-Files/issues/175", "--jq", ".body"],
-        capture_output=True, text=True, timeout=60, cwd=str(REPO_ROOT))
-    assert direct.returncode == 0, direct.stderr
+    # AGREEMENT WITH A SECOND, INDEPENDENT READ of the same surface: the title
+    # on the first event and the body on the second are byte-identical to what
+    # `gh` hands back directly. This is what "verbatim" means here, checked
+    # rather than asserted.
+    def direct(field: str) -> str:
+        read = subprocess.run(
+            ["gh", "api", "repos/helloskyy-io/Claude-Dot-Files/issues/175",
+             "--jq", field],
+            capture_output=True, text=True, timeout=60, cwd=str(REPO_ROOT))
+        assert read.returncode == 0, read.stderr
+        return read.stdout
+
     # `--jq` prints the string plus ONE newline; the body itself ends in two,
     # and a `rstrip` here would have called the record verbatim while it was
     # not. Exactly one newline is added, and nothing is removed.
-    assert events[0].content + "\n" == direct.stdout
-    assert events[0].destination.address == FIXTURE_PR
+    assert title_event.content + "\n" == direct(".title")
+    assert body_event.content + "\n" == direct(".body")
+    assert title_event.destination.address == FIXTURE_PR
+    assert body_event.destination.address == FIXTURE_PR
 
     out = capsys.readouterr().out
-    assert f"harvest: {FIXTURE_PR} — body + " in out
+    assert f"harvest: {FIXTURE_PR} — title + body + " in out
 
 
 @needs_gh

@@ -44,8 +44,9 @@ Phase 3's contract and nothing else:
                              (so r6's filter is inherited, not re-applied), the
                              gap path (r5), the per-surface window statement
                              (r3), and the reconciliation that measures it
-  `harvest_activities.py`  — the activity a parent invokes after its workflow
-                             returns (r7); derives root, slug and login once
+  `harvest_activities.py`  — the activity a parent invokes in the `finally`
+                             around its workflow handoff, on every path out
+                             (r7); derives root, slug and login once
 
 THE EVENT CONTRACT IS SEPARATE FROM THE TYPED EXIT RECORD'S AND SHARES ONE
 VOCABULARY WITH IT (r3). `modules/vocabulary.py` is that vocabulary — a leaf at

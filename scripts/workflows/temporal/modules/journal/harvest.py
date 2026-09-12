@@ -12,11 +12,15 @@ prose answers *what changed* and never *why*.
 
 So this module READS THE DESTINATION INSTEAD OF THE PATH. Once a child has
 finished, a parent invokes `harvest_activities.harvest_github_surfaces`, which
-asks each GitHub surface the run wrote to what it holds now and emits every
-body verbatim into the run's bag on Phase 3's contract — `Destination(store=
-"github", address=<the object's URL>)`, a `COMPLETION` with no prior intent,
-which is the typed shape `Emitter.unpairable_write` already names for this case.
-No second contract, no new event kind.
+asks each GitHub surface the run wrote to what it holds now and emits its
+title, its body and every comment verbatim into the run's bag on Phase 3's
+contract — `Destination(store="github", address=<the object's URL>)`, a
+`COMPLETION` with no prior intent, which is the typed shape
+`Emitter.unpairable_write` already names for this case. No second contract, no
+new event kind. THE TITLE IS AN EVENT OF ITS OWN because the run authored it
+(`gh pr create` with a title format) and a retitle leaves no history — it is
+the one line Phase 6's sweep would key a run's prose on, and it would otherwise
+be unrecoverable the moment the operator renamed the PR.
 
 ## Harvest, not intercept — the alternative is named so it is not re-derived
 
@@ -34,10 +38,11 @@ and a bounded measurable gap is strictly better than an unbounded invisible one.
 
 ## What is in scope and what is deliberately not
 
-IN: the pull request this run opened or was dispatched against — its body and
-every comment on it — and any issue the caller can name. A review verdict this
-fleet posts is an ordinary comment (`gh pr comment`, the `pr_review:` block), so
-it is covered by the comment arm and needs no arm of its own.
+IN: the pull request this run opened or was dispatched against — its title,
+its body and every comment on it — and any issue the caller can name. A review
+verdict this fleet posts is an ordinary comment (`gh pr comment`, the
+`pr_review:` block), so it is covered by the comment arm and needs no arm of
+its own.
 
 OUT: **GitHub's computed review state** — approvals, requested changes, merge
 status, checks. Nothing a run *authored*; a service's derived view that changes
@@ -317,6 +322,7 @@ class Snapshot:
 
     ref: SurfaceRef
     url: str
+    title: str
     author: str
     created_at: str
     updated_at: str
@@ -454,6 +460,10 @@ def fetch_surface(ref: SurfaceRef, *, cwd: Path,
     return Snapshot(
         ref=ref,
         url=_str_field(head, "html_url", surface=ref, what="the surface"),
+        # A TITLE IS NEVER NULL ON GITHUB — the API requires one to open either
+        # object — so `_str_field`'s null-tolerance, keyed to `body`, does not
+        # reach it and a non-string here is refused as a surface defect.
+        title=_str_field(head, "title", surface=ref, what="the surface"),
         author=login if isinstance(login, str) else "",
         created_at=_str_field(head, "created_at", surface=ref, what="the surface"),
         updated_at=_str_field(head, "updated_at", surface=ref, what="the surface"),
@@ -515,6 +525,8 @@ class HarvestedSurface:
     ref: SurfaceRef
     harvested_at: str
     captured: bool
+    #: The event holding the title, or None when the append became a gap.
+    title_event: str | None = None
     #: The event holding the body, or None when the append became a gap.
     body_event: str | None = None
     #: The surface's own count at harvest time — the denominator.
@@ -540,8 +552,9 @@ class HarvestReport:
 
     @property
     def ok(self) -> bool:
-        """Every surface read, and every body landed. A gap is not ok."""
-        return all(s.captured and s.body_event is not None
+        """Every surface read, and every title and body landed. A gap is not ok."""
+        return all(s.captured and s.title_event is not None
+                   and s.body_event is not None
                    and s.comments_harvested == len(s.comment_events)
                    for s in self.surfaces)
 
@@ -557,7 +570,8 @@ class HarvestReport:
                              f"bag marked incomplete ({s.failure})")
                 continue
             lines.append(
-                f"harvest: {s.ref.url} — body"
+                f"harvest: {s.ref.url} — title"
+                f"{'' if s.title_event else ' (GAP)'} + body"
                 f"{'' if s.body_event else ' (GAP)'} + "
                 f"{s.comments_harvested}/{s.comments_on_surface} comments, "
                 f"{s.bytes_harvested:,} bytes, at {s.harvested_at}")
@@ -578,8 +592,8 @@ def harvest_run(*, journal_root: Path, run_id: str, repo_root: Path,
     read: a surface that cannot be read becomes a gap and the harvest moves
     on, because the other surfaces are no less real for it.
 
-    EVERY BODY GOES THROUGH `Emitter.unpairable_write`, WHICH IS WHERE THE
-    CAPTURE-TIME FILTER LIVES (r6). Harvested bytes are external text; they
+    EVERY TITLE AND BODY GOES THROUGH `Emitter.unpairable_write`, WHICH IS
+    WHERE THE CAPTURE-TIME FILTER LIVES (r6). Harvested bytes are external text; they
     take exactly the path a fleet-authored comment takes, and a filter that
     fires leaves a `redaction_placeholder` beside the event as it would for any
     other write. Nothing here composes a byte for the journal on its own.
@@ -616,12 +630,21 @@ def harvest_run(*, journal_root: Path, run_id: str, repo_root: Path,
             index_surfaces.append(_index_entry(failed, None))
             continue
 
+        # TITLE FIRST, THEN BODY, THEN COMMENTS — the order the surface itself
+        # presents them, so a reader of the events file meets the headline
+        # before the prose it heads.
+        title_event = emitter.unpairable_write(
+            write_path=f"{ref.write_path}:title",
+            destination=Destination(store="github", address=snapshot.url),
+            content=snapshot.title,
+            provenance=_provenance(snapshot.author, fleet_login))
+        total = len(snapshot.title.encode("utf-8"))
         body_event = emitter.unpairable_write(
             write_path=f"{ref.write_path}:body",
             destination=Destination(store="github", address=snapshot.url),
             content=snapshot.body,
             provenance=_provenance(snapshot.author, fleet_login))
-        total = len(snapshot.body.encode("utf-8"))
+        total += len(snapshot.body.encode("utf-8"))
         comment_events: list[tuple[int, str | None]] = []
         for comment in snapshot.comments:
             event = emitter.unpairable_write(
@@ -633,7 +656,8 @@ def harvest_run(*, journal_root: Path, run_id: str, repo_root: Path,
             total += len(comment.body.encode("utf-8"))
         surface = HarvestedSurface(
             ref=ref, harvested_at=snapshot.fetched_at, captured=True,
-            body_event=body_event, comments_on_surface=snapshot.comment_count,
+            title_event=title_event, body_event=body_event,
+            comments_on_surface=snapshot.comment_count,
             comment_events=tuple(comment_events), bytes_harvested=total)
         harvested.append(surface)
         index_surfaces.append(_index_entry(surface, snapshot))
@@ -679,6 +703,10 @@ def _index_entry(surface: HarvestedSurface, snapshot: Snapshot | None) -> dict:
     if snapshot is None:
         return entry
     by_id = {cid: event for cid, event in surface.comment_events}
+    entry["title"] = {
+        "event_id": surface.title_event,
+        "bytes": len(snapshot.title.encode("utf-8")),
+    }
     entry["body"] = {
         "event_id": surface.body_event,
         "bytes": len(snapshot.body.encode("utf-8")),
