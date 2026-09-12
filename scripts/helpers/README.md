@@ -9,7 +9,9 @@ nothing was ever checking. That is the failure
 [`phase6_every_producer_names_its_consumer.md`](/opt/skyy-net/skyynet-master-planning/development/edge-assistant/workflow-decomposition/phase6_every_producer_names_its_consumer.md)
 exists to catch, and this directory is its first extension target beyond
 `measure/`. The gate is
-`tests/unit/test_every_producer_NAMES_ITS_CONSUMER.py`; it reads the population
+`testing/scripts/tests/unit/test_every_producer_NAMES_ITS_CONSUMER.py` — a
+repo-wide gate, which is why it does not live under this directory's `tests/`
+— and it reads the population
 off disk, so a tool that is never added to this table fails rather than hides.
 
 **The `Invoked by` cell names a PATH, and the gate opens it.** A cell naming a

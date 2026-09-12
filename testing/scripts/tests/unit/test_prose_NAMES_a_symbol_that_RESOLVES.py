@@ -238,14 +238,16 @@ _BARE_TEST_NAME = re.compile(r"`([A-Za-z0-9_/]*\btest_[A-Za-z0-9_]+)`")
 # mentions below are three ROWS, and a fourth site naming any of them is a
 # finding.
 _DECLARED_TEST_MODULES: dict[tuple[str, str], str] = {
-    ("scripts/helpers/tests/unit/test_every_producer_NAMES_ITS_CONSUMER.py",
+    ("testing/scripts/tests/unit/test_every_producer_NAMES_ITS_CONSUMER.py",
      "test_measure_readme_names_a_consumer.py"):
         "DELETED when WD Phase 6's gate (this file, PR #170) SUPERSEDED it — the "
         "deleted module's six properties were carried by name into this file, and "
-        "its line 39 records the supersession. Narrated as history: naming the "
+        "its docstring records the supersession. Narrated as history: naming the "
         "file IS the record that its coverage moved here. Surfaced when PR #175 "
         "rebased onto #170's merge, putting this gate and #175's citation check in "
-        "one tree for the first time.",
+        "one tree for the first time. The gate MOVED from scripts/helpers/tests/ "
+        "to testing/scripts/tests/ in PR #181, and this row is keyed by the "
+        "citing file's path, so the key moved with it.",
     ("testing/scripts/tests/unit/gfm_table_scan.py",
      "test_candidates_prose_matches_the_table.py"):
         "DELETED in `91925af` with the `candidates.md` corpus it gated. Narrated "
