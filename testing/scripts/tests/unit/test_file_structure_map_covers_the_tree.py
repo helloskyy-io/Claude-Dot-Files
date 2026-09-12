@@ -54,8 +54,6 @@ is enumerated only when a file at that ACTUAL path has a line.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 # THE PARSE, THE TREE AND THE HOLE FINDER LIVE IN A HELPER MODULE, not here.

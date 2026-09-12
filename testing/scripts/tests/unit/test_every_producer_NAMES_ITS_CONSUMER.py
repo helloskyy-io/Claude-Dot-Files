@@ -69,8 +69,10 @@ TWO WAYS A CONSUMER IS NAMED, and the difference is where the claim lives.
 
 AND EVERY DIRECTORY IN THE REPO IS RULED. `test_every_DIRECTORY_in_the_repo_is_
 RULED` walks `git ls-files` and demands each directory be a ruled-in surface, a
-`RULED_OUT` entry with its reason, a `CONTAINER` whose own files are accounted
-for, or a `tests/` directory. A new directory fails until somebody rules it.
+`RULED_OUT` entry with its reason, a `CONTAINER` whose own DIRECT files are
+each named with a reader — asserted against `git ls-files`, not read as prose —
+or a `tests/` directory. A new directory fails until somebody rules it, and a
+new file dropped straight into a container fails until somebody names its reader.
 That is the phase's *"enumerate the remaining candidate producer surfaces
 across the fleet and rule each in or out"* step, made a check rather than a
 list: the list was wrong three times in a fortnight.
@@ -629,6 +631,22 @@ RULED_OUT = {
                        "and the operator",
 }
 
+@dataclass(frozen=True)
+class Container:
+    """A directory that is a grouping, not a surface: why, and its OWN files."""
+
+    reason: str
+    #: The files sitting DIRECTLY in the container, name -> who reads it. DATA,
+    #: not prose, because the walk below rules directories only and a file
+    #: dropped straight into a container is invisible to it. Measured: `testing/
+    #: check-policy.yaml` — a live producer by this gate's own definition, read
+    #: by the build parent between refine and review-pr — was absent from
+    #: `testing`'s prose account and nothing went red. `test_every_CONTAINER_
+    #: accounts_for_its_own_DIRECT_files` holds this dict against `git ls-files`
+    #: in both directions.
+    files: dict = field(default_factory=dict)
+
+
 #: Directories that are a grouping, not a surface: their own files are named
 #: here with who reads them, and their SUBDIRECTORIES must each be ruled on
 #: their own. A container does NOT cover its subtree — that is the difference
@@ -637,15 +655,42 @@ RULED_OUT = {
 #: same: `scripts/helpers/` rules its files, and `measure/` and `tests/` under
 #: it are ruled on their own.
 CONTAINERS = {
-    ".": "CLAUDE.md, README.md, install.sh, config.yaml, conftest.py, pytest.ini "
-         "and .gitignore — each an entrypoint read by the harness, the operator, "
-         "the installer, pytest or git, not a surface something else produces",
-    "config": "settings.json and CLAUDE.md — symlinked into ~/.claude/ by "
-              "install.sh and read by the harness every session",
-    "scripts": "no files of its own",
-    "scripts/workflows/temporal": "no files of its own",
-    "testing": "run-all.sh and README.md — Tier 1 of the Testing Standard, the "
-               "entry point the operator and CI run",
+    ".": Container(
+        "the repo root — each file an entrypoint read by the harness, the "
+        "operator, the installer, pytest or git, not a surface something else "
+        "produces",
+        {
+            ".gitignore": "git",
+            "CLAUDE.md": "the harness, at the start of every session",
+            "LICENSE": "humans and GitHub — not a produced surface",
+            "README.md": "the operator and GitHub",
+            "config.yaml": "`scripts/workflows/common/config-value.sh` and the "
+                           "Python fleet's `resource_limits:` reader",
+            "conftest.py": "pytest — the RLIMIT_AS guardrail",
+            "install.sh": "the operator, on every machine that syncs",
+            "pytest.ini": "pytest — pins rootdir so the guardrail loads",
+        }),
+    "config": Container(
+        "the synced Claude Code configuration — symlinked into ~/.claude/ by "
+        "install.sh and read by the harness every session",
+        {
+            "CLAUDE.md": "the harness, via the ~/.claude/CLAUDE.md symlink",
+            "settings.json": "the harness, via the ~/.claude/settings.json "
+                             "symlink",
+        }),
+    "scripts": Container("no files of its own"),
+    "scripts/workflows/temporal": Container("no files of its own"),
+    "testing": Container(
+        "Tier 1 of the Testing Standard — the entry point the operator and CI "
+        "run",
+        {
+            "README.md": "the operator — which half of the vendored standard "
+                         "binds here and what the merge-path gate covers",
+            "check-policy.yaml": "the build parent, between refine and "
+                                 "review-pr — `scripts/workflows/temporal/"
+                                 "modules/assistant/routing.py` `POLICY_PATH`",
+            "run-all.sh": "the operator and CI — `.github/workflows/tests.yml`",
+        }),
 }
 
 #: A directory by this NAME, anywhere, is tests: read by the runner, not by the
@@ -725,7 +770,9 @@ def test_every_HOLDER_named_in_a_ruling_is_REGISTERED() -> None:
     """The RULINGS, not the module docstring: the docstring cites a deleted
     module as history (`test_prose_NAMES_a_symbol_that_RESOLVES.py` holds
     that citation by site), and a ruling is where a holder is load-bearing."""
-    prose = [*RULED_OUT.values(), *CONTAINERS.values()]
+    prose = [*RULED_OUT.values(),
+             *(c.reason for c in CONTAINERS.values()),
+             *(r for c in CONTAINERS.values() for r in c.files.values())]
     assert _unregistered_holders(prose, HELD_BY) == [], (
         "a ruling names a holder by prose alone — add it to HELD_BY so the "
         "claim is asserted rather than read"
@@ -748,18 +795,23 @@ def test_the_HOLDER_checks_fire_on_a_missing_module_a_missing_function_and_prose
         "a holder named in prose and absent from the registry was not reported"
 
 
-def _tracked_dirs() -> set[str]:
-    """Every directory holding a tracked or untracked-unignored file, plus its
-    ancestors. Read from git rather than the disk so that ignored trees —
-    `testing/logs/`, bytecode caches, `.claude/worktrees/` — are not members."""
+def _tracked_files() -> set[str]:
+    """Every tracked or untracked-unignored file, repo-relative. Read from git
+    rather than the disk so that ignored trees — `testing/logs/`, bytecode
+    caches, `.claude/worktrees/` — are not members, on a workstation or on
+    the sibling-less CI runner alike."""
     out = subprocess.run(
         ["git", "-C", str(_REPO), "ls-files", "-co", "--exclude-standard", "-z"],
         check=True, capture_output=True, text=True,
     ).stdout
+    return {f for f in out.split("\0") if f}
+
+
+def _tracked_dirs() -> set[str]:
+    """Every directory holding a tracked or untracked-unignored file, plus its
+    ancestors — the same population `_tracked_files` reads, folded to dirs."""
     dirs = {"."}
-    for f in out.split("\0"):
-        if not f:
-            continue
+    for f in _tracked_files():
         parts = Path(f).parts[:-1]
         for i in range(1, len(parts) + 1):
             dirs.add("/".join(parts[:i]))
@@ -864,6 +916,63 @@ def test_the_RULING_LOOKUP_fires_on_an_unruled_directory_and_honours_precedence(
     assert _ruling_for("c/child", **kw) is None, \
         "a container COVERED its subtree — a new directory under it would inherit a ruling nobody made"
     assert _ruling_for("zzz", **kw) is None, "an unruled directory read as ruled"
+
+
+def _direct_files(rel: str, files: set[str]) -> set[str]:
+    """The files sitting DIRECTLY in `rel` — not its subtree, which the walk
+    rules directory by directory."""
+    prefix = "" if rel == "." else rel + "/"
+    return {f[len(prefix):] for f in files
+            if f.startswith(prefix) and "/" not in f[len(prefix):]}
+
+
+def _container_defects(containers: dict, files: set[str]) -> list[str]:
+    """The three ways a container's account of its own files can be wrong: a
+    file on disk the account does not name (the producer the walk cannot see),
+    a file the account names that is gone (a ruling outliving its subject),
+    and a file named with nobody reading it (prose reduced to data and still
+    saying nothing)."""
+    defects = []
+    for rel, c in containers.items():
+        on_disk = _direct_files(rel, files)
+        for name in sorted(on_disk - set(c.files)):
+            defects.append(f"{Path(rel) / name}: on disk and not in the "
+                           f"container's account — name who reads it, or it is "
+                           f"a producer the directory walk cannot see")
+        for name in sorted(set(c.files) - on_disk):
+            defects.append(f"{Path(rel) / name}: accounted for but not on disk "
+                           f"— renamed or removed; update the account or it "
+                           f"covers nothing")
+        for name, reader in sorted(c.files.items()):
+            if not reader.strip():
+                defects.append(f"{Path(rel) / name}: accounted for with no "
+                               f"reader named")
+    return defects
+
+
+def test_every_CONTAINER_accounts_for_its_own_DIRECT_files() -> None:
+    """The walk rules directories; this rules the files sitting directly in a
+    container, which the walk cannot see. Read off the same `git ls-files`
+    population as the walk, so a stray ignored file cannot make it red."""
+    assert _container_defects(CONTAINERS, _tracked_files()) == []
+
+
+def test_the_CONTAINER_FILES_check_fires_on_each_of_its_three_defects() -> None:
+    """Self-contained control: a complete account reports nothing — and
+    `c/deep/z` is NOT reported although nothing accounts for it, because a
+    container's account is of its direct files only; a file on disk the
+    account omits, a file the account names that is gone, and a file with an
+    empty reader each report once."""
+    fixture = {"a", "c/x", "c/y", "c/deep/z"}
+    ok = _container_defects({".": Container("r", {"a": "reader"}),
+                             "c": Container("r", {"x": "reader", "y": "reader"})},
+                            fixture)
+    assert ok == []
+    bad = _container_defects({".": Container("r"),
+                              "c": Container("r", {"x": "", "y": "reader",
+                                                   "gone": "reader"})},
+                             fixture)
+    assert [d.split(":")[0] for d in bad] == ["a", "c/gone", "c/x"], bad
 
 
 # --- reading a surface -----------------------------------------------------------
