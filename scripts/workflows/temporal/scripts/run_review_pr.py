@@ -158,7 +158,8 @@ def main(argv: list[str] | None = None) -> int:
             #
             # A REVIEW CREATES NO PR — `None` where a producing parent passes the
             # URL its child reported — BUT IT FILES INTAKES, and those trail the
-            # PR as issue URLs the child printed (`FILED-INTAKE:`, #185). On the
+            # PR as the issue URLs the child reported, on its `FILED-INTAKE:`
+            # line or in its posted block's `filed_intakes:` (#185). On the
             # failure path `result` is None and the intakes go unharvested, the
             # same limit the PR URL has in every other parent: only a returned
             # result carries what the child reported, and the harvest records a

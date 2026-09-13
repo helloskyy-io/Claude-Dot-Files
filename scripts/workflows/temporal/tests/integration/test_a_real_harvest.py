@@ -141,15 +141,23 @@ def test_a_reconciliation_of_a_fresh_harvest_reports_NO_shortfall(journal_root: 
 
 
 @needs_gh
+@pytest.mark.parametrize("carrier", ["printed-line", "block"])
 def test_a_review_that_FILES_an_intake_has_its_body_in_the_bag_VERBATIM(
         _journal_root_is_never_the_operators: Path, tmp_path: Path, monkeypatch,
-        capsys) -> None:
+        capsys, carrier: str) -> None:
     """Issue #185's integration case: the review ENTRYPOINT, end to end, with only
-    the model faked — `run_review_pr.main` → the real `run_review` reading a
-    `FILED-INTAKE:` line off the child's text → `ReviewResult.issue_urls` →
-    the `finally`'s harvest, with real `gh`, reading the intake into this run's
-    bag. The PR the review was dispatched against lands beside it, which is
-    the two-surface shape a live review that filed something produces.
+    the model faked — `run_review_pr.main` → the real `run_review` reading the
+    intake off the child's report → `ReviewResult.issue_urls` → the `finally`'s
+    harvest, with real `gh`, reading the intake into this run's bag. The PR the
+    review was dispatched against lands beside it, which is the two-surface
+    shape a live review that filed something produces.
+
+    ONCE PER CARRIER. `printed-line` is the `FILED-INTAKE:` line on the child's
+    text; `block` is the `filed_intakes:` list in its posted `pr_review:` block
+    with NO line printed — the live shape, measured on the archive: the current
+    child's top-level text is one 27-character block, so the block is the copy
+    that lands. Each case carries the intake on ONE surface only, so a reader
+    that silently stopped reading either would go red here, not in a log.
 
     THE CHILD IS FAKED AT ITS BOUNDARIES AND NOWHERE ELSE. `_FakeWorkflow`
     replaces the model invocation, the worktree cut and the thread reads — the
@@ -183,16 +191,24 @@ def test_a_review_that_FILES_an_intake_has_its_body_in_the_bag_VERBATIM(
     # (rule R5b), so the fake's default `owner/repo#67` is replaced by the
     # fixture PR in this repository.
     completion_ref = {"substrate": "github", "kind": "pull", "id": "175", "uri": FIXTURE_PR}
-    fake = _FakeWorkflow(_record(run_id="@ISSUED@", completion_ref=completion_ref),
-                         f"Disposition posted.\nFILED-INTAKE: {FIXTURE_INTAKE}\nVERDICT: MERGE\n")
+    if carrier == "printed-line":
+        prose = f"Disposition posted.\nFILED-INTAKE: {FIXTURE_INTAKE}\nVERDICT: MERGE\n"
+        block, counts = _FakeWorkflow.DEFAULT_BLOCK, "1 on the printed FILED-INTAKE line, 0"
+    else:
+        prose = "## Stage 1: VERIFY + GATHER"
+        block = _FakeWorkflow.DEFAULT_BLOCK + f"  filed_intakes:\n    - {FIXTURE_INTAKE}\n"
+        counts = "0 on the printed FILED-INTAKE line, 1"
+    fake = _FakeWorkflow(_record(run_id="@ISSUED@", completion_ref=completion_ref), prose,
+                         block=block, block_carries_nonce=True)
     wf = fake.install(monkeypatch, tmp_path)
     monkeypatch.setattr(wf._shared, "repo_slug", lambda *a, **k: FIXTURE_SLUG)
 
-    run_id = "integration-review-185"
+    run_id = f"integration-review-185-{carrier}"
     assert kickoff.main(["--pr", "175", "--repo", str(repo), "--run-id", run_id]) == 0
 
     out = capsys.readouterr().out
-    assert f"Filed 1 intake(s), handed to the harvest: {FIXTURE_INTAKE}" in out
+    assert (f"Filed 1 intake(s), handed to the harvest ({counts} in the posted block's "
+            f"filed_intakes): {FIXTURE_INTAKE}") in out
     assert f"harvest: {FIXTURE_PR} — title + body + " in out
     assert f"harvest: {FIXTURE_INTAKE} — title + body + " in out
 

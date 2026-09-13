@@ -98,7 +98,8 @@ SINGLE_SURFACE_ENTRYPOINTS = {
 }
 
 #: Entrypoints whose child reports surfaces BEYOND the PR pair — the reviewer's
-#: filed intakes (`FILED-INTAKE:` lines, #185) — spliced in after the two refs
+#: filed intakes (`FILED-INTAKE:` lines and the block's `filed_intakes:`, #185)
+#: — spliced in after the two refs
 #: every parent passes, as `*<handoff target>.<field>`. Value: the name of the
 #: handoff's assignment the trailing refs must consume.
 TRAILING_REF_ENTRYPOINTS = {

@@ -1333,10 +1333,16 @@ HELPER_ONLY_PATTERNS = frozenset({
     # they must satisfy. One-sided because they read the child's STDOUT — the
     # same surface as `_VERDICT` — and never the durable `pr_review:` block.
     # `replay_pr_review_blocks` replays archived THREAD blocks; no line of this
-    # shape is on any thread, so there is nothing there to pair with. If the
-    # filed intakes ever move INTO the block as a field, they join the paired
-    # table above and this entry is what gets deleted.
+    # shape is on any thread, so there is nothing there to pair with.
     "FILED_INTAKE_LINE", "ISSUE_URL",
+    # The block's `filed_intakes:` list (#185's durable surface — the printed
+    # line above measurably does not reach the parent in the current regime).
+    # These DO read the thread block, and they are STILL one-sided for
+    # `RUN_ID_IN_BLOCK`'s reason: `replay_pr_review_blocks` has no consumer for
+    # the field — it measures findings and verdicts, and which intakes a pass
+    # filed is not a figure it publishes. The moment that tool reads the list,
+    # the three join the paired table above and this entry is what gets deleted.
+    "_TOP_LEVEL_INDENT", "_FILED_INTAKE_ITEM", "_TRAILING_COMMENT",
 })
 
 

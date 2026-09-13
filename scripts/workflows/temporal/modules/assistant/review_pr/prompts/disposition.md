@@ -181,8 +181,10 @@ idempotent.** Creating an issue against a missing label fails or lands it **unla
 unlabelled intake is invisible to the harvest — **the finding silently never becomes a record.**
 
 **AFTER EACH `gh issue create`, print the URL it returned on its own line, exactly:**
-`FILED-INTAKE: <url>` — one line per issue, before your `VERDICT:` line. Your caller harvests
-each named intake's body into this run's record; an unprinted one is a write nothing records.
+`FILED-INTAKE: <url>` — one line per issue, before your `VERDICT:` line — AND list the same
+URLs under your block's `filed_intakes:` (Stage 5). The block is the durable copy, the printed
+line the cheap one; both carry the same set. Your caller harvests each named intake's body into
+this run's record; an intake on neither is a write nothing records.
 
 **WHERE IS ONE LOCATOR WITH ONE SPELLING: `repo:` THEN `component:`** (Tracked Items §4.0).
 Both are optional and both apply to issues AND candidates — `repo:` alone stopped locating
@@ -388,17 +390,12 @@ pr_review:
   pr: ${PR_NUMBER}
   run_id: ${RUN_ID}                  # EXACTLY the nonce above, 32 lowercase hex characters, copied
                                      # verbatim and UNQUOTED. This is how your caller identifies WHICH
-                                     # block on the thread is yours. Until this field existed it was
-                                     # inferred from ordering, so a third party posting a fenced
-                                     # `pr_review:` example between your comment and your caller's read
-                                     # made your caller compare YOUR record against SOMEONE ELSE'S block
-                                     # and hard-fail a review that was already posted and already routed.
-                                     # A missing or mis-copied value is not fatal — your caller falls back
-                                     # to ordering and says so — but it gives that race back.
+                                     # block on the thread is yours. A missing or mis-copied value is
+                                     # not fatal — your caller falls back to ordering and says so — but
+                                     # it gives back the race the block-ordering rule below describes.
   pass: <int>                        # DERIVED FROM THE FENCE-ANCHORED BLOCK COUNT YOU VERIFIED,
                                      # NOT from ${THIS_PASS}, which is the dispatch's label and is
                                      # supplied above only so you can state the divergence.
-                                     # never from the dispatch's label. STATE ANY DIVERGENCE explicitly.
                                      # Wrong twice on one PR and WIDENING -- 3-vs-1, then 6-vs-2. A wrong
                                      # pass number in a durable record is permanent, and Phase 5's stopping
                                      # predicate reads it. Count the blocks; do not trust the label.
@@ -546,6 +543,8 @@ pr_review:
                                      # laundered; a vanished deferral keeps counting in the denominator.
   homeless_items: <int>              # legitimate items with NO valid corpus surface (a STANDARDS gap — never counted against the producing run)
   redispatched: false                # always false — this engine never dispatches
+  filed_intakes:                     # every intake THIS pass opened with `gh issue create` — `[]` when none.
+    - <url>                          # the URL verbatim, one per item. The durable copy of FILED-INTAKE.
 ```
 
 **Block ordering within your comment (binding):** your comment carries **one** `pr_review:` block — **yours**, and it MUST be the LAST one in the comment. If you restate or quote a prior pass's block for context, place it **ABOVE** your own. The parent reads *the last block of each comment* as that pass's, and it uses that to bind the render↔record invariant and to build the convergence history. Putting a quoted block last makes the parent compare your typed record against the PREVIOUS pass's findings and hard-fail a review that is already posted and already routed. *(This rule is stated here because the parent's docstring used to cite INVARIANT 1 as its guarantee and INVARIANT 1 is about carrying FINDINGS forward, not about where a quoted block sits — so the code's rule had no producer-side backing at all.)* **Since Phase 4 your block carries a `run_id:`, and that does NOT relax the rule above — read this before you assume it does.** Your caller reads *the last block of each comment* FIRST, and only then matches by nonce among what it read. So a quoted prior block placed BELOW your own displaces yours entirely: your block, nonce and all, never enters the window, the nonce match finds nothing, the caller falls back to ordering, selects the quoted block, and hard-fails on a finding-set mismatch that names the wrong cause. **The nonce cannot rescue an ordering violation, and the ordering rule is binding, not a backstop.** What the nonce does buy: a *third party's* comment posted between yours and your caller's read is no longer mistaken for yours, and two comments carrying the same nonce with DIFFERENT content are refused outright rather than resolved by position (byte-identical duplicates — a retried `gh pr comment` — are resolved silently and cost you nothing).

@@ -55,13 +55,17 @@ tracked-intake`, and nothing on an intake names the run that filed it — the
 body carries `filed_by: review-pr` and no run id, and a time-and-author search
 would attribute one concurrent run's intake to another run's bag, which is the
 *confidently wrong about authorship* failure this module's docstring warns
-about below. So the child REPORTS what it wrote: one `FILED-INTAKE: <url>` line
-per issue, which `review_pr_helper.filed_intakes` reads into
-`ReviewResult.issue_urls` and `run_review_pr.py` passes here as trailing refs
-(#185, carrier 1 of 3). The issue arm itself is reference-driven and unchanged:
-it harvests an issue when handed its URL. What it still cannot see is an intake
-the child filed and did not print — the same limit a PR URL has in every
-producing parent, since only the child's own report carries what it wrote.
+about below. So the child REPORTS what it wrote, on two surfaces: one
+`FILED-INTAKE: <url>` line per issue on its text, and the same URLs under its
+posted `pr_review:` block's `filed_intakes:` — the durable one, and the one
+that measurably lands (`review_pr_helper.FILED_INTAKE_LINE`'s comment carries
+the figures). `review_pr_helper` reads both, unions them into
+`ReviewResult.issue_urls`, and `run_review_pr.py` passes them here as trailing
+refs (#185, carrier 1 of 3). The issue arm itself is reference-driven and
+unchanged: it harvests an issue when handed its URL. What it still cannot see is
+an intake the child filed and reported on neither surface — the same limit a PR
+URL has in every producing parent, since only the child's own report carries
+what it wrote.
 
 ## The window, and the surface being mutable
 

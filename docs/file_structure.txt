@@ -750,10 +750,13 @@ claude-dot-files/
 │                   │                                #   `if`: a value, never a behavioural branch inside a prompt
 │                   ├── test_review_pr_filed_intakes.py # #185, carrier 1: the reviewer's filed intakes reach the harvest BY REFERENCE —
 │                   │                                #   `FILED-INTAKE: <url>` lines parse (one, many, none, malformed-never-raises, anchored),
-│                   │                                #   every URL the parser accepts is one `harvest.parse_ref` can address (the harvest runs
-│                   │                                #   in a `finally` and RAISES on what it cannot), the prompt instructs the exact shape the
-│                   │                                #   parser reads, the real `run_review` carries them on `ReviewResult.issue_urls`, and a
-│                   │                                #   run that raises after the child filed still fails loud — the intakes die with it
+│                   │                                #   the block's `filed_intakes:` list parses at the top-level indent ONLY (a runway quoting
+│                   │                                #   the schema in `dispatch_context: |` is not read), the two surfaces union and dedupe,
+│                   │                                #   a PRIOR pass's list is not this run's (nonce), every URL the parser accepts is one
+│                   │                                #   `harvest.parse_ref` can address (the harvest runs in a `finally` and RAISES on what it
+│                   │                                #   cannot), the prompt instructs the exact shapes the parsers read, the real `run_review`
+│                   │                                #   carries the union on `ReviewResult.issue_urls`, and a run that raises after the child
+│                   │                                #   filed still fails loud — the intakes die with it
 │                   ├── test_runner_discovery.py     # An orphaned test file FAILS the suite — runs python.sh against a synthetic tree
 │                   ├── test_turn_cap_banner_reads_the_worktree.py # The turn-cap banner reports the tree it can SEE (#65): worktree_delivery_state
 │                   │                                #   extracted from run-claude.sh and run against real git fixtures under BOTH caller shapes —

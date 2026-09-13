@@ -274,7 +274,11 @@ BUDGETS: dict[str, int] = {
     # scope creep. N5: a prose precheck testing for the OLD words' absence reports
     # finished work as outstanding, so an executor re-applies a landed fix. N6: one
     # enum member for a fix that belongs on main rather than in this PR.
-    "review_pr/prompts/disposition.md": 94_633,
+    # RATCHETED DOWN 94_633 -> 94_504 (#185, the block surface): the `filed_intakes:`
+    # schema key and its FILING AUTHORITY sentence were funded by cutting the
+    # `run_id:` comment's history (restated verbatim by the block-ordering rule
+    # below it) and a `pass:` comment line that duplicated the line above it.
+    "review_pr/prompts/disposition.md": 94_504,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-f0lfdhmm's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the
     # residue is 19 bytes. Worth stating because this is the mechanism working
