@@ -22,6 +22,50 @@
 
 set -euo pipefail
 
+# --- Resource cap (Testing Standard § The master runner caps its own run) ------
+# Re-exec into a memory- and task-capped cgroup scope, so a runaway suite dies as a
+# FAILED RUN rather than as a host outage. Ported from `skyy-command`, which built
+# it on 2026-07-12 after a self-recursive `asyncio.sleep` mock ran pytest to ~28 GB
+# and crashed the VM repeatedly.
+#
+# THIS REPO ALREADY HAD THE OTHER HALF AND NOT THIS ONE. `conftest.py` sets an
+# RLIMIT_AS on the pytest PROCESS; that bounds one process's address space and
+# reaches nothing the suite spawns — a runaway subprocess, or a runaway that FORKS
+# rather than allocates, is invisible to it. A cgroup bounds the whole tree.
+#
+# Applied here rather than by the caller, because every caller would otherwise have
+# to remember — operator shell, CI job, dispatch, pre-commit hook, whatever gets
+# written next — and the one that forgets is unbounded.
+#
+# MemorySwapMax=0 IS REQUIRED, NOT DECORATIVE: MemoryMax alone bounds RAM and
+# silently spills the rest to swap, so a runaway thrashes instead of failing.
+# Measured upstream — a 400 MB allocation under a 24 MB MemoryMax SUCCEEDED via
+# swap, and died correctly only once swap was bounded too.
+#
+# TasksMax matters independently: a fork bomb exhausts a host just as effectively
+# and a memory cap cannot see it.
+#
+# ⚠ THIS IS NOT A FIX FOR THE BACKGROUND-SHELL REAPER, and it is stated here so it
+# is not read as one. Those kills happened with the kernel reporting no pressure at
+# all — never throttled, never an OOM, since boot — so nothing here would have
+# prevented one of them. This bounds a runaway TEST; that was a harness behaviour.
+if [[ -z "${CDF_TEST_CAPPED:-}" ]]; then
+  _self="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+  if command -v systemd-run >/dev/null 2>&1 && [[ -S "${XDG_RUNTIME_DIR:-/nonexistent}/bus" ]]; then
+    export CDF_TEST_CAPPED=1
+    exec systemd-run --user --scope -q \
+      -p MemoryMax="${CDF_TEST_MEM_MAX:-8G}" \
+      -p MemorySwapMax=0 \
+      -p TasksMax="${CDF_TEST_TASKS_MAX:-4096}" \
+      -- "$_self" "$@"
+  fi
+  # No usable systemd user session (container, some CI runners). Proceed UNCAPPED —
+  # but SAY SO. A silent fallback reads as protection and provides none, which is
+  # worse than no cap because someone trusts it.
+  echo "WARNING: test run is UNCAPPED — no systemd user session available." >&2
+  echo "         A runaway suite can exhaust this host rather than failing as a run." >&2
+fi
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SUITES_DIR="$REPO_ROOT/testing/suites"
 LOG_DIR="$REPO_ROOT/testing/logs"
