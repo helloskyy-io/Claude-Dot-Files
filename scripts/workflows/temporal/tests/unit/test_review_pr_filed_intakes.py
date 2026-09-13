@@ -170,6 +170,32 @@ def test_run_review_with_no_intakes_carries_none_and_says_nothing(monkeypatch, t
     assert not any("intake" in n.lower() for n in result.notes), result.notes
 
 
+def test_a_run_that_RAISES_after_the_child_filed_still_fails_LOUD(monkeypatch, tmp_path) -> None:
+    """THE FAILURE PATH, WITH INTAKES PRESENT — the one the entrypoint cannot harvest.
+
+    The parse sits between the child's exit and the channel comparison, so a
+    review whose typed channel is missing raises AFTER the lines were read. Two
+    things are pinned here. The parse must not mask that raise — a `FILED-INTAKE:`
+    line on the surface changes nothing about which error reaches the operator.
+    And the intakes are LOCALS that die with the exception: `run_review` hands
+    back no result, so `run_review_pr.py`'s `finally` sees `result is None` and
+    harvests the PR alone. That is the limit the code names in three places
+    (`review_pr_workflow.run_review`, `run_review_pr.main`, `harvest.py`), the
+    same one a PR URL has in every producing parent — and this test is where a
+    change that closes it would go red first, because it asserts the raise
+    carries no intake. Closing it needs a durable carrier written BEFORE the
+    comparison; `append_parent_route`'s event is frozen byte for byte, so that
+    carrier is a new event beside it, not a field on it.
+    """
+    fake = _FakeWorkflow(None, f"FILED-INTAKE: {ONE}\nVERDICT: MERGE\n")
+    wf = fake.install(monkeypatch, tmp_path)
+    with pytest.raises(RuntimeError, match="record_absent") as caught:
+        wf.run_review(ReviewInput(pr_number="67"), tmp_path, worktree_name="review-pr-1")
+    assert ONE not in str(caught.value), (
+        "the raise now carries the filed intake — the limit this test pins has "
+        "moved, so update `run_review_pr.py`'s `finally` comment and this docstring")
+
+
 def test_run_review_NAMES_a_malformed_line_and_still_returns(monkeypatch, tmp_path) -> None:
     """The verdict is posted and the issue exists; a typo in the report costs
     one bag record, which the banner names so it can be found."""

@@ -752,7 +752,8 @@ claude-dot-files/
 │                   │                                #   `FILED-INTAKE: <url>` lines parse (one, many, none, malformed-never-raises, anchored),
 │                   │                                #   every URL the parser accepts is one `harvest.parse_ref` can address (the harvest runs
 │                   │                                #   in a `finally` and RAISES on what it cannot), the prompt instructs the exact shape the
-│                   │                                #   parser reads, and the real `run_review` carries them on `ReviewResult.issue_urls`
+│                   │                                #   parser reads, the real `run_review` carries them on `ReviewResult.issue_urls`, and a
+│                   │                                #   run that raises after the child filed still fails loud — the intakes die with it
 │                   ├── test_runner_discovery.py     # An orphaned test file FAILS the suite — runs python.sh against a synthetic tree
 │                   ├── test_turn_cap_banner_reads_the_worktree.py # The turn-cap banner reports the tree it can SEE (#65): worktree_delivery_state
 │                   │                                #   extracted from run-claude.sh and run against real git fixtures under BOTH caller shapes —

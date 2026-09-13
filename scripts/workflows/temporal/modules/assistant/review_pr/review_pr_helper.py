@@ -195,8 +195,10 @@ BLOCK_VERDICT = re.compile(
     re.MULTILINE)
 
 # THE INTAKES A REVIEWER CHILD REPORTS FILING — one `FILED-INTAKE: <url>` line per
-# `gh issue create` (`disposition.md` § FILING AUTHORITY), the same child-reports-
-# what-it-wrote shape the build prompts use for a PR URL. The line is the ONLY
+# `gh issue create` (`disposition.md` § FILING AUTHORITY). The PRINCIPLE is the
+# build prompts' PR URL — the child reports what it wrote and the parent reads
+# its own output — but the SHAPE is `VERDICT:`'s: a labelled line, not the bare
+# final-line URL `routing.PR_URL` reads, and it may repeat. The line is the ONLY
 # carrier: nothing on an intake names the run that filed it (`filed_by:
 # review-pr`, no run id — Tracked Items §4 fixes the frontmatter keys), and a
 # time-and-author search attributes one concurrent run's intake to another's

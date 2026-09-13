@@ -40,7 +40,7 @@ from modules.assistant.review_pr import review_pr_helper as helper
 # below moved — see `review_run_fakes` for why the coupling was a defect.
 from review_run_fakes import (  # noqa: E402
 
-    EXPECTED_REF, REPO_SLUG, RUN_ID, _FakeWorkflow, _nonce_in, _no_sleep, _record,
+    EXPECTED_REF, RUN_ID, _FakeWorkflow, _nonce_in, _no_sleep, _record,
     _with_comments,
 )
 
