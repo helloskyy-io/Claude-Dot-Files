@@ -356,6 +356,15 @@ def run_review(task: ReviewInput, worktree: Path, *,
     # COMPARISON still happens after; only the parse moved.
     shadow, parseable = _prose_shadow(log_file, task.pr_number, worktree)
 
+    # THE INTAKES THE CHILD FILED, read off the SAME surface as the prose
+    # shadow — the top-level assistant text, where `disposition.md` has it
+    # print one `FILED-INTAKE:` line per `gh issue create`. Carried on the
+    # result so the entrypoint can hand them to the post-exit harvest (#185);
+    # nothing here routes on them. A malformed line is noted, never fatal: the
+    # verdict is already posted and the issue already exists on GitHub.
+    intakes = helper.filed_intakes(_shared.assistant_text(log_file))
+    notes.extend(helper.intake_notes(intakes))
+
     # Persist the parent stratum BEFORE the shadow COMPARISON, because a
     # disagreement raises and a machinery failure that leaves no trace is the
     # one Phase 4 most needs counted. Step 4's computed-arm predicate reads
@@ -590,6 +599,7 @@ def run_review(task: ReviewInput, worktree: Path, *,
     return ReviewResult(
         pr_number=task.pr_number, verdict=verdict, this_pass=this_pass,
         parseable=parseable, notes=notes, record=record, convergence=assessment,
+        issue_urls=list(intakes.urls),
     )
 
 

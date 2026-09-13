@@ -1329,6 +1329,14 @@ HELPER_ONLY_PATTERNS = frozenset({
     # of the two to be wrong: the gate to accept a prefix, or the measurement to
     # drop blocks it should still count.
     "BLOCK_VERDICT",
+    # The child's `FILED-INTAKE: <url>` lines (#185) and the issue-URL grammar
+    # they must satisfy. One-sided because they read the child's STDOUT — the
+    # same surface as `_VERDICT` — and never the durable `pr_review:` block.
+    # `replay_pr_review_blocks` replays archived THREAD blocks; no line of this
+    # shape is on any thread, so there is nothing there to pair with. If the
+    # filed intakes ever move INTO the block as a field, they join the paired
+    # table above and this entry is what gets deleted.
+    "FILED_INTAKE_LINE", "ISSUE_URL",
 })
 
 

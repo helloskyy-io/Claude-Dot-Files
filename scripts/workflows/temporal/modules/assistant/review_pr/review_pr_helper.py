@@ -15,6 +15,7 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import NamedTuple
 
 # `convergence` is aliased because `ReviewResult` has a FIELD of that name
 # (line below), and an annotated assignment binds the name in the class
@@ -96,6 +97,11 @@ class ReviewResult:
     # protocol's `undetermined`; `ConvergenceState` says why the two must not
     # collapse, and collapsing them here in prose is how that starts).
     convergence: _convergence.ConvergenceAssessment | None = None
+    # THE INTAKES THE CHILD REPORTED FILING, as issue URLs — what the parent hands
+    # the post-exit harvest so each intake's body lands in this run's bag (#185).
+    # Empty when none was filed; never None, because "filed nothing" is the
+    # common case and a harvest skips an empty sequence without a branch.
+    issue_urls: list[str] = field(default_factory=list)
 
     @property
     def ready_to_merge(self) -> bool:
@@ -187,6 +193,76 @@ CONVERGED_FLAG = re.compile(r"^\s*converged:\s*(true|false)", re.MULTILINE)
 BLOCK_VERDICT = re.compile(
     r"^\s*verdict:\s*(MERGE|HOLD - (?:redispatch|needs-assistance))\s*$",
     re.MULTILINE)
+
+# THE INTAKES A REVIEWER CHILD REPORTS FILING — one `FILED-INTAKE: <url>` line per
+# `gh issue create` (`disposition.md` § FILING AUTHORITY), the same child-reports-
+# what-it-wrote shape the build prompts use for a PR URL. The line is the ONLY
+# carrier: nothing on an intake names the run that filed it (`filed_by:
+# review-pr`, no run id — Tracked Items §4 fixes the frontmatter keys), and a
+# time-and-author search attributes one concurrent run's intake to another's
+# bag. So the child says what it wrote and the parent hands each URL to the
+# harvest (#185, carrier 1 of 3).
+#
+# ANCHORED, for `_VERDICT`'s reason: an unanchored match would take the line out
+# of a prior pass's comment the child quoted.
+FILED_INTAKE_LINE = re.compile(r"^FILED-INTAKE:[ \t]*(\S+)[ \t]*$", re.MULTILINE)
+
+# THE PAYLOAD GRAMMAR IS AT LEAST AS STRICT AS `journal.harvest.parse_ref`'s
+# issue arm — two identity segments refusing `/`, whitespace and `)` (the
+# `routing.PR_URL` narrowing, for the same reasons), `/issues/<digits>`, and
+# nothing after. That ordering matters: `parse_ref` RAISES on a reference it
+# cannot address, and the harvest runs in the parent's `finally`, so a payload
+# accepted here and refused there would turn a child's typo into a failed run.
+# `test_review_pr_filed_intakes.py` holds the agreement by driving both.
+ISSUE_URL = re.compile(r"\Ahttps://github\.com/[^\s/)]+/[^\s/)]+/issues/\d+\Z")
+
+
+class FiledIntakes(NamedTuple):
+    """What the child's `FILED-INTAKE:` lines carried, split by whether the harvest can address it.
+
+    NAMED, NOT A BARE PAIR: both members are sequences of strings, and a
+    positional reader that transposed them would hand the harvest the malformed
+    payloads and report the good ones as defects.
+    """
+
+    urls: tuple[str, ...]        # distinct, first-seen order — what the harvest is handed
+    malformed: tuple[str, ...]   # payloads that are not an issue URL — reported, never harvested
+
+
+def filed_intakes(output: str) -> FiledIntakes:
+    """Every intake the child reported filing, from its own output.
+
+    NEVER RAISES. A malformed payload is the child's mistake, and the parent
+    reports it in the banner rather than failing a review that has already
+    posted its verdict — the intake exists on GitHub either way, and the loss
+    is one bag record, which the note makes visible. Duplicates collapse: a
+    child that prints the same URL twice filed one issue.
+    """
+    urls: list[str] = []
+    malformed: list[str] = []
+    for payload in FILED_INTAKE_LINE.findall(output):
+        if not ISSUE_URL.match(payload):
+            malformed.append(payload)
+        elif payload not in urls:
+            urls.append(payload)
+    return FiledIntakes(urls=tuple(urls), malformed=tuple(malformed))
+
+
+def intake_notes(intakes: FiledIntakes) -> list[str]:
+    """Banner lines for what the child reported filing — and what it got wrong.
+
+    A malformed payload is named in full so the operator can find the intake
+    the child meant; the harvest will not, and a bag missing that one body is
+    the gap the note exists to make visible.
+    """
+    notes: list[str] = []
+    if intakes.urls:
+        notes.append(f"Filed {len(intakes.urls)} intake(s), handed to the harvest: "
+                     + ", ".join(intakes.urls))
+    if intakes.malformed:
+        notes.append(f"{len(intakes.malformed)} FILED-INTAKE line(s) carried no issue URL "
+                     f"and were NOT harvested: " + ", ".join(repr(m) for m in intakes.malformed))
+    return notes
 
 
 def _unquote(token: str) -> str:

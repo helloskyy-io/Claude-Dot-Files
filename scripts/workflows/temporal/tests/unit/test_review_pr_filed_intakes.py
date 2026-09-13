@@ -1,0 +1,181 @@
+"""The reviewer's filed intakes reach the harvest BY REFERENCE — issue #185, carrier 1.
+
+THE CHAIN THIS HOLDS, ONE LINK PER SECTION: `disposition.md` tells the child to
+print `FILED-INTAKE: <url>` per `gh issue create`; `review_pr_helper.filed_intakes`
+reads those lines and nothing else; `run_review` carries them on
+`ReviewResult.issue_urls`; and every URL the helper accepts is one the harvest's
+`parse_ref` addresses — which matters because the harvest runs in the parent's
+`finally` and RAISES on a reference it cannot address. The last link,
+`run_review_pr.py` splicing the field into `refs=`, is held by
+`test_every_parent_HARVESTS_its_github_surfaces.py`; the end-to-end read against
+a real issue is `tests/integration/test_a_real_harvest.py`.
+
+⚠ WHAT THIS DOES NOT COVER: that a live child actually prints the line. That
+is a prompt's instruction to a model, and the only evidence is a run's log.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from modules.assistant.review_pr import review_pr_helper as helper
+from modules.assistant.review_pr.review_pr_helper import ReviewInput
+from modules.journal import harvest
+from review_run_fakes import _FakeWorkflow, _record
+
+PROMPT = (Path(__file__).resolve().parents[2] / "modules" / "assistant" / "review_pr"
+          / "prompts" / "disposition.md")
+
+ONE = "https://github.com/helloskyy-io/Claude-Dot-Files/issues/163"
+TWO = "https://github.com/helloskyy-io/skyynet-master-planning/issues/9"
+
+
+# --- the parser --------------------------------------------------------------
+
+def test_no_line_means_no_intakes_and_no_error() -> None:
+    assert helper.filed_intakes("VERDICT: MERGE\n") == helper.FiledIntakes((), ())
+    assert helper.filed_intakes("") == helper.FiledIntakes((), ())
+
+
+def test_one_line_yields_one_url() -> None:
+    got = helper.filed_intakes(f"posted.\nFILED-INTAKE: {ONE}\nVERDICT: HOLD - redispatch\n")
+    assert got.urls == (ONE,) and got.malformed == ()
+
+
+def test_many_lines_yield_many_urls_in_the_order_printed() -> None:
+    got = helper.filed_intakes(f"FILED-INTAKE: {TWO}\nprose\nFILED-INTAKE: {ONE}\n")
+    assert got.urls == (TWO, ONE)
+
+
+def test_the_same_url_printed_twice_is_ONE_intake() -> None:
+    """A child that echoes its own line filed one issue; two refs would be
+    deduped by the harvest anyway, but the banner count must not say two."""
+    got = helper.filed_intakes(f"FILED-INTAKE: {ONE}\nFILED-INTAKE: {ONE}\n")
+    assert got.urls == (ONE,)
+
+
+@pytest.mark.parametrize("payload", [
+    "https://github.com/o/r/pull/12",            # a PR is not an intake
+    "163",                                       # a bare number has no repo
+    "#163",
+    "https://github.com/o/r/issues/",            # no number
+    "https://github.com/o/r/issues/12abc",
+    "https://github.com/o/r/extra/issues/12",    # three path segments
+    "http://github.com/o/r/issues/12",           # wrong scheme
+    "https://gitlab.com/o/r/issues/12",          # wrong host
+    "https://github.com/o/r/issues/12)",         # a markdown link's tail
+    "not-a-url",
+])
+def test_a_malformed_payload_is_REPORTED_not_harvested_and_does_not_raise(payload: str) -> None:
+    got = helper.filed_intakes(f"FILED-INTAKE: {payload}\nVERDICT: MERGE\n")
+    assert got.urls == ()
+    assert got.malformed == (payload,)
+
+
+def test_a_malformed_line_does_not_hide_a_well_formed_one() -> None:
+    got = helper.filed_intakes(f"FILED-INTAKE: nope\nFILED-INTAKE: {ONE}\n")
+    assert got == helper.FiledIntakes(urls=(ONE,), malformed=("nope",))
+
+
+@pytest.mark.parametrize("text", [
+    f"the prior pass printed FILED-INTAKE: {ONE} and I did not",   # mid-line
+    f"> FILED-INTAKE: {ONE}",                                       # quoted
+    f"FILED-INTAKE {ONE}",                                          # no colon
+    f"FILED-INTAKE: {ONE} trailing words",                          # not alone
+    f"filed-intake: {ONE}",                                         # case
+])
+def test_only_a_line_of_its_own_counts(text: str) -> None:
+    """Anchored for `_VERDICT`'s reason: a child quoting a prior pass's comment
+    must not re-file that pass's intake into this run's bag."""
+    assert helper.filed_intakes(text) == helper.FiledIntakes((), ())
+
+
+def test_surrounding_blanks_on_the_line_are_tolerated() -> None:
+    got = helper.filed_intakes(f"FILED-INTAKE:   {ONE}  \n")
+    assert got.urls == (ONE,)
+
+
+# --- the agreement with the harvest -----------------------------------------
+
+@pytest.mark.parametrize("url", [
+    ONE, TWO,
+    "https://github.com/a-b/c.d/issues/1",
+])
+def test_every_url_the_parser_ACCEPTS_the_harvest_can_ADDRESS(url: str) -> None:
+    """The helper's grammar is at least as strict as `parse_ref`'s issue arm.
+
+    The direction matters. `parse_ref` raises `HarvestError` on what it cannot
+    address, and the harvest is called in the parent's `finally` — so a URL the
+    helper passed through and the harvest refused would fail a review whose
+    verdict is already posted. The reverse (harvest accepts, helper refuses)
+    costs one un-harvested body and a banner note, which is the safe side.
+    """
+    got = helper.filed_intakes(f"FILED-INTAKE: {url}\n")
+    assert got.urls == (url,)
+    ref = harvest.parse_ref(url, default_repo=None)
+    assert ref.kind == "issue" and ref.url == url
+
+
+def test_what_the_parser_REFUSES_includes_what_the_harvest_would_refuse() -> None:
+    """The control for the test above: a payload the harvest raises on is
+    filtered here, so the raise cannot reach the `finally`."""
+    payload = "not-a-url"
+    with pytest.raises(harvest.HarvestError):
+        harvest.parse_ref(payload, default_repo=None)
+    assert helper.filed_intakes(f"FILED-INTAKE: {payload}\n").urls == ()
+
+
+# --- the prompt says the shape the parser reads -----------------------------
+
+def test_the_prompt_instructs_the_EXACT_line_the_parser_reads() -> None:
+    """One shape, two surfaces. The prompt's literal, with its placeholder
+    replaced by a URL, must be a line the parser accepts — a prompt that
+    said `FILED INTAKE:` or `Filed-Intake:` would instruct a line nothing
+    reads, and no run would ever notice."""
+    text = PROMPT.read_text(encoding="utf-8")
+    assert "`FILED-INTAKE: <url>`" in text, "the instruction is gone from disposition.md"
+    assert helper.filed_intakes(f"FILED-INTAKE: {ONE}\n").urls == (ONE,)
+    # The verdict stays the LAST line — the completion gate reads the final
+    # text — so the prompt must place the intake lines before it.
+    assert "after any `FILED-INTAKE:` lines" in text
+
+
+# --- the result carries them ------------------------------------------------
+
+def test_a_result_built_without_intakes_carries_an_EMPTY_list_not_None() -> None:
+    """`*(result.issue_urls …)` in the entrypoint splices a sequence; None
+    there is a TypeError in the `finally`."""
+    result = helper.ReviewResult(pr_number="1", verdict=helper.Verdict.MERGE, this_pass=1)
+    assert result.issue_urls == []
+
+
+def test_run_review_carries_the_intakes_the_child_printed(monkeypatch, tmp_path) -> None:
+    """The real `run_review`, with the child faked at its boundaries, reads the
+    lines off the same assistant text the prose shadow reads."""
+    fake = _FakeWorkflow(_record(run_id="@ISSUED@"),
+                         f"FILED-INTAKE: {ONE}\nFILED-INTAKE: {TWO}\nVERDICT: MERGE\n")
+    wf = fake.install(monkeypatch, tmp_path)
+    result = wf.run_review(ReviewInput(pr_number="67"), tmp_path, worktree_name="review-pr-1")
+    assert result.issue_urls == [ONE, TWO]
+    assert any("Filed 2 intake(s)" in n and ONE in n and TWO in n for n in result.notes), result.notes
+
+
+def test_run_review_with_no_intakes_carries_none_and_says_nothing(monkeypatch, tmp_path) -> None:
+    fake = _FakeWorkflow(_record(run_id="@ISSUED@"), "VERDICT: MERGE\n")
+    wf = fake.install(monkeypatch, tmp_path)
+    result = wf.run_review(ReviewInput(pr_number="67"), tmp_path, worktree_name="review-pr-1")
+    assert result.issue_urls == []
+    assert not any("intake" in n.lower() for n in result.notes), result.notes
+
+
+def test_run_review_NAMES_a_malformed_line_and_still_returns(monkeypatch, tmp_path) -> None:
+    """The verdict is posted and the issue exists; a typo in the report costs
+    one bag record, which the banner names so it can be found."""
+    fake = _FakeWorkflow(_record(run_id="@ISSUED@"),
+                         f"FILED-INTAKE: {ONE}\nFILED-INTAKE: oops\nVERDICT: MERGE\n")
+    wf = fake.install(monkeypatch, tmp_path)
+    result = wf.run_review(ReviewInput(pr_number="67"), tmp_path, worktree_name="review-pr-1")
+    assert result.issue_urls == [ONE]
+    assert any("NOT harvested" in n and "'oops'" in n for n in result.notes), result.notes

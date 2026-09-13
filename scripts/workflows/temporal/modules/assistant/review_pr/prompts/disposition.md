@@ -177,10 +177,12 @@ All three still block MERGE. Only LAUNDERED counts against the producing run.
 
 **ENSURE THE LABEL BEFORE YOUR FIRST `gh issue create`:** `gh label create tracked-intake
 --color FBCA04 --description 'tracked-item intake conveyor' --force`. **`--force` makes it
-idempotent** — one wasted call where the label exists, and the difference between a filing and
-a lost finding where it does not. A repo nobody has filed into has no such label, and creating
-an issue against a missing one either fails or lands it **unlabelled**; an unlabelled intake is
-invisible to the harvest, so **a correctly-classified finding silently never becomes a record.**
+idempotent.** Creating an issue against a missing label fails or lands it **unlabelled**, and an
+unlabelled intake is invisible to the harvest — **the finding silently never becomes a record.**
+
+**AFTER EACH `gh issue create`, print the URL it returned on its own line, exactly:**
+`FILED-INTAKE: <url>` — one line per issue, before your `VERDICT:` line. Your caller harvests
+each named intake's body into this run's record; an unprinted one is a write nothing records.
 
 **WHERE IS ONE LOCATOR WITH ONE SPELLING: `repo:` THEN `component:`** (Tracked Items §4.0).
 Both are optional and both apply to issues AND candidates — `repo:` alone stopped locating
@@ -221,7 +223,7 @@ let the harvest land it, or comment your evidence on that issue — do not file 
 
 For a standards amendment add `--target` and `--anchor`: they are the one field pair that IDENTIFIES rather than narrows, so an exact match is promoted and labelled. It hands you the few worth opening; **read those in full.** **If it is already there: increment its `count`, append a dated line under `## Recurrences` naming this PR, and file no intake.** That is a terminal disposition and its pointer is the existing item.
 
-**IF THAT COMMAND CANNOT RUN, SAY SO AND SEARCH BY HAND — do not file blind.** The script path is absolute; **the store is not** — from a worktree pass `--repo-root <the repo owning tracked/>`. Any other failure is real. Fall back to `grep -ril "<two or three words of the subject>" <store>/` and read what it returns. **A filing that skipped the duplicate check must say it skipped it**, because the check is the only thing standing between a recurrence and a second item on top of an existing one.
+**IF THAT COMMAND CANNOT RUN, SAY SO AND SEARCH BY HAND — do not file blind.** The script path is absolute; **the store is not** — from a worktree pass `--repo-root <the repo owning tracked/>`. Any other failure is real. Fall back to `grep -ril "<two or three words of the subject>" <store>/` and read what it returns. **A filing that skipped the duplicate check must say so.**
 
 **Search on the subject, never on your wording** — a title states the CONSEQUENCE (§3), so titles read alike across items that are not the same. **When two are close and you cannot tell, FILE:** a duplicate costs one triage ruling, a wrong merge buries a finding under somebody else's.
 
@@ -556,7 +558,7 @@ pr_review:
 
 ### 6a — Print the verdict line
 
-As the FINAL line of your output, print exactly one of:
+As the FINAL line of your output, after any `FILED-INTAKE:` lines, print exactly one of:
     VERDICT: MERGE
     VERDICT: HOLD - redispatch
     VERDICT: HOLD - needs-assistance

@@ -36,7 +36,13 @@ from modules.journal.events import EVENTS_FILE, EventKind, decode_event
 from modules.journal.harvest_activities import harvest_github_surfaces
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
-FIXTURE_PR = "https://github.com/helloskyy-io/Claude-Dot-Files/pull/175"
+FIXTURE_SLUG = "helloskyy-io/Claude-Dot-Files"
+FIXTURE_PR = f"https://github.com/{FIXTURE_SLUG}/pull/175"
+# A CLOSED, HARVESTED INTAKE: filed by a reviewer child with the same
+# `gh issue create --label tracked-intake` the FILED-INTAKE line reports, and
+# closed by the tracked-items harvest on 2026-09-01. Closed conveyors are not
+# edited, which makes it the most stable issue body this repository holds.
+FIXTURE_INTAKE = f"https://github.com/{FIXTURE_SLUG}/issues/163"
 
 
 def _gh_authenticated() -> bool:
@@ -132,3 +138,84 @@ def test_a_reconciliation_of_a_fresh_harvest_reports_NO_shortfall(journal_root: 
     rec = h.reconcile_surface(entry, now)
     assert rec.ok, h.render_reconciliation(rec)
     assert rec.missed == () and rec.harvested >= 1
+
+
+@needs_gh
+def test_a_review_that_FILES_an_intake_has_its_body_in_the_bag_VERBATIM(
+        _journal_root_is_never_the_operators: Path, tmp_path: Path, monkeypatch,
+        capsys) -> None:
+    """Issue #185's integration case: the review ENTRYPOINT, end to end, with only
+    the model faked — `run_review_pr.main` → the real `run_review` reading a
+    `FILED-INTAKE:` line off the child's text → `ReviewResult.issue_urls` →
+    the `finally`'s harvest, with real `gh`, reading the intake into this run's
+    bag. The PR the review was dispatched against lands beside it, which is
+    the two-surface shape a live review that filed something produces.
+
+    THE CHILD IS FAKED AT ITS BOUNDARIES AND NOWHERE ELSE. `_FakeWorkflow`
+    replaces the model invocation, the worktree cut and the thread reads — the
+    I/O a review does around the child — and hands back the prose the child
+    would have printed. Everything between that prose and the bag is the
+    production path. The unit tier proves the parse; this proves the vendor's
+    body reaches the record byte for byte.
+
+    THE JOURNAL ROOT IS THE SESSION SANDBOX (`tests/conftest.py`), REQUESTED BY
+    NAME rather than this tier's per-test `journal_root`: `main()` resolves its
+    root through `CONFIG_PATH`, which that session fixture redirects, so the bag
+    is found where the entrypoint actually put it. It is also why this module
+    can drive `main()` without joining the population
+    `test_the_suite_never_writes_to_the_operators_journal.py` pins — that census
+    is over `tests/unit/` and the redirect fixture is over the whole tree.
+    """
+    journal_root = _journal_root_is_never_the_operators
+    import run_review_pr as kickoff
+    from review_run_fakes import _FakeWorkflow, _record
+
+    # A repository for the run to be "in": preflight wants a git toplevel, and
+    # the harvest reads the slug off `origin` to address the bare `--pr`.
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    for cmd in (["git", "init", "-q"],
+                ["git", "remote", "add", "origin",
+                 f"https://github.com/{FIXTURE_SLUG}.git"]):
+        subprocess.run(cmd, cwd=repo, check=True, capture_output=True)
+
+    # The child's typed record must name the PR the parent dispatched against
+    # (rule R5b), so the fake's default `owner/repo#67` is replaced by the
+    # fixture PR in this repository.
+    completion_ref = {"substrate": "github", "kind": "pull", "id": "175", "uri": FIXTURE_PR}
+    fake = _FakeWorkflow(_record(run_id="@ISSUED@", completion_ref=completion_ref),
+                         f"Disposition posted.\nFILED-INTAKE: {FIXTURE_INTAKE}\nVERDICT: MERGE\n")
+    wf = fake.install(monkeypatch, tmp_path)
+    monkeypatch.setattr(wf._shared, "repo_slug", lambda *a, **k: FIXTURE_SLUG)
+
+    run_id = "integration-review-185"
+    assert kickoff.main(["--pr", "175", "--repo", str(repo), "--run-id", run_id]) == 0
+
+    out = capsys.readouterr().out
+    assert f"Filed 1 intake(s), handed to the harvest: {FIXTURE_INTAKE}" in out
+    assert f"harvest: {FIXTURE_PR} — title + body + " in out
+    assert f"harvest: {FIXTURE_INTAKE} — title + body + " in out
+
+    bag = h.resolve_bag(journal_root, run_id)
+    index, = h.read_harvest_indexes(bag.path)
+    by_url = {entry["url"]: entry for entry in index["surfaces"]}
+    assert set(by_url) == {FIXTURE_PR, FIXTURE_INTAKE}, "both surfaces, nothing else"
+    assert by_url[FIXTURE_INTAKE]["kind"] == "issue" and by_url[FIXTURE_INTAKE]["captured"]
+
+    events = {e.event_id: e for e in (
+        decode_event(line) for line in
+        (bag.path / "data" / h.HARVEST_WRITER / EVENTS_FILE)
+        .read_text(encoding="utf-8").splitlines())}
+    body_event = events[by_url[FIXTURE_INTAKE]["body"]["event_id"]]
+    assert body_event.kind is EventKind.COMPLETION
+    assert body_event.destination.address == FIXTURE_INTAKE
+
+    # BYTE-IDENTITY AGAINST AN INDEPENDENT READ, the same check the PR case
+    # makes: `--jq` appends exactly one newline to the string it prints.
+    direct = subprocess.run(
+        ["gh", "api", f"repos/{FIXTURE_SLUG}/issues/163", "--jq", ".body"],
+        capture_output=True, text=True, timeout=60, cwd=str(REPO_ROOT))
+    assert direct.returncode == 0, direct.stderr
+    assert body_event.content + "\n" == direct.stdout
+    assert body_event.content.startswith("---\nstore:"), (
+        "an intake body opens with its frontmatter; this one does not read as one")

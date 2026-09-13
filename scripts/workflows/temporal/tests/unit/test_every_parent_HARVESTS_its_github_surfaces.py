@@ -90,10 +90,19 @@ FIRST_REF = "ctx.pr_number"
 SINGLE_SURFACE_ENTRYPOINTS = {
     "run_review_pr.py":
         "a review is dispatched AGAINST a PR and posts its verdict there; the "
-        "child cuts no branch and opens nothing. `ReviewResult.pr_number` is "
+        "child cuts no branch and opens no PR. `ReviewResult.pr_number` is "
         "`task.pr_number` passed through — the same value as `ctx.pr_number` — "
         "and passing it as the second ref read as multi-surface support the "
-        "workflow does not have.",
+        "workflow does not have. The intakes its child FILES are a different "
+        "surface and trail the pair — see TRAILING_REF_ENTRYPOINTS.",
+}
+
+#: Entrypoints whose child reports surfaces BEYOND the PR pair — the reviewer's
+#: filed intakes (`FILED-INTAKE:` lines, #185) — spliced in after the two refs
+#: every parent passes, as `*<handoff target>.<field>`. Value: the name of the
+#: handoff's assignment the trailing refs must consume.
+TRAILING_REF_ENTRYPOINTS = {
+    "run_review_pr.py": "result",
 }
 
 
@@ -178,8 +187,13 @@ def none_bound_before(tree: ast.AST, try_node: ast.Try) -> set[str]:
 
 
 def base_name(expr: str) -> str:
-    """`result.pr_url if result is not None else None` → `result`."""
-    return expr.split(" if ")[0].split(".")[0].split("[")[0].split("(")[0].strip()
+    """`result.pr_url if result is not None else None` → `result`.
+
+    A STARRED element unparses as `*(result.issue_urls if … else ())`; the star
+    and its opening paren are stripped first so the name underneath is read.
+    """
+    return (expr.lstrip("*").lstrip("(")
+            .split(" if ")[0].split(".")[0].split("[")[0].split("(")[0].strip())
 
 
 def _sources() -> dict[str, str]:
@@ -300,6 +314,52 @@ def test_the_harvest_is_handed_BOTH_the_dispatched_PR_and_the_reported_one(
         f"while handling the workflow's exception and hide it")
 
 
+@pytest.mark.parametrize("name", sorted(TRAILING_REF_ENTRYPOINTS))
+def test_an_entrypoint_whose_child_FILES_INTAKES_hands_them_to_the_harvest(name: str) -> None:
+    """`refs=(ctx.pr_number, None, *(result.issue_urls if result is not None else ()))`.
+
+    THREE PROPERTIES, EACH WITH A FAILURE THE OTHERS CANNOT SEE. The trailing
+    ref must exist at all — the single-surface test above returns satisfied on
+    `(ctx.pr_number, None)` and would keep passing if the intakes were dropped.
+    It must be STARRED: an unstarred `result.issue_urls` is one ref holding a
+    list, which `parse_ref` turns into `str(list)` and REFUSES, and the refusal
+    lands in the `finally` of every review that filed anything. And it must
+    consume the handoff's own None-bound target, for the reason the two-ref
+    test gives — on the failure path an unbound name is a NameError raised
+    while the workflow's exception is in flight.
+    """
+    tree = ast.parse(_sources()[name], filename=name)
+    guard = guarding_try(tree)
+    assert guard is not None, f"{name}: every-path test owns this"
+    refs = refs_argument(harvest_calls(tree)[0])
+    assert refs is not None and len(refs) >= 3, (
+        f"{name}: the harvest is handed {refs} — no trailing ref, so the intakes "
+        f"its child reported filing are never harvested")
+    target = TRAILING_REF_ENTRYPOINTS[name]
+    for expr in refs[2:]:
+        assert expr.startswith("*"), (
+            f"{name}: trailing ref {expr!r} is not starred; a sequence passed as "
+            f"one ref is `str(list)` to `parse_ref`, which refuses it")
+        assert "issue_urls" in expr, (
+            f"{name}: trailing ref {expr!r} does not read `issue_urls` — the field "
+            f"`ReviewResult` carries the filed intakes on")
+        assert base_name(expr) == target, (
+            f"{name}: trailing ref {expr!r} reads {base_name(expr)!r}, not the "
+            f"handoff target `{target}`")
+    assert target in assigned_in(guard.body), (
+        f"{name}: `{target}` is not assigned by the guarded handoff "
+        f"({sorted(assigned_in(guard.body))})")
+    assert target in none_bound_before(tree, guard), (
+        f"{name}: `{target}` is not bound to None above the `try` at line "
+        f"{guard.lineno}; the `finally` would raise NameError on the failure path")
+
+
+def test_every_declared_trailing_ref_entrypoint_EXISTS() -> None:
+    stale = sorted(set(TRAILING_REF_ENTRYPOINTS) - set(_sources()))
+    assert not stale, (
+        f"TRAILING_REF_ENTRYPOINTS names entrypoints that do not exist: {stale}")
+
+
 def test_every_declared_single_surface_entrypoint_EXISTS() -> None:
     """A declaration for a file that is gone is a reason nobody reads."""
     stale = sorted(set(SINGLE_SURFACE_ENTRYPOINTS) - set(_sources()))
@@ -359,6 +419,22 @@ def main():
 '''
 
 
+# The reviewer's shape: the PR pair, then the intakes its child filed, starred.
+_TRAILING_STARRED = '''
+def main():
+    ctx = build()
+    journal.open_run_bag(run_id=ctx.run_id)
+    result = None
+    try:
+        result = run_thing(task)
+    finally:
+        harvest.harvest_github_surfaces(run_id=ctx.run_id, repo_root=repo_root,
+                                        refs=(ctx.pr_number, None,
+                                              *(result.issue_urls if result is not None else ())),
+                                        journal_root=ctx.journal_root)
+'''
+
+
 def test_the_predicates_DISCRIMINATE_on_literal_source() -> None:
     """The control `test_a_census_guard_proves_its_own_predicate` requires.
 
@@ -394,3 +470,11 @@ def test_the_predicates_DISCRIMINATE_on_literal_source() -> None:
     assert base_name("result.pr_url if result is not None else None") == "result"
     assert base_name('result.get("pr_url") if result is not None else None') == "result"
     assert base_name("pr_url") == "pr_url"
+
+    # The starred trailing ref unparses with `*(` in front of the name; the
+    # helper reads through it, and the ref list shows the star so the
+    # intakes test can hold it.
+    starred = refs_argument(harvest_calls(ast.parse(_TRAILING_STARRED))[0])
+    assert starred == ["ctx.pr_number", "None",
+                       "*(result.issue_urls if result is not None else ())"]
+    assert base_name(starred[2]) == "result"
