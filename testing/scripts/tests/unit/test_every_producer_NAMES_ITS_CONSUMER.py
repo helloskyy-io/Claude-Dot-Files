@@ -881,6 +881,14 @@ HELD_BY: dict[str, tuple[str, str]] = {
     "the shim<->runner pairs under temporal/scripts/": (
         "scripts/workflows/temporal/tests/unit/test_shim_usage_names_itself.py",
         "test_every_usage_line_invokes_this_shim"),
+    # TWO claims, TWO holders. The entry above holds that a shim's usage line
+    # names itself; the `assert runner.is_file()` that holds "a runner exists
+    # beside every shim" lives in a DIFFERENT function of the same module, and
+    # registering only the first left the second resolving to a test that
+    # never asserted it — a rename of the real holder would have passed here.
+    "a runner beside every shim under temporal/scripts/": (
+        "scripts/workflows/temporal/tests/unit/test_shim_usage_names_itself.py",
+        "test_every_usage_FLAG_is_one_the_runner_ACCEPTS"),
     "Phase 4's dispatch-context echo, at every entrypoint": (
         "scripts/workflows/temporal/tests/unit/test_dispatch_context.py",
         "test_every_entrypoint_BUILDS_a_context_and_SAYS_IT"),

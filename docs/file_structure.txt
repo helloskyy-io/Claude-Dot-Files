@@ -1179,7 +1179,7 @@ claude-dot-files/
 │   │       │                                        #   libraries, services, suites, the three bash workflows, and temporal/scripts/ as
 │   │       │                                        #   FOUR partitioned populations — shims, runners, libraries, tools) have them FOUND
 │   │       │                                        #   on disk by a per-shape predicate, each with a control. Cadence clause binds only
-│   │       │                                        #   surfaces that ACCUMULATE (req 2, ruled 2026-09-10). Six unread producers found
+│   │       │                                        #   surfaces that ACCUMULATE (req 2, ruled 2026-09-10). Eight unread producers found
 │   │       │                                        #   so far are baselined on a two-way ratchet, not fixed. HELD_BY registers every surface
 │   │       │                                        #   deferred to another gate (prompt pool, repo map, shims, Phase 4's echo, run log)
 │   │       │                                        #   and asserts each holder resolves by file and function. Moved here from
