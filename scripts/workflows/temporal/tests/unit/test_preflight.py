@@ -126,6 +126,47 @@ def test_refuse_returns_the_exit_code_and_writes_the_message_UNCHANGED() -> None
         f"the message was reformatted: {buffer.getvalue()!r}")
 
 
+def test_refuse_prints_the_exception_it_was_raised_WHILE_HANDLING_beneath_it() -> None:
+    """PMP Phase 10 put the harvest in a `finally`; the workflow's error must survive it.
+
+    A workflow that raises, followed by a harvest that raises in the `finally`,
+    reaches `refuse` as the harvest's exception with the workflow's as
+    `__context__`. Printing the outer one alone would report "run id resolves
+    to no bag" and hide why the run died. Both lines, neither reworded.
+    """
+    try:
+        try:
+            raise RuntimeError("the child exited 1 — see the log")
+        finally:
+            raise RuntimeError("run id 'x' resolves to no bag")
+    except RuntimeError as chained:
+        buffer = io.StringIO()
+        assert refuse(chained, stream=buffer) == 1
+    assert buffer.getvalue() == (
+        "\n\u2717 run id 'x' resolves to no bag\n"
+        "  while handling: \u2717 the child exited 1 — see the log\n"), (
+        f"the chained message was lost or reworded: {buffer.getvalue()!r}")
+
+
+def test_refuse_does_NOT_unwrap_an_EXPLICIT_from_chain() -> None:
+    """`raise X from exc` is the raising layer choosing what its message says.
+
+    The layer that wrapped knew the cause and wrote its message with it — the
+    fleet's `gh_json` and `resolve_repo_root` both do — so a second line here
+    would print the cause twice, and `from None` is an explicit request to
+    print it never. Only the IMPLICIT chain (raised while handling) is walked.
+    """
+    try:
+        try:
+            raise OSError("underlying")
+        except OSError as exc:
+            raise RuntimeError("wrapped, and the message already says why") from exc
+    except RuntimeError as explicit:
+        buffer = io.StringIO()
+        refuse(explicit, stream=buffer)
+    assert buffer.getvalue() == "\n\u2717 wrapped, and the message already says why\n"
+
+
 def test_refuse_writes_to_STDERR_by_default(capsys) -> None:
     """stdout is the RESULT somebody may pipe — for the build and research
     children it is the PR URL and nothing else."""

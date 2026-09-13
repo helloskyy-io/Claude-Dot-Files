@@ -10,6 +10,7 @@ from dispatch_context import RunContext  # noqa: E402
 from modules.assistant.review_pr import review_pr_activities as review_act  # noqa: E402
 from modules.assistant import assistant_activities as act_shared  # noqa: E402
 from modules.journal import journal_activities as journal  # noqa: E402
+from modules.journal import harvest_activities as harvest  # noqa: E402
 from modules.assistant.plan import plan_activities as act  # noqa: E402
 from modules.assistant.plan.plan_sprint import plan_sprint_workflow as wf  # noqa: E402
 
@@ -184,11 +185,28 @@ def main(argv=None) -> int:
         # sweep of this did not see it.
         ref = act.base_ref(a.pr_number, repo_root)
         worktree = act.worktree_add(repo_root, ctx.worktree_name, ref)
-        url = wf.run_plan_sprint(repo_root=repo_root, worktree=worktree,
-                                 sprint_path=sprint, component=component,
-                                 pr_number=a.pr_number, context=context,
-                                 verbose=a.verbose,
-                                 correction_pass=a.correction_pass)
+        url = None
+        try:
+            url = wf.run_plan_sprint(repo_root=repo_root, worktree=worktree,
+                                     sprint_path=sprint, component=component,
+                                     pr_number=a.pr_number, context=context,
+                                     verbose=a.verbose,
+                                     correction_pass=a.correction_pass)
+        finally:
+            # PHASE 10 r7 — THE POST-EXIT HARVEST, in a `finally` because the window
+            # OPENS AT CHILD EXIT, not at the workflow's return: a child that posted
+            # and then had its parent raise still wrote to GitHub, and the runs an
+            # operator reconstructs are the ones that failed. Only the parent holds
+            # both the run's identity and the PR its child reported; on the failure
+            # path the second is unknown and `None` harvests nothing, recorded as
+            # such. A harvest that raises here chains the workflow's own error as
+            # its `__context__`, which `preflight.refuse` prints beneath it. What
+            # the sweep enforcing this can and cannot see:
+            # `harvest_activities.py`'s docstring and
+            # `tests/unit/test_every_parent_HARVESTS_its_github_surfaces.py`.
+            harvest.harvest_github_surfaces(run_id=ctx.run_id, repo_root=repo_root,
+                                            refs=(ctx.pr_number, url),
+                                            journal_root=ctx.journal_root)
     except (RuntimeError, FileNotFoundError, ValueError) as exc:
         return refuse(exc)
 

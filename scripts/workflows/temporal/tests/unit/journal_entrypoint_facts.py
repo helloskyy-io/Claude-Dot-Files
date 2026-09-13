@@ -146,6 +146,12 @@ NON_STARTING_FILES = {
         "against the stored bytes. It starts no run and opens no bag — a "
         "checker that recorded itself would grow the journal every time an "
         "operator inspected it.",
+    "reconcile_harvest.py":
+        "the fourth operator tool, same shape as the three above: it READS a "
+        "bag's harvest index and re-reads the GitHub surfaces it names, then "
+        "prints the window's cost with its denominator (PMP Phase 10 r3c). It "
+        "starts no run, opens no bag and emits nothing — a measurement that "
+        "recorded itself would change the number it was measuring.",
 }
 
 # A shim is `<workflow>.sh` beside its runner: thin by design, it resolves the

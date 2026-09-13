@@ -146,7 +146,7 @@ class GapClass(str, Enum):
     lost; if its `why` were derived from the content or from an exception string,
     the report would become a side channel for exactly the bytes it exists to say
     were dropped — and a gap event is written on the failure path, which is the
-    least-reviewed path there is. Four classes, a byte count and a timestamp cost
+    least-reviewed path there is. Five classes, a byte count and a timestamp cost
     a few hundred bytes and cannot leak.
     """
 
@@ -154,6 +154,15 @@ class GapClass(str, Enum):
     READ_ONLY = "read_only"
     PATH_GONE = "path_gone"
     WRITE_FAILED = "write_failed"
+    # PHASE 10 ADDS THE FIFTH, AND IT IS A CLASS OF *READ* FAILURE. The four
+    # above say why an APPEND did not land; the post-exit harvest can fail one
+    # step earlier, when the GitHub surface it was sent to read could not be
+    # read at all — a 404 on a PR that was never opened, a timed-out `gh`, a
+    # reply that is not JSON. Phase 10 r5: *"a failed harvest appends a typed
+    # gap event NAMING THE SURFACE it could not read"* — the surface is the
+    # event's `destination`, this is the why, and the closed set still holds:
+    # no message, no URL fragment the run did not already know, no bytes.
+    SURFACE_UNREADABLE = "surface_unreadable"
 
 
 @dataclass(frozen=True)

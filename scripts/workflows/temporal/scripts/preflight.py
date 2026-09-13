@@ -71,8 +71,24 @@ def refuse(exc: BaseException, stream=None, exit_code: int = 1) -> int:
 
     stderr rather than stdout because several entrypoints' stdout is a rendered
     report an operator or a tool reads.
+
+    AN EXCEPTION RAISED WHILE HANDLING ANOTHER IS PRINTED BENEATH IT, because
+    PMP Phase 10 put the post-exit harvest in a `finally` around every workflow
+    handoff. When the workflow raises and the harvest then raises too, Python
+    delivers the harvest's exception with the workflow's as its `__context__`
+    — and printing only the outer one would report a bag-resolution failure
+    while hiding the reason the run actually died. Neither message is reworded;
+    the inner one is printed after the outer, indented. ONLY THE IMPLICIT CHAIN
+    IS WALKED: an explicit `raise X from exc` sets `__cause__` and suppresses
+    the context, and that is the raising layer choosing what its message says
+    — this helper does not second-guess it. `from None` suppresses too.
     """
-    print(f"\n✗ {exc}", file=stream or sys.stderr)
+    out = stream or sys.stderr
+    print(f"\n✗ {exc}", file=out)
+    inner = exc
+    while not inner.__suppress_context__ and inner.__context__ is not None:
+        inner = inner.__context__
+        print(f"  while handling: ✗ {inner}", file=out)
     return exit_code
 
 

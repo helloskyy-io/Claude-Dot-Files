@@ -175,6 +175,13 @@ DECLARED_SPLITS = {
     # which the reader reports as UNKNOWN rather than as a comparison — so the
     # failure mode is an honest refusal, never a plausible-but-different address.
     ("config_digest.py", "parse_tag_value"),
+    # THE ORDINAL OFF A WRITER SUBFOLDER'S NAME — `harvest-2` → 2 — so a bag's
+    # harvest indexes can be ordered oldest-first. The input is a directory
+    # name `Bag.writer_dir` composed as `<slug>` or `<slug>-<ordinal>` from a
+    # slug that `safe_payload_segment` has already reduced to [A-Za-z0-9._-],
+    # and the split is on the LAST `-`, which is the one that separator put
+    # there. Not a URL, and no path is derived from it.
+    ("harvest.py", "read_harvest_indexes"),
     # A LITERAL WRITTEN IN THIS FILE, split at import to make a stop-word set —
     # the safest member of this census by a distance, since its input cannot
     # come from anywhere. Declared anyway rather than exempted: the gate is an

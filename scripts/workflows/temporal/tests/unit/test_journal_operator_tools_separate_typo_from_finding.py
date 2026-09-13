@@ -78,6 +78,11 @@ _CHECKER_MODULES = ("modules.journal.validate", "modules.journal.verify")
 #: non-member, and it is asserted as a literal below rather than left implied.
 _BAG_READERS: dict[str, tuple[str, ...]] = {
     "modules.journal.bag": ("read_tag_file",),
+    # PMP Phase 10: the harvest index is a bag artifact, and the tool that
+    # reads it back (`reconcile_harvest.py`) is the fourth operator tool.
+    # Added when review found it outside this sweep — the third instance of
+    # the class this file's own docstring records twice.
+    "modules.journal.harvest": ("read_harvest_indexes",),
 }
 
 # The code every member of this population must return for a target that is not
@@ -156,6 +161,11 @@ def test_the_predicate_answers_correctly_on_a_LITERAL() -> None:
         ast.parse("from modules.journal.bag import read_tag_file"))
     assert imports_a_bag_checker(
         ast.parse("from modules.journal.bag import BAG_INFO_FILE, read_tag_file"))
+    assert imports_a_bag_checker(
+        ast.parse("from modules.journal.harvest import fetch_surface, read_harvest_indexes"))
+    # The harvest MODULE is a writer too (`harvest_run`); importing it whole is
+    # what every entrypoint's alias does and is not membership.
+    assert not imports_a_bag_checker(ast.parse("from modules.journal import harvest"))
 
     # A filename in prose or in a usage string is not an import, and a sibling
     # module of the checkers is not a checker.
@@ -175,7 +185,7 @@ def test_the_predicate_answers_correctly_on_a_LITERAL() -> None:
         ast.parse("from modules.journal.bag import open_bag"))
 
 
-def test_the_population_holds_ALL_THREE_operator_tools() -> None:
+def test_the_population_holds_ALL_FOUR_operator_tools() -> None:
     """The instance that proved the predicate was a list wearing a derivation.
 
     `compare_run_config.py` declares itself the third operator tool in this
@@ -184,11 +194,14 @@ def test_the_population_holds_ALL_THREE_operator_tools() -> None:
     this sweep, so the split its `main()` implements was held by hand. Named
     here rather than left to the parametrized cases: a population that silently
     narrows again passes every case below it, because there is nothing to
-    parametrize over.
+    parametrize over. `reconcile_harvest.py` (PMP Phase 10) was the third
+    instance: `journal_entrypoint_facts.py` called it *"the fourth operator
+    tool, same shape as the three above"* and it imported the harvest module
+    whole, so this predicate did not see it.
     """
     found = {p.name for p in bag_inspection_entrypoints()}
     assert {"validate_bag.py", "verify_citations.py",
-            "compare_run_config.py"} <= found, (
+            "compare_run_config.py", "reconcile_harvest.py"} <= found, (
         f"an operator tool that inspects a bag is outside the sweep that holds "
         f"the usage/finding split: {found}")
 

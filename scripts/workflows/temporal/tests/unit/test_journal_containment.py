@@ -92,6 +92,18 @@ _TRUSTED_JOINS = {
         "existing directory and the caller took the next ordinal, which is luck "
         "rather than the stated rule. Found when the content store needed the "
         "same rule and `contained_relpath` refused the result.",
+    # ── harvest.py ────────────────────────────────────────────────────────
+    ("harvest.py", "run_id"):
+        "resolve_bag rebinds run_id through `bag.validated_run_id` on the line "
+        "above the join — the SAME allowlist `open_bag` uses, so the harvest "
+        "cannot address a folder that bag-open could not have created. It then "
+        "REFUSES rather than creates: the folder must already exist and carry "
+        "both BagIt tag files, which is Phase 10 r2's whole argument.",
+    ("harvest.py", "name"):
+        "iterates the two-element tuple `(BAGIT_FILE, BAG_INFO_FILE)`, both "
+        "module constants of `bag.py` — the loop variable is a constant by "
+        "construction, not an input, and the join only ASKS whether the file "
+        "exists.",
     # ── config_digest.py ──────────────────────────────────────────────────
     # NONE OF THESE ADDRESSES A BAG, which is what this sweep is about. They
     # walk `~/.claude/` to hash it; nothing they compose is ever written, and a

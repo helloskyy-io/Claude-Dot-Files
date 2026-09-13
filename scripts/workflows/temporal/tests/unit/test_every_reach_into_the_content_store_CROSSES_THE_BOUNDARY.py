@@ -103,12 +103,15 @@ excusing it.
 ⚠ FAMILIES 1 AND 2 EACH CONTAIN THE FLEET'S OWN IDIOM, WHICH IS WHY NEITHER IS
 EXOTIC.
 Twenty-two swept modules import a journal submodule as a name: the sixteen
-entrypoints take `journal_activities as journal`, `verify_citations.py` and
-`validate_bag.py` take `verify` and `validate`, and FOUR fleet modules take
-`emit as journal_emit` — `assistant_activities.py`, `tracked_items.py`,
-`merge_pr.py` and `plan_project_activities.py`. The two operator tools READ a
-finished bag rather than being entrypoints, per `journal_entrypoint_facts.py`'s
-own classification, so this file says *call sites* wherever the twenty-two are
+entrypoints take `journal_activities as journal` AND, since PMP Phase 10,
+`harvest_activities as harvest`; `verify_citations.py` and `validate_bag.py`
+take `verify` and `validate` (`reconcile_harvest.py`, the fourth operator
+tool, imports its readers BY NAME so the operator-tools sweep can see it, and
+so is not in this population); and FOUR fleet modules take `emit as
+journal_emit` — `assistant_activities.py`, `tracked_items.py`, `merge_pr.py`
+and `plan_project_activities.py`. The operator tools READ a finished bag
+rather than being entrypoints, per `journal_entrypoint_facts.py`'s own
+classification, so this file says *call sites* wherever the twenty-two are
 meant. The four emit binders are PMP Phase 3's, and they are the first fleet
 modules to bind a journal submodule for a reason other than opening a bag: each
 is a WRITE PATH, wrapping its store write in the intent-then-completion pair. `from .. import journal` is the
@@ -135,9 +138,10 @@ exactly one, and the control below uses those rather than the idiom.
 
 ⚠ AND NEITHER COSTS THE EIGHTEEN FALSE POSITIVES THEY WERE PREDICTED TO COST.
 Deleting the parent check outright leaves every test in this file green and
-flags no fleet module: those twenty-two reach only `journal.open_run_bag` and
-Phase 3's `journal_emit.current_emitter` / `paired_write`,
-which is in neither `STORE_MODULES` nor `STORE_IO_NAMES`, so a reach-based
+flags no fleet module: those twenty-two reach only `journal.open_run_bag`,
+Phase 3's `journal_emit.current_emitter` / `paired_write` and Phase 10's
+`harvest.harvest_github_surfaces` / `read_harvest_indexes`,
+none of which is in `STORE_MODULES` or `STORE_IO_NAMES`, so a reach-based
 matcher never looks at them. The trap is structurally unreachable rather than
 narrowly avoided — and the guard against it is therefore untestable through the
 sweep OVER THIS TREE, because no module here writes the line the mistake would
@@ -497,8 +501,8 @@ def test_the_sweep_is_not_vacuous() -> None:
     """A sweep that examined nothing satisfies the assertion above exactly.
 
     THE FLOOR IS PER DIRECTORY, AND A SINGLE AGGREGATE FLOOR IS WHAT THIS FILE
-    SHIPPED FIRST. `modules/` alone holds 61 of the 83, so a total-only floor of
-    fifty stayed green with `scripts/` — all 22 of its modules — dropped from
+    SHIPPED FIRST. `modules/` alone holds 61 of the 84, so a total-only floor of
+    fifty stayed green with `scripts/` — all 23 of its modules — dropped from
     the population entirely. That is the failure this control exists to catch,
     passing the control: a guard whose SCOPE has halved reports the same green
     as one that swept everything. Measured by mutation, not reasoned about.
@@ -513,7 +517,7 @@ def test_the_sweep_is_not_vacuous() -> None:
         assert len(found) >= floor, (
             f"only {len(found)} modules discovered under {FLEET_ROOT / name}; "
             f"this fleet has 61 under modules/ (outside the journal package) "
-            f"and 22 under scripts/. The predicate has drifted from the tree "
+            f"and 23 under scripts/. The predicate has drifted from the tree "
             f"and the absence above proves nothing about this half of it.")
 
 
@@ -910,9 +914,9 @@ def test_the_FLEET_IDIOM_binding_journal_to_the_activities_module_is_NOT_flagged
     IS WHERE IT WAS FIRST WRITTEN. Deleting the parent check was expected to fail
     this file loudly and to flag nineteen fleet modules. MEASURED, IT DOES
     NEITHER: every test stayed green and the real-tree sweep named nothing,
-    because those twenty-two call sites reach only `journal.open_run_bag` and
-    the emit boundary, neither of which is
-    in neither name set. So a control routed through the sweep over THE REAL TREE
+    because those twenty-two call sites reach only `journal.open_run_bag`,
+    the emit boundary and the harvest activity, none of which is
+    in either name set. So a control routed through the sweep over THE REAL TREE
     is vacuous — it would begin discriminating only once some module writes
     `journal.load_object` off the activities alias, which is the moment the guard
     matters most and the worst possible moment to learn its control never worked.

@@ -1220,6 +1220,13 @@ def _record_side_effects(monkeypatch: pytest.MonkeyPatch, runner, calls: list,
                                                     repo_root)[1])
     monkeypatch.setattr(wf, "run_plan_refine",
                         lambda **k: (calls.append("run_plan_refine"), url)[1])
+    # THE FOURTH SIDE EFFECT, ADDED WITH PMP PHASE 10: the post-exit harvest
+    # reads the PR back through a real `gh api` and writes into the run's bag.
+    # Left unstubbed it would have reached GitHub for `o/r/pull/132` from a
+    # unit test — and, with `open_run_bag` stubbed above, found no bag and
+    # refused the whole run (r2), which is exactly how this line was found.
+    monkeypatch.setattr(runner.harvest, "harvest_github_surfaces",
+                        lambda **k: calls.append("harvest_github_surfaces"))
 
 
 def test_a_PR_pass_is_NOT_refused_when_the_plan_is_only_on_the_PRs_BRANCH(
@@ -1258,6 +1265,9 @@ def test_a_PR_pass_is_NOT_refused_when_the_plan_is_only_on_the_PRs_BRANCH(
         f"the run never reached the dispatch, so the `not in calls` assertions "
         f"in the refusing cases below are vacuous — the recorder never fires; "
         f"the calls were {calls!r}")
+    assert calls.index("harvest_github_surfaces") > calls.index("run_plan_refine"), (
+        f"the post-exit harvest must run AFTER the workflow returns — it reads "
+        f"the PR the child made — and here the order was {calls!r}")
     assert ls_tree in calls, (
         f"the lookup asked for something other than the roadmap's repo-relative "
         f"path on origin/<the PR's branch>; it asked {calls!r}")
@@ -1270,6 +1280,46 @@ def test_a_PR_pass_is_NOT_refused_when_the_plan_is_only_on_the_PRs_BRANCH(
     assert fetch in calls and calls.index(fetch) < calls.index(ls_tree), (
         f"the PR's ref was queried without being fetched first, or after; the "
         f"calls in order were {calls!r}")
+
+
+def test_a_workflow_that_RAISES_after_its_child_posted_is_STILL_harvested(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    """PMP Phase 10, the every-path property, driven through a real `main()`.
+
+    The AST sweep proves the harvest call sits in a `finally`; this proves the
+    `finally` RUNS: the workflow stub raises the way a parent does when the
+    child's verdict will not parse or its URL cannot be extracted — after the
+    child has already posted — and the harvest is recorded anyway, with the
+    dispatched PR as its only known ref. The run still exits 1 with the
+    workflow's own message, so the harvest neither swallowed nor replaced it.
+    """
+    repo, runner, calls = _repo(tmp_path), _runner(), []
+    _pr_lookup(monkeypatch, "plan-draft-1787204416",
+               f"development/alpha/{own.ROADMAP}\n", calls)
+    _record_side_effects(monkeypatch, runner, calls)
+    seen: dict = {}
+
+    def raising_workflow(**k):
+        calls.append("run_plan_refine")
+        raise RuntimeError("the child exited 1 after posting — see the log")
+
+    def recording_harvest(**k):
+        calls.append("harvest_github_surfaces")
+        seen.update(k)
+    monkeypatch.setattr(wf, "run_plan_refine", raising_workflow)
+    monkeypatch.setattr(runner.harvest, "harvest_github_surfaces", recording_harvest)
+
+    rc = runner.main(["development/alpha", "--repo", str(repo), "--pr", "132"])
+    err = capsys.readouterr().err
+    assert rc == 1 and "the child exited 1 after posting" in err, (
+        f"the workflow's own failure did not reach the operator: rc={rc}, {err!r}")
+    assert "harvest_github_surfaces" in calls, (
+        f"the workflow raised and the harvest never ran — every failed run's PR "
+        f"body and comments are recorded nowhere; calls were {calls!r}")
+    assert calls.index("harvest_github_surfaces") > calls.index("run_plan_refine")
+    assert tuple(seen["refs"]) == ("132", None), (
+        f"on the failure path only the dispatched PR is known; the harvest was "
+        f"handed {seen.get('refs')!r}")
 
 
 def test_a_PR_pass_IS_refused_when_the_plan_is_on_NEITHER_tree(
