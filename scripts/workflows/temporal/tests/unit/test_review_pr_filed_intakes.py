@@ -200,6 +200,13 @@ def test_an_inline_FLOW_list_is_a_shape_the_schema_does_not_show_and_is_REPORTED
     assert got.urls == () and got.malformed == (f"[{ONE}]",)
 
 
+def test_an_inline_SCALAR_is_read_and_unquoted_like_a_list_item() -> None:
+    """A child that filed one intake and wrote it as the key's value — not the
+    schema's list, but one URL is one URL — is harvested, quoted or not."""
+    assert helper.filed_intakes_in_block(_block(key=f'filed_intakes: "{ONE}"')).urls == (ONE,)
+    assert helper.filed_intakes_in_block(_block(key=f"filed_intakes: {ONE}")).urls == (ONE,)
+
+
 def test_the_key_is_read_at_the_TOP_LEVEL_indent_only() -> None:
     """`findings_section`'s hazard, on this key: `dispatch_context: |` is free
     text inside the same block, and a runway quoting this schema there would
@@ -212,8 +219,7 @@ def test_the_key_is_read_at_the_TOP_LEVEL_indent_only() -> None:
 def test_merge_is_first_seen_across_surfaces_and_deduped() -> None:
     printed = helper.filed_intakes(f"FILED-INTAKE: {ONE}\nFILED-INTAKE: bad\n")
     in_block = helper.filed_intakes_in_block(_block(TWO, ONE, "worse"))
-    assert helper.merge_intakes(printed, in_block) == \
-        helper.FiledIntakes((ONE, TWO), ("bad", "worse"))
+    assert helper.merge_intakes(printed, in_block) == (ONE, TWO)
 
 
 def test_the_notes_name_the_count_from_EACH_surface() -> None:

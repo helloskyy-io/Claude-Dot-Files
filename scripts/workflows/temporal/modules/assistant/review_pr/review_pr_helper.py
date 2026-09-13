@@ -306,14 +306,18 @@ def filed_intakes_in_block(block: str) -> FiledIntakes:
     payloads = [_unquote(_TRAILING_COMMENT.sub("", t))
                 for t in _FILED_INTAKE_ITEM.findall(section.group(2))]
     if inline not in ("", "[]"):
-        payloads.append(inline)
+        payloads.append(_unquote(inline))
     return _split_intakes(payloads)
 
 
-def merge_intakes(*sources: FiledIntakes) -> FiledIntakes:
-    """One set from both surfaces: distinct URLs first-seen across sources, in order."""
-    return _split_intakes(
-        [u for s in sources for u in s.urls] + [m for s in sources for m in s.malformed])
+def merge_intakes(printed: FiledIntakes, in_block: FiledIntakes) -> tuple[str, ...]:
+    """The URLs from both surfaces, distinct, first-seen, printed line first.
+
+    URLS ONLY. The malformed payloads are reported PER SURFACE by
+    `intake_notes` — which surface a typo sits on is the operator's lead — so a
+    merged malformed set would be computed and read by nothing.
+    """
+    return _split_intakes(printed.urls + in_block.urls).urls
 
 
 def intake_notes(printed: FiledIntakes, in_block: FiledIntakes) -> list[str]:
@@ -328,11 +332,11 @@ def intake_notes(printed: FiledIntakes, in_block: FiledIntakes) -> list[str]:
     """
     merged = merge_intakes(printed, in_block)
     notes: list[str] = []
-    if merged.urls:
-        notes.append(f"Filed {len(merged.urls)} intake(s), handed to the harvest "
+    if merged:
+        notes.append(f"Filed {len(merged)} intake(s), handed to the harvest "
                      f"({len(printed.urls)} on the printed FILED-INTAKE line, "
                      f"{len(in_block.urls)} in the posted block's filed_intakes): "
-                     + ", ".join(merged.urls))
+                     + ", ".join(merged))
     if printed.malformed:
         notes.append(f"{len(printed.malformed)} FILED-INTAKE line(s) carried no issue URL "
                      f"and were NOT harvested: " + ", ".join(repr(m) for m in printed.malformed))

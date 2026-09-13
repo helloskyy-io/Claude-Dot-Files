@@ -593,7 +593,7 @@ def run_review(task: ReviewInput, worktree: Path, *,
     # from each surface so that gap is visible rather than silent.
     block_intakes = (helper.filed_intakes_in_block(this_block)
                      if this_block is not None else helper.FiledIntakes((), ()))
-    intakes = helper.merge_intakes(printed_intakes, block_intakes)
+    issue_urls = helper.merge_intakes(printed_intakes, block_intakes)
     notes.extend(helper.intake_notes(printed_intakes, block_intakes))
     assessment = convergence.assess(
         helper.convergence_history(blocks, record, invocation_id) if blocks is not None else (),
@@ -615,7 +615,7 @@ def run_review(task: ReviewInput, worktree: Path, *,
     return ReviewResult(
         pr_number=task.pr_number, verdict=verdict, this_pass=this_pass,
         parseable=parseable, notes=notes, record=record, convergence=assessment,
-        issue_urls=list(intakes.urls),
+        issue_urls=list(issue_urls),
     )
 
 
