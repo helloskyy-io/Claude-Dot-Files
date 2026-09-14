@@ -147,8 +147,9 @@ WHAT THIS GATE DOES NOT LOOK AT. Stated here so nobody over-reads a green suite:
     the ruling does NOT see: it never opens a bag, so a reader that names
     the right constant and reads the wrong file passes; a record declared by
     a name `_RECORD_CONSTANT` does not match is outside the derived
-    population and must be registered by hand (the exit record is, with that
-    said); and the unread ratchet keys on the record's read ACCESSOR, so a
+    population and must be registered by hand (the exit record and the
+    config-digest tag are, with that said); and the unread ratchet keys on
+    the record's read ACCESSOR, so a
     reader that re-types the filename and parses lines itself is invisible
     to it. One record was found unread when the class was ruled — the bag's
     event stream, `events.jsonl`, decoded by tests only — and is frozen in
@@ -384,7 +385,7 @@ def _entrypoint_tools(root: Path) -> set[str]:
 
 def _clear_corpus_caches() -> None:
     for fn in (_dispatch_corpus, _bash_corpus, _operator_docs, _fleet_python,
-               _imported_stems):
+               _imported_stems, _module_ast):
         fn.cache_clear()
 
 
@@ -905,7 +906,7 @@ def _unresolved_holders(held_by: dict, *, repo: Path) -> list[str]:
         path = repo / module
         if not path.is_file():
             out.append(f"{claim}: {module} is not on disk")
-        elif not re.search(rf"^def {re.escape(func)}\(", _text(path), re.M):
+        elif not _defines_function(path, func):
             out.append(f"{claim}: {module} defines no `{func}`")
     return out
 
@@ -971,9 +972,11 @@ def test_the_HOLDER_checks_fire_on_a_missing_module_a_missing_function_and_prose
 # constant `_RECORD_CONSTANT` matches, and every run-log member is a string in
 # `MEMBER_EVENT_TYPES`. Those two populations are read off the modules, not
 # listed here (`_journal_record_symbols`, `_run_log_members`), and each member
-# must be a `RUNTIME_RECORDS` entry or an `UNREAD_RUNTIME_RECORDS` line. The
-# exit record is the one member of neither family — one schema in one module —
-# and is registered by hand with that said.
+# must be a `RUNTIME_RECORDS` entry or an `UNREAD_RUNTIME_RECORDS` line. Two
+# members are of neither family and are registered by hand with that said:
+# the exit record (one schema in one module) and the config-digest tag (a
+# label INSIDE `bag-info.txt`, read across two bags — the file is derived,
+# the tag is not).
 #
 # THE READ SIDE ONLY. The run log's write side is `HELD_BY` (its writers equal
 # its declaration) and is not re-asserted here.
@@ -982,9 +985,11 @@ def test_the_HOLDER_checks_fire_on_a_missing_module_a_missing_function_and_prose
 # claim on offer: the module is on disk, the entry function is defined in it,
 # and the module names the record's declared symbol AS A CODE TOKEN — a Name, an
 # attribute, or a string passed as a value — never in a comment or docstring
-# (`_code_tokens`). Then every `via` hop, from the operator-facing tool or the
-# parent branch down to the reader, imports the next by stem, so the name a
-# person is told to run actually reaches the function that opens the record.
+# (`_code_tokens`). Then every `via` hop — from the operator-facing tool, the
+# parent branch, or the fleet module that opens the record next — imports the
+# next by stem, so the name a person is told to run actually reaches the
+# function that opens the record. That the FIRST hop is itself alive is the
+# import graph's to hold, as the module docstring rules for every module.
 
 
 @dataclass(frozen=True)
@@ -1100,8 +1105,25 @@ UNREAD_RUNTIME_RECORDS: dict[str, UnreadRecord] = {
 }
 
 
+@lru_cache(maxsize=None)
 def _module_ast(p: Path) -> ast.Module:
+    """Cached like `_imported_stems`, and for the same reason: the unread
+    ratchet tokenises EVERY fleet module per baselined record."""
     return ast.parse(_text(p), filename=str(p))
+
+
+def _all_targets(node: ast.stmt) -> list[str]:
+    """The plain names a top-level statement assigns, in every spelling the
+    fleet uses for a constant: `X = `, `X: T = ` and `X += `. The journal
+    package declares five constants annotated today, so a helper that reads
+    only the bare form is one refactor from missing a record."""
+    if isinstance(node, ast.Assign):
+        targets = node.targets
+    elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
+        targets = [node.target]
+    else:
+        return []
+    return [t.id for t in targets if isinstance(t, ast.Name)]
 
 
 def _declared_tokens(p: Path) -> frozenset[str]:
@@ -1112,8 +1134,7 @@ def _declared_tokens(p: Path) -> frozenset[str]:
     out: set[str] = set()
     for node in _module_ast(p).body:
         if isinstance(node, (ast.Assign, ast.AnnAssign)):
-            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-            out.update(t.id for t in targets if isinstance(t, ast.Name))
+            out.update(_all_targets(node))
             if node.value is not None:
                 out.update(n.value for n in ast.walk(node.value)
                            if isinstance(n, ast.Constant) and isinstance(n.value, str))
@@ -1123,27 +1144,30 @@ def _declared_tokens(p: Path) -> frozenset[str]:
 
 
 def _code_tokens(p: Path) -> frozenset[str]:
-    """The symbols a module USES: every `Name`, every attribute, and every
-    string constant that is a VALUE — an argument, an operand, a key — rather
-    than a bare statement (a docstring is a bare `Expr` holding a string).
-    Comments are not in the AST at all. An import alias is NOT here, and nor
-    is a string inside `__all__`: a module that re-exports a reader has not
-    read anything, and `journal/__init__.py` re-exports every accessor in the
-    package both ways — the first run of the unread ratchet named it as the
-    event stream's reader on the strength of its `__all__`."""
+    """The symbols a module USES: every `Name` and attribute it LOADS, and
+    every string constant that is a VALUE — an argument, an operand, a key —
+    rather than a bare statement (a docstring is a bare `Expr` holding a
+    string). Comments are not in the AST at all. A `Store` is a definition,
+    not a use: five entries declare a record in the very module that reads it,
+    and the declaration's own target would otherwise satisfy "names it in
+    code" for every one of them whatever the entry function does. An import
+    alias is NOT here, and nor is a string inside `__all__` (assigned,
+    annotated or augmented — `_all_targets`): a module that re-exports a
+    reader has not read anything, and `journal/__init__.py` re-exports every
+    accessor in the package both ways — the first run of the unread ratchet
+    named it as the event stream's reader on the strength of its `__all__`."""
     tree = _module_ast(p)
     not_a_use: set[int] = set()
     for node in tree.body:
-        if (isinstance(node, ast.Assign)
-                and any(isinstance(t, ast.Name) and t.id == "__all__" for t in node.targets)):
+        if "__all__" in _all_targets(node) and node.value is not None:
             not_a_use.update(id(n) for n in ast.walk(node.value))
     out: set[str] = set()
     # `ast.walk` is breadth-first, so a docstring's `Expr` is seen before the
     # `Constant` it holds — which is what lets the skip be recorded in place.
     for node in ast.walk(tree):
-        if isinstance(node, ast.Name):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
             out.add(node.id)
-        elif isinstance(node, ast.Attribute):
+        elif isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Load):
             out.add(node.attr)
         elif isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant):
             not_a_use.add(id(node.value))
@@ -1194,8 +1218,10 @@ def _unresolved_records(records: dict, *, repo: Path) -> list[str]:
             continue
         if not _defines_function(reader, r.entry):
             out.append(f"{claim}: reader {r.reader} defines no `{r.entry}`")
+            continue
         if r.symbol not in _code_tokens(reader):
             out.append(f"{claim}: reader {r.reader} never names `{r.symbol}` in code")
+            continue
         chain = [*r.via, r.reader]
         for hop, nxt in zip(chain, chain[1:]):
             if not (repo / hop).is_file():
@@ -1231,19 +1257,21 @@ def _regained_records(unread: dict, *, repo: Path, fleet: list[Path]) -> list[st
 _RECORD_CONSTANT = re.compile(r"_(FILE|DIR)$")
 
 
-def _journal_record_symbols(journal: Path) -> set[tuple[str, str]]:
+def _journal_record_symbols(journal: Path, *, repo: Path) -> set[tuple[str, str]]:
     """The journal package's on-disk records, read off its declarations: every
-    top-level constant `_RECORD_CONSTANT` matches, in every module. (module basename,
-    symbol) — the basename because a fixture tree has no repo to be relative
-    to; `_ruled_records` keys the same way."""
+    top-level constant `_RECORD_CONSTANT` matches, in every module, in either
+    spelling (`_all_targets`). Keyed (repo-relative module, symbol) — the
+    same key a `RuntimeRecord.declared_in` carries, so a hand-registered
+    entry that names a same-basename module elsewhere cannot stand in for
+    the journal's; `_ruled_records` keys the same way."""
     out = set()
     for p in sorted(journal.glob("*.py")):
         if _is_transient(p):
             continue
+        rel = p.relative_to(repo).as_posix()
         for node in _module_ast(p).body:
-            if isinstance(node, ast.Assign):
-                out.update((p.name, t.id) for t in node.targets
-                           if isinstance(t, ast.Name) and _RECORD_CONSTANT.search(t.id))
+            out.update((rel, name) for name in _all_targets(node)
+                       if _RECORD_CONSTANT.search(name))
     return out
 
 
@@ -1259,8 +1287,8 @@ def _run_log_members(run_log: Path) -> set[str]:
 
 
 def _ruled_records(records: dict, unread: dict) -> set[tuple[str, str]]:
-    return ({(Path(r.declared_in).name, r.symbol) for r in records.values()}
-            | {(Path(u.declared_in).name, u.symbol) for u in unread.values()})
+    return ({(r.declared_in, r.symbol) for r in records.values()}
+            | {(u.declared_in, u.symbol) for u in unread.values()})
 
 
 def test_every_RUNTIME_RECORD_names_a_reader_that_RESOLVES_and_READS_it() -> None:
@@ -1275,8 +1303,8 @@ def test_every_DECLARED_runtime_record_is_RULED_read_or_unread() -> None:
     """The population, off the declarations: every journal file-or-directory
     constant and every run-log member is registered or baselined. A record the
     fleet starts writing fails here until somebody names who reads it."""
-    journal = _journal_record_symbols(_REPO / _JOURNAL)
-    members = {(Path(_RUN_LOG).name, m) for m in _run_log_members(_REPO / _RUN_LOG)}
+    journal = _journal_record_symbols(_REPO / _JOURNAL, repo=_REPO)
+    members = {(_RUN_LOG, m) for m in _run_log_members(_REPO / _RUN_LOG)}
     assert len(journal) >= 5 and len(members) >= 3, (journal, members)
     ruled = _ruled_records(RUNTIME_RECORDS, UNREAD_RUNTIME_RECORDS)
     assert (journal | members) - ruled == set(), (
@@ -1294,7 +1322,10 @@ def test_an_UNREAD_runtime_record_is_still_declared_and_still_UNREAD() -> None:
 
 def _runtime_fixture(root: Path) -> None:
     """A declaring module, a reader that names its symbol in CODE, a tool that
-    imports the reader — the shape every real entry has, in miniature."""
+    imports the reader — the shape every real entry has, in miniature. The
+    declaring module reads ONE of its own records (`open_it` loads `THE_FILE`)
+    and only stores the other (`MEMBERS`), which is the self-referential
+    shape five live entries take."""
     (root / "decl.py").write_text(
         'THE_FILE = "the.txt"\nMEMBERS = frozenset({"alpha"})\n'
         "def open_it(p):\n    return p / THE_FILE\n")
@@ -1307,17 +1338,24 @@ def _runtime_fixture(root: Path) -> None:
     (root / "mentions_only.py").write_text(
         '"""`open_it` is only mentioned here."""\nfrom decl import open_it\n'
         '__all__ = ["open_it"]\n')
+    # The other two spellings of a re-export, which the first cut of
+    # `_code_tokens` did not exclude: annotated, and augmented.
+    (root / "reexports.py").write_text(
+        'from decl import open_it\n__all__: list[str] = []\n__all__ += ["open_it"]\n')
     (root / "calls_it.py").write_text("import decl\ndecl.open_it(None)\n")
 
 
-def test_the_RUNTIME_RECORD_check_fires_on_each_of_its_SIX_defects(tmp_path: Path) -> None:
+def test_the_RUNTIME_RECORD_check_fires_ONCE_on_each_of_its_SEVEN_defects(tmp_path: Path) -> None:
     """Self-contained control. One entry per way to be wrong, each reported
-    once by its claim; the two good entries — a constant, and a string member
-    read by a call argument — are not."""
+    once by its claim — including an entry wrong in two ways at once, which
+    reports the first — and the three good entries are not: a constant read
+    across files, a string member read by a call argument, and a module that
+    declares AND loads its own record."""
     _runtime_fixture(tmp_path)
     reg = {
         "ok": RuntimeRecord("decl.py", "THE_FILE", "reader.py", "read", via=("tool.py",)),
         "ok-string": RuntimeRecord("decl.py", "alpha", "reader.py", "asks"),
+        "ok-self": RuntimeRecord("decl.py", "THE_FILE", "decl.py", "open_it"),
         "decl-gone": RuntimeRecord("gone.py", "THE_FILE", "reader.py", "read"),
         "symbol-gone": RuntimeRecord("decl.py", "OTHER_FILE", "reader.py", "read"),
         "reader-gone": RuntimeRecord("decl.py", "THE_FILE", "gone.py", "read"),
@@ -1325,24 +1363,32 @@ def test_the_RUNTIME_RECORD_check_fires_on_each_of_its_SIX_defects(tmp_path: Pat
         # THE DISCRIMINATOR: on disk, entry defined, symbol in a docstring and
         # an import alias — and that is not reading it.
         "prose-only": RuntimeRecord("decl.py", "MEMBERS", "reader.py", "read"),
+        # The self-referential discriminator: the module DECLARES the symbol,
+        # so its own `Store` is in the AST, and nothing in it loads it.
+        "self-store-only": RuntimeRecord("decl.py", "MEMBERS", "decl.py", "open_it"),
+        # Wrong twice — no entry AND no symbol — reported once, at the entry.
+        "entry-and-symbol-gone": RuntimeRecord("decl.py", "MEMBERS", "reader.py", "write"),
         "via-gone": RuntimeRecord("decl.py", "THE_FILE", "reader.py", "read", via=("nope.py",)),
         "via-unlinked": RuntimeRecord("decl.py", "THE_FILE", "reader.py", "read", via=("decl.py",)),
     }
     bad = _unresolved_records(reg, repo=tmp_path)
     assert [b.split(":")[0] for b in bad] == [
         "decl-gone", "symbol-gone", "reader-gone", "entry-gone", "prose-only",
-        "via-gone", "via-unlinked"], bad
+        "self-store-only", "entry-and-symbol-gone", "via-gone", "via-unlinked"], bad
     assert "never names `MEMBERS` in code" in next(b for b in bad if b.startswith("prose-only"))
+    assert "never names `MEMBERS` in code" in next(b for b in bad if b.startswith("self-store-only"))
+    assert "defines no `write`" in next(b for b in bad if b.startswith("entry-and-symbol-gone"))
 
 
 def test_the_UNREAD_RATCHET_fires_on_a_CALL_and_not_on_a_MENTION(tmp_path: Path) -> None:
-    """A fleet module that re-exports or documents the accessor is not a
-    reader; one that calls it is, and the line must then leave."""
+    """A fleet module that re-exports (in any of the three spellings of
+    `__all__`) or documents the accessor is not a reader; one that calls it
+    is, and the line must then leave."""
     _runtime_fixture(tmp_path)
     unread = {"still": UnreadRecord("decl.py", "THE_FILE", "open_it", "why"),
               "gone": UnreadRecord("nope.py", "THE_FILE", "open_it", "why"),
               "undeclared": UnreadRecord("decl.py", "THE_FILE", "read_it", "why")}
-    quiet = [tmp_path / "decl.py", tmp_path / "mentions_only.py"]
+    quiet = [tmp_path / "decl.py", tmp_path / "mentions_only.py", tmp_path / "reexports.py"]
     assert _regained_records(unread, repo=tmp_path, fleet=quiet) == [
         "gone: nope.py is not on disk",
         "undeclared: decl.py declares no ['read_it']"]
@@ -1352,17 +1398,25 @@ def test_the_UNREAD_RATCHET_fires_on_a_CALL_and_not_on_a_MENTION(tmp_path: Path)
 
 def test_the_POPULATION_reads_the_declarations_and_reports_an_UNRULED_one(tmp_path: Path) -> None:
     """`_journal_record_symbols` finds a file constant and a directory
-    constant and nothing else; `_run_log_members` reads the frozenset; a member of either with no
-    entry is the set difference the population test asserts empty."""
-    (tmp_path / "a.py").write_text('A_FILE = "a"\nA_DIR = "d"\nNOT_ONE = "x"\nFILE_NAME = "n"\n')
+    constant — bare or annotated — and nothing else, keyed by the module's
+    path under the repo; `_run_log_members` reads the frozenset; a member of
+    either with no entry is the set difference the population test asserts
+    empty."""
+    (tmp_path / "pkg").mkdir()
+    (tmp_path / "pkg" / "a.py").write_text(
+        'A_FILE = "a"\nA_DIR: str = "d"\nNOT_ONE = "x"\nFILE_NAME = "n"\n')
     (tmp_path / "run_log.py").write_text('MEMBER_EVENT_TYPES = frozenset({"one", "two"})\n')
-    assert _journal_record_symbols(tmp_path) == {("a.py", "A_FILE"), ("a.py", "A_DIR")}
+    assert _journal_record_symbols(tmp_path / "pkg", repo=tmp_path) == {
+        ("pkg/a.py", "A_FILE"), ("pkg/a.py", "A_DIR")}
     assert _run_log_members(tmp_path / "run_log.py") == {"one", "two"}
     ruled = _ruled_records(
-        {"x": RuntimeRecord("a.py", "A_FILE", "r.py", "f")},
-        {"y": UnreadRecord("a.py", "A_DIR", "g", "why")})
-    assert ruled == {("a.py", "A_FILE"), ("a.py", "A_DIR")}
-    assert {("a.py", "A_FILE"), ("a.py", "A_DIR"), ("run_log.py", "one")} - ruled == {("run_log.py", "one")}
+        {"x": RuntimeRecord("pkg/a.py", "A_FILE", "r.py", "f")},
+        {"y": UnreadRecord("pkg/a.py", "A_DIR", "g", "why")})
+    assert ruled == {("pkg/a.py", "A_FILE"), ("pkg/a.py", "A_DIR")}
+    assert {("pkg/a.py", "A_FILE"), ("pkg/a.py", "A_DIR"), ("run_log.py", "one")} - ruled == {("run_log.py", "one")}
+    # A same-basename module elsewhere is NOT the journal's: the key is the path.
+    assert _ruled_records({"z": RuntimeRecord("other/a.py", "A_FILE", "r.py", "f")}, {}) \
+        != {("pkg/a.py", "A_FILE")}
 
 
 def _tracked_files() -> set[str]:
