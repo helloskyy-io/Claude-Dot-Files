@@ -25,6 +25,7 @@ from pathlib import Path
 from . import resource_telemetry
 from . import routing
 from ..journal import emit as journal_emit
+from ..journal.capture_filter import filter_capture
 from ..journal.events import Destination, Provenance
 
 _WORKFLOWS = Path(__file__).resolve().parents[3]          # scripts/workflows
@@ -846,8 +847,85 @@ def _append_run_event(log_file: Path, event_type: str, event: dict) -> None:
             f"event type is the run log's only index; a payload that can set it "
             f"can make itself unreadable to every consumer that filters on it."
         )
+    line = json.dumps({"type": event_type, **event}) + "\n"
+    # THE RUN LOG IS AN INVENTORIED WRITE PATH (Phase 3 requirement 9: "Run log
+    # / execution facts"), case (c): the facts already exist in memory, so there
+    # is nothing to withhold and the run CONTINUES past a failed emit — a gap
+    # event and an `incomplete` flag record the loss. `.claude/logs/` is Claude
+    # Code's own machine-local store on a path this component does not own,
+    # which is why the journal gets the line FIRST: if the log write then
+    # fails, the record has what the store does not, which is the direction the
+    # invariant permits. Outside a run there is no emitter and the log is
+    # written unwrapped, exactly as `gh_attempt` does.
+    emitter = journal_emit.current_emitter()
+    if emitter is not None:
+        emitter.unpairable_write(
+            write_path=f"run-log:{event_type}",
+            destination=Destination(store="filesystem", address=str(log_file)),
+            content=line, provenance=Provenance.FLEET_AUTHORED)
     with log_file.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps({"type": event_type, **event}) + "\n")
+        handle.write(line)
+
+
+def _read_transcript(log_file: Path) -> str:
+    """The child's stream, as text, for the journal — "" when the child wrote none.
+
+    `errors="replace"` AND NOT STRICT, stated because the emit rule's word is
+    VERBATIM. The CLI writes UTF-8 JSON lines, so a byte this cannot decode is
+    a torn tail from a child killed mid-write — and refusing the whole
+    transcript over its last partial character would lose the fleet's only
+    record of what commands ran, to protect a byte that was never a character.
+    A replacement character is visible in the record; a missing transcript is
+    not.
+
+    A MISSING FILE IS AN EMPTY TRANSCRIPT, NOT AN ERROR. `run-claude.sh` creates
+    `LOG_FILE` only when it launches the CLI, and it returns non-zero BEFORE
+    that on a rate-limit abort or a failed model resolution — so a child that
+    never started leaves no file. That run's `code != 0` branch below is the
+    one carrying its message (the runner's stderr, the observed git state), and
+    a `FileNotFoundError` raised here would replace it with "No such file" and
+    skip the resource row on exactly the run whose numbers are evidence.
+    `resource_telemetry.from_log` returns `(None, None)` for the same file
+    for the same reason; this mirrors it. The emit still happens, so the record
+    says the invocation's transcript was empty rather than saying nothing.
+    """
+    if not log_file.is_file():
+        return ""
+    return log_file.read_text(encoding="utf-8", errors="replace")
+
+
+def emit_cli_transcript(log_file: Path, transcript: str) -> str | None:
+    """Emit the child's transcript into the journal — case (c), with the STOP arm.
+
+    THE ONE MEMBER OF CASE (c) THAT STOPS THE RUN (Phase 3 requirement 4). The
+    transcript is the fleet's only record of what commands ran, this fleet runs
+    with permissions bypassed, and a run can itself create the disk-full
+    condition that drops it — so losing it while the run proceeds to completion
+    is evidence loss wearing a routine defect's clothes. `stop_on_failure=True`
+    is the caller's arm, passed here because this is the caller that knows
+    which member it is holding; `EmitFailed` then ends the invocation at a named
+    terminal state, which `terminal_state_of` turns into the exit record's
+    reason and which `review_pr_workflow`'s rescue path refuses to rescue.
+
+    THE DESTINATION IS THE LOG FILE'S OWN PATH, because the store this write
+    went to is `.claude/logs/` — Claude Code's machine-local store, keyed per
+    checkout, on a path this component does not own. Phase 3's inventory names
+    it as a write path for exactly that reason: leaving it out is how a write
+    path stops being anybody's.
+
+    RETURNS THE EVENT IDENTITY, OR `None` OUTSIDE A RUN. A caller with no
+    registered emitter — a helper script invoking the model with no bag — is a
+    process that is not a run, and `current_emitter`'s docstring rules that a
+    real state rather than an error.
+    """
+    emitter = journal_emit.current_emitter()
+    if emitter is None:
+        return None
+    return emitter.unpairable_write(
+        write_path="cli-transcript",
+        destination=Destination(store="filesystem", address=str(log_file)),
+        content=transcript, provenance=Provenance.FLEET_AUTHORED,
+        stop_on_failure=True)
 
 
 def run_claude(prompt: str, *, model_key: str, workflow_key: str,
@@ -1043,8 +1121,20 @@ def run_claude(prompt: str, *, model_key: str, workflow_key: str,
         sampler, limits=limits, unmeasured_reason=None if scoped else scope_reason,
         invocation_id=invocation_id, model_key=model_key, workflow_key=workflow_key)
     report.tool_result_bytes, report.subagents_spawned = resource_telemetry.from_log(log_file)
+    # THE TRANSCRIPT IS READ BEFORE THE PARENT APPENDS ITS OWN FIRST EVENT, so
+    # what the journal holds under `cli-transcript` is the child's stream and
+    # nothing else — the parent's run-log events each emit under their own
+    # write path. Read before the failure branch for the resource report's
+    # reason: a run that died is the one whose transcript is evidence.
+    # AND A JOURNAL FAILURE HERE OUTRANKS THE CHILD'S OWN NON-ZERO EXIT below:
+    # `EmitFailed` / `JournalUnwritable` end the invocation at a named terminal
+    # state before that branch runs, because a record nobody can replay is the
+    # larger fact. The child's exit code and output are still in the log on
+    # disk; the run-log emit above and this one are what could not land.
+    transcript = _read_transcript(log_file)
     append_run_resources(log_file, resource_telemetry.report_dict(report))
     print(f"→ {model_key}  {resource_telemetry.human(report)}", flush=True)
+    emit_cli_transcript(log_file, transcript)
 
     if code != 0:
         # OBSERVE before reporting. A turn-cap exit may have committed and
@@ -1416,6 +1506,72 @@ def gh_attempt(args: list[str], repo_root: Path | None, *,
                 return cause.result
             raise
     return _gh_attempt_unwrapped(args, repo_root)
+
+
+def report_unwritable_journal(failure: journal_emit.JournalUnwritable,
+                              surface_url: str, repo_root: Path,
+                              bag_path: Path | None) -> str:
+    """Post case (d)'s durable working-record line: ONE comment on `surface_url`.
+
+    THE PRODUCTION CALLER OF `case_d_report=True`, AND THE PRODUCER OF THE
+    DURABLE CHANNEL `CASE_D_CHANNELS` declares (Phase 3 requirement 4 case (d),
+    requirement 11). The typed exit record and the process exit are invocation
+    state — read within seconds and then gone — so a failure reported only there
+    is invisible to every consumer this component builds. A pull-request comment
+    is durable, addressable, and outside the journal root by construction; NOT
+    the standup tracker, which Tracked Items §1.2 makes human-in-the-loop only.
+
+    THE BODY IS COMPOSED FROM `unwritable_journal_report` AND NOTHING ELSE, so
+    this channel cannot disagree with the other two about what happened, and it
+    LEADS with the marker so `unwritable_journal_in_text` — the reader the
+    harvest applies to every body it reads back — sees it.
+
+    `case_d_report=True` IS THE ONE STORE WRITE PERMITTED WITH NO PRECEDING
+    EMIT, because the emit is precisely the thing that failed; `gh_attempt`
+    states the exception. A `--body` argument rather than a temp file, because
+    this runs on a path where the disk may be the thing that is full.
+
+    RETURNS THE COMMENT'S ADDRESS, OR "" WITH THE REASON ON STDERR. It runs
+    while the failure it reports is in flight, so a `gh` failure here is
+    printed and returned rather than raised — a second exception would replace
+    the report of the first with a report about reporting.
+
+    REACHES THE JOURNAL PACKAGE THROUGH `register_case_d_reporter` at the foot
+    of this module, because the activity that dispatches it — the post-exit
+    harvest, the one call every entrypoint makes in its `finally` — lives in a
+    package that may not import this one.
+    """
+    report = journal_emit.unwritable_journal_report(failure, bag_path=bag_path)
+    body = (
+        f"**{report['marker']}** — this run's journal could not be written, and "
+        f"neither could the record of that (Persistent Memory Protocol Phase 3, "
+        f"requirement 4 case (d)).\n\n"
+        f"- terminal_state: `{report['terminal_state']}`\n"
+        f"- bag: `{report['bag'] or '-'}`\n"
+        f"- detail: {report['detail']}\n\n"
+        f"Nothing this run wrote from that point on is in the journal, and its "
+        f"bag is short with no `incomplete` flag to say so. The run exited "
+        f"non-zero with this same marker; this comment is the durable half of "
+        f"that report."
+    )
+    # THROUGH THE CAPTURE-TIME FILTER, EVEN THOUGH NO EMIT PRECEDES IT. This is
+    # the one store write that bypasses `paired_write`, so it is the one write
+    # whose bytes `capture_filter` would otherwise never see — and its `detail`
+    # is an exception message composed from whatever the failing write held
+    # (a path, an errno, and on `UnicodeError` a repr of the offending text).
+    # It lands on a public pull-request thread. Requirement 10's argument —
+    # capture is the only point where a secret can be cheaply kept out — is
+    # stronger here than in the journal: a PR comment has no redaction event.
+    body = filter_capture(body).text
+    noun = "issue" if "/issues/" in surface_url else "pr"
+    result = gh_attempt([noun, "comment", surface_url, "--body", body], repo_root,
+                        case_d_report=True)
+    if result.returncode != 0:
+        print(f"⚠ {report['marker']}: the durable report could not be posted to "
+              f"{surface_url} — gh exited {result.returncode}: "
+              f"{_one_line(result.stderr)}", file=sys.stderr, flush=True)
+        return ""
+    return result.stdout.strip().splitlines()[-1] if result.stdout.strip() else surface_url
 
 
 def _gh_raise_on_failure(
@@ -2166,3 +2322,12 @@ def wait_for_ci(pr: str, *, repo_root: Path) -> bool:
         )
 
     return False
+
+
+# THE DURABLE CASE-(d) CHANNEL'S PRODUCER, REGISTERED WHERE IT IS DEFINED. The
+# journal package dispatches the report from the post-exit harvest and may not
+# import this module, so it takes the poster from a slot this line fills —
+# `emit.register_case_d_reporter` states the trade. Every entrypoint imports
+# this module before its bag opens; `test_every_entrypoint_REACHES_the_case_d_
+# reporter` holds that, so a run never reaches the harvest with the slot empty.
+journal_emit.register_case_d_reporter(report_unwritable_journal)

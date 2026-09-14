@@ -21,7 +21,7 @@ stops a contract written wrongly and exercised wrongly from agreeing with itself
 from __future__ import annotations
 
 import ast
-import json
+import inspect
 import os
 import pathlib
 from pathlib import Path
@@ -230,30 +230,123 @@ def test_a_RAISING_address_of_is_a_GAP_and_not_an_untyped_CRASH(
         "the outcome Phase 1's four-state design exists to prevent")
 
 
-def test_a_RETRIED_paired_write_appends_a_deduplicable_pair_per_attempt(
-        emitter: Emitter) -> None:
-    """An activity executes AT LEAST ONCE, so the journal must survive a retry.
+def test_a_RETRIED_paired_write_APPENDS_ONCE(emitter: Emitter) -> None:
+    """THE PHASE'S DEMONSTRATION: a deliberately retried emit appends once.
 
-    ⚠ THE APPEND IS NOT SUPPRESSED — the journal is append-only, so a retry
-    genuinely writes again. What makes it safe is that both attempts derive the
-    SAME identity, so `dedupe_on_identity` collapses them on read. Suppressing
-    the append would require the emitter to remember what it wrote, which is
-    state a retried process does not have.
+    An activity executes AT LEAST ONCE, and a retried process starts its
+    sequence counters from zero — so the second attempt re-derives exactly the
+    identities the first derived. The emitter reads its own file back on first
+    use and declines to append a pair it already holds, so the journal carries
+    ONE intent and ONE completion after two attempts, not two of each.
+
+    ⚠ THIS REVERSES THE EARLIER RULING THAT A RETRY "GENUINELY WRITES AGAIN".
+    That ruling said suppressing the append would need state a retried process
+    does not have. It has it: the journal is on disk, and the file the retry
+    appends to is the file the first attempt wrote. `dedupe_on_identity` stays
+    as the read-side rule for the case this cannot reach — a retried MEMBER
+    emits into a fresh subfolder (`w-2`) and cannot see `w`'s file — and
+    `test_journal_events.py` still holds it.
+
+    A FRESH `Emitter` PER ATTEMPT IS THE RETRY. Same bag, same writer directory,
+    same run — and no shared in-memory state, which is what makes this a
+    demonstration of a retried PROCESS rather than of a counter.
+
+    THE STORE SIDE IS NOT MADE IDEMPOTENT HERE, and `perform_calls` says so
+    rather than leaving it to be inferred: `paired_write` still calls `perform`
+    on the retry because the result the caller needs is not in the journal.
+    That half is the store's idempotency key, exactly as before.
     """
     from modules.journal.events import applied_intents
+
+    perform_calls = 0
+
+    def perform() -> str:
+        nonlocal perform_calls
+        perform_calls += 1
+        return "u"
 
     for _ in range(2):
         retried = Emitter(bag=emitter.bag, writer_dir=emitter.writer_dir,
                           run_id=emitter.run_id, edge_id=emitter.edge_id)
         retried.paired_write(write_path="gh:pr:comment",
                              destination=Destination(store="github"),
-                             content="body", perform=lambda: "u",
+                             content="body", perform=perform,
                              address_of=lambda u: u)
 
-    assert len(_events(emitter)) == 4, "an append-only journal appends"
-    assert len(applied_intents(_events(emitter))) == 1, (
-        "replay applied the retried write twice — the duplicate-row failure "
-        "dedupe-on-identity exists to prevent")
+    kinds = [e.kind for e in _events(emitter)]
+    assert kinds == [EventKind.INTENT, EventKind.COMPLETION], (
+        f"two attempts left {kinds}; a retried emit must append exactly once")
+    assert len(applied_intents(_events(emitter))) == 1
+    assert perform_calls == 2, "the store side is the store's to make idempotent"
+
+
+def test_a_retry_that_DIED_between_intent_and_store_write_completes_the_pair(
+        emitter: Emitter) -> None:
+    """Append-once must not turn a half-written unit into a permanently unapplied one.
+
+    Attempt 1 lands the intent and dies before `perform`. Attempt 2 re-derives
+    the intent's identity, finds it, appends nothing for it, performs the store
+    write, and appends the completion — so the record ends with ONE applied
+    unit, not an intent with no completion beside a duplicate pair.
+    """
+    from modules.journal.events import applied_intents
+
+    class Died(Exception):
+        pass
+
+    first = Emitter(bag=emitter.bag, writer_dir=emitter.writer_dir,
+                    run_id=emitter.run_id, edge_id=emitter.edge_id)
+
+    def die():
+        raise Died()
+
+    with pytest.raises(StoreWriteFailed):
+        first.paired_write(write_path="gh:pr:comment",
+                           destination=Destination(store="github"),
+                           content="body", perform=die)
+    # attempt 1 recorded intent + store_write_failure; a retry that SUCCEEDS
+    # then adds the completion under the same identity and nothing else.
+    second = Emitter(bag=emitter.bag, writer_dir=emitter.writer_dir,
+                     run_id=emitter.run_id, edge_id=emitter.edge_id)
+    second.paired_write(write_path="gh:pr:comment",
+                        destination=Destination(store="github"),
+                        content="body", perform=lambda: "u",
+                        address_of=lambda u: u)
+    kinds = [e.kind for e in _events(emitter)]
+    assert kinds == [EventKind.INTENT, EventKind.STORE_WRITE_FAILURE,
+                     EventKind.COMPLETION], kinds
+    assert len(applied_intents(_events(emitter))) == 1
+
+
+def test_a_TORN_line_in_the_events_file_is_refused_not_appended_past(
+        emitter: Emitter, bag) -> None:
+    """A line that is not an event stops every reader, so it stops the writer too.
+
+    The append-once index reads the file back; a torn tail — a process killed
+    mid-write — is the shape it meets. RAISED AS A TYPED CASE rather than
+    skipped: on the intent path the run stops as case (b), and on the
+    unpairable path the gap event cannot land (same file) but the `incomplete`
+    FLAG can, so the bag says it lost data.
+    """
+    emitter.unpairable_write(write_path="x", destination=Destination(store="fs"),
+                             content="one")
+    with emitter.events_path.open("a", encoding="utf-8") as handle:
+        handle.write('{"event_id": "torn')          # no newline, no closing brace
+
+    fresh = Emitter(bag=bag, writer_dir=emitter.writer_dir,
+                    run_id=emitter.run_id, edge_id=emitter.edge_id)
+    with pytest.raises(EmitFailed, match="line 2 is not a journal event"):
+        fresh.paired_write(write_path="gh:pr:comment",
+                           destination=Destination(store="github"),
+                           content="body", perform=lambda: "u")
+    assert bag.incomplete is False, "case (b): neither side happened"
+
+    again = Emitter(bag=bag, writer_dir=emitter.writer_dir,
+                    run_id=emitter.run_id, edge_id=emitter.edge_id)
+    assert again.unpairable_write(write_path="x",
+                                  destination=Destination(store="fs"),
+                                  content="two") is None
+    assert bag.incomplete, "case (c): the flag lands even though the file cannot"
 
 
 # --- requirement 4 case (c): the unpairable write ---------------------------
@@ -613,11 +706,18 @@ def _derive_case_d_wiring() -> tuple[bool, ...]:
         for path in sorted(fleet.rglob("*.py"))
         if "tests" not in path.parts)
 
-    # (2) THE TYPED EXIT RECORD — live when its schema declares somewhere for the
-    # terminal state to go. Asked of `CHILD_SCHEMA` itself, which
-    # `exit-protocol.md` §2 makes the single declaration of that record's shape.
-    exit_record_field = TerminalState.JOURNAL_UNWRITABLE.value in json.dumps(
-        exit_record.CHILD_SCHEMA)
+    # (2) THE TYPED EXIT RECORD — live when the PARENT-COMPUTED stratum can
+    # carry the terminal state AND the routing contract reads it. Two halves,
+    # both asked of the code: `UndeterminedReason` spells the state (the field),
+    # and `route` takes a `terminal_state` parameter (the branch). NOT asked of
+    # `CHILD_SCHEMA`: that is the model-authored stratum, and `exit-protocol.md`
+    # §2.2 forbids asking the child to author a fact about the process — the
+    # journal is written around the child, where it cannot see. An earlier cut
+    # of this derivation looked there and correctly found nothing.
+    exit_record_field = (
+        TerminalState.JOURNAL_UNWRITABLE.value
+        in {m.value for m in exit_record.UndeterminedReason}
+        and "terminal_state" in inspect.signature(exit_record.route).parameters)
 
     return (process_exit, durable, exit_record_field)
 
@@ -636,10 +736,13 @@ def test_the_case_d_CHANNEL_TABLE_matches_the_tree() -> None:
 
     Correcting seven paragraphs does not converge; the eighth gets written next
     pass. So the claim became DATA with a derivation behind it, and this is that
-    derivation. The day somebody gives `case_d_report=True` a production caller or
-    adds the field to `CHILD_SCHEMA`, this goes red against the table — and the
-    message `case_d_channel_sentence` composes changes with it, because that
-    sentence reads the same table.
+    derivation. Both channels that were False went True the day their producer
+    and reader landed — `report_unwritable_journal` for the durable line,
+    `route(terminal_state=…)` for the exit record — and this test is what made
+    that a flip of the table rather than of five paragraphs. Remove either
+    producer and it goes red the other way, and the message
+    `case_d_channel_sentence` composes changes with it, because that sentence
+    reads the same table.
     """
     declared = tuple(wired for _, wired in emitmod.CASE_D_CHANNELS)
     derived = _derive_case_d_wiring()
@@ -829,3 +932,81 @@ def test_no_event_carries_a_key_or_a_key_derived_value(emitter: Emitter) -> None
             "the edge id has the shape of a bare digest, which is what a "
             "key-derived id looks like")
         assert event.key_epoch == NO_CREDENTIAL_EPOCH
+
+
+# --- requirement 11: the exit-record half's parent-side reader -----------------
+
+@pytest.mark.parametrize("exc, expected", [
+    (JournalUnwritable("root gone"), TerminalState.JOURNAL_UNWRITABLE),
+    (EmitFailed("intent refused"), TerminalState.EMIT_FAILED),
+    (StoreWriteFailed("gh exited 1"), TerminalState.STORE_WRITE_FAILED),
+    (RuntimeError("completion pattern not found"), TerminalState.COMPLETED),
+    (KeyboardInterrupt(), TerminalState.COMPLETED),
+    (None, TerminalState.COMPLETED),
+])
+def test_terminal_state_of_reads_the_BOUNDARY_S_OWN_exceptions_and_nothing_else(
+        exc, expected) -> None:
+    """The parent's half of the exit-record channel reads exactly three classes.
+
+    COMPLETED for everything else is a statement about THIS boundary: a
+    sentinel miss or an interrupt is a failure the journal did not cause and did
+    not stop, and what the record says about it is the record's own business.
+    """
+    assert emitmod.terminal_state_of(exc) is expected
+
+
+def test_terminal_state_of_does_NOT_trust_an_attribute_on_a_stranger() -> None:
+    """Read off the class, not off a `terminal_state` attribute anything can carry."""
+    stranger = RuntimeError("looks like one")
+    stranger.terminal_state = TerminalState.JOURNAL_UNWRITABLE  # type: ignore[attr-defined]
+    assert emitmod.terminal_state_of(stranger) is TerminalState.COMPLETED
+
+
+def test_the_in_flight_failure_is_seen_from_a_FINALLY_and_only_case_d() -> None:
+    """`in_flight_journal_failure` is the harvest's view of how the run ended.
+
+    Driven at the three shapes the harvest meets: a `JournalUnwritable`
+    propagating through a `finally` (seen), some other failure propagating
+    (not seen — it is not case (d)), and no failure at all (not seen).
+    """
+    seen: list = []
+
+    def run(exc: BaseException | None) -> None:
+        try:
+            if exc is not None:
+                raise exc
+        finally:
+            seen.append(emitmod.in_flight_journal_failure())
+
+    failure = JournalUnwritable("root gone")
+    with pytest.raises(JournalUnwritable):
+        run(failure)
+    with pytest.raises(RuntimeError):
+        run(RuntimeError("sentinel miss"))
+    run(None)
+    assert seen == [failure, None, None]
+
+
+def test_the_case_d_reporter_slot_registers_restores_and_unregisters() -> None:
+    """The durable channel's producer slot behaves like `register_emitter`'s."""
+    outer = emitmod.current_case_d_reporter()
+    fake = lambda failure, url, root, bag: "posted"  # noqa: E731
+    with emitmod.reporting_case_d_through(fake):
+        assert emitmod.current_case_d_reporter() is fake
+        with emitmod.reporting_case_d_through(None):
+            assert emitmod.current_case_d_reporter() is None
+        assert emitmod.current_case_d_reporter() is fake
+    assert emitmod.current_case_d_reporter() is outer
+
+
+def test_importing_the_assistant_layer_REGISTERS_the_durable_reporter() -> None:
+    """The slot is filled by the module that owns `gh_attempt`, at import.
+
+    Every entrypoint imports that module before its bag opens, so no run
+    reaches the harvest with the slot empty —
+    `test_every_entrypoint_REACHES_the_case_d_reporter` (in the write-path
+    suite) walks the entrypoints for that.
+    """
+    from modules.assistant import assistant_activities as act
+
+    assert emitmod.current_case_d_reporter() is act.report_unwritable_journal

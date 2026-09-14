@@ -99,6 +99,14 @@ _TRUSTED_JOINS = {
         "cannot address a folder that bag-open could not have created. It then "
         "REFUSES rather than creates: the folder must already exist and carry "
         "both BagIt tag files, which is Phase 10 r2's whole argument.",
+    ("harvest_activities.py", "run_id"):
+        "the activity rebinds run_id through `bag.validated_run_id` before "
+        "either of its joins — the same allowlist as `resolve_bag`, which it "
+        "still calls on the harvesting path — and the joined path is only ever "
+        "NAMED, on Phase 3 case (d)'s durable report: nothing is created or "
+        "written at it, because in case (d) the bag is what may be gone. The "
+        "in-flight join uses the caller's `journal_root` rather than a resolved "
+        "root, so a root that is gone cannot preempt the report.",
     ("harvest.py", "name"):
         "iterates the two-element tuple `(BAGIT_FILE, BAG_INFO_FILE)`, both "
         "module constants of `bag.py` — the loop variable is a constant by "

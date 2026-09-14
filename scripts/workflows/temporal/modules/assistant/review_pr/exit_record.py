@@ -148,6 +148,24 @@ class UndeterminedReason(str, Enum):
     # `routing.pr_number_from_url`'s call sites and not of this field.
     COMPLETION_REF_MISMATCH = "completion_ref_mismatch"
     UNMATCHED = "unmatched"
+    # THE EMIT BOUNDARY'S OWN TERMINAL STATES, AS REASONS — Persistent Memory
+    # Protocol Phase 3 requirement 4 case (d) and requirement 11. These are the
+    # PARENT-COMPUTED stratum's carrier for a fact only the parent can observe:
+    # its own journal boundary stopped the invocation. NOT a `CHILD_SCHEMA`
+    # field, and the standard is why — §2.2 says the child "cannot author
+    # [facts about the process] and must not be asked to", and a journal write
+    # happens in this process, around the child, where the model cannot see
+    # it. An earlier derivation looked for the field on `CHILD_SCHEMA` and
+    # found nothing, correctly: nothing belongs there.
+    #
+    # SPELLED FROM `vocabulary.TerminalState`, NEVER RE-TYPED — requirement 3's
+    # one-declaration rule on the one concept that crosses both contracts on
+    # the failure path. `route()` maps a non-COMPLETED state to its reason by
+    # value, so a fifth terminal state without a reason here is a `KeyError` at
+    # the routing contract rather than a silent MERGE.
+    JOURNAL_UNWRITABLE = vocabulary.TerminalState.JOURNAL_UNWRITABLE.value
+    EMIT_FAILED = vocabulary.TerminalState.EMIT_FAILED.value
+    STORE_WRITE_FAILED = vocabulary.TerminalState.STORE_WRITE_FAILED.value
 
 
 # ---------------------------------------------------------------------------
@@ -370,9 +388,32 @@ def _ref_matches(actual: dict, expected: dict) -> bool:
         return False
 
 
+#: How a non-COMPLETED terminal state routes. Every member of `TerminalState`
+#: except COMPLETED must appear here — `test_every_TERMINAL_STATE_has_a_route`
+#: holds it — so a state the emit boundary can raise is never one this contract
+#: has no rule for.
+_TERMINAL_STATE_REASONS: dict[vocabulary.TerminalState, UndeterminedReason] = {
+    vocabulary.TerminalState.JOURNAL_UNWRITABLE: UndeterminedReason.JOURNAL_UNWRITABLE,
+    vocabulary.TerminalState.EMIT_FAILED: UndeterminedReason.EMIT_FAILED,
+    vocabulary.TerminalState.STORE_WRITE_FAILED: UndeterminedReason.STORE_WRITE_FAILED,
+}
+
+
 def route(result_event: dict | None, *, expected_invocation_id: str,
-          expected_ref: dict | None) -> ExitRecord:
+          expected_ref: dict | None,
+          terminal_state: vocabulary.TerminalState) -> ExitRecord:
     """The fail-safe contract. Ordered rules, first match wins, R9 is the default.
+
+    `terminal_state` IS HOW THE INVOCATION ENDED AT THE PARENT'S OWN EMIT
+    BOUNDARY, and it is the third input because it is the one fact the result
+    event cannot carry. The journal is written by THIS process, around the
+    child; when a journal write fails, the exception that ends the invocation
+    names its terminal state (`emit.terminal_state_of`), and the parent passes
+    that here. IT HAS NO DEFAULT for the reason `expected_ref` has none: a
+    keyword defaulting to COMPLETED is a check that skips itself, and a parent
+    that forgot it would route a run whose journal is gone on the child's
+    record alone — which may well say MERGE. `test_every_production_caller_of_
+    route_states_its_terminal_state` keeps it from becoming the quiet default.
 
     Shape borrowed from Kubernetes `podFailurePolicy` and cited rather than
     designed — routing on values the model did not author is mature and boring
@@ -408,6 +449,21 @@ def route(result_event: dict | None, *, expected_invocation_id: str,
     state and a visible one; `test_every_production_caller_of_route_states_its_
     expected_ref` is what keeps it from becoming the quiet default.
     """
+    # R-J — THE PARENT'S OWN JOURNAL BOUNDARY, BEFORE EVERY RULE THAT READS THE
+    # CHILD'S RECORD. Persistent Memory Protocol Phase 3 r4 case (d): the
+    # journal is unwritable, so the run stops at a named terminal state; case
+    # (b): an intent did not land and the store write was withheld. Either way
+    # every later step's record would be conditioned on a write nobody can see,
+    # so the child's assertion — however well-formed — may not decide anything.
+    # It is BEFORE R1 because the two answer different questions: R1 says the
+    # safety control fired, this says the RECORD of this run is broken, and a
+    # run whose record is broken cannot be counted by anything downstream.
+    # Both arms are the human; only the reason differs, and the reason is what
+    # `review_pr_workflow`'s rescue path reads to refuse rescuing it.
+    if terminal_state is not vocabulary.TerminalState.COMPLETED:
+        return ExitRecord(RoutedOutcome.UNDETERMINED,
+                          _TERMINAL_STATE_REASONS[terminal_state])
+
     # R2, REACHED BEFORE R1 IN EXACTLY ONE CASE: there is no `result` event at
     # all. No event implies no key, so the condition is absence of the record,
     # not inability to check the safety control — and the DIFFERENCE IS THE

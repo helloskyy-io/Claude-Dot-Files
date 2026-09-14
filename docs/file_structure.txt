@@ -289,10 +289,17 @@ claude-dot-files/
 │           │                                        #   capture_filter.py removes named credential shapes AT APPEND, before any byte reaches the
 │           │                                        #   root — not at seal, which would change written events. emit.py is the boundary: write-ahead
 │           │                                        #   ordering (intent, then the store write, then the completion carrying the store's address),
-│           │                                        #   the four write-failure cases, and case (d)'s two channels WITH their readers. It is
-│           │                                        #   registered by open_run_bag rather than threaded through forty signatures, and that trade is
-│           │                                        #   stated at register_emitter — an optional emit is a skipped emit. It reaches FLEET-CODE
-│           │                                        #   writes only; the model-issued half is Phase 10's post-exit harvest
+│           │                                        #   the four write-failure cases, append-once on identity (a retried process re-derives
+│           │                                        #   the identities it wrote and the file it appends to is the file it wrote, so it appends
+│           │                                        #   nothing twice), and case (d)'s three channels WITH their readers — CASE_D_CHANNELS is
+│           │                                        #   derived from the tree: the process exit, the typed exit record (route(terminal_state=…),
+│           │                                        #   which review_pr_workflow refuses to rescue past) and the durable PR comment (posted by
+│           │                                        #   the reporter assistant_activities registers, dispatched from the post-exit harvest,
+│           │                                        #   read back by the harvest). It is registered by open_run_bag rather than threaded
+│           │                                        #   through forty signatures, and that trade is stated at register_emitter — an optional
+│           │                                        #   emit is a skipped emit. It reaches FLEET-CODE writes only — every inventoried one,
+│           │                                        #   the CLI transcript and the run log included; the model-issued half is Phase 10's
+│           │                                        #   post-exit harvest
 │           │                                        #   PHASE 10 ADDS THAT HARVEST as two more files here, for the same reason: what they
 │           │                                        #   write is journal events. harvest.py reads a run's GitHub surfaces AFTER the child
 │           │                                        #   exits — the PR title, its body and every comment, two `gh api` GETs per surface,
@@ -308,7 +315,11 @@ claude-dot-files/
 │           │                                        #   covers and the model chooses its own. harvest_activities.py is the step every
 │           │                                        #   entrypoint invokes in the `finally` around its workflow handoff — the window opens
 │           │                                        #   at CHILD EXIT, so a parent that raised after its child posted still harvests —
-│           │                                        #   resolving the bag (r2) BEFORE the login probe, then deriving root, slug and login once
+│           │                                        #   resolving the bag (r2) BEFORE the login probe, then deriving root, slug and login once.
+│           │                                        #   Being the one call in the `finally`, it is also where PMP Phase 3 case (d)'s durable
+│           │                                        #   report is dispatched from: a JournalUnwritable in flight (or its own) goes to the
+│           │                                        #   registered reporter for the first addressable ref, and the harvest writes NOTHING into
+│           │                                        #   a journal that just refused a flag
 │           ├── modules/__init__.py                  # The package marker, and nothing else — every module under modules/ is
 │           │                                        #   imported by its own path, so this file exports nothing and re-exports nothing
 │           ├── modules/vocabulary.py                # ONE DECLARATION per concept the typed exit record and the journal event share
@@ -989,13 +1000,13 @@ claude-dot-files/
 │                   │                                #   than exotic: a journal submodule bound as a name (journal_activities as journal in
 │                   │                                #   every entrypoint plus harvest_activities as harvest since PMP Phase 10, verify /
 │                   │                                #   validate in two operator tools (reconcile_harvest imports its readers by name),
-│                   │                                #   emit in the four PMP-Phase-3 write paths — twenty-two call
+│                   │                                #   emit in the four PMP-Phase-3 write paths and its parent branch — twenty-three call
 │                   │                                #   sites, and content_store is not among them) and from .. import journal, the workflow
 │                   │                                #   tree's dominant relative import. The package matcher binds by import SEMANTICS,
 │                   │                                #   never by the identifier text `journal`: `alias.name` is matched and never the asname,
 │                   │                                #   BOUNDARY_PARENT rejects a `journal` imported from a sibling, and an asname binds
 │                   │                                #   exactly the module named, so import modules.assistant as ma reaches nothing. The
-│                   │                                #   the twenty-two call sites trip the first two at once, so neither can be observed through
+│                   │                                #   the twenty-three call sites trip the first two at once, so neither can be observed through
 │                   │                                #   them and neither costs a false positive — measured, deleting either flags nothing on
 │                   │                                #   a clean tree, because those call sites reach only open_run_bag and the emit
 │                   │                                #   boundary. Both are therefore
@@ -1010,7 +1021,7 @@ claude-dot-files/
 │                   │                                #   asserts a floor PER swept directory after a mutation showed a single total floor
 │                   │                                #   of fifty stayed green with all 23 modules under scripts/ dropped from the
 │                   │                                #   population, modules/ alone holding 61 of the 84. EVERY FIGURE IN ITS OWN PROSE IS
-│                   │                                #   DERIVED and asserted — the ten shapes, the twenty-two call sites, 61/23/84 — and each
+│                   │                                #   DERIVED and asserted — the ten shapes, the twenty-three call sites, 61/23/84 — and each
 │                   │                                #   enumerated shape must have a fixture that writes it, so a shape added to the prose
 │                   │                                #   without a control goes red rather than reading as covered
 │                   ├── test_content_store.py        # PMP Phase 2 r7(b)/r7(d) — the on-disk path is a function of the COMPUTED DIGEST and
