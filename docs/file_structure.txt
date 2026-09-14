@@ -1278,6 +1278,7 @@ claude-dot-files/
 │   │                                                #   Asserts every MUST BLOCK claim end-to-end, not only against its own regex. NO COUNTS ARE
 │   │                                                #   RESTATED HERE — they live in the test module's docstring, per its sibling README
 │   │       ├── test_hook_settings.py                # The SECOND guarantee about hooks, and deliberately a different shape
+│   │       ├── test_the_reaper_is_disabled.py        # settings.json declares CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP=1 — the setting that lets six PMs run 20+ dispatches; an edit that dropped it would go green
 │   │                                                #   from the one above: that suite proves the hook decides CORRECTLY, this
 │   │                                                #   one proves settings.json BOUNDS it. Asserts every configured hook
 │   │                                                #   declares a `timeout`, and that none is so large it is not a bound.
