@@ -381,6 +381,57 @@ def test_the_case_d_REPORT_is_the_one_write_that_does_not_emit(tmp_path: Path,
     assert UNWRITABLE_JOURNAL_MARKER in line
 
 
+def test_the_durable_REPORTER_posts_one_marker_led_comment_and_never_emits(
+        tmp_path: Path, monkeypatch) -> None:
+    """The production caller of `case_d_report=True` — Phase 3 case (d)'s durable half.
+
+    Four properties, each the reader's or the census's concern: the body LEADS
+    with the marker (so `unwritable_journal_in_text`, which the harvest applies
+    to every body, sees it); the noun follows the surface (`pr` for a pull, `issue`
+    for an issue URL); NOTHING is emitted — this is the one store write with no
+    preceding emit; and a `gh` failure is returned as "" rather than raised,
+    because this runs while the failure it reports is in flight.
+    """
+    from modules.assistant import assistant_activities as act
+    from modules.journal.emit import (JournalUnwritable,
+                                      unwritable_journal_in_text)
+
+    launched: list[list[str]] = []
+
+    class _Done:
+        returncode, stdout, stderr = 0, "https://github.com/o/r/pull/1#c9\n", ""
+
+    def _capture(cmd, **kw):
+        launched.append(list(cmd))
+        return _Done()
+
+    monkeypatch.setattr(act, "run_bounded", _capture)
+    emitter = _emitter(tmp_path)
+    failure = JournalUnwritable("JOURNAL-UNWRITABLE: the journal cannot be written")
+
+    with emitting_into(emitter):
+        posted = act.report_unwritable_journal(
+            failure, "https://github.com/o/r/pull/1", tmp_path, tmp_path / "bag")
+    assert posted == "https://github.com/o/r/pull/1#c9"
+    assert _events(emitter) == [], "the case-(d) report emitted"
+    (argv,) = launched
+    assert argv[:3] == ["gh", "pr", "comment"] and argv[3] == "https://github.com/o/r/pull/1"
+    body = argv[argv.index("--body") + 1]
+    assert unwritable_journal_in_text(body) and body.startswith("**JOURNAL-UNWRITABLE**")
+    assert "journal_unwritable" in body and str(tmp_path / "bag") in body
+
+    act.report_unwritable_journal(failure, "https://github.com/o/r/issues/4",
+                                  tmp_path, None)
+    assert launched[-1][:3] == ["gh", "issue", "comment"]
+
+    class _Failed:
+        returncode, stdout, stderr = 1, "", "HTTP 403"
+
+    monkeypatch.setattr(act, "run_bounded", lambda *a, **k: _Failed())
+    assert act.report_unwritable_journal(
+        failure, "https://github.com/o/r/pull/1", tmp_path, None) == ""
+
+
 def test_a_comment_that_QUOTES_the_marker_still_emits(tmp_path: Path,
                                                      monkeypatch) -> None:
     """THE FALSE-POSITIVE DIRECTION, which nothing asserted until it was found.
