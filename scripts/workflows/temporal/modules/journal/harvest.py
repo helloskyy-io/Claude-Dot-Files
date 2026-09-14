@@ -121,7 +121,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .bag import BAG_INFO_FILE, BAGIT_FILE, Bag, utc_now, validated_run_id
-from .emit import Emitter
+from .emit import Emitter, unwritable_journal_in_text
 from .events import Destination, GapClass, Provenance
 
 __all__ = ["HarvestError", "SurfaceUnreadable", "SurfaceRef", "Comment",
@@ -545,6 +545,15 @@ class HarvestedSurface:
     bytes_harvested: int = 0
     #: Operator-facing detail when `captured` is False. Never in the record.
     failure: str = ""
+    #: How many of the surface's bodies — the PR body and each comment — carry
+    #: `UNWRITABLE_JOURNAL_MARKER`. THE READER FOR CASE (d)'s DURABLE LINE
+    #: (Phase 3 requirement 11): the harvest reads every body on a surface
+    #: anyway, so it is the committed consumer that turns a posted report into
+    #: something surfaced — in `as_note` and in the index — rather than a line
+    #: stored beside a hundred others. A run in case (d) harvests nothing
+    #: itself (its journal is gone), so the reader is the NEXT harvest of that
+    #: surface: the review pass, the loop-back, the reconcile tool.
+    unwritable_journal_reports: int = 0
 
     @property
     def comments_harvested(self) -> int:
@@ -584,6 +593,15 @@ class HarvestReport:
                 f"{'' if s.body_event else ' (GAP)'} + "
                 f"{s.comments_harvested}/{s.comments_on_surface} comments, "
                 f"{s.bytes_harvested:,} bytes, at {s.harvested_at}")
+            if s.unwritable_journal_reports:
+                # SURFACED, NOT MERELY STORED — requirement 11's reader half.
+                # An operator reading the banner learns that an earlier run on
+                # this surface lost its journal, without opening the bag.
+                lines.append(
+                    f"harvest: ⚠ {s.ref.url} carries "
+                    f"{s.unwritable_journal_reports} JOURNAL-UNWRITABLE "
+                    f"report(s) — a run on this surface could not write its "
+                    f"journal; its bag is short and nothing replays it")
         return "\n".join(lines)
 
 
@@ -667,7 +685,10 @@ def harvest_run(*, journal_root: Path, run_id: str, repo_root: Path,
             ref=ref, harvested_at=snapshot.fetched_at, captured=True,
             title_event=title_event, body_event=body_event,
             comments_on_surface=snapshot.comment_count,
-            comment_events=tuple(comment_events), bytes_harvested=total)
+            comment_events=tuple(comment_events), bytes_harvested=total,
+            unwritable_journal_reports=sum(
+                1 for body in (snapshot.body, *(c.body for c in snapshot.comments))
+                if unwritable_journal_in_text(body)))
         harvested.append(surface)
         index_surfaces.append(_index_entry(surface, snapshot))
         # THE TAG IS COMPOSED FROM VALUES THIS MODULE VALIDATED — `ref.url` is
@@ -708,6 +729,7 @@ def _index_entry(surface: HarvestedSurface, snapshot: Snapshot | None) -> dict:
         "comments_on_surface": surface.comments_on_surface,
         "comments_harvested": surface.comments_harvested,
         "bytes_harvested": surface.bytes_harvested,
+        "unwritable_journal_reports": surface.unwritable_journal_reports,
     }
     if snapshot is None:
         return entry

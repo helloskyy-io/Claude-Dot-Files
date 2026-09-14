@@ -603,3 +603,163 @@ def test_the_activity_needs_NO_repository_slug_when_every_ref_is_a_URL(journal,
     report = harvest_github_surfaces(run_id="run-1", repo_root=journal,
                                      refs=(None, PR), journal_root=journal, runner=gh)
     assert report.ok
+
+
+# --- Phase 3 case (d): the durable report is dispatched from here ------------------
+
+class _Reporter:
+    """A fake case-(d) poster. Records what it was handed; posts nowhere."""
+
+    def __init__(self, address: str = f"{PR}#issuecomment-999") -> None:
+        self.calls: list[tuple] = []
+        self.address = address
+
+    def __call__(self, failure, surface_url, repo_root, bag_path) -> str:
+        self.calls.append((failure, surface_url, repo_root, bag_path))
+        return self.address
+
+
+def _in_a_finally(fn, exc: BaseException):
+    """Run `fn` the way every entrypoint runs the harvest: in the `finally` of a
+    `try` whose body raised `exc`. Returns what `fn` returned; `exc` propagates."""
+    box: list = []
+    try:
+        raise exc
+    finally:
+        box.append(fn())
+
+
+def test_a_JournalUnwritable_IN_FLIGHT_posts_the_durable_report_and_harvests_NOTHING(
+        journal, monkeypatch, capsys) -> None:
+    """The run died of case (d); the harvest is the actor that says so durably.
+
+    Three properties. The reporter is handed the in-flight failure, the FIRST
+    addressable ref (the dispatched PR before the reported one), and the bag's
+    path. Nothing is written into the bag — its `incomplete` flag just failed
+    to land, and a harvest that appended would produce a bag that lost data and
+    reads as complete. And `gh` is never launched: the journal is gone, the
+    surface can wait for the next harvest.
+    """
+    from modules.journal import emit as emitmod
+    from modules.journal.emit import JournalUnwritable
+
+    bag = _bag(journal)
+    gh = FakeGh({f"{REPO}#7": (_head(count=1), [[_comment(11, "x")]])})
+    monkeypatch.setattr("modules.journal.harvest_activities.origin_remote",
+                        lambda repo_root: f"git@github.com:{REPO}.git")
+    reporter = _Reporter()
+    failure = JournalUnwritable("JOURNAL-UNWRITABLE: root gone")
+
+    with emitmod.reporting_case_d_through(reporter), pytest.raises(JournalUnwritable):
+        _in_a_finally(lambda: harvest_github_surfaces(
+            run_id="run-1", repo_root=journal, refs=(None, "7", PR),
+            journal_root=journal, runner=gh), failure)
+
+    assert reporter.calls == [(failure, PR, journal, bag.path)]
+    assert gh.calls == [], "the journal is gone; nothing was fetched into it"
+    assert not (bag.payload_dir / h.HARVEST_WRITER).exists(), "nothing was written"
+    assert not bag.incomplete, "nothing flagged either — the flag is what failed"
+    err = capsys.readouterr().err
+    assert "durable report posted at" in err and reporter.address in err
+
+
+def test_the_harvest_s_OWN_case_d_posts_the_report_and_RAISES(
+        journal, monkeypatch, capsys) -> None:
+    """The journal died between the workflow's last emit and this call.
+
+    Induced the way `test_journal_emit` induces case (d): the `incomplete`
+    flag's file is made unwritable, so a gap cannot be recorded. The report is
+    posted, and the failure then reaches the entrypoint's handler — the
+    process channel carries it too.
+    """
+    import os
+    from modules.journal import emit as emitmod
+    from modules.journal.emit import JournalUnwritable
+    if os.geteuid() == 0:
+        pytest.skip("a mode-induced refusal does not bind uid 0")
+
+    bag = _bag(journal)
+    gh = FakeGh({})                                    # the surface is a 404 → gap
+    monkeypatch.setattr("modules.journal.harvest_activities.origin_remote",
+                        lambda repo_root: f"git@github.com:{REPO}.git")
+    reporter = _Reporter()
+    bag.info_path.chmod(0o400)
+    try:
+        with emitmod.reporting_case_d_through(reporter), \
+                pytest.raises(JournalUnwritable) as raised:
+            harvest_github_surfaces(run_id="run-1", repo_root=journal, refs=(PR,),
+                                    journal_root=journal, runner=gh)
+    finally:
+        bag.info_path.chmod(0o600)
+    assert reporter.calls == [(raised.value, PR, journal, bag.path)]
+
+
+def test_with_NO_reporter_registered_the_process_channel_is_named_as_the_only_one(
+        journal, monkeypatch, capsys) -> None:
+    from modules.journal import emit as emitmod
+    from modules.journal.emit import JournalUnwritable
+    from modules.journal.harvest_activities import report_case_d_durably
+
+    with emitmod.reporting_case_d_through(None):
+        posted = report_case_d_durably(JournalUnwritable("x"), refs=(PR,),
+                                       repo_root=journal, bag_path=None,
+                                       default_repo=REPO)
+    assert posted == ""
+    assert "no case-(d) reporter is registered" in capsys.readouterr().err
+
+
+def test_with_NO_addressable_ref_the_report_has_nowhere_to_go_and_says_so(
+        journal, capsys) -> None:
+    """A run dispatched against no PR that died before creating one."""
+    from modules.journal import emit as emitmod
+    from modules.journal.emit import JournalUnwritable
+    from modules.journal.harvest_activities import report_case_d_durably
+
+    reporter = _Reporter()
+    with emitmod.reporting_case_d_through(reporter):
+        posted = report_case_d_durably(JournalUnwritable("x"),
+                                       refs=(None, "", "not-a-ref"),
+                                       repo_root=journal, bag_path=None,
+                                       default_repo=None)
+    assert posted == "" and reporter.calls == []
+    err = capsys.readouterr().err
+    assert "cannot carry the durable report" in err
+    assert "names no surface" in err
+
+
+# --- Phase 3 requirement 11: the harvest READS the durable line back ---------------
+
+def test_a_surface_carrying_the_MARKER_is_surfaced_in_the_note_and_the_index(
+        journal) -> None:
+    """The reader for case (d)'s durable working-record line.
+
+    `unwritable_journal_in_text` applied to every body the harvest reads — the
+    PR body and each comment — so a posted report is SURFACED, in the note an
+    operator reads beside the banner and in the index the reconcile tool
+    reads, rather than stored beside a hundred other comments.
+    """
+    from modules.journal.emit import UNWRITABLE_JOURNAL_MARKER
+
+    bag = _bag(journal)
+    report_line = f"**{UNWRITABLE_JOURNAL_MARKER}** — this run's journal could not be written"
+    gh = FakeGh({f"{REPO}#7": (_head(count=2), [[
+        _comment(11, "an ordinary review comment"),
+        _comment(12, report_line),
+    ]])})
+    report = _harvest(journal, gh, (PR,))
+
+    surface, = report.surfaces
+    assert surface.unwritable_journal_reports == 1
+    note = report.as_note()
+    assert "carries 1 JOURNAL-UNWRITABLE report(s)" in note
+    entry, = h.read_harvest_indexes(bag.path)[0]["surfaces"]
+    assert entry["unwritable_journal_reports"] == 1
+
+
+def test_a_surface_WITHOUT_the_marker_is_not_flagged(journal) -> None:
+    """The control: an ordinary surface reports zero and the note says nothing."""
+    _bag(journal)
+    gh = FakeGh({f"{REPO}#7": (_head(count=1), [[_comment(11, "ordinary")]])})
+    report = _harvest(journal, gh, (PR,))
+    assert report.surfaces[0].unwritable_journal_reports == 0
+    assert "JOURNAL-UNWRITABLE" not in report.as_note()

@@ -28,9 +28,10 @@ so they are the journal's own I/O rather than a capability sitting beside it.
   `capture_filter.py`      — named credential shapes kept out at APPEND time,
                              before any byte reaches the root (r10)
   `emit.py`                — the emit boundary: write-ahead ordering, the four
-                             write-failure cases, and case (d)'s reporting
-                             channels — `CASE_D_CHANNELS` declares which of the
-                             three actually has a producer (r4, r11, r12)
+                             write-failure cases, append-once on identity, and
+                             case (d)'s three reporting channels —
+                             `CASE_D_CHANNELS` declares each with its producer
+                             and its reader, derived from the tree (r4, r11, r12)
 
 PHASE 10 ADDS THE POST-EXIT HARVEST — the emit rule's OTHER half, for the
 writes the model issues itself on a prompt instruction and no call site can
@@ -144,8 +145,11 @@ from .config_digest import (LABEL_CONFIG_DIGEST, ConfigDigest,
 from .edge_id import (EDGE_ID_FILE, NO_CREDENTIAL_EPOCH, EdgeIdError,
                       adopt_edge_id, read_edge_id, resolve_edge_id)
 from .emit import (UNWRITABLE_JOURNAL_MARKER, EmitFailed, Emitter,
-                   JournalUnwritable, StoreWriteFailed, gap_class_for,
-                   unwritable_journal_in_text, unwritable_journal_report)
+                   EventsFileUnreadable, JournalUnwritable, StoreWriteFailed,
+                   current_case_d_reporter, gap_class_for,
+                   in_flight_journal_failure, register_case_d_reporter,
+                   terminal_state_of, unwritable_journal_in_text,
+                   unwritable_journal_report)
 from .events import (EVENTS_FILE, Destination, EventError, EventKind, GapClass,
                      JournalEvent, Lineage, Provenance, applied_intents,
                      decode_event, dedupe_on_identity, encode_event,
@@ -160,7 +164,8 @@ from .harvest import (HarvestError, HarvestReport, HarvestedSurface,
                       read_harvest_indexes, reconcile_surface,
                       render_reconciliation, repo_slug_of, resolve_bag,
                       surface_refs)
-from .harvest_activities import fleet_login, harvest_github_surfaces
+from .harvest_activities import (fleet_login, harvest_github_surfaces,
+                                 report_case_d_durably)
 from .journal_activities import (load_journal_config, mint_run_id,
                                  open_run_bag)
 from .root import JournalRootError, resolve_journal_root
@@ -174,26 +179,29 @@ __all__ = [
     "RULES", "UNWRITABLE_JOURNAL_MARKER", "Bag", "BagError", "BagReport",
     "Citation", "CitationError", "CitationResult", "ConfigDigest",
     "ConfigDigestError", "ContentStoreError", "Destination", "EdgeIdError",
-    "EmitFailed", "Emitter", "EventError", "EventKind", "FetchPolicy",
+    "EmitFailed", "Emitter", "EventError", "EventKind", "EventsFileUnreadable",
+    "FetchPolicy",
     "FetchRefused", "FilterResult", "GapClass", "HarvestError",
     "HarvestReport", "HarvestedSurface", "JournalEvent",
     "JournalRootError", "JournalUnwritable", "Lineage", "Provenance",
     "Reconciliation", "Rule", "StoreWriteFailed", "SurfaceRef",
     "SurfaceUnreadable", "VerifyReport", "adopt_edge_id", "applied_intents",
     "capture_code_citation", "capture_fetched_source", "capture_source",
+    "current_case_d_reporter",
     "decode_event", "dedupe_on_identity", "digest_of_bytes", "encode_event",
     "event_identity", "evidence_set_hash", "fetch_source", "fetch_surface",
     "filter_capture", "fleet_login", "placeholder_for",
     "gap_class_for", "gap_event", "harvest_github_surfaces", "harvest_run",
-    "installer_targets", "load_journal_config",
+    "in_flight_journal_failure", "installer_targets", "load_journal_config",
     "load_object", "mint_run_id", "new_citation", "object_relpath", "open_bag",
     "open_run_bag", "parse_ref", "parse_tag_value", "read_citations",
     "read_edge_id", "read_harvest_indexes",
     "read_tag_file", "reconcile_surface", "record_citation",
-    "redaction_placeholder_event", "render_reconciliation", "render_report",
+    "redaction_placeholder_event", "register_case_d_reporter",
+    "render_reconciliation", "render_report", "report_case_d_durably",
     "repo_slug_of", "resolve_bag", "resolve_citation", "resolve_edge_id",
     "resolve_journal_root", "stage_evidence_hashes", "store_bytes",
-    "surface_refs",
+    "surface_refs", "terminal_state_of",
     "unavailable_tag_value", "unwritable_journal_in_text",
     "unwritable_journal_report", "utc_now", "validate_bag", "verify_bag",
     "verify_citation",

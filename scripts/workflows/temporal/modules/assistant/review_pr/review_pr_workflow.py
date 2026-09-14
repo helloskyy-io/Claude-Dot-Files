@@ -26,6 +26,8 @@ import time
 import uuid
 from pathlib import Path
 
+from ...journal import emit as journal_emit
+from ...vocabulary import TerminalState
 from .. import assistant_activities as _shared
 from .. import convergence
 from . import exit_record
@@ -114,7 +116,8 @@ def _prose_shadow(log_file, pr_number: str, repo_root):
     return helper.parse_verdict(_shared.assistant_text(log_file))
 
 
-def _append_shadow_pair(log_file, *, invocation_id: str, pr: str, expected_ref) -> None:
+def _append_shadow_pair(log_file, *, invocation_id: str, pr: str, expected_ref,
+                        terminal_state: TerminalState) -> None:
     """Write the `parent_route` row comparing the typed channel against the prose one.
 
     CALLED ON BOTH PATHS, AND THE FAILURE PATH IS THE POINT (`C-45bhs5cm`).
@@ -153,7 +156,7 @@ def _append_shadow_pair(log_file, *, invocation_id: str, pr: str, expected_ref) 
     try:
         record = exit_record.route(
             _shared.result_event(log_file), expected_invocation_id=invocation_id,
-            expected_ref=expected_ref,
+            expected_ref=expected_ref, terminal_state=terminal_state,
         )
         verdict = helper.verdict_from_record(record)
         shadow, parseable = helper.parse_verdict(_shared.assistant_text(log_file))
@@ -280,8 +283,19 @@ def run_review(task: ReviewInput, worktree: Path, *,
             invocation_id=invocation_id,
         )
     except Exception as prose_failure:
+        # THE PARENT BRANCH FOR PHASE 3 CASE (d) — AND CASE (b) — REQUIREMENT 11.
+        # `run_disposition` now ends in `JournalUnwritable` or `EmitFailed` when
+        # the child's transcript cannot reach the journal, and this `except` is
+        # exactly the rescue that would otherwise swallow it: the record below
+        # may be valid and may say MERGE, and the fallback would proceed on it
+        # as if nothing happened. So the terminal state the boundary declared is
+        # read off the exception ONCE here and handed to `route`, which routes
+        # any state but COMPLETED `undetermined` before it reads the record — and
+        # `undetermined` is what the re-raise below already keys on. Nothing
+        # else in this function has to know which exception it was.
+        ended = journal_emit.terminal_state_of(prose_failure)
         _append_shadow_pair(log_file, invocation_id=invocation_id, pr=task.pr_number,
-                            expected_ref=expected_ref)
+                            expected_ref=expected_ref, terminal_state=ended)
         # ⚠ THE SENTINEL IS A FAST PATH, NOT THE EVIDENCE — and this `except` used to
         # end the run here. `exit 0 must mean done` is right and is NOT weakened: what
         # changed is which artifact proves done. The typed record is the channel this
@@ -313,7 +327,7 @@ def run_review(task: ReviewInput, worktree: Path, *,
         try:
             record = exit_record.route(
                 _shared.result_event(log_file), expected_invocation_id=invocation_id,
-                expected_ref=expected_ref)
+                expected_ref=expected_ref, terminal_state=ended)
         except Exception:
             raise prose_failure from None
         # `routed_outcome`, NOT `outcome`. The first is what routing reads; the
@@ -339,9 +353,12 @@ def run_review(task: ReviewInput, worktree: Path, *,
     # way to choose another. Re-asserting it after the fact would compare the
     # parent's own value against itself.
     if record is None:
+        # COMPLETED IS STATED, NOT DEFAULTED: `run_disposition` returned, so the
+        # emit boundary ended nothing — a journal failure raises and never
+        # reaches this line.
         record = exit_record.route(
             _shared.result_event(log_file), expected_invocation_id=invocation_id,
-            expected_ref=expected_ref,
+            expected_ref=expected_ref, terminal_state=TerminalState.COMPLETED,
         )
     verdict = helper.verdict_from_record(record)
 
@@ -396,7 +413,8 @@ def run_review(task: ReviewInput, worktree: Path, *,
     # path that runs rarely is the one that would drift. Identical code on both
     # is worth one extra read of a local file that is already in page cache.
     _append_shadow_pair(log_file, invocation_id=invocation_id, pr=task.pr_number,
-                        expected_ref=expected_ref)
+                        expected_ref=expected_ref,
+                        terminal_state=TerminalState.COMPLETED)
 
     # BUILT BEFORE THE RAISE, NOT AFTER IT, AND THAT ORDERING IS A FIX RATHER
     # THAN A STYLE. R5b routes to `undetermined`, which collapses to

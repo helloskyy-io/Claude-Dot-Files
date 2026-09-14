@@ -66,11 +66,11 @@ what knows which member it is holding.
 
 **(d) The bootstrap case — the journal is unwritable, so the gap event cannot go
 in the journal either.** `unwritable_journal_report` below builds the payload;
-`CASE_D_CHANNELS` above declares which surfaces actually carry it, and
+`CASE_D_CHANNELS` above declares which surfaces carry it, and
 `test_the_case_d_CHANNEL_TABLE_matches_the_tree` derives that table from the tree
 rather than from this paragraph. **Read that table, not this sentence** — an
-earlier version of this paragraph named the two channels that have no producer
-and omitted the one that does.
+earlier version of this paragraph named the two channels that then had no
+producer and omitted the one that did.
 
 The DESIGN calls for three, and the reasoning is why the table has three rows:
 the typed exit record plus a non-zero exit status carry it out of the process,
@@ -100,32 +100,46 @@ counts gaps by reading gap events; a run in case (d) produced no gap event, no
 bag and nothing to count. That is a stated limit of that measurement rather than
 a defect in it.
 
-## Requirement 11 — each signal that SHIPPED shipped with its reader
+## Requirement 11 — each signal ships with its reader, and all three now do
 
 Adding a field to a channel and leaving the reading to somebody later is how this
 fleet has already lost three observables, and the one channel this component's
 failure path depends on is the last place to repeat it. So the rule here is the
-inverse of the usual one: a channel ships only WITH its reader, and a channel
-whose reader would have to be written elsewhere does not ship at all.
+inverse of the usual one: a channel ships only WITH its reader.
 
-**ONE of the three channels ships in this change and the other two do not**, per
-`CASE_D_CHANNELS` above. The process exit carries the signal — `JournalUnwritable`
-subclasses `RuntimeError`, so every entrypoint's existing handler prints a message
-LEADING with `UNWRITABLE_JOURNAL_MARKER` — and `unwritable_journal_in_text` is its
-committed reader. The durable working-record line has its producer built
-(`gh_attempt(case_d_report=True)`) and **no caller**; the exit-record field is not
-built at all, because it needs a parent branch outside this change and a field
-with no branch is precisely the observable-with-no-reader this requirement forbids.
+**All three channels have a producer and a reader**, per `CASE_D_CHANNELS` above,
+which `test_the_case_d_CHANNEL_TABLE_matches_the_tree` derives from the tree:
 
-`test_journal_emit.py` holds the shipped half to its reader rather than this
-paragraph — see `test_the_marker_is_ONE_declaration_shared_by_producer_and_reader`
-and the case-(d) tests beside it.
+  * **the process exit** — `JournalUnwritable` subclasses `RuntimeError`, so every
+    entrypoint's existing handler prints a message LEADING with
+    `UNWRITABLE_JOURNAL_MARKER` and exits non-zero; `unwritable_journal_in_text`
+    reads it.
+  * **the typed exit record** — `terminal_state_of` below turns the exception
+    that ended an invocation into the terminal state the parent hands
+    `exit_record.route(terminal_state=…)`, which routes a non-COMPLETED state
+    `undetermined` with the state as its reason BEFORE reading the child's
+    record. The parent branch is `review_pr_workflow.run_review`: its rescue
+    path — which otherwise rescues any failure whose typed record routed — reads
+    that reason and refuses. A field on `CHILD_SCHEMA` was considered and is the
+    wrong stratum: `exit-protocol.md` §2.2 forbids asking the child to author a
+    fact about the process, and the journal is written around the child.
+  * **the durable working-record line** — a pull-request comment, posted by the
+    reporter the assistant layer registers here (`register_case_d_reporter`;
+    `assistant_activities.report_unwritable_journal`, through
+    `gh_attempt(case_d_report=True)`), dispatched by `harvest_activities` — the
+    one activity every entrypoint runs in its `finally`, so it sees the failure
+    in flight (`in_flight_journal_failure`) and holds the run's surfaces. Its
+    reader is the harvest itself: every body it reads back is checked with
+    `unwritable_journal_in_text`, and a surface carrying the marker is surfaced
+    in the harvest's note and index.
 """
 
 from __future__ import annotations
 
 import errno
+import json
 import os
+import sys
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -141,10 +155,14 @@ from .events import (EVENTS_FILE, Destination, EventKind, GapClass,
                      event_identity, gap_event, redaction_placeholder_event)
 
 __all__ = ["Emitter", "EmitFailed", "JournalUnwritable", "StoreWriteFailed",
+           "EventsFileUnreadable", "EMIT_BOUNDARY_FAILURES",
            "UNWRITABLE_JOURNAL_MARKER", "CASE_D_CHANNELS",
            "case_d_channel_sentence", "unwritable_journal_report",
-           "unwritable_journal_in_text", "gap_class_for", "register_emitter",
-           "current_emitter", "emitting_into"]
+           "unwritable_journal_in_text", "terminal_state_of",
+           "in_flight_journal_failure", "gap_class_for", "register_emitter",
+           "current_emitter", "emitting_into", "CaseDReporter",
+           "register_case_d_reporter", "current_case_d_reporter",
+           "reporting_case_d_through"]
 
 T = TypeVar("T")
 
@@ -156,30 +174,35 @@ T = TypeVar("T")
 #: plain enough that a human scanning a PR thread sees it.
 UNWRITABLE_JOURNAL_MARKER = "JOURNAL-UNWRITABLE"
 
-#: THE THREE CHANNELS CASE (d) COULD REPORT ON, AND WHICH OF THEM ACTUALLY HAS A
+#: THE THREE CHANNELS CASE (d) REPORTS ON, AND WHICH OF THEM ACTUALLY HAS A
 #: PRODUCER — declared once, as data, because stating it in prose drifted at five
 #: sites on one branch. Every one of them said case (d) *"is reported on the typed
-#: exit record and on a durable working-record surface"*; NEITHER of those has a
-#: live producer, and the channel that does — the process exit — was the one none
-#: of them named. On the single failure path where this component cannot speak for
-#: itself, that sent an operator to two surfaces carrying nothing and away from the
-#: one carrying the signal, so they conclude the report was lost.
+#: exit record and on a durable working-record surface"* while NEITHER had a live
+#: producer, and the channel that did — the process exit — was the one none of
+#: them named. On the single failure path where this component cannot speak for
+#: itself, that sent an operator to two surfaces carrying nothing and away from
+#: the one carrying the signal, so they conclude the report was lost.
 #:
 #: THE SECOND FIELD IS DERIVED FROM THE TREE BY
 #: `test_the_case_d_CHANNEL_TABLE_matches_the_tree`, not asserted here. That is
-#: the point: the day somebody wires the exit-record field or gives
-#: `case_d_report=True` a production caller, the test goes red against this table
-#: and the message below changes with it — rather than five paragraphs quietly
-#: becoming true one at a time while nobody re-reads them.
+#: the point: the two channels that were False went True the day their producer
+#: and reader landed, and the test is what made that a flip of this table rather
+#: than five paragraphs quietly becoming true one at a time while nobody re-read
+#: them. Should a producer be removed, the same test goes red the other way.
 CASE_D_CHANNELS: tuple[tuple[str, bool], ...] = (
     ("the process exit — a non-zero status whose message leads with "
      f"`{UNWRITABLE_JOURNAL_MARKER}`, which `unwritable_journal_in_text` reads",
      True),
-    ("a durable working-record surface — a pull-request comment via "
-     "`gh_attempt(case_d_report=True)`",
-     False),
-    ("the typed exit record — a `CHILD_SCHEMA` field a parent branches on",
-     False),
+    ("a durable working-record surface — a pull-request comment posted by the "
+     "registered case-(d) reporter (`assistant_activities."
+     "report_unwritable_journal`, through `gh_attempt(case_d_report=True)`) "
+     "from the post-exit harvest, which reads the marker back on every later "
+     "harvest of that surface",
+     True),
+    ("the typed exit record — `exit_record.route(terminal_state=…)` routes the "
+     "invocation `undetermined` with reason `journal_unwritable`, and "
+     "`review_pr_workflow`'s rescue path refuses to rescue it",
+     True),
 )
 
 
@@ -270,6 +293,22 @@ class JournalUnwritable(RuntimeError):
     terminal_state = TerminalState.JOURNAL_UNWRITABLE
 
 
+class EventsFileUnreadable(RuntimeError):
+    """The writer's `events.jsonl` holds a line that is not an event.
+
+    Raised by the append-once index when it reads the file back and meets a
+    line `json.loads` refuses — a torn tail from a process killed mid-write is
+    the shape that produces it. RAISED, NEVER SKIPPED, because a file with a
+    torn line in the middle is one every reader would choke on, and appending
+    past it would bury that fact under good events. It joins
+    `APPEND_FAILURES` so the four cases classify it like any other refused
+    append: the intent path stops the run as case (b), the unpairable path
+    records a gap and marks the bag `incomplete`. `gap_class_for` puts it in
+    `WRITE_FAILED`, which is the honest class for "the file cannot take an
+    append" with no errno behind it.
+    """
+
+
 #: What the append boundary converts into a typed case rather than letting
 #: escape. `OSError` is the DISK; `UnicodeError` is the CONTENT — a lone
 #: surrogate reaching `encode` raises `UnicodeEncodeError`, which is a
@@ -278,7 +317,56 @@ class JournalUnwritable(RuntimeError):
 #: and past every entrypoint's `except RuntimeError`, until a probe raised it on
 #: this branch. `edge_id.read_edge_id` had already met the same trap from the
 #: decode side, which is why it names `UnicodeDecodeError` separately.
-APPEND_FAILURES = (OSError, UnicodeError)
+#: `EventsFileUnreadable` is the FILE — see its docstring.
+APPEND_FAILURES = (OSError, UnicodeError, EventsFileUnreadable)
+
+#: The exceptions this boundary ends an invocation with, each carrying the
+#: `terminal_state` it declares. `terminal_state_of` reads that attribute off
+#: exactly these — never off an arbitrary exception that happens to carry one.
+EMIT_BOUNDARY_FAILURES = (EmitFailed, StoreWriteFailed, JournalUnwritable)
+
+
+def terminal_state_of(exc: BaseException | None) -> TerminalState:
+    """How an invocation ENDED at this boundary, read off the exception that ended it.
+
+    THE PARENT'S HALF OF THE EXIT-RECORD CHANNEL (requirement 11). A parent
+    that caught the failure which ended its child's invocation passes this to
+    `exit_record.route(terminal_state=…)`, which routes any state but COMPLETED
+    to the human before reading the child's record — so a journal that died
+    after the child posted is never rescued on the strength of a record that
+    says MERGE.
+
+    COMPLETED FOR ANYTHING THAT IS NOT ONE OF `EMIT_BOUNDARY_FAILURES`, and
+    that is a statement about THIS boundary rather than about the run: a
+    completion-pattern miss, a `gh` failure, a `KeyboardInterrupt` are failures
+    the journal did not cause and did not stop, and what the record says about
+    them is the record's own business. `None` — no exception at all — is the
+    success path and is COMPLETED for the same reason.
+    """
+    if isinstance(exc, EMIT_BOUNDARY_FAILURES):
+        return exc.terminal_state
+    return TerminalState.COMPLETED
+
+
+def in_flight_journal_failure() -> JournalUnwritable | None:
+    """The `JournalUnwritable` currently propagating, if the caller is in a `finally`.
+
+    THE HARVEST'S HALF OF THE DURABLE CHANNEL. Every entrypoint invokes
+    `harvest_github_surfaces` in the `finally` of the `try` around its workflow
+    handoff — `test_every_parent_HARVESTS_its_github_surfaces` holds that
+    placement — so the harvest is the one activity that runs while the failure
+    which ended the run is still in flight AND holds the surfaces the run wrote
+    to. `sys.exception()` is Python's name for that in-flight exception inside a
+    `finally`; this narrows it to the one class case (d) is about.
+
+    `None` MEANS "NOTHING OF THIS KIND IS IN FLIGHT", which is the answer on the
+    success path, on every other failure, and for a caller that is not inside a
+    `finally` at all (the operator's reconcile tool, the tests). A
+    `JournalUnwritable` raised and already caught by an enclosing `except` is
+    also in flight here and is reported — which is correct: it ended the run.
+    """
+    exc = sys.exception()
+    return exc if isinstance(exc, JournalUnwritable) else None
 
 
 def failure_detail(exc: BaseException) -> str:
@@ -361,6 +449,20 @@ class Emitter:
     silently. Two PROCESSES cannot collide because they hold different writer
     subfolders. A lock is cheap and the failure it prevents is the one this
     component is named after.
+
+    A RETRIED EMIT APPENDS ONCE, AND THE JOURNAL ITSELF IS HOW THE RETRY KNOWS.
+    An activity executes at least once, and a retried process starts its
+    sequence counters from zero — so it re-derives exactly the identities the
+    first attempt derived. `_append` reads the writer's `events.jsonl` back
+    ONCE, on first use, into an index of `(event_id, kind)` pairs, and an
+    event whose pair is already there is not appended again. This is the
+    phase's *"a deliberately retried emit appends once"*, demonstrated by
+    `test_a_RETRIED_paired_write_APPENDS_ONCE`; `dedupe_on_identity` stays as
+    the READ-side rule for the case this cannot reach — a retried MEMBER emits
+    into a fresh subfolder (`w-2`) and cannot see `w`'s file. What it does NOT
+    make idempotent is the STORE side: `paired_write` still calls `perform`,
+    because the result the caller needs is not in the journal. The store's own
+    idempotency key is the store's job, exactly as before.
     """
 
     bag: Bag
@@ -370,10 +472,12 @@ class Emitter:
     key_epoch: str = NO_CREDENTIAL_EPOCH
     _sequences: dict[str, int] = None  # type: ignore[assignment]
     _lock: threading.Lock = None       # type: ignore[assignment]
+    _appended: set[tuple[str, str]] | None = None
 
     def __post_init__(self) -> None:
         self._sequences = {}
         self._lock = threading.Lock()
+        self._appended = None
 
     # --- construction --------------------------------------------------------
 
@@ -431,8 +535,52 @@ class Emitter:
             self._sequences[write_path] = nxt + 1
             return nxt
 
+    def _appended_pairs(self) -> set[tuple[str, str]]:
+        """The `(event_id, kind)` pairs already in this writer's file — read once.
+
+        LOADED LAZILY, ON THE FIRST APPEND, so constructing an emitter performs
+        no I/O and a process that emits nothing reads nothing. The read is the
+        whole file, once, and it is `json.loads` per line rather than
+        `decode_event`: the index needs two keys and must not refuse a line for
+        a reason the full decoder would (an event version this build cannot
+        upcast is still an event that WAS appended, and its identity is what a
+        retry must not re-append).
+
+        A LINE THAT IS NOT JSON RAISES `EventsFileUnreadable` — see that class.
+        A blank line is skipped, because that is what `splitlines` on a
+        trailing newline yields and it is not a torn event.
+        """
+        if self._appended is not None:
+            return self._appended
+        pairs: set[tuple[str, str]] = set()
+        if self.events_path.is_file():
+            with self.events_path.open("r", encoding="utf-8") as handle:
+                for number, line in enumerate(handle, start=1):
+                    if not line.strip():
+                        continue
+                    try:
+                        raw = json.loads(line)
+                        pairs.add((raw["event_id"], raw["kind"]))
+                    except (ValueError, KeyError, TypeError) as exc:
+                        raise EventsFileUnreadable(
+                            f"{self.events_path} line {number} is not a journal "
+                            f"event ({type(exc).__name__}: {exc}). A torn or "
+                            f"foreign line in an append-only file cannot be "
+                            f"appended past — every reader would stop there — so "
+                            f"this writer refuses further appends until it is "
+                            f"inspected.") from exc
+        self._appended = pairs
+        return pairs
+
     def _append(self, event: JournalEvent) -> None:
         """The one place a byte reaches the journal root. Raises, never swallows.
+
+        APPENDS ONCE PER `(event_id, kind)`. The pair is checked against the
+        index `_appended_pairs` reads back from this writer's own file, so a
+        retried process — same run, same writer directory, counters restarted
+        from zero — re-derives the identity, finds it, and appends nothing. The
+        check and the record of the append are under the lock together, so two
+        threads cannot both find the pair absent.
 
         `O_APPEND` AND NOT `write_payload`. A payload file is written once and
         `Bag.write_payload` carries `O_EXCL` to hold that; this file GROWS, one
@@ -452,14 +600,20 @@ class Emitter:
         store has content the record does not. Ordering two writes means nothing
         if the first has not reached the disk.
         """
-        line = encode_event(event) + "\n"
-        fd = os.open(str(self.events_path),
-                     os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW,
-                     FILE_MODE)
-        with os.fdopen(fd, "a", encoding="utf-8") as handle:
-            handle.write(line)
-            handle.flush()
-            os.fsync(handle.fileno())
+        pair = (event.event_id, event.kind.value)
+        with self._lock:
+            appended = self._appended_pairs()
+            if pair in appended:
+                return
+            line = encode_event(event) + "\n"
+            fd = os.open(str(self.events_path),
+                         os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW,
+                         FILE_MODE)
+            with os.fdopen(fd, "a", encoding="utf-8") as handle:
+                handle.write(line)
+                handle.flush()
+                os.fsync(handle.fileno())
+            appended.add(pair)
 
     def _build(self, *, kind: EventKind, write_path: str, sequence: int,
                destination: Destination, content: str,
@@ -843,22 +997,22 @@ class Emitter:
 
 
 # ---------------------------------------------------------------------------
-# Requirement 11 — the case-(d) signal and its reader. `CASE_D_CHANNELS` above
-# is the authority on WHICH channels carry it; exactly one does today, and this
-# section builds the payload and the reader for all three so that wiring the
-# other two is a call site rather than a contract.
+# Requirement 11 — the case-(d) signal and its readers. `CASE_D_CHANNELS` above
+# is the authority on WHICH channels carry it; this section builds the payload,
+# the text reader, and the slot the durable channel's producer is registered in.
 # ---------------------------------------------------------------------------
 
 def unwritable_journal_report(exc: JournalUnwritable, *,
                               bag_path: Path | None = None) -> dict[str, str]:
-    """The case-(d) payload, in the one shape all three channels would carry.
+    """The case-(d) payload, in the one shape all three channels carry.
 
     ONE FUNCTION FOR ALL OF THEM so no two channels can disagree about what
-    happened. **It has NO PRODUCTION CALLER TODAY, and that is stated rather than
-    implied**: `CASE_D_CHANNELS` above is the authority, and the only channel with
-    a live producer is the process exit — which is wired by INHERITANCE (see the
-    warning below) and does not call this function. This exists so that wiring
-    either remaining channel is a call site rather than a contract.
+    happened. Its production caller is the durable channel's producer —
+    `assistant_activities.report_unwritable_journal` composes the pull-request
+    comment from this dict and nothing else — and the process channel carries
+    the same `detail` by inheritance (see the warning below). The exit-record
+    channel carries `terminal_state` alone, because that is the one field a
+    routing contract branches on.
 
     The design needs all three and none is sufficient alone: the exit record
     because a parent has to route on it in-process, the durable pull-request
@@ -889,8 +1043,10 @@ def unwritable_journal_report(exc: JournalUnwritable, *,
 
 def unwritable_journal_in_text(text: str) -> bool:
     """READER for every channel that carries the marker — the named consumer
-    requirement 11 demands, and today that is the PROCESS OUTPUT rather than the
-    durable half, because the durable half has no producer (`CASE_D_CHANNELS`).
+    requirement 11 demands. The process output carries it by inheritance; the
+    durable pull-request comment carries it because `report_unwritable_journal`
+    leads with it; and the harvest applies this to every body it reads back, so
+    a surface carrying the line is surfaced rather than merely stored.
 
     A SUBSTRING TEST AGAINST THE ONE DECLARED MARKER, and it is deliberately not
     a parse. The durable channel is a PR comment written by a run whose journal
@@ -908,6 +1064,70 @@ def unwritable_journal_in_text(text: str) -> bool:
     which is in-process and unforgeable by a thread participant.
     """
     return UNWRITABLE_JOURNAL_MARKER in text
+
+
+#: The durable channel's producer: `(failure, surface_url, repo_root, bag_path)`
+#: → the address of the comment it posted, or "" when the post did not land.
+CaseDReporter = Callable[[JournalUnwritable, str, Path, Path | None], str]
+
+_CASE_D_REPORTER: CaseDReporter | None = None
+_CASE_D_REPORTER_LOCK = threading.Lock()
+
+
+def register_case_d_reporter(reporter: CaseDReporter | None) -> None:
+    """Make `reporter` the producer of case (d)'s durable working-record line.
+
+    THE SAME INVERSION `register_emitter` BELOW MAKES, FOR THE SAME REASON, AND
+    IT EXISTS BECAUSE OF A DEPENDENCY DIRECTION THAT IS RULED RATHER THAN
+    ACCIDENTAL. The durable report is a `gh pr comment` — a store write, the one
+    permitted with no preceding emit — and every fleet-code store write goes
+    through `assistant_activities.gh_attempt`. The activity that DISPATCHES the
+    report is the post-exit harvest, because it is the one activity every
+    entrypoint runs in its `finally` and the one that holds the run's surfaces.
+    But this package may not import `modules.assistant`
+    (`test_the_journal_package_imports_no_workflow_module`), and the census
+    forbids a `gh` mutation composed inside it
+    (`test_the_journal_package_is_EXCLUDED_from_the_census_deliberately`). So
+    the assistant layer hands its poster in, and the harvest calls what it was
+    handed. The alternative — a keyword on `harvest_github_surfaces` — would put
+    the same constant at every entrypoint, which is the drift class
+    `preflight.refuse` was promoted to close.
+
+    REGISTERED WHEN `assistant_activities` IS IMPORTED, which every entrypoint
+    does before its bag opens; `test_every_entrypoint_REACHES_the_case_d_
+    reporter` holds that. A process with no reporter registered is one running
+    no fleet workflow — the operator's reconcile tool, a unit test — and for it
+    the harvest says out loud that the durable channel has no producer here
+    rather than posting nothing silently.
+
+    `None` UNREGISTERS; `reporting_case_d_through` is the context manager a test
+    uses so one test's fake poster never receives another test's report.
+    """
+    global _CASE_D_REPORTER
+    with _CASE_D_REPORTER_LOCK:
+        _CASE_D_REPORTER = reporter
+
+
+def current_case_d_reporter() -> CaseDReporter | None:
+    with _CASE_D_REPORTER_LOCK:
+        return _CASE_D_REPORTER
+
+
+class reporting_case_d_through:
+    """Register a case-(d) reporter for the duration of a block, then restore."""
+
+    def __init__(self, reporter: CaseDReporter | None) -> None:
+        self._reporter = reporter
+        self._previous: CaseDReporter | None = None
+
+    def __enter__(self) -> CaseDReporter | None:
+        self._previous = current_case_d_reporter()
+        register_case_d_reporter(self._reporter)
+        return self._reporter
+
+    def __exit__(self, exc_type, exc, tb) -> bool:
+        register_case_d_reporter(self._previous)
+        return False
 
 
 # ---------------------------------------------------------------------------

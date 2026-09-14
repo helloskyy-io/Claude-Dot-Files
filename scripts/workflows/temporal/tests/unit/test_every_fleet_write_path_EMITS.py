@@ -41,7 +41,10 @@ MODULES = Path(__file__).resolve().parents[2] / "modules"
 #: and this list are two renderings of one census rather than two lists.
 FLEET_CODE_WRITE_PATHS: dict[str, str] = {
     "assistant/assistant_activities.py":
-        "every `gh` mutation — pr create/comment/edit, issue create/comment/close",
+        "every `gh` mutation — pr create/comment/edit, issue create/comment/close; "
+        "the CLI transcript (`emit_cli_transcript`, the case-(c) member that "
+        "STOPS the run); every parent-written run-log event (`_append_run_event`, "
+        "case (c), the run continues)",
     "assistant/tracked/tracked_items.py":
         "the four `tracked/` stores — file_item, expand, increment",
     "assistant/merge/merge_pr.py":
@@ -471,3 +474,154 @@ def test_a_TRANSIENT_failure_on_a_WRITE_is_not_retried_and_emits_ONE_pair(
         "write twice")
     assert [e.kind for e in _events(emitter)] == [
         EventKind.INTENT, EventKind.STORE_WRITE_FAILURE]
+
+
+# --- the two paths the first cut of this phase enumerated and left unwired ----
+
+def test_the_CLI_TRANSCRIPT_emits_verbatim_and_a_failed_emit_STOPS_the_run(
+        tmp_path: Path) -> None:
+    """The inventory's `run_claude` row: `unpairable_write(stop_on_failure=True)`.
+
+    Driven through `emit_cli_transcript`, the function `run_claude` calls after
+    the child exits — `test_run_claude_EMITS_the_transcript_before_its_failure_
+    branch` below holds the call site by AST, because driving `run_claude` end
+    to end means invoking the CLI.
+
+    THE STOP ARM IS THE PROPERTY, not the emit: a transcript that cannot reach
+    the journal is evidence loss under bypassed permissions, and the run ends
+    in `EmitFailed` — the terminal state `route` refuses to route past.
+    """
+    import os
+    from modules.assistant import assistant_activities as act
+    from modules.journal.emit import EmitFailed
+
+    log = tmp_path / "review-pr-1-abc.jsonl"
+    log.write_text('{"type":"assistant","text":"hello"}\n', encoding="utf-8")
+    emitter = _emitter(tmp_path)
+
+    assert act.emit_cli_transcript(log, log.read_text()) is None, (
+        "outside a run there is no emitter and nothing is emitted")
+    with emitting_into(emitter):
+        event_id = act.emit_cli_transcript(log, log.read_text())
+    (event,) = _events(emitter)
+    assert event.event_id == event_id
+    assert event.write_path == "cli-transcript"
+    assert event.kind is EventKind.COMPLETION
+    assert event.content == '{"type":"assistant","text":"hello"}\n'
+    assert event.destination.store == "filesystem"
+    assert event.destination.address == str(log)
+
+    if os.geteuid() == 0:
+        return                         # a mode-induced refusal does not bind uid 0
+    # THE FILE, NOT THE DIRECTORY: it exists after the first append, and a
+    # sealed directory refuses only creation. The gap event shares the file,
+    # so it cannot land either — the `incomplete` FLAG is what says so.
+    emitter.events_path.chmod(0o400)
+    try:
+        with emitting_into(emitter), pytest.raises(EmitFailed, match="stops the run"):
+            act.emit_cli_transcript(log, "a second transcript")
+    finally:
+        emitter.events_path.chmod(0o600)
+    assert emitter.bag.incomplete
+
+
+def test_run_claude_EMITS_the_transcript_before_its_failure_branch() -> None:
+    """The call site, held by AST — `run_claude` is not driven end to end here.
+
+    Two properties: the transcript is READ before the parent appends its own
+    first event (so the journal's copy is the child's stream), and it is
+    EMITTED before `if code != 0: raise` (so a run that died still has its
+    transcript in the record — the same reason the resource report precedes
+    that branch).
+    """
+    from modules.assistant import assistant_activities as act
+
+    tree = ast.parse(Path(act.__file__).read_text(encoding="utf-8"))
+    fn = next(n for n in ast.walk(tree)
+              if isinstance(n, ast.FunctionDef) and n.name == "run_claude")
+    order: dict[str, int] = {}
+    for node in ast.walk(fn):
+        if isinstance(node, ast.Call):
+            name = getattr(node.func, "id", getattr(node.func, "attr", None))
+            if name in ("_read_transcript", "append_run_resources",
+                        "emit_cli_transcript"):
+                order.setdefault(name, node.lineno)
+    raise_line = next(n.lineno for n in ast.walk(fn) if isinstance(n, ast.If)
+                      and ast.unparse(n.test) == "code != 0")
+    assert set(order) == {"_read_transcript", "append_run_resources",
+                          "emit_cli_transcript"}, order
+    assert order["_read_transcript"] < order["append_run_resources"], (
+        "the transcript must be read before the parent appends its own event")
+    assert order["emit_cli_transcript"] < raise_line, (
+        "a run that died is the one whose transcript is evidence")
+
+
+def test_a_RUN_LOG_event_emits_and_the_run_CONTINUES_past_a_failed_emit(
+        tmp_path: Path) -> None:
+    """The inventory's `_append_run_event` row: case (c), the run continues.
+
+    Driven through the public appender a parent calls. The journal gets the
+    exact line the log gets, under a write path naming the event type, and a
+    failed emit leaves a gap and an `incomplete` bag while the log line still
+    lands — the run log is Claude Code's own store, and losing the parent's
+    route row would hide the failure it exists to count.
+    """
+    import json
+    import os
+    from modules.assistant import assistant_activities as act
+
+    log = tmp_path / "review-pr-1-abc.jsonl"
+    emitter = _emitter(tmp_path)
+    with emitting_into(emitter):
+        act.append_parent_route(log, {"run_id": "abc", "pr": "7",
+                                      "routed_outcome": "hold"})
+    (event,) = _events(emitter)
+    assert event.write_path == "run-log:parent_route"
+    assert event.destination.address == str(log)
+    assert json.loads(event.content) == {"type": "parent_route", "run_id": "abc",
+                                         "pr": "7", "routed_outcome": "hold"}
+    assert log.read_text(encoding="utf-8") == event.content
+
+    if os.geteuid() == 0:
+        return
+    emitter.events_path.chmod(0o400)          # the file, as above
+    try:
+        with emitting_into(emitter):
+            act.append_convergence(log, {"run_id": "abc", "state": "converged"})
+    finally:
+        emitter.events_path.chmod(0o600)
+    assert emitter.bag.incomplete, "a lost run-log emit is a recorded gap"
+    assert log.read_text(encoding="utf-8").count("\n") == 2, (
+        "the run continued and the log line still landed")
+
+
+def test_every_entrypoint_REACHES_the_case_d_reporter() -> None:
+    """The durable channel's producer is registered by importing the assistant
+    layer — so every entrypoint must import it, directly or through its
+    workflow modules, before its bag opens. Asked of the import graph the
+    entrypoint's own imports pull in, at the module level, so a runner that
+    reached `harvest_github_surfaces` with the slot empty is a red test here
+    rather than a quiet "no reporter registered" on the one path that matters.
+    """
+    import importlib
+    import sys
+    from modules.journal import emit as emitmod
+
+    scripts = MODULES.parent / "scripts"
+    entrypoints = sorted(scripts.glob("run_*.py"))
+    assert len(entrypoints) >= 10, entrypoints
+    if str(scripts) not in sys.path:
+        sys.path.insert(0, str(scripts))
+    for path in entrypoints:
+        with emitmod.reporting_case_d_through(None):
+            module = importlib.import_module(path.stem)
+            # `assistant_activities` is imported once per process, so a second
+            # entrypoint sees the registration the first one caused. What is
+            # asserted per entrypoint is that ITS import graph contains the
+            # registering module — the property that holds when it runs alone.
+            names = {m for m in sys.modules if m.startswith("modules.assistant")}
+            assert "modules.assistant.assistant_activities" in names, (
+                f"{path.name} imports no path to `assistant_activities`, so a "
+                f"run of it alone would reach the harvest with no case-(d) "
+                f"reporter registered")
+            assert module is not None

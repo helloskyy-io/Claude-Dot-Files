@@ -102,19 +102,22 @@ excusing it.
 
 ⚠ FAMILIES 1 AND 2 EACH CONTAIN THE FLEET'S OWN IDIOM, WHICH IS WHY NEITHER IS
 EXOTIC.
-Twenty-two swept modules import a journal submodule as a name: the sixteen
+Twenty-three swept modules import a journal submodule as a name: the sixteen
 entrypoints take `journal_activities as journal` AND, since PMP Phase 10,
 `harvest_activities as harvest`; `verify_citations.py` and `validate_bag.py`
 take `verify` and `validate` (`reconcile_harvest.py`, the fourth operator
 tool, imports its readers BY NAME so the operator-tools sweep can see it, and
-so is not in this population); and FOUR fleet modules take `emit as
-journal_emit` — `assistant_activities.py`, `tracked_items.py`, `merge_pr.py`
-and `plan_project_activities.py`. The operator tools READ a finished bag
-rather than being entrypoints, per `journal_entrypoint_facts.py`'s own
-classification, so this file says *call sites* wherever the twenty-two are
-meant. The four emit binders are PMP Phase 3's, and they are the first fleet
-modules to bind a journal submodule for a reason other than opening a bag: each
-is a WRITE PATH, wrapping its store write in the intent-then-completion pair. `from .. import journal` is the
+so is not in this population); and FIVE fleet modules take `emit as
+journal_emit` — `assistant_activities.py`, `tracked_items.py`, `merge_pr.py`,
+`plan_project_activities.py` and `review_pr_workflow.py`. The operator tools
+READ a finished bag rather than being entrypoints, per
+`journal_entrypoint_facts.py`'s own classification, so this file says *call
+sites* wherever the twenty-three are meant. The emit binders are PMP Phase
+3's, and they are the first fleet modules to bind a journal submodule for a
+reason other than opening a bag: four are WRITE PATHS, wrapping a store write
+in the intent-then-completion pair, and `review_pr_workflow.py` is the PARENT
+BRANCH that reads the boundary's terminal state off the failure that ended a
+child. `from .. import journal` is the
 dominant relative-import spelling across the workflow tree (`from .. import
 routing`, `from .. import plan_activities as act`, `from . import
 tracked_items as ti`). So both are what a real bypass looks like: a line copied
@@ -132,13 +135,13 @@ attributed the whole job to one of them and MEASUREMENT SAID OTHERWISE:
     `from modules.assistant import journal`, a sibling exporting a colliding
     name.
 
-The twenty-two call sites are excluded REDUNDANTLY, by both at once, which is
+The twenty-three call sites are excluded REDUNDANTLY, by both at once, which is
 why neither mechanism can be controlled through them: each shape above isolates
 exactly one, and the control below uses those rather than the idiom.
 
 ⚠ AND NEITHER COSTS THE EIGHTEEN FALSE POSITIVES THEY WERE PREDICTED TO COST.
 Deleting the parent check outright leaves every test in this file green and
-flags no fleet module: those twenty-two reach only `journal.open_run_bag`,
+flags no fleet module: those twenty-three reach only `journal.open_run_bag`,
 Phase 3's `journal_emit.current_emitter` / `paired_write` and Phase 10's
 `harvest.harvest_github_surfaces` / `read_harvest_indexes`,
 none of which is in `STORE_MODULES` or `STORE_IO_NAMES`, so a reach-based
@@ -914,7 +917,7 @@ def test_the_FLEET_IDIOM_binding_journal_to_the_activities_module_is_NOT_flagged
     IS WHERE IT WAS FIRST WRITTEN. Deleting the parent check was expected to fail
     this file loudly and to flag nineteen fleet modules. MEASURED, IT DOES
     NEITHER: every test stayed green and the real-tree sweep named nothing,
-    because those twenty-two call sites reach only `journal.open_run_bag`,
+    because those twenty-three call sites reach only `journal.open_run_bag`,
     the emit boundary and the harvest activity, none of which is
     in either name set. So a control routed through the sweep over THE REAL TREE
     is vacuous — it would begin discriminating only once some module writes

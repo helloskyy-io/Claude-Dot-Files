@@ -42,6 +42,7 @@ import pytest
 
 from modules.assistant import assistant_activities as act
 from modules.assistant.review_pr import exit_record as er
+from modules.vocabulary import TerminalState
 
 _TESTS = Path(__file__).resolve().parents[1]
 _WORKFLOWS = Path(__file__).resolve().parents[3]      # …/scripts/workflows
@@ -528,7 +529,8 @@ def test_an_ABSENT_denials_key_prints_nothing_HERE_and_routes_in_the_ROUTER(
     log = _clean_run_that_tripped_the_hook(tmp_path, denials=None)
     assert _run_shipped(_shipped_denial_surface(), log).strip() == ""
     envelope = json.loads(log.read_text())
-    assert er.route(envelope, expected_invocation_id="x", expected_ref=None) \
+    assert er.route(envelope, expected_invocation_id="x", expected_ref=None,
+                    terminal_state=TerminalState.COMPLETED) \
         .undetermined_reason is er.UndeterminedReason.DENIALS_UNREADABLE
 
 
