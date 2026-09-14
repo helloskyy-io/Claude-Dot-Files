@@ -179,6 +179,14 @@ def render_index(items: list[Standard], root: Path) -> str:
     because the 68%-reduction figure was quoted at another PM as though it were a
     property of the tool.
 
+    LINKS ARE REPO-RELATIVE, NOT ABSOLUTE. An absolute link bakes the invocation
+    path into the artifact, so `--check` read a byte-identical `CLAUDE.md` as STALE
+    from every worktree — and named `--write` as the fix, which would have committed
+    a throwaway worktree path into every entry (I-q5c8jmxa, measured on two
+    worktrees: the byte delta was exactly 18 links × the suffix length, twice). A
+    relative link renders the same from any checkout, so the check agrees with
+    itself wherever it runs, including CI.
+
     GROUPED BY BUCKET, because a flat list was deleting structure that is DERIVABLE.
     The hand-written index sorted its entries under `### Architecture`, `### Tooling`
     and so on — and every one of those headings is just the standard's own folder
@@ -196,7 +204,8 @@ def render_index(items: list[Standard], root: Path) -> str:
         if bucket:
             out += [f"### {_BUCKET_TITLES.get(bucket, bucket.replace('-', ' ').title())}", ""]
         for s in grouped[bucket]:
-            out.append(f"- **[{_title(s.path)}]({(root / s.path).resolve()})** — "
+            link = (root / s.path).resolve().relative_to(root.resolve()).as_posix()
+            out.append(f"- **[{_title(s.path)}]({link})** — "
                        f"**read when** {s.fields['Read when'].strip()} "
                        f"*Breaking it looks like:* {s.fields['Breaking it looks like'].strip()}")
         out.append("")

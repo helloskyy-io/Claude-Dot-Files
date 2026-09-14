@@ -1477,11 +1477,12 @@ def test_protocol_SS4s_reason_column_is_exactly_the_shipped_vocabulary() -> None
     protocol = PLANNING_ROOT / "standards" / "workflows" / "exit-protocol.md"
     assert protocol.exists(), f"the protocol moved: {protocol}"
 
-    # §4's rows are the only ones whose first cell is `**R<n>**`. The reason is
+    # §4's rows are the only ones whose first cell is `**R<n>**` (or `**R-J<x>**`,
+    # the emit-boundary rows that sit ahead of R0). The reason is
     # the 4th column, backticked, or an em-dash where the rule routes to a
     # non-abstaining outcome and carries no reason.
     rows = re.findall(
-        r"^\|\s*\*\*R[0-9a-z]+\*\*\s*\|[^|]*\|[^|]*\|\s*([^|]*?)\s*\|",
+        r"^\|\s*\*\*R[-0-9A-Za-z]+\*\*\s*\|[^|]*\|[^|]*\|\s*([^|]*?)\s*\|",
         protocol.read_text(encoding="utf-8"),
         re.MULTILINE,
     )

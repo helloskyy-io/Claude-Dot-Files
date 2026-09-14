@@ -238,3 +238,26 @@ def test_AN_EMPTY_VALUED_FIELD_DOES_NOT_SWALLOW_THE_NEXT(tmp_path: Path, filler:
         f"a field between the required three swallowed one of them: {got.missing} "
         f"reported missing from a file that declares all three")
     assert got.fields["Read when"].strip() == "the trigger"
+
+
+def test_THE_BLOCK_DOES_NOT_DEPEND_ON_WHERE_THE_TREE_SITS(tmp_path: Path) -> None:
+    """Written at one path, checked from another — the worktree shape.
+
+    Every autonomous dispatch runs in a worktree, so a block that encodes its own
+    checkout path is stale from the only place the check runs, and the remedy the
+    check recommends bakes that path in (I-q5c8jmxa).
+    """
+    import shutil
+    short = tmp_path / "r"
+    _complete(short, "a/x.md", "X")
+    (short / "CLAUDE.md").write_text(f"# R\n\n{si.BEGIN}\n{si.END}\n", encoding="utf-8")
+    si.main(["--repo-root", str(short), "--write"])
+    block = (short / "CLAUDE.md").read_text(encoding="utf-8")
+    assert "](standards/a/x.md)" in block, block
+    assert str(short) not in block, "the checkout path leaked into the artifact"
+
+    longer = tmp_path / ".claude" / "worktrees" / "build-minor-1788962171-review-18-2"
+    shutil.copytree(short, longer)
+    assert si.stale_block(longer, si.standards_in(longer)) is None
+    assert si.main(["--repo-root", str(longer), "--check"]) == 0
+

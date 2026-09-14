@@ -229,7 +229,7 @@ def test_every_relative_link_resolves() -> None:
 
 # A link that names BOTH a file and a heading inside it. The check above proves
 # the file exists; this one proves the heading does.
-ANCHORED = re.compile(r"\[[^\]]+\]\((?!https?:|mailto:|#|/)([^)\s#]+\.md)#([a-z0-9][a-z0-9-]*)\)")
+ANCHORED = re.compile(r"\[[^\]]+\]\((?!https?:|mailto:|#|/)([^)\s#]+\.md)#([^)\s]+)\)")
 
 # GitHub's slug: lowercase, punctuation dropped, spaces to hyphens. Approximate
 # on purpose — it is applied to BOTH sides, so a heading this gets wrong is
@@ -253,6 +253,14 @@ def _slugs(md: Path) -> set[str]:
         h = re.sub(r"<a\s+id=\"[^\"]*\"\s*>\s*</a>", "", h)
         out.add(_SLUG_STRIP.sub("", h.lower()).strip().replace(" ", "-"))
     return out
+
+
+def _resolves(fragment: str, anchors: set[str]) -> bool:
+    """An explicit id matches verbatim; a generated slug matches after the SAME
+    transform `_slugs` applied to the heading. The fragment pattern admits any
+    character on purpose — a `§` or an emoji in a link used to put it out of
+    population, which is the second of the two blind spots I-8er4h8ve names."""
+    return fragment in anchors or _SLUG_STRIP.sub("", fragment.lower()) in anchors
 
 
 def test_every_link_ANCHOR_resolves() -> None:
@@ -283,7 +291,7 @@ def test_every_link_ANCHOR_resolves() -> None:
             target = (f.parent / m.group(1)).resolve()
             if not target.is_file():
                 continue          # the file check above owns this case
-            if m.group(2) not in _slugs(target):
+            if not _resolves(m.group(2), _slugs(target)):
                 broken.append((_rel(f), m.group(1), m.group(2)))
 
     assert not broken, (
@@ -292,4 +300,45 @@ def test_every_link_ANCHOR_resolves() -> None:
         + "\n\nThe file resolves; the heading does not. Either the heading was "
         "renamed or deleted, or the anchor was written from a heading that never "
         "existed. Check the target's headings rather than adjusting the slug."
+    )
+
+
+# A link that names ONLY a heading — `](#slug)` — and so points into the file it
+# sits in. Neither regex above admits it: LINK excludes it on purpose (it is not
+# a file), ANCHORED requires a `.md` before the `#`.
+IN_PAGE = re.compile(r"\[[^\]]+\]\(#([^)\s]+)\)")
+
+
+def test_every_IN_PAGE_anchor_resolves() -> None:
+    """A bare `#slug` link must name a heading or `<a id>` in its OWN file.
+
+    THE TWO CHECKS ABOVE EXCLUDE THIS SHAPE BY CONSTRUCTION, so a dead in-page
+    anchor sat under a green suite. Measured 2026-09-09: nine dead anchors in one
+    roadmap, found by hand after the suite passed; measured again on the file that
+    filed I-8er4h8ve, five more. The file is the one place a link cannot fail to
+    resolve, which is why nobody thought to check it — and why the rot is invisible.
+
+    IT IS THE COMMONEST SHAPE IN A ROADMAP. Rule 9 has an inline roadmap address
+    its phases by `<a id>`; every dependency line is one of these links.
+    """
+    files = [f for f in _files() if f.suffix == ".md"]
+    assert len(files) > 50, f"only {len(files)} markdown files scanned"
+
+    broken = []
+    seen = 0
+    for f in files:
+        anchors = None
+        for m in IN_PAGE.finditer(f.read_text(errors="replace")):
+            seen += 1
+            if anchors is None:
+                anchors = _slugs(f)
+            if not _resolves(m.group(1), anchors):
+                broken.append((_rel(f), m.group(1)))
+
+    assert seen > 0, "no in-page anchor links found — the regex or the corpus is wrong"
+    assert not broken, (
+        f"{len(broken)} in-page link(s) name a heading that does not exist in their own file:\n"
+        + "\n".join(f"  {f}\n    -> #{a}" for f, a in broken)
+        + "\n\nThe heading was renamed or removed, or the id was never written. "
+        "Fix the heading or the `<a id>`, not the link."
     )
