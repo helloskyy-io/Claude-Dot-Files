@@ -131,20 +131,30 @@ WHAT THIS GATE DOES NOT LOOK AT. Stated here so nobody over-reads a green suite:
     human-only class — and whose presence at every entrypoint is HELD BY
     ANOTHER GATE (`HELD_BY`). #170 recorded the echo as un-landed; it had
     landed.
-  * It does not see a RECORD A RUN WRITES FOR A LATER RUN — a journal bag and
-    its tags, a typed exit record, the run log. Those are written under a
-    configured root OUTSIDE any tracked tree, so a `git ls-files` walk cannot
-    reach them, and the phase's own table calls this class *"probably in, and
-    this is where the real value is"*. It is NOT ruled here. What IS held:
-    the run log's writers equal its declaration (`HELD_BY`), and its readers
-    are the `measure/` tools, a ruled-in surface. The bag's readers —
-    `validate_bag.py`, `verify_citations.py`, `compare_run_config.py` — and
-    the exit record's reader, `review_pr/exit_record.py`, are named machine
-    readers invoked on demand (requirement 2's shape) that no check here
-    opens. Ruling that class is the one open extension. (Whether a HUMAN can
-    find those readers IS held, since `temporal/scripts/` was ruled in: two
-    of the three are named in `guide/operations.md`, and
-    `compare_run_config.py` is baselined as unread for lacking exactly that.)
+  * A RECORD A RUN WRITES FOR A LATER RUN — a journal bag's files and tags,
+    the typed exit record, the run log's member events — is written under a
+    configured root OUTSIDE any tracked tree, so the `git ls-files` walk
+    cannot reach it, and the phase's own table calls this class *"probably
+    in, and this is where the real value is"*. It IS ruled, by declaration
+    rather than by walk (`RUNTIME_RECORDS`, ruled 2026-09-14): the population
+    is every file-or-directory constant the journal package declares
+    (`MANIFEST_FILE`, `PAYLOAD_DIR`, … — the suffix is `_RECORD_CONSTANT`)
+    plus every run-log member type, each must name a reader, and a reader RESOLVES
+    only when its module is on disk, its entry function is defined, it names
+    the record's declared symbol as a code token, and every hop from the
+    operator tool or parent branch down to it imports the next by stem. The
+    run log's WRITE side stays with `HELD_BY`; this is its read side. What
+    the ruling does NOT see: it never opens a bag, so a reader that names
+    the right constant and reads the wrong file passes; a record declared by
+    a name `_RECORD_CONSTANT` does not match is outside the derived
+    population and must be registered by hand (the exit record and the
+    config-digest tag are, with that said); and the unread ratchet keys on
+    the record's read ACCESSOR, so a
+    reader that re-types the filename and parses lines itself is invisible
+    to it. One record was found unread when the class was ruled — the bag's
+    event stream, `events.jsonl`, decoded by tests only until Persistent
+    Memory Protocol Phase 4's replay lands — and is frozen in
+    `UNREAD_RUNTIME_RECORDS` rather than given a reader to make a check green.
   * A "HELD BY ANOTHER GATE" claim is a cross-file coverage claim, and one
     whose holder was renamed covers nothing while reading as if it did. So
     every holder is registered in `HELD_BY` and asserted to resolve to a test
@@ -183,6 +193,7 @@ _REPO = Path(__file__).resolve().parents[4]
 # checkouts every dispatch runs in.
 sys.path.insert(0, str(_REPO / "scripts" / "workflows" / "temporal" / "tests"))
 from planning_corpus import PLANNING_ROOT  # noqa: E402
+from file_structure_map import LEAF as _MAP_LEAF, MAP as _MAP  # noqa: E402
 
 _ENTRYPOINTS = _REPO / "scripts" / "workflows" / "temporal" / "scripts"
 
@@ -376,7 +387,7 @@ def _entrypoint_tools(root: Path) -> set[str]:
 
 def _clear_corpus_caches() -> None:
     for fn in (_dispatch_corpus, _bash_corpus, _operator_docs, _fleet_python,
-               _imported_stems):
+               _imported_stems, _module_ast):
         fn.cache_clear()
 
 
@@ -897,7 +908,7 @@ def _unresolved_holders(held_by: dict, *, repo: Path) -> list[str]:
         path = repo / module
         if not path.is_file():
             out.append(f"{claim}: {module} is not on disk")
-        elif not re.search(rf"^def {re.escape(func)}\(", _text(path), re.M):
+        elif not _defines_function(path, func):
             out.append(f"{claim}: {module} defines no `{func}`")
     return out
 
@@ -950,6 +961,539 @@ def test_the_HOLDER_checks_fire_on_a_missing_module_a_missing_function_and_prose
     assert _unregistered_holders(["held by `test_ok`, see `t_ok.py`"], reg) == []
     assert _unregistered_holders(["held by `test_ok` and `test_vanished`"], reg) == ["test_vanished"], \
         "a holder named in prose and absent from the registry was not reported"
+
+
+# --- THE RUNTIME-RECORD CLASS -------------------------------------------------
+#
+# A record a run writes for a LATER run: a journal bag's files and tags, the
+# typed exit record, the run log's member events. Written under the configured
+# journal root or the untracked log directory, so the `git ls-files` walk that
+# rules every other surface structurally cannot reach them — a population that
+# has to be found somewhere other than the tree. It is found in the DECLARATIONS:
+# every on-disk record the journal package writes is named once by a top-level
+# constant `_RECORD_CONSTANT` matches, and every run-log member is a string in
+# `MEMBER_EVENT_TYPES`. Those two populations are read off the modules, not
+# listed here (`_journal_record_symbols`, `_run_log_members`), and each member
+# must be a `RUNTIME_RECORDS` entry or an `UNREAD_RUNTIME_RECORDS` line. Two
+# members are of neither family and are registered by hand with that said:
+# the exit record (one schema in one module) and the config-digest tag (a
+# label INSIDE `bag-info.txt`, read across two bags — the file is derived,
+# the tag is not).
+#
+# THE READ SIDE ONLY. The run log's write side is `HELD_BY` (its writers equal
+# its declaration) and is not re-asserted here.
+#
+# WHAT "RESOLVES" MEANS FOR A READER, because "the reader exists" is the weakest
+# claim on offer: the module is on disk, the entry function is defined in it,
+# and the module names the record's declared symbol AS A CODE TOKEN — a Name, an
+# attribute, or a string passed as a value — never in a comment or docstring
+# (`_code_tokens`). Then every `via` hop — from the operator-facing tool, the
+# parent branch, or the fleet module that opens the record next — imports the
+# next by stem, so the name a person is told to run actually reaches the
+# function that opens the record. That the FIRST hop is itself alive is the
+# import graph's to hold, as the module docstring rules for every module.
+
+
+@dataclass(frozen=True)
+class RuntimeRecord:
+    """One off-tree record and the reader that opens it."""
+
+    #: The module that declares the record's on-disk name (or its schema),
+    #: repo-relative, and the symbol it is asserted to declare: a top-level
+    #: constant, a string member of one, or a function name.
+    declared_in: str
+    symbol: str
+    #: The module that OPENS the record and the function in it that does. The
+    #: module must name `symbol` as a code token.
+    reader: str
+    entry: str
+    #: How the reader is REACHED: the operator tool or parent branch first,
+    #: each hop importing the next by stem, the last importing `reader`.
+    #: Empty when the reader is itself the operator-facing tool.
+    via: tuple[str, ...] = ()
+
+
+_JOURNAL = "scripts/workflows/temporal/modules/journal"
+_TOOLS = "scripts/workflows/temporal/scripts"
+_RUN_LOG = "scripts/helpers/measure/run_log.py"
+
+RUNTIME_RECORDS: dict[str, RuntimeRecord] = {
+    # --- a sealed bag, as `validate_bag.py` reads it -------------------------
+    "a bag's payload directory — every file hashed": RuntimeRecord(
+        f"{_JOURNAL}/bag.py", "PAYLOAD_DIR",
+        f"{_JOURNAL}/validate.py", "validate_bag",
+        via=(f"{_TOOLS}/validate_bag.py",)),
+    "a bag's manifest — bytes match their hashes": RuntimeRecord(
+        f"{_JOURNAL}/bag.py", "MANIFEST_FILE",
+        f"{_JOURNAL}/validate.py", "validate_bag",
+        via=(f"{_TOOLS}/validate_bag.py",)),
+    "a bag's bagit.txt — the RFC 8493 declaration": RuntimeRecord(
+        f"{_JOURNAL}/bag.py", "BAGIT_FILE",
+        f"{_JOURNAL}/validate.py", "validate_bag",
+        via=(f"{_TOOLS}/validate_bag.py",)),
+    "a bag's tags — schema version and lifecycle": RuntimeRecord(
+        f"{_JOURNAL}/bag.py", "BAG_INFO_FILE",
+        f"{_JOURNAL}/validate.py", "validate_bag",
+        via=(f"{_TOOLS}/validate_bag.py",)),
+    # --- one tag, read across TWO bags by its own tool ----------------------
+    "the config digest tag, compared across two bags": RuntimeRecord(
+        f"{_JOURNAL}/config_digest.py", "LABEL_CONFIG_DIGEST",
+        f"{_TOOLS}/compare_run_config.py", "_read_digest"),
+    # --- citations and the bytes they were made from, as `verify_citations.py`
+    #     reads them: the tool imports `verify`, which imports both readers ---
+    "citations recorded in a bag": RuntimeRecord(
+        f"{_JOURNAL}/citations.py", "CITATIONS_FILE",
+        f"{_JOURNAL}/citations.py", "read_citations",
+        via=(f"{_TOOLS}/verify_citations.py", f"{_JOURNAL}/verify.py")),
+    "the content store a citation's bytes are kept in": RuntimeRecord(
+        f"{_JOURNAL}/content_store.py", "CONTENT_STORE_DIR",
+        f"{_JOURNAL}/content_store.py", "load_object",
+        via=(f"{_TOOLS}/verify_citations.py", f"{_JOURNAL}/verify.py")),
+    # --- the harvest index, as `reconcile_harvest.py` reads it --------------
+    "a harvest's index — which comment landed on which event": RuntimeRecord(
+        f"{_JOURNAL}/harvest.py", "HARVEST_INDEX_FILE",
+        f"{_JOURNAL}/harvest.py", "read_harvest_indexes",
+        via=(f"{_TOOLS}/reconcile_harvest.py",)),
+    # --- the machine's persisted identity, read by every LATER bag open -----
+    "the edge-id file under the journal root": RuntimeRecord(
+        f"{_JOURNAL}/edge_id.py", "EDGE_ID_FILE",
+        f"{_JOURNAL}/edge_id.py", "resolve_edge_id",
+        via=(f"{_JOURNAL}/emit.py",)),
+    # --- the typed exit record: the child's stratum, routed by the parent ---
+    "the typed exit record — the parent branch routes on it": RuntimeRecord(
+        "scripts/workflows/temporal/modules/assistant/review_pr/exit_record.py",
+        "CHILD_SCHEMA",
+        "scripts/workflows/temporal/modules/assistant/review_pr/exit_record.py",
+        "route",
+        via=("scripts/workflows/temporal/modules/assistant/review_pr/"
+             "review_pr_workflow.py",)),
+    # --- the run log's three members, one replay tool each ------------------
+    "the run log's parent_route events": RuntimeRecord(
+        _RUN_LOG, "parent_route",
+        "scripts/helpers/measure/replay_parent_route.py", "rows"),
+    "the run log's run_resources events": RuntimeRecord(
+        _RUN_LOG, "run_resources",
+        "scripts/helpers/measure/replay_run_resources.py", "main"),
+    "the run log's convergence events": RuntimeRecord(
+        _RUN_LOG, "convergence",
+        "scripts/helpers/measure/replay_convergence_events.py", "rows"),
+}
+
+
+@dataclass(frozen=True)
+class UnreadRecord:
+    """A declared record NO committed reader opens — frozen, with the ratchet."""
+
+    declared_in: str
+    symbol: str
+    #: The function the declaring module publishes for READING the record. The
+    #: ratchet: a fleet module outside `declared_in` naming it as a code token
+    #: is a reader, and this line must then move to `RUNTIME_RECORDS`.
+    accessor: str
+    reason: str
+
+
+UNREAD_RUNTIME_RECORDS: dict[str, UnreadRecord] = {
+    # FOUND WHEN THE CLASS WAS RULED, 2026-09-14. A bag's event stream has a
+    # full decoder — `decode_event`, `dedupe_on_identity`, `applied_intents` —
+    # and every caller of it is a test. The only read-back on disk is the
+    # emitter's own idempotency index (`_appended_pairs`, `json.loads` per line
+    # on its OWN file), which is the writer's use and not a consumer. Frozen,
+    # not fixed: the reader is SCHEDULED, not undecided — it is Persistent
+    # Memory Protocol Phase 4's replay ("read one edge's journal in order,
+    # dedupe on event identity, apply each event", the planning repo's
+    # `persistent-memory-protocol/phase4_rebuild_is_a_test.md`), which
+    # `applied_intents`'s own docstring names as the consumer it exists for —
+    # and the emit rule that just landed (#192) is not the place to grow it.
+    # Do NOT file a candidate for the reader; the plan already holds it. This
+    # line leaves the day that replay lands as a FLEET module — the ratchet
+    # walks `scripts/` only, so a replay placed under `testing/` is not seen.
+    "a bag's event stream, events.jsonl": UnreadRecord(
+        f"{_JOURNAL}/events.py", "EVENTS_FILE", "decode_event",
+        "decoded by tests only until PMP Phase 4's replay lands; the emitter "
+        "reads back its own file for idempotency"),
+}
+
+
+@lru_cache(maxsize=None)
+def _module_ast(p: Path) -> ast.Module:
+    """Cached like `_imported_stems`, and for the same reason: the unread
+    ratchet tokenises EVERY fleet module per baselined record."""
+    return ast.parse(_text(p), filename=str(p))
+
+
+def _all_targets(node: ast.stmt) -> list[str]:
+    """The plain names a top-level statement assigns, in every spelling the
+    fleet uses for a constant: `X = `, `X: T = ` and `X += `. The journal
+    package declares five constants annotated today, so a helper that reads
+    only the bare form is one refactor from missing a record."""
+    if isinstance(node, ast.Assign):
+        targets = node.targets
+    elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
+        targets = [node.target]
+    else:
+        return []
+    return [t.id for t in targets if isinstance(t, ast.Name)]
+
+
+def _declared_tokens(p: Path) -> frozenset[str]:
+    """What a module DECLARES at top level: the names it assigns, the string
+    members of what it assigns them (so `"parent_route"` inside
+    `MEMBER_EVENT_TYPES = frozenset({...})` is declared), and the functions
+    and classes it defines. Nothing nested, nothing imported."""
+    out: set[str] = set()
+    for node in _module_ast(p).body:
+        if isinstance(node, (ast.Assign, ast.AnnAssign)):
+            out.update(_all_targets(node))
+            if node.value is not None:
+                out.update(n.value for n in ast.walk(node.value)
+                           if isinstance(n, ast.Constant) and isinstance(n.value, str))
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            out.add(node.name)
+    return frozenset(out)
+
+
+def _code_tokens(p: Path) -> frozenset[str]:
+    """The symbols a module USES: every `Name` and attribute it LOADS, and
+    every string constant that is a VALUE — an argument, an operand, a key —
+    rather than a bare statement (a docstring is a bare `Expr` holding a
+    string). Comments are not in the AST at all. A `Store` is a definition,
+    not a use: five entries declare a record in the very module that reads it,
+    and the declaration's own target would otherwise satisfy "names it in
+    code" for every one of them whatever the entry function does. An import
+    alias is NOT here, and nor is a string inside `__all__` (assigned,
+    annotated or augmented — `_all_targets`): a module that re-exports a
+    reader has not read anything, and `journal/__init__.py` re-exports every
+    accessor in the package both ways — the first run of the unread ratchet
+    named it as the event stream's reader on the strength of its `__all__`."""
+    tree = _module_ast(p)
+    not_a_use: set[int] = set()
+    for node in tree.body:
+        if "__all__" in _all_targets(node) and node.value is not None:
+            not_a_use.update(id(n) for n in ast.walk(node.value))
+    out: set[str] = set()
+    # `ast.walk` is breadth-first, so a docstring's `Expr` is seen before the
+    # `Constant` it holds — which is what lets the skip be recorded in place.
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+            out.add(node.id)
+        elif isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Load):
+            out.add(node.attr)
+        elif isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant):
+            not_a_use.add(id(node.value))
+        elif (isinstance(node, ast.Constant) and isinstance(node.value, str)
+              and id(node) not in not_a_use):
+            out.add(node.value)
+    return frozenset(out)
+
+
+def _imports_stem(p: Path, stem: str) -> bool:
+    """`p` imports a module whose last segment is `stem`, absolute or relative:
+    `import a.b.stem`, `from a.b import stem`, `from .stem import x`,
+    `from . import stem`. Wider than `_imported_stems` on purpose — the readers
+    are package-internal and reach each other by relative import."""
+    for node in ast.walk(_module_ast(p)):
+        if isinstance(node, ast.Import):
+            if any(a.name.rsplit(".", 1)[-1] == stem for a in node.names):
+                return True
+        elif isinstance(node, ast.ImportFrom):
+            if node.module and node.module.rsplit(".", 1)[-1] == stem:
+                return True
+            if any(a.name == stem for a in node.names):
+                return True
+    return False
+
+
+def _defines_function(p: Path, name: str) -> bool:
+    return re.search(rf"^def {re.escape(name)}\(", _text(p), re.M) is not None
+
+
+def _unresolved_records(records: dict, *, repo: Path) -> list[str]:
+    """Every way a `RuntimeRecord` can fail to resolve, as `claim: defect`.
+    Three parts — declaration, reader, reach — and an entry stops at the
+    first part that fails, so a mis-typed symbol reports once at its
+    declaration rather than again at every reader that also lacks it."""
+    out = []
+    for claim, r in records.items():
+        declared = repo / r.declared_in
+        reader = repo / r.reader
+        if not declared.is_file():
+            out.append(f"{claim}: {r.declared_in} is not on disk")
+            continue
+        if r.symbol not in _declared_tokens(declared):
+            out.append(f"{claim}: {r.declared_in} declares no `{r.symbol}`")
+            continue
+        if not reader.is_file():
+            out.append(f"{claim}: reader {r.reader} is not on disk")
+            continue
+        if not _defines_function(reader, r.entry):
+            out.append(f"{claim}: reader {r.reader} defines no `{r.entry}`")
+            continue
+        if r.symbol not in _code_tokens(reader):
+            out.append(f"{claim}: reader {r.reader} never names `{r.symbol}` in code")
+            continue
+        chain = [*r.via, r.reader]
+        for hop, nxt in zip(chain, chain[1:]):
+            if not (repo / hop).is_file():
+                out.append(f"{claim}: via {hop} is not on disk")
+                break
+            if not _imports_stem(repo / hop, Path(nxt).stem):
+                out.append(f"{claim}: via {hop} does not import `{Path(nxt).stem}`")
+                break
+    return out
+
+
+def _regained_records(unread: dict, *, repo: Path, fleet: list[Path]) -> list[str]:
+    """An `UnreadRecord` whose declaration is gone, or whose accessor a fleet
+    module outside the declaring one now names in code — the ratchet."""
+    out = []
+    for claim, u in unread.items():
+        declared = repo / u.declared_in
+        if not declared.is_file():
+            out.append(f"{claim}: {u.declared_in} is not on disk")
+            continue
+        missing = {u.symbol, u.accessor} - _declared_tokens(declared)
+        if missing:
+            out.append(f"{claim}: {u.declared_in} declares no {sorted(missing)}")
+            continue
+        readers = sorted(p.relative_to(repo).as_posix() for p in fleet
+                         if p != declared and u.accessor in _code_tokens(p))
+        if readers:
+            out.append(f"{claim}: `{u.accessor}` is now named by {readers} — "
+                       f"register the reader and delete this line")
+    return out
+
+
+_RECORD_CONSTANT = re.compile(r"_(FILE|DIR)$")
+
+
+def _journal_record_symbols(journal: Path, *, repo: Path) -> set[tuple[str, str]]:
+    """The journal package's on-disk records, read off its declarations: every
+    top-level constant `_RECORD_CONSTANT` matches, in every module, in either
+    spelling (`_all_targets`). Keyed (repo-relative module, symbol) — the
+    same key a `RuntimeRecord.declared_in` carries, so a hand-registered
+    entry that names a same-basename module elsewhere cannot stand in for
+    the journal's; `_ruled_records` keys the same way."""
+    out = set()
+    for p in sorted(journal.glob("*.py")):
+        if _is_transient(p):
+            continue
+        rel = p.relative_to(repo).as_posix()
+        for node in _module_ast(p).body:
+            out.update((rel, name) for name in _all_targets(node)
+                       if _RECORD_CONSTANT.search(name))
+    return out
+
+
+def _run_log_members(run_log: Path) -> set[str]:
+    """`MEMBER_EVENT_TYPES`, loaded the way the replay tools load it — by path,
+    no package. Reading the declaration rather than re-typing it is what makes
+    a fourth member fail HERE until it has a reader."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("_run_log_for_the_gate", run_log)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return set(module.MEMBER_EVENT_TYPES)
+
+
+def _ruled_records(records: dict, unread: dict) -> set[tuple[str, str]]:
+    return ({(r.declared_in, r.symbol) for r in records.values()}
+            | {(u.declared_in, u.symbol) for u in unread.values()})
+
+
+def test_every_RUNTIME_RECORD_names_a_reader_that_RESOLVES_and_READS_it() -> None:
+    """The read obligation for the class: each entry's declaration, reader and
+    reach all resolve on disk. A renamed reader, a renamed constant, or a tool
+    that stopped importing the reader it fronts is reported by name."""
+    assert RUNTIME_RECORDS, "the registry is empty — the class is unruled"
+    assert _unresolved_records(RUNTIME_RECORDS, repo=_REPO) == []
+
+
+def test_every_DECLARED_runtime_record_is_RULED_read_or_unread() -> None:
+    """The population, off the declarations: every journal file-or-directory
+    constant and every run-log member is registered or baselined. A record the
+    fleet starts writing fails here until somebody names who reads it."""
+    journal = _journal_record_symbols(_REPO / _JOURNAL, repo=_REPO)
+    members = {(_RUN_LOG, m) for m in _run_log_members(_REPO / _RUN_LOG)}
+    assert len(journal) >= 5 and len(members) >= 3, (journal, members)
+    ruled = _ruled_records(RUNTIME_RECORDS, UNREAD_RUNTIME_RECORDS)
+    assert (journal | members) - ruled == set(), (
+        "a declared record has no reader named and no unread line — rule it"
+    )
+
+
+def test_an_UNREAD_runtime_record_is_still_declared_and_still_UNREAD() -> None:
+    """The ratchet, both ways: the baselined record must still exist, and the
+    day a fleet module names its accessor the line must leave."""
+    assert UNREAD_RUNTIME_RECORDS, "nothing is baselined — delete this test"
+    assert _regained_records(UNREAD_RUNTIME_RECORDS, repo=_REPO,
+                             fleet=list(_fleet_python())) == []
+
+
+# The repo map's annotation of this gate NARRATES its two unread figures, and a
+# number in prose is held by nothing: the map said "Eight" for the fortnight
+# after two of them closed on main, and the pass that ruled the runtime-record
+# class found it. So the sentence is keyed on by SHAPE and its digits compared
+# with the registries — the next drift goes red here instead of waiting for a
+# review pass to notice. Digits, not number-words, so the shape has one spelling.
+_MAP_UNREAD_RE = re.compile(r"\b(\d+) unread producers and (\d+) unread runtime records?\b")
+
+
+def _map_annotation(map_text: str, leaf: str) -> str:
+    """The map's leaf line naming `leaf` plus its continuation lines — every
+    line up to the next leaf — joined. Empty when the map has no such entry."""
+    lines = map_text.splitlines()
+    for i, line in enumerate(lines):
+        m = _MAP_LEAF.match(line)
+        if not m or m.group(2) != leaf:
+            continue
+        block = [line]
+        for nxt in lines[i + 1:]:
+            if _MAP_LEAF.match(nxt):
+                break
+            block.append(nxt)
+        return "\n".join(block)
+    return ""
+
+
+def _map_unread_counts(annotation: str) -> tuple[int, int] | None:
+    """The (producers, runtime records) figures an annotation states, or None
+    when it states none in the one spelling `_MAP_UNREAD_RE` reads."""
+    m = _MAP_UNREAD_RE.search(annotation)
+    return (int(m.group(1)), int(m.group(2))) if m else None
+
+
+def test_the_REPO_MAP_states_the_UNREAD_figures_this_gate_holds() -> None:
+    """`docs/file_structure.txt`'s sentence about this gate's baselines must
+    equal the registries. Stating none is also a failure: the annotation is
+    where a reader learns the ratchet exists, and a number that quietly
+    vanished is the same silence as one that quietly went stale."""
+    annotation = _map_annotation(_MAP.read_text(), Path(__file__).name)
+    assert annotation, f"{_MAP.name} has no entry for {Path(__file__).name}"
+    stated = _map_unread_counts(annotation)
+    assert stated is not None, (
+        "the map's annotation no longer states the unread figures in the "
+        f"shape {_MAP_UNREAD_RE.pattern!r} — restate them, or delete this test")
+    held = (sum(len(s.unread) for s in SURFACES), len(UNREAD_RUNTIME_RECORDS))
+    assert stated == held, (
+        f"{_MAP.name} says {stated} (producers, runtime records); the gate "
+        f"holds {held} — correct the annotation")
+
+
+def test_the_MAP_FIGURE_check_reads_the_sentence_and_only_that_sentence() -> None:
+    """Self-contained control: the entry's own continuation lines are read,
+    the next entry's are not, a missing entry is empty, and an annotation
+    without the sentence — or with it in number-words — states nothing."""
+    text = (
+        "├── x.py                  # rules things. Cadence clause binds only\n"
+        "│                         #   accumulating surfaces. 6 unread producers and 1 unread runtime record\n"
+        "│                         #   are baselined.\n"
+        "├── y.py                  # says Six unread producers and one unread runtime record\n"
+        "└── z.py                  # 9 unread producers and 2 unread runtime records\n")
+    assert _map_unread_counts(_map_annotation(text, "x.py")) == (6, 1)
+    assert _map_unread_counts(_map_annotation(text, "y.py")) is None
+    assert _map_unread_counts(_map_annotation(text, "z.py")) == (9, 2)
+    assert "z.py" not in _map_annotation(text, "y.py")
+    assert _map_annotation(text, "w.py") == ""
+
+
+def _runtime_fixture(root: Path) -> None:
+    """A declaring module, a reader that names its symbol in CODE, a tool that
+    imports the reader — the shape every real entry has, in miniature. The
+    declaring module reads ONE of its own records (`open_it` loads `THE_FILE`)
+    and only stores the other (`MEMBERS`), which is the self-referential
+    shape five live entries take."""
+    (root / "decl.py").write_text(
+        'THE_FILE = "the.txt"\nMEMBERS = frozenset({"alpha"})\n'
+        "def open_it(p):\n    return p / THE_FILE\n")
+    (root / "reader.py").write_text(
+        '"""Mentions MEMBERS in the docstring only."""\n'
+        "from decl import THE_FILE, MEMBERS  # and alpha, in a comment\n"
+        "def read(p):\n    return (p / THE_FILE).read_text()\n"
+        "def asks(log):\n    return events(log, 'alpha')\n")
+    (root / "tool.py").write_text("import reader\n")
+    (root / "mentions_only.py").write_text(
+        '"""`open_it` is only mentioned here."""\nfrom decl import open_it\n'
+        '__all__ = ["open_it"]\n')
+    # The other two spellings of a re-export, which the first cut of
+    # `_code_tokens` did not exclude: annotated, and augmented.
+    (root / "reexports.py").write_text(
+        'from decl import open_it\n__all__: list[str] = []\n__all__ += ["open_it"]\n')
+    (root / "calls_it.py").write_text("import decl\ndecl.open_it(None)\n")
+
+
+def test_the_RUNTIME_RECORD_check_fires_ONCE_on_each_of_its_SEVEN_defects(tmp_path: Path) -> None:
+    """Self-contained control. One entry per way to be wrong, each reported
+    once by its claim — including an entry wrong in two ways at once, which
+    reports the first — and the three good entries are not: a constant read
+    across files, a string member read by a call argument, and a module that
+    declares AND loads its own record."""
+    _runtime_fixture(tmp_path)
+    reg = {
+        "ok": RuntimeRecord("decl.py", "THE_FILE", "reader.py", "read", via=("tool.py",)),
+        "ok-string": RuntimeRecord("decl.py", "alpha", "reader.py", "asks"),
+        "ok-self": RuntimeRecord("decl.py", "THE_FILE", "decl.py", "open_it"),
+        "decl-gone": RuntimeRecord("gone.py", "THE_FILE", "reader.py", "read"),
+        "symbol-gone": RuntimeRecord("decl.py", "OTHER_FILE", "reader.py", "read"),
+        "reader-gone": RuntimeRecord("decl.py", "THE_FILE", "gone.py", "read"),
+        "entry-gone": RuntimeRecord("decl.py", "THE_FILE", "reader.py", "write"),
+        # THE DISCRIMINATOR: on disk, entry defined, symbol in a docstring and
+        # an import alias — and that is not reading it.
+        "prose-only": RuntimeRecord("decl.py", "MEMBERS", "reader.py", "read"),
+        # The self-referential discriminator: the module DECLARES the symbol,
+        # so its own `Store` is in the AST, and nothing in it loads it.
+        "self-store-only": RuntimeRecord("decl.py", "MEMBERS", "decl.py", "open_it"),
+        # Wrong twice — no entry AND no symbol — reported once, at the entry.
+        "entry-and-symbol-gone": RuntimeRecord("decl.py", "MEMBERS", "reader.py", "write"),
+        "via-gone": RuntimeRecord("decl.py", "THE_FILE", "reader.py", "read", via=("nope.py",)),
+        "via-unlinked": RuntimeRecord("decl.py", "THE_FILE", "reader.py", "read", via=("decl.py",)),
+    }
+    bad = _unresolved_records(reg, repo=tmp_path)
+    assert [b.split(":")[0] for b in bad] == [
+        "decl-gone", "symbol-gone", "reader-gone", "entry-gone", "prose-only",
+        "self-store-only", "entry-and-symbol-gone", "via-gone", "via-unlinked"], bad
+    assert "never names `MEMBERS` in code" in next(b for b in bad if b.startswith("prose-only"))
+    assert "never names `MEMBERS` in code" in next(b for b in bad if b.startswith("self-store-only"))
+    assert "defines no `write`" in next(b for b in bad if b.startswith("entry-and-symbol-gone"))
+
+
+def test_the_UNREAD_RATCHET_fires_on_a_CALL_and_not_on_a_MENTION(tmp_path: Path) -> None:
+    """A fleet module that re-exports (in any of the three spellings of
+    `__all__`) or documents the accessor is not a reader; one that calls it
+    is, and the line must then leave."""
+    _runtime_fixture(tmp_path)
+    unread = {"still": UnreadRecord("decl.py", "THE_FILE", "open_it", "why"),
+              "gone": UnreadRecord("nope.py", "THE_FILE", "open_it", "why"),
+              "undeclared": UnreadRecord("decl.py", "THE_FILE", "read_it", "why")}
+    quiet = [tmp_path / "decl.py", tmp_path / "mentions_only.py", tmp_path / "reexports.py"]
+    assert _regained_records(unread, repo=tmp_path, fleet=quiet) == [
+        "gone: nope.py is not on disk",
+        "undeclared: decl.py declares no ['read_it']"]
+    loud = _regained_records(unread, repo=tmp_path, fleet=[*quiet, tmp_path / "calls_it.py"])
+    assert any(b.startswith("still:") and "calls_it.py" in b for b in loud), loud
+
+
+def test_the_POPULATION_reads_the_declarations_and_reports_an_UNRULED_one(tmp_path: Path) -> None:
+    """`_journal_record_symbols` finds a file constant and a directory
+    constant — bare or annotated — and nothing else, keyed by the module's
+    path under the repo; `_run_log_members` reads the frozenset; a member of
+    either with no entry is the set difference the population test asserts
+    empty."""
+    (tmp_path / "pkg").mkdir()
+    (tmp_path / "pkg" / "a.py").write_text(
+        'A_FILE = "a"\nA_DIR: str = "d"\nNOT_ONE = "x"\nFILE_NAME = "n"\n')
+    (tmp_path / "run_log.py").write_text('MEMBER_EVENT_TYPES = frozenset({"one", "two"})\n')
+    assert _journal_record_symbols(tmp_path / "pkg", repo=tmp_path) == {
+        ("pkg/a.py", "A_FILE"), ("pkg/a.py", "A_DIR")}
+    assert _run_log_members(tmp_path / "run_log.py") == {"one", "two"}
+    ruled = _ruled_records(
+        {"x": RuntimeRecord("pkg/a.py", "A_FILE", "r.py", "f")},
+        {"y": UnreadRecord("pkg/a.py", "A_DIR", "g", "why")})
+    assert ruled == {("pkg/a.py", "A_FILE"), ("pkg/a.py", "A_DIR")}
+    assert {("pkg/a.py", "A_FILE"), ("pkg/a.py", "A_DIR"), ("run_log.py", "one")} - ruled == {("run_log.py", "one")}
+    # A same-basename module elsewhere is NOT the journal's: the key is the path.
+    assert _ruled_records({"z": RuntimeRecord("other/a.py", "A_FILE", "r.py", "f")}, {}) \
+        != {("pkg/a.py", "A_FILE")}
 
 
 def _tracked_files() -> set[str]:
