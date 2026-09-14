@@ -152,7 +152,8 @@ WHAT THIS GATE DOES NOT LOOK AT. Stated here so nobody over-reads a green suite:
     the record's read ACCESSOR, so a
     reader that re-types the filename and parses lines itself is invisible
     to it. One record was found unread when the class was ruled — the bag's
-    event stream, `events.jsonl`, decoded by tests only — and is frozen in
+    event stream, `events.jsonl`, decoded by tests only until Persistent
+    Memory Protocol Phase 4's replay lands — and is frozen in
     `UNREAD_RUNTIME_RECORDS` rather than given a reader to make a check green.
   * A "HELD BY ANOTHER GATE" claim is a cross-file coverage claim, and one
     whose holder was renamed covers nothing while reading as if it did. So
@@ -192,6 +193,7 @@ _REPO = Path(__file__).resolve().parents[4]
 # checkouts every dispatch runs in.
 sys.path.insert(0, str(_REPO / "scripts" / "workflows" / "temporal" / "tests"))
 from planning_corpus import PLANNING_ROOT  # noqa: E402
+from file_structure_map import LEAF as _MAP_LEAF, MAP as _MAP  # noqa: E402
 
 _ENTRYPOINTS = _REPO / "scripts" / "workflows" / "temporal" / "scripts"
 
@@ -1097,11 +1099,19 @@ UNREAD_RUNTIME_RECORDS: dict[str, UnreadRecord] = {
     # and every caller of it is a test. The only read-back on disk is the
     # emitter's own idempotency index (`_appended_pairs`, `json.loads` per line
     # on its OWN file), which is the writer's use and not a consumer. Frozen,
-    # not fixed: a reader is a design decision, and the emit rule that just
-    # landed (#192) is not the place to grow one.
+    # not fixed: the reader is SCHEDULED, not undecided — it is Persistent
+    # Memory Protocol Phase 4's replay ("read one edge's journal in order,
+    # dedupe on event identity, apply each event", the planning repo's
+    # `persistent-memory-protocol/phase4_rebuild_is_a_test.md`), which
+    # `applied_intents`'s own docstring names as the consumer it exists for —
+    # and the emit rule that just landed (#192) is not the place to grow it.
+    # Do NOT file a candidate for the reader; the plan already holds it. This
+    # line leaves the day that replay lands as a FLEET module — the ratchet
+    # walks `scripts/` only, so a replay placed under `testing/` is not seen.
     "a bag's event stream, events.jsonl": UnreadRecord(
         f"{_JOURNAL}/events.py", "EVENTS_FILE", "decode_event",
-        "decoded by tests only; the emitter reads back its own file for idempotency"),
+        "decoded by tests only until PMP Phase 4's replay lands; the emitter "
+        "reads back its own file for idempotency"),
 }
 
 
@@ -1318,6 +1328,73 @@ def test_an_UNREAD_runtime_record_is_still_declared_and_still_UNREAD() -> None:
     assert UNREAD_RUNTIME_RECORDS, "nothing is baselined — delete this test"
     assert _regained_records(UNREAD_RUNTIME_RECORDS, repo=_REPO,
                              fleet=list(_fleet_python())) == []
+
+
+# The repo map's annotation of this gate NARRATES its two unread figures, and a
+# number in prose is held by nothing: the map said "Eight" for the fortnight
+# after two of them closed on main, and the pass that ruled the runtime-record
+# class found it. So the sentence is keyed on by SHAPE and its digits compared
+# with the registries — the next drift goes red here instead of waiting for a
+# review pass to notice. Digits, not number-words, so the shape has one spelling.
+_MAP_UNREAD_RE = re.compile(r"\b(\d+) unread producers and (\d+) unread runtime records?\b")
+
+
+def _map_annotation(map_text: str, leaf: str) -> str:
+    """The map's leaf line naming `leaf` plus its continuation lines — every
+    line up to the next leaf — joined. Empty when the map has no such entry."""
+    lines = map_text.splitlines()
+    for i, line in enumerate(lines):
+        m = _MAP_LEAF.match(line)
+        if not m or m.group(2) != leaf:
+            continue
+        block = [line]
+        for nxt in lines[i + 1:]:
+            if _MAP_LEAF.match(nxt):
+                break
+            block.append(nxt)
+        return "\n".join(block)
+    return ""
+
+
+def _map_unread_counts(annotation: str) -> tuple[int, int] | None:
+    """The (producers, runtime records) figures an annotation states, or None
+    when it states none in the one spelling `_MAP_UNREAD_RE` reads."""
+    m = _MAP_UNREAD_RE.search(annotation)
+    return (int(m.group(1)), int(m.group(2))) if m else None
+
+
+def test_the_REPO_MAP_states_the_UNREAD_figures_this_gate_holds() -> None:
+    """`docs/file_structure.txt`'s sentence about this gate's baselines must
+    equal the registries. Stating none is also a failure: the annotation is
+    where a reader learns the ratchet exists, and a number that quietly
+    vanished is the same silence as one that quietly went stale."""
+    annotation = _map_annotation(_MAP.read_text(), Path(__file__).name)
+    assert annotation, f"{_MAP.name} has no entry for {Path(__file__).name}"
+    stated = _map_unread_counts(annotation)
+    assert stated is not None, (
+        "the map's annotation no longer states the unread figures in the "
+        f"shape {_MAP_UNREAD_RE.pattern!r} — restate them, or delete this test")
+    held = (sum(len(s.unread) for s in SURFACES), len(UNREAD_RUNTIME_RECORDS))
+    assert stated == held, (
+        f"{_MAP.name} says {stated} (producers, runtime records); the gate "
+        f"holds {held} — correct the annotation")
+
+
+def test_the_MAP_FIGURE_check_reads_the_sentence_and_only_that_sentence() -> None:
+    """Self-contained control: the entry's own continuation lines are read,
+    the next entry's are not, a missing entry is empty, and an annotation
+    without the sentence — or with it in number-words — states nothing."""
+    text = (
+        "├── x.py                  # rules things. Cadence clause binds only\n"
+        "│                         #   accumulating surfaces. 6 unread producers and 1 unread runtime record\n"
+        "│                         #   are baselined.\n"
+        "├── y.py                  # says Six unread producers and one unread runtime record\n"
+        "└── z.py                  # 9 unread producers and 2 unread runtime records\n")
+    assert _map_unread_counts(_map_annotation(text, "x.py")) == (6, 1)
+    assert _map_unread_counts(_map_annotation(text, "y.py")) is None
+    assert _map_unread_counts(_map_annotation(text, "z.py")) == (9, 2)
+    assert "z.py" not in _map_annotation(text, "y.py")
+    assert _map_annotation(text, "w.py") == ""
 
 
 def _runtime_fixture(root: Path) -> None:
