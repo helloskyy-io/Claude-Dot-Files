@@ -532,6 +532,21 @@ run_claude() {
         else
             final_result=$(jq -r 'select(.type == "result") | .result // ""' "$LOG_FILE" 2>/dev/null)
         fi
+        # THE TYPED RECORD IS THE ARTIFACT; THE SENTINEL IS ITS SHADOW. When a
+        # schema is declared, the parent decides on the `structured_output` the
+        # child wrote by calling the StructuredOutput tool — a run that stopped
+        # early never calls it, so its presence IS the completion signal, and a
+        # last text block that happens not to be the sentinel line is not a
+        # failure. Measured on MDC #267 (2026-09-14): three review-pr passes each
+        # posted a 400-line review, wrote `outcome: hold` to the record, ended
+        # on the tool call rather than a prose line, and this gate printed
+        # "emitted no verdict" over a verdict the parent went on to route. The
+        # sentinel still gates every run that declares no schema.
+        if [[ -n "${EXIT_RECORD_SCHEMA:-}" ]] \
+           && jq -R 'fromjson? // empty' "$LOG_FILE" 2>/dev/null \
+              | jq -e 'select(.type == "result") | has("structured_output")' >/dev/null 2>&1; then
+            return 0
+        fi
         if ! grep -qE "$COMPLETION_PATTERN" <<<"$final_result"; then
             _completion_failure_banner "$LOG_FILE" "$COMPLETION_PATTERN"
             return 1

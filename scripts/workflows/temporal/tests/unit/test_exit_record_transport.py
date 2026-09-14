@@ -342,6 +342,37 @@ def test_the_gate_ignores_a_verdict_line_from_a_sub_agent(tmp_path: Path) -> Non
     assert "VERDICT: MERGE" not in _run_shipped(_shipped_assistant_gate(), log)
 
 
+_TYPED_RECORD_GATE = re.compile(
+    r"""&& (jq -R 'fromjson\? // empty' "\$LOG_FILE" 2>/dev/null \\\n\s*\| jq -e '[^']*has\("structured_output"\)')""")
+
+
+def _typed_record_gate() -> str:
+    m = _TYPED_RECORD_GATE.search(RUN_CLAUDE.read_text())
+    assert m, "run-claude.sh no longer accepts the typed record as the completion signal"
+    return m.group(1)
+
+
+@pytest.mark.skipif(shutil.which("jq") is None, reason="jq is a hard dependency of the fleet")
+def test_a_TYPED_RECORD_completes_a_schema_run_whatever_the_last_prose_says(tmp_path: Path) -> None:
+    """MDC #267: three reviews ended on the StructuredOutput call, not on a
+    `VERDICT:` line, and the gate reported "emitted no verdict" over a record
+    that said `hold`. The record is what the parent routes; it is the signal."""
+    gate = _typed_record_gate()
+    ok = subprocess.run(["bash", "-c", gate], capture_output=True, text=True,
+                        env={**os.environ, "LOG_FILE": str(FIXTURE)})
+    assert ok.returncode == 0, "the fixture carries structured_output and must pass"
+
+    early = tmp_path / "early-stop.jsonl"
+    early.write_text(
+        '{"type":"assistant","parent_tool_use_id":null,"message":{"content":'
+        '[{"type":"text","text":"Let me confirm the comment posted."}]}}\n'
+        '{"type":"result","subtype":"success","is_error":false,"result":"prose"}\n'
+    )
+    bad = subprocess.run(["bash", "-c", gate], capture_output=True, text=True,
+                         env={**os.environ, "LOG_FILE": str(early)})
+    assert bad.returncode != 0, "no record, no completion — the sentinel gate still decides"
+
+
 def test_the_json_schema_flag_is_gated_on_the_caller_declaring_one() -> None:
     """The FROZEN V1 fleet's command line must be unchanged, byte for byte.
 

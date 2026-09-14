@@ -214,6 +214,7 @@ def run_plan_project(*, repo_root: Path, worktree_name: str,
         # source for a fact already proven by the file — the exact shape this
         # parent's own rule refuses, that a parent must not trust an account when
         # the artifact is right there.
+        head_before = _shared.pr_head(pr, repo_root)
         triage.run_triage_candidates(
             repo_root=repo_root, worktree=worktree,
             candidates_path=candidates_path, research_dir=research_dir,
@@ -221,6 +222,8 @@ def run_plan_project(*, repo_root: Path, worktree_name: str,
         )
         verdict = _dispose(pr, repo_root, repo_target, worktree_name, notes,
                            issue_urls, verbose)
+        verdict = routing.stalled(verdict, head_before, _shared.pr_head(pr, repo_root),
+                                  notes, loops)
 
     if verdict is routing.Verdict.HOLD_NEEDS_ASSISTANCE:
         # THE LOOP DECISION AND NOTHING ELSE. Wiring the CI gate into `_dispose`

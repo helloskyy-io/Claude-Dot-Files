@@ -304,8 +304,8 @@ def test_the_census_matches_the_tree() -> None:
     next person to add one is told, here, that they are now in this population.
     """
     _, total = _scan_tree()
-    assert total == 7, (
-        f"the walk found {total} launch-reply binding(s), not the 7 recorded when "
+    assert total == 8, (
+        f"the walk found {total} launch-reply binding(s), not the 8 recorded when "
         f"this was written. That is not a failure — it is the census telling you "
         f"the population moved. Confirm the new site reads its outcome, then "
         f"update this number and the docstring's count together."

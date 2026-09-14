@@ -178,6 +178,24 @@ def test_the_repository_slug_is_read_off_the_three_spellings_git_produces(remote
     assert h.repo_slug_of(remote) == slug
 
 
+@pytest.mark.parametrize("remote, resolves_to, slug", [
+    ("git@master-planning-github:acme/widgets.git", "github.com", REPO),
+    ("ssh://git@planning-alias/acme/widgets.git", "github.com", REPO),
+    ("git@my-gitlab:acme/widgets.git", "gitlab.com", None),
+    ("git@unknown-alias:acme/widgets.git", "unknown-alias", None),
+])
+def test_an_SSH_ALIAS_is_resolved_to_its_host_before_the_forge_is_judged(
+        monkeypatch, remote, resolves_to, slug):
+    """The host string in the remote is a proxy; where ssh resolves it is the thing."""
+    monkeypatch.setattr(h, "ssh_host_of", lambda alias: resolves_to)
+    assert h.repo_slug_of(remote) == slug
+
+
+def test_ssh_host_of_READS_THE_USERS_CONFIG_and_falls_back_to_the_alias() -> None:
+    assert h.ssh_host_of("github.com") == "github.com"
+    assert h.ssh_host_of("no-such-alias-zzz") == "no-such-alias-zzz"
+
+
 # --- resolution (r2) -----------------------------------------------------------------
 
 def test_an_ABSENT_bag_is_refused_and_NOTHING_is_created(journal: Path) -> None:

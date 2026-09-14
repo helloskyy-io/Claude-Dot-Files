@@ -2101,6 +2101,14 @@ def ci_verdict(pr: str, *, repo_root: Path) -> tuple[routing.CiVerdict, list[str
         # of it reporting means the gate did not run, which is the opposite of
         # "this repo has no gate" and must not share its outcome.
         if blocking:
+            # ASK GITHUB WHY BEFORE HOLDING. A conflicted PR has no merge ref
+            # and so no checks, and that cause has its own state because its
+            # remedy is not a redispatch (see `CiVerdict.CONFLICTING`). Read
+            # tolerantly: an unreadable or not-yet-computed answer leaves the
+            # state as it was, so nothing here can turn a real absence into a
+            # pass.
+            if pr_mergeable(pr, repo_root) == "CONFLICTING":
+                return routing.CiVerdict.CONFLICTING, sorted(blocking)
             # The absent gate's names travel here so the runway can name them.
             # The CALLER must not read this as "checks that ran" — the
             # UNDECLARED-CHECKS branch does exactly that on the same value and
@@ -2129,6 +2137,33 @@ _TERMINAL_CHECK_STATES = frozenset({
     "SUCCESS", "FAILURE", "SKIPPED", "NEUTRAL",
     "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED", "STALE", "ERROR",
 })
+
+
+def _pr_field(pr: str, field: str, repo_root: Path) -> str | None:
+    """One string field off `gh pr view`, or None when it could not be READ —
+    the caller decides what an unread answer means. `gh_json` is the one failure
+    surface: a failed `gh`, a non-JSON body and a wrong-shaped body all arrive
+    as its RuntimeError, and a right-shaped body with the wrong value type is
+    refused here."""
+    try:
+        view = gh_json(["pr", "view", pr, "--json", field], repo_root, expect=dict)
+    except RuntimeError:
+        return None
+    value = view.get(field)
+    return value if isinstance(value, str) and value else None
+
+
+def pr_mergeable(pr: str, repo_root: Path) -> str | None:
+    """GitHub's `mergeable` for the PR — `MERGEABLE`, `CONFLICTING`, `UNKNOWN` —
+    or None when it could not be read."""
+    return _pr_field(pr, "mergeable", repo_root)
+
+
+def pr_head(pr: str, repo_root: Path) -> str | None:
+    """The PR's head commit, or None when it could not be read. What a loop-back
+    compares before and after a correction pass to learn whether the pass DID
+    anything — see `routing.stalled`."""
+    return _pr_field(pr, "headRefOid", repo_root)
 
 
 def wait_for_ci(pr: str, *, repo_root: Path) -> bool:

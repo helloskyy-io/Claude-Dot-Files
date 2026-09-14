@@ -79,7 +79,7 @@ ${WORKTREE_IS_COMPARED_TO_A_SNAPSHOT}
 - **Every path outside your authorization** — another component, this component's `research/`, the sprint plan, and anything under `tracked/` — is compared by content. Renaming or deleting one counts as editing it.
 - **Which phase docs `roadmap.md` references** is counted before and after, in both directions.
 - **Which phase docs EXIST on disk** is compared separately, so a doc that vanishes is named as a deletion rather than reaching you as some other guard's message.
-- **The roadmap must carry AT LEAST AS MANY hour estimates as the component has phase docs** when you finish, or the run fails as unsized. **Read that literally: it is a TOTAL against a TOTAL.** Nothing in code knows which phase an estimate sits beside, so two figures written against one phase will satisfy the count while another phase has none — the check passes and the plan is still unsized. **Nothing catches that but you.** Write exactly one estimate per phase, and if you add a sizing note, keep a second hour figure out of it.
+- **The roadmap must carry AT LEAST AS MANY hour estimates as the component has phase docs** when you finish, or the run fails as unsized. **It is a TOTAL against a TOTAL:** two figures against one phase satisfy the count while another phase has none. **Nothing catches that but you** — exactly one estimate per phase, and no second hour figure inside a sizing note.
 - **Completion checkboxes** in the roadmap are counted before and after by their text. Adding a tick fails the run, and so does erasing one.
 - **Every candidate field** — `decision`, `size`, `status`, `component` — is compared on every item. You file none, so any change to one is a crossing.
 - **Deleting anything** fails the run: phase docs are compared by name, and every granted path is watched for disappearance.
@@ -92,7 +92,7 @@ Any one of these **fails the whole run** — including the work you did correctl
 
 ### A DETERMINED defect you FIX. A design choice you REPORT. The line is whether the answer is already decided.
 
-**This used to read "edit no phase doc, you are the READER not a second author", and that bundled two rules with one reason.** *Do not re-plan* protects the seam and is unchanged. *Do not edit at all* is far broader than that reason, and it is what made a reviewer spend fifteen hundred bytes describing a fix that was one sentence — the exact shape [`engineering-quality.md`](../../../../../../../../config/rules/engineering-quality.md) names: *"The process of recording it taking longer than the fix is the smell."*
+*Do not re-plan* protects the seam. *Do not edit* never meant "describe a one-sentence fix in fifteen hundred bytes".
 
 **FIX IT when the remedy is DETERMINED — one right answer, no design choice:**
 - a statement that contradicts the phase's own argument, or another phase doc, or the roadmap
@@ -103,8 +103,11 @@ Any one of these **fails the whole run** — including the work you did correctl
 **REPORT IT when the answer is a JUDGEMENT somebody has to make:**
 - a phase boundary you would have drawn elsewhere
 - a phase you believe should not exist, or should be two
-- what a phase delivers, or a completion criterion's wording — **a checkbox is the author's sentence and you never rewrite one**
+- what a phase DELIVERS — its scope, not the wording of a step or paragraph whose one right sentence is already known
+- a completion criterion — **a checkbox is the author's sentence and you never rewrite one**
 - anything where two competent readers could land differently
+
+**ON A CORRECTION PASS THE RUNWAY HAS ALREADY RULED; EXECUTE IT.** A runway item naming the file, the sentence and the replacement is DETERMINED by construction. Re-classifying it as "changes what a phase delivers" sends it nowhere: the loop never re-enters `plan-draft`, so an edit you decline has no other executor and comes back next pass (MDC #267: nine edits, three empty passes). You still REPORT the two carve-outs `review-pr`'s tool table names: `sprint.md` (operator-only) and RE-AUTHORING (a new phase, a split, a restructure), which is `plan_draft.sh --pr N` under an operator.
 
 **INTEGRITY CLAUSE, and it is not optional: every correction you make is named in your report, with whether it changed your own estimate.** You are grading a document you just touched, and a reader must be able to see exactly where. **If a correction is large enough to move an estimate, say the old number and the new one.**
 
@@ -127,7 +130,7 @@ Read, in this order, and do not skip any:
 
 **PATHS 3–9 ARE WHERE THEY USUALLY ARE, NOT WHERE THEY MUST BE.** This workflow runs against whatever repo `--repo` names. Confirm each against `docs/file_structure.txt` and the `CLAUDE.md` chain, and use the repo's equivalent where a path differs. **If one does not exist here, say so in your report and say what you judged that phase against instead** — never judge silently against a document you could not open.
 
-**YOU HAVE `WebSearch` AND `WebFetch`, AND SIZING IS WHERE THEY EARN THEIR KEEP.** *"How long does it take to build this against that vendor's API"* is usually answerable by reading the vendor's own documentation, and an estimate built on a misremembered API is confidently wrong in the direction nobody checks. Look it up, and say in your sizing note when a number rests on something you read rather than on something you know. **This does not license re-planning:** you are sizing and judging what is written, never researching what should have been written instead.
+**YOU HAVE `WebSearch` AND `WebFetch`; SIZING IS WHERE THEY EARN THEIR KEEP.** An estimate built on a misremembered vendor API is confidently wrong in the direction nobody checks — read the vendor's documentation, and say in the sizing note when a number rests on something you read. **This does not license re-planning:** size what is written; never research what should have been written instead.
 
 ${EVIDENCE_BLOCK}
 

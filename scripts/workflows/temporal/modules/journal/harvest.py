@@ -282,24 +282,56 @@ def surface_refs(refs: Iterable[str | None], *,
     return tuple(seen)
 
 
+#: `git@<host>:o/n(.git)` and `ssh://git@<host>/o/n(.git)` with ANY host — the
+#: host may be an SSH alias, and the alias is a proxy for where it resolves.
+_SSH_REMOTE = re.compile(r"\A(?:git@([^:/\s]+):|ssh://git@([^/\s]+)/)(.+)\Z")
+
+
+def ssh_host_of(alias: str) -> str:
+    """Where an SSH host alias resolves, per the user's ssh config — or the alias
+    itself when ssh cannot say. `ssh -G` reads config only; no connection."""
+    try:
+        probe = subprocess.run(["ssh", "-G", alias], capture_output=True, text=True,
+                               timeout=5)
+    except (OSError, subprocess.TimeoutExpired):
+        return alias
+    if probe.returncode != 0:
+        return alias
+    for line in probe.stdout.splitlines():
+        key, _, value = line.partition(" ")
+        if key == "hostname" and value.strip():
+            return value.strip()
+    return alias
+
+
 def repo_slug_of(remote_url: str) -> str | None:
     """`owner/name` out of a github.com remote URL, or None when it is not one.
 
-    The three spellings git actually produces for this host — `git@github.com:
-    o/n.git`, `https://github.com/o/n(.git)`, `ssh://git@github.com/o/n.git` —
-    and nothing looser: a remote on another host yields None, and the caller
-    then refuses bare numbers rather than harvesting from the wrong forge.
+    The spellings git produces for this host — `git@github.com:o/n.git`,
+    `https://github.com/o/n(.git)`, `ssh://git@github.com/o/n.git` — AND an SSH
+    spelling whose host is an ALIAS that resolves to github.com. The SSH Key
+    Management Standard gives every repo on a host its own alias
+    (`git@master-planning-github:helloskyy-io/MDC-Master-Planning.git`), so the
+    literal host string is a proxy and where it resolves is the thing; matching
+    the string alone refused to harvest every run on that host (PM2, MDC #267,
+    seven runs). A remote that resolves to another forge still yields None, and
+    the caller then refuses bare numbers rather than harvesting from the wrong one.
     """
     text = remote_url.strip()
     for prefix in ("git@github.com:", "https://github.com/",
                    "ssh://git@github.com/", "http://github.com/"):
         if text.startswith(prefix):
-            slug = text[len(prefix):]
-            if slug.endswith(".git"):
-                slug = slug[:-4]
-            slug = slug.rstrip("/")
-            return slug if _SLUG_RE.match(slug) else None
+            return _slug(text[len(prefix):])
+    m = _SSH_REMOTE.match(text)
+    if m and ssh_host_of(m.group(1) or m.group(2)) == "github.com":
+        return _slug(m.group(3))
     return None
+
+
+def _slug(tail: str) -> str | None:
+    slug = tail[:-4] if tail.endswith(".git") else tail
+    slug = slug.rstrip("/")
+    return slug if _SLUG_RE.match(slug) else None
 
 
 # ---------------------------------------------------------------------------

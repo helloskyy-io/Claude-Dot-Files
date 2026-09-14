@@ -107,6 +107,11 @@ def wired(monkeypatch: pytest.MonkeyPatch) -> _Calls:
     # it takes out of the child's URL can be checked against the repository the
     # dispatch is operating in. It is a `gh` call; faked at its boundary.
     monkeypatch.setattr(pm._shared, "repo_slug", lambda repo_root: "o/r")
+    # The loop reads the PR head around each correction pass to detect a stall
+    # (`routing.stalled`). A `gh` call; faked at its boundary, and it MOVES on
+    # every read so the loop tests exercise the loop rather than the stall.
+    heads = iter(f"sha{n:03d}" for n in range(1000))
+    monkeypatch.setattr(pm._shared, "pr_head", lambda pr, repo_root: next(heads))
 
     # The scaffolder scaffolds nothing by default: it reads and WRITES a real
     # tree, and the worktree here is a bare path. Faked at its boundary and
@@ -452,6 +457,11 @@ def test_isolation_is_established_once_by_the_parent(monkeypatch: pytest.MonkeyP
         lambda *a, **k: pm.own.Scaffolded(created=[], resumed=[], extends=[],
                                           unnamed=[], not_a_feature=[], unsized=[]))
     monkeypatch.setattr(pm._shared, "repo_slug", lambda repo_root: "o/r")
+    # The loop reads the PR head around each correction pass to detect a stall
+    # (`routing.stalled`). A `gh` call; faked at its boundary, and it MOVES on
+    # every read so the loop tests exercise the loop rather than the stall.
+    heads = iter(f"sha{n:03d}" for n in range(1000))
+    monkeypatch.setattr(pm._shared, "pr_head", lambda pr, repo_root: next(heads))
     monkeypatch.setattr(pm.act, "base_ref", lambda pr, repo_root: "HEAD")
     monkeypatch.setattr(pm.triage, "run_triage_candidates", lambda **kw: PR_URL)
     # This test wires its own stubs rather than taking `wired`, so the CI gate

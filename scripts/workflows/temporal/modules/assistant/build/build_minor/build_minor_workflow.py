@@ -85,10 +85,13 @@ def run_build_minor(task: BuildInput, repo_root: Path, worktree_name: str) -> Bu
         notes.append(_spend(repo_root, started) + f"HOLD (redispatch): loop-back {loops} of {helper.MAX_LOOPS}."
                      + (" The last automated pass."
                         if loops == helper.MAX_LOOPS else ""))
+        head_before = act.pr_head(pr, repo_root)
         verdict = _refine_then_dispose(task, description, pr, repo_root, worktree,
                                        worktree_name, notes, issue_urls,
                                        correction=True,
                                        loops_left=helper.MAX_LOOPS - loops)
+        verdict = routing.stalled(verdict, head_before, act.pr_head(pr, repo_root),
+                                  notes, loops)
 
     if verdict is Verdict.HOLD_NEEDS_ASSISTANCE:
         # THIS NOTE STATES THE LOOP DECISION AND NOTHING ELSE, for the reason its

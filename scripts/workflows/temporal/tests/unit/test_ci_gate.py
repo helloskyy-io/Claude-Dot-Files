@@ -1162,3 +1162,65 @@ def test_neither_CI_READ_can_be_called_without_a_tree():
     # reads, so both die before any subprocess and before `wait_for_ci`'s
     # 600-second deadline starts. A fake would only be able to hide a
     # regression that moved the policy read after the first `gh` call.
+
+
+# ---------------------------------------------------------------- CONFLICTING
+
+def _gh_by_command(monkeypatch, *, checks_stdout: str, checks_stderr: str,
+                   view_stdout: str) -> None:
+    """`gh pr checks` and `gh pr view` answer differently, keyed on the argv."""
+    def run(argv, *a, **k):
+        if "view" in argv:
+            return subprocess.CompletedProcess(argv, 0, stdout=view_stdout, stderr="")
+        return subprocess.CompletedProcess(argv, 1 if checks_stderr else 0,
+                                           stdout=checks_stdout, stderr=checks_stderr)
+    monkeypatch.setattr(act.subprocess, "run", run)
+
+
+def test_a_CONFLICTING_pr_with_no_checks_is_its_own_state_not_an_absent_gate(monkeypatch, repo):
+    """MDC #267, 2026-09-14: main moved 14 commits under the PR, GitHub computed no
+    merge ref, no check ran, GATE_DID_NOT_RUN routed REDISPATCH, and the correction
+    child — briefed on findings, not on the base moving — ran three no-op passes.
+    The cause is one `gh pr view` away and has the opposite remedy."""
+    _gh_by_command(monkeypatch, checks_stdout="", checks_stderr=_NO_CHECKS_STDERR,
+                   view_stdout=json.dumps({"mergeable": "CONFLICTING"}))
+    verdict, extra = act.ci_verdict("1", repo_root=repo)
+    assert verdict is CiVerdict.CONFLICTING
+    assert extra == ["suite"]
+
+    hold, notes = routing.ci_gate(verdict, extra, pr="1", repo_target=None)
+    assert hold is Verdict.HOLD_NEEDS_ASSISTANCE, "a conflict is not something a loop-back fixes"
+    assert "CONFLICTING" in notes[0] and "NOT looped" in notes[0]
+
+
+@pytest.mark.parametrize("view", ['{"mergeable": "UNKNOWN"}', '{"mergeable": "MERGEABLE"}',
+                                  "", "not json", "[]"])
+def test_an_absent_gate_that_is_NOT_known_conflicting_stays_GATE_DID_NOT_RUN(monkeypatch, repo, view):
+    """The mergeability read is tolerant in one direction only: it can narrow an
+    absent gate to CONFLICTING, never widen anything toward a pass."""
+    _gh_by_command(monkeypatch, checks_stdout="", checks_stderr=_NO_CHECKS_STDERR,
+                   view_stdout=view)
+    assert act.ci_verdict("1", repo_root=repo)[0] is CiVerdict.GATE_DID_NOT_RUN
+
+
+# ---------------------------------------------------------------- the stall
+
+def test_a_loop_back_that_moved_the_head_nowhere_STOPS_the_loop() -> None:
+    notes: list[str] = []
+    out = routing.stalled(Verdict.HOLD_REDISPATCH, "abc123", "abc123", notes, 2)
+    assert out is Verdict.HOLD_NEEDS_ASSISTANCE
+    assert notes and "STALLED" in notes[0] and "loop-back 2" in notes[0]
+
+
+@pytest.mark.parametrize("verdict, before, after", [
+    (Verdict.HOLD_REDISPATCH, "abc", "def"),      # the pass did something
+    (Verdict.HOLD_REDISPATCH, None, "def"),       # the head could not be read
+    (Verdict.HOLD_REDISPATCH, "abc", None),
+    (Verdict.HOLD_NEEDS_ASSISTANCE, "abc", "abc"),  # only a redispatch loops
+    (Verdict.MERGE, "abc", "abc"),
+])
+def test_the_stall_converts_ONLY_a_no_op_redispatch(verdict, before, after) -> None:
+    notes: list[str] = []
+    assert routing.stalled(verdict, before, after, notes, 1) is verdict
+    assert notes == []
+

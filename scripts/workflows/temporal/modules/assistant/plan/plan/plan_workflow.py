@@ -137,6 +137,7 @@ def run_plan(*, component: Path, repo_root: Path, worktree_name: str,
     while routing.should_loop_back(verdict, loops):
         loops += 1
         notes.append(f"HOLD (redispatch): loop-back {loops} of {routing.MAX_LOOPS}.")
+        head_before = act.pr_head(pr, repo_root)
         verdict = _refine_size_and_dispose(
             component=component, repo_root=repo_root, worktree=worktree,
             worktree_name=worktree_name, sprint_path=sprint_path, candidates_path=candidates_path, pr=pr,
@@ -144,6 +145,8 @@ def run_plan(*, component: Path, repo_root: Path, worktree_name: str,
             correction_pass=True,
             verbose=verbose,
         )
+        verdict = routing.stalled(verdict, head_before, act.pr_head(pr, repo_root),
+                                  notes, loops)
 
     # THE LOOP DECISION AND NOTHING ELSE — the loop is the only thing this
     # function knows. Both paths to NEEDS_ASSISTANCE already wrote their own

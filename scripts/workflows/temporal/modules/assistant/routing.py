@@ -32,7 +32,7 @@ from enum import Enum
 from pathlib import Path
 
 __all__ = [
-    "Verdict", "MAX_LOOPS", "parse_verdict", "should_loop_back",
+    "Verdict", "MAX_LOOPS", "parse_verdict", "should_loop_back", "stalled",
     "PR_URL", "extract_pr_url", "pr_number_from_url", "pr_identity",
     "CiVerdict", "POLICY_PATH", "ci_gate",
 ]
@@ -104,6 +104,34 @@ def parse_verdict(output: str) -> tuple[Verdict, bool]:
     if not matches:
         return Verdict.HOLD_NEEDS_ASSISTANCE, False
     return Verdict(matches[-1]), True
+
+
+def stalled(verdict: Verdict, head_before: str | None, head_after: str | None,
+            notes: list[str], loops_used: int) -> Verdict:
+    """A loop-back whose pass moved nothing will not converge; stop it here.
+
+    THE PR HEAD IS THE EVIDENCE, NOT THE CHILD'S ACCOUNT. A correction pass that
+    commits nothing leaves the head where it was, and the next pass is handed
+    the same tree and the same runway — measured on MDC #267 (2026-09-14):
+    passes 4 and 5 each reported *"No commit (nothing changed); PR head
+    unchanged"* and the loop ran the next one anyway, ~$40 to confirm the
+    second time what the first had said. Three identical no-op passes is not
+    persistence, it is the signal the runway cannot be closed by this child.
+
+    Only a REDISPATCH verdict is converted — the only one that would loop — and
+    only when both heads were READ: an unreadable head is not evidence of
+    anything, and the loop keeps its own budget as the bound.
+    """
+    if verdict is not Verdict.HOLD_REDISPATCH:
+        return verdict
+    if head_before is None or head_after is None or head_before != head_after:
+        return verdict
+    notes.append(
+        f"LOOP STALLED after loop-back {loops_used}: the correction pass moved the PR "
+        f"head nowhere ({head_after[:12]}), so the next pass would be handed the same "
+        "tree and the same runway. Not re-entered. Whatever the runway asks for is not "
+        "something this child does; a human reads the runway.")
+    return Verdict.HOLD_NEEDS_ASSISTANCE
 
 
 def should_loop_back(verdict: Verdict, loops_used: int) -> bool:
@@ -344,6 +372,14 @@ class CiVerdict(str, Enum):
     # resolve with one `is_file()` and was discarding at `read_check_policy`.
     NO_POLICY = "no_policy"
     GATE_DID_NOT_RUN = "gate_did_not_run"
+    # THE GATE DID NOT RUN AND GITHUB SAYS WHY: the PR is CONFLICTING against its
+    # base, so no merge ref exists for `pull_request` workflows to run on. Split
+    # from GATE_DID_NOT_RUN on 2026-09-14 because the two route OPPOSITELY: an
+    # absent gate with an unknown cause is worth one redispatch; a conflict is
+    # not, because the correction child is handed a runway about findings and
+    # never learns main moved. Measured on MDC #267: three loop-backs, each
+    # "nothing to change", ~$60, before a human ran `git merge origin/main`.
+    CONFLICTING = "conflicting"
     UNREADABLE_POLICY = "unreadable_policy"
     UNREADABLE_CHECKS = "unreadable_checks"
 
@@ -419,11 +455,12 @@ def ci_gate(state: CiVerdict, extra: list[str], *, pr: str,
         ]
 
     notes: list[str] = []
-    # GATE_DID_NOT_RUN is excluded because its `extra` carries the names of the
-    # gate that is ABSENT, not of checks that ran. Reading it here reported
+    # GATE_DID_NOT_RUN — and CONFLICTING, its narrowed sibling — are excluded
+    # because their `extra` carries the names of the gate that is ABSENT, not of
+    # checks that ran. Reading it here reported
     # `suite` as unclassified in the same breath as the branch below reported it
     # as declared blocking — two contradictory lines from one run, on 2026-08-14.
-    if extra and state not in (CiVerdict.RED, CiVerdict.GATE_DID_NOT_RUN):
+    if extra and state not in (CiVerdict.RED, CiVerdict.GATE_DID_NOT_RUN, CiVerdict.CONFLICTING):
         # A check that ran and is declared NEITHER blocking nor advisory is the
         # third state the Testing Standard says does not exist. Reported by name,
         # never silently gated — a check the repo has not classified must not halt
@@ -450,6 +487,17 @@ def ci_gate(state: CiVerdict, extra: list[str], *, pr: str,
             "Fix the checks and redispatch; the diff is intact on the branch."
         )
         return Verdict.HOLD_REDISPATCH, notes
+
+    if state is CiVerdict.CONFLICTING:
+        notes.append(
+            f"CI GATE: HOLD — PR {pr}{where} is CONFLICTING against its base, so GitHub "
+            "computed no merge ref and none of the declared checks could run. NOT looped "
+            "back: a correction pass is briefed on findings, not on the base moving, and "
+            "changes nothing. Merge the base branch into the PR branch (or rebase), push, "
+            "let the checks run, then redispatch; the diff is intact on the branch. "
+            "review-pr was NOT dispatched."
+        )
+        return Verdict.HOLD_NEEDS_ASSISTANCE, notes
 
     if state is CiVerdict.GATE_DID_NOT_RUN:
         notes.append(
