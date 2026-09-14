@@ -21,12 +21,21 @@ that embeds the reviewer hands over what the reviewer returned — the seam was
 covered from both sides and never across, the shape
 `test_a_PARENT_forwards_what_its_CHILD_reads` names.
 
-THREE LEVELS, BECAUSE THE MISS HAD THREE LAYERS:
+FOUR LEVELS, BECAUSE THE MISS HAD THREE LAYERS AND THE FIX HAD A FOURTH:
 
   1. THE INNER BOUNDARY, all five parents — the dispose function each loop
      calls, with the reviewer faked to return intakes: the caller's
      accumulator holds them afterwards, across passes, and untouched on the
      CI-hold path where no reviewer ran.
+  1b. THE OUTER RETURN, all five parents — the whole parent run with the
+     reviewer faked at the same boundary: the URLs are ON THE RETURNED SHAPE,
+     read strictly (the dataclass field, the tuple's last slot, the dict key
+     by subscript). Added after review-pr measured that level 1 and level 2
+     together left this line unpinned for four of five parents: deleting
+     `issue_urls=issue_urls` from `build_minor`'s `BuildResult(...)` or the
+     `"issue_urls"` key from `research`'s dict left all of `tests/unit/`
+     green, because the read side of both defaults to empty — the original
+     silence, one seam further out.
   2. THE REAL NESTING, `build` — the REAL `run_review` reading the REAL
      `disposition.md`-shaped block (intake in the block ONLY, cross-repo,
      exactly the live shape) inside the REAL `run_build`: `BuildResult`
@@ -76,10 +85,10 @@ def _reviewer_filing(monkeypatch: pytest.MonkeyPatch, module, *per_pass: tuple[s
     """Fake `review_pr.run_review` at its boundary: pass N returns `per_pass[N]`."""
     passes: list[ReviewInput] = []
 
-    def fake(review_input: ReviewInput, repo_root: Path, *, worktree_name: str) -> ReviewResult:
+    def fake(task: ReviewInput, worktree: Path, *, worktree_name: str) -> ReviewResult:
         urls = per_pass[min(len(passes), len(per_pass) - 1)]
-        passes.append(review_input)
-        return ReviewResult(pr_number=review_input.pr_number, verdict=Verdict.MERGE,
+        passes.append(task)
+        return ReviewResult(pr_number=task.pr_number, verdict=Verdict.MERGE,
                             this_pass=len(passes),
                             notes=[f"Filed {len(urls)} intake(s), handed to the harvest"],
                             issue_urls=list(urls))
@@ -125,17 +134,98 @@ def _research_pass(notes, issue_urls, *, correction):
         notes, issue_urls, False, correction=correction)
 
 
+# --- the whole parent, its pre-gate collaborators at their boundaries ------------
+#
+# Each wires what the OUTER function runs before its dispose loop — the slug and
+# base-ref reads, the worktree cut, the authoring child (returning the PR URL
+# the real one returns) — calls it, and returns the intakes read STRICTLY off
+# the returned shape: the dataclass field, the tuple unpacked at its full
+# width, the dict key by subscript. Never `.get`, never `getattr` with a
+# default: a shape that dropped the field must fail HERE, not read as "none
+# filed". The dispose children, the CI gate and the reviewer are the test's
+# to fake, through `_silence_children`, `_ci` and `_reviewer_filing`.
+
+def _isolation(monkeypatch: pytest.MonkeyPatch, act, tmp_path: Path) -> None:
+    monkeypatch.setattr(act, "base_ref", lambda pr, repo_root: "main")
+    monkeypatch.setattr(act, "worktree_add", lambda *a, **k: tmp_path / "wt")
+
+
+def _wire_build_parent(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """`run_build`'s pre-loop collaborators; level 2 reuses this and runs the parent itself."""
+    monkeypatch.setattr(build, "task_text", lambda task, repo_root: "the task")
+    monkeypatch.setattr(build.act, "repo_slug", lambda repo_root: REPO_SLUG)
+    _isolation(monkeypatch, build.act, tmp_path)
+    monkeypatch.setattr(build.act, "clock_now", lambda: 0.0)
+    monkeypatch.setattr(build.act, "chain_cost_usd", lambda repo_root, since: (0.0, 0))
+    monkeypatch.setattr(build.draft, "run_draft", lambda **kw: PR_URL)
+
+
+def _build_run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> list[str]:
+    _wire_build_parent(monkeypatch, tmp_path)
+    result = build.run_build(BuildInput(description="the task"), tmp_path, "build-1")
+    assert isinstance(result, BuildResult)
+    return result.issue_urls
+
+
+def _build_minor_run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> list[str]:
+    monkeypatch.setattr(build_minor, "task_text", lambda task, repo_root: "the task")
+    monkeypatch.setattr(build_minor.act, "repo_slug", lambda repo_root: REPO_SLUG)
+    _isolation(monkeypatch, build_minor.act, tmp_path)
+    monkeypatch.setattr(build_minor.act, "clock_now", lambda: 0.0)
+    monkeypatch.setattr(build_minor.act, "chain_cost_usd", lambda repo_root, since: (0.0, 0))
+    monkeypatch.setattr(build_minor.draft, "run_draft_minor", lambda **kw: PR_URL)
+    result = build_minor.run_build_minor(BuildInput(description="the task"), tmp_path, "build-1")
+    assert isinstance(result, BuildResult)
+    return result.issue_urls
+
+
+def _plan_run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> list[str]:
+    monkeypatch.setattr(plan.act, "repo_slug", lambda repo_root: REPO_SLUG)
+    _isolation(monkeypatch, plan.act, tmp_path)
+    monkeypatch.setattr(plan.plan_draft, "run_plan_draft", lambda **kw: PR_URL)
+    _pr_url, _verdict, _notes, issue_urls = plan.run_plan(
+        component=tmp_path / "c", repo_root=tmp_path, worktree_name="wt",
+        sprint_path=tmp_path / "s.md", candidates_path=tmp_path / "c.md")
+    return issue_urls
+
+
+def _plan_project_run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> list[str]:
+    monkeypatch.setattr(plan_project._shared, "repo_slug", lambda repo_root: REPO_SLUG)
+    _isolation(monkeypatch, plan_project.act, tmp_path)
+    monkeypatch.setattr(plan_project.triage, "run_triage_candidates", lambda **kw: PR_URL)
+    monkeypatch.setattr(plan_project.own, "scaffold_candidate_components",
+                        lambda *a, **k: plan_project.own.Scaffolded(
+                            created=[], resumed=[], extends=[], unnamed=[],
+                            not_a_feature=[], unsized=[]))
+    _pr_url, _verdict, _loops, _notes, issue_urls = plan_project.run_plan_project(
+        repo_root=tmp_path, worktree_name="wt",
+        candidates_path=tmp_path / "c.md", research_dir=tmp_path / "r")
+    return issue_urls
+
+
+def _research_run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> list[str]:
+    monkeypatch.setattr(research, "repo_slug", lambda repo_root: REPO_SLUG)
+    _isolation(monkeypatch, research.act, tmp_path)
+    monkeypatch.setattr(research.draft, "run_research_draft", lambda **kw: PR_URL)
+    result = research.run_research(research_dir=tmp_path / "r", repo_root=tmp_path,
+                                   worktree_name="wt")
+    return result["issue_urls"]
+
+
 # (module, the children the dispose function runs BEFORE the gate — faked to
-#  nothing, each returning the PR URL its real counterpart returns — the call)
+#  nothing, each returning the PR URL its real counterpart returns — the
+#  dispose call, the whole-parent call)
 PARENTS = [
     pytest.param(build, ("refine.run_refine", "refine_minor.run_refine_minor"),
-                 _build_pass, id="build"),
+                 _build_pass, _build_run, id="build"),
     pytest.param(build_minor, ("refine.run_refine_minor",), _build_minor_pass,
-                 id="build_minor"),
+                 _build_minor_run, id="build_minor"),
     pytest.param(plan, ("plan_refine.run_plan_refine", "sprint.run_plan_sprint"),
-                 _plan_pass, id="plan"),
-    pytest.param(plan_project, (), _plan_project_pass, id="plan_project"),
-    pytest.param(research, ("verify.run_verify",), _research_pass, id="research"),
+                 _plan_pass, _plan_run, id="plan"),
+    pytest.param(plan_project, (), _plan_project_pass, _plan_project_run,
+                 id="plan_project"),
+    pytest.param(research, ("verify.run_verify",), _research_pass, _research_run,
+                 id="research"),
 ]
 
 
@@ -145,9 +235,9 @@ def _silence_children(monkeypatch: pytest.MonkeyPatch, module, children: tuple[s
         monkeypatch.setattr(getattr(module, owner), name, lambda *a, **k: PR_URL)
 
 
-@pytest.mark.parametrize("module, children, one_pass", PARENTS)
+@pytest.mark.parametrize("module, children, one_pass, whole_run", PARENTS)
 def test_the_dispose_pass_CARRIES_the_reviewer_s_intakes_to_its_caller(
-        module, children, one_pass, monkeypatch: pytest.MonkeyPatch) -> None:
+        module, children, one_pass, whole_run, monkeypatch: pytest.MonkeyPatch) -> None:
     """The boundary that dropped them: the dispose function returns a verdict
     and the URLs must leave through the accumulator beside the notes."""
     _silence_children(monkeypatch, module, children)
@@ -166,9 +256,9 @@ def test_the_dispose_pass_CARRIES_the_reviewer_s_intakes_to_its_caller(
         f"the banner says 'handed to the harvest' and the harvest is handed nothing")
 
 
-@pytest.mark.parametrize("module, children, one_pass", PARENTS)
+@pytest.mark.parametrize("module, children, one_pass, whole_run", PARENTS)
 def test_a_LOOP_BACK_that_files_again_ACCUMULATES(
-        module, children, one_pass, monkeypatch: pytest.MonkeyPatch) -> None:
+        module, children, one_pass, whole_run, monkeypatch: pytest.MonkeyPatch) -> None:
     """Two passes, two intakes, both in the accumulator in the order filed.
     A pass that replaced the list would harvest only the last reviewer's."""
     _silence_children(monkeypatch, module, children)
@@ -183,9 +273,9 @@ def test_a_LOOP_BACK_that_files_again_ACCUMULATES(
     assert issue_urls == [INTAKE, SECOND]
 
 
-@pytest.mark.parametrize("module, children, one_pass", PARENTS)
+@pytest.mark.parametrize("module, children, one_pass, whole_run", PARENTS)
 def test_a_CI_HOLD_runs_no_reviewer_and_files_nothing(
-        module, children, one_pass, monkeypatch: pytest.MonkeyPatch) -> None:
+        module, children, one_pass, whole_run, monkeypatch: pytest.MonkeyPatch) -> None:
     """The gate's arm: a red tree returns a HOLD before the reviewer, so the
     accumulator is untouched — not None, not a stale value, empty."""
     _silence_children(monkeypatch, module, children)
@@ -200,6 +290,30 @@ def test_a_CI_HOLD_runs_no_reviewer_and_files_nothing(
     assert issue_urls == []
 
 
+# --- 1b. the outer return, all five parents --------------------------------------
+
+@pytest.mark.parametrize("module, children, one_pass, whole_run", PARENTS)
+def test_the_WHOLE_PARENT_returns_the_reviewer_s_intakes_on_its_result(
+        module, children, one_pass, whole_run, monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path) -> None:
+    """The line level 1 stops short of: the accumulator the dispose pass filled
+    must be ON the value the parent returns, because that value is the only
+    thing the entrypoint holds when it hands the harvest its refs. Level 1
+    proves the list was filled; this proves the parent did not return without
+    it — which two of the five shapes let it do with nothing red."""
+    _silence_children(monkeypatch, module, children)
+    _ci(monkeypatch, module, routing.CiVerdict.GREEN)
+    passes = _reviewer_filing(monkeypatch, module, (INTAKE,))
+
+    issue_urls = whole_run(monkeypatch, tmp_path)
+
+    assert len(passes) == 1, "the reviewer did not run — the gate held before it"
+    assert issue_urls == [INTAKE], (
+        f"the reviewer returned {[INTAKE]}, the dispose pass carried it, and the "
+        f"parent's RESULT holds {issue_urls} — the entrypoint harvests from the "
+        f"result, so this is the line that hands the harvest nothing")
+
+
 # --- 2. the real nesting: real `run_review` inside real `run_build` ---------------
 
 def _block_only_intake(*urls: str) -> str:
@@ -209,26 +323,17 @@ def _block_only_intake(*urls: str) -> str:
             + "".join(f"    - {u}\n" for u in urls))
 
 
-def _wire_build_parent(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """`run_build`'s collaborators at their boundaries; nothing between them is faked."""
-    monkeypatch.setattr(build, "task_text", lambda task, repo_root: "the task")
-    monkeypatch.setattr(build.act, "repo_slug", lambda repo_root: REPO_SLUG)
-    monkeypatch.setattr(build.act, "base_ref", lambda pr, repo_root: "main")
-    monkeypatch.setattr(build.act, "worktree_add", lambda *a, **k: tmp_path / "wt")
-    monkeypatch.setattr(build.act, "clock_now", lambda: 0.0)
-    monkeypatch.setattr(build.act, "chain_cost_usd", lambda repo_root, since: (0.0, 0))
-    monkeypatch.setattr(build.draft, "run_draft", lambda **kw: PR_URL)
-    monkeypatch.setattr(build.refine, "run_refine", lambda **kw: PR_URL)
-    _ci(monkeypatch, build, routing.CiVerdict.GREEN)
-
-
 def test_the_REAL_reviewer_s_block_only_cross_repo_intake_leaves_the_REAL_build_on_its_result(
         monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """`_FakeWorkflow` fakes the reviewer's I/O only — `run_review` parses the
     block, selects it by nonce, unions the two surfaces and builds its
     `ReviewResult` for real; `run_build` loops and disposes for real. What
-    comes out the top is what `run_build.py` hands the harvest."""
+    comes out the top is what `run_build.py` hands the harvest. The parent's
+    collaborators are wired exactly as level 1b wires them, with the dispose
+    children silenced and the gate green; nothing between them is faked."""
     _wire_build_parent(monkeypatch, tmp_path)
+    _silence_children(monkeypatch, build, ("refine.run_refine", "refine_minor.run_refine_minor"))
+    _ci(monkeypatch, build, routing.CiVerdict.GREEN)
     fake = _FakeWorkflow(_record(run_id="@ISSUED@"), "VERDICT: MERGE\n",
                          block=_block_only_intake(INTAKE), block_carries_nonce=True)
     fake.install(monkeypatch, tmp_path)
