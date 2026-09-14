@@ -24,7 +24,7 @@ from ..research_draft import research_draft_workflow as draft
 from ..research_refine import research_refine_workflow as verify
 from ...review_pr import review_pr_workflow as review_pr
 from ...review_pr.review_pr_helper import ReviewInput, ReviewType, Verdict
-from ...assistant_activities import (ci_verdict, extract_pr_url, repo_slug,
+from ...assistant_activities import (ci_verdict, repo_slug,
                                      wait_for_ci)
 from ... import routing
 

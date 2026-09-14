@@ -11,7 +11,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .. import routing
-from enum import Enum
 
 
 # ONE definition, in `..routing`. It was typed here AND in review_pr_helper --
