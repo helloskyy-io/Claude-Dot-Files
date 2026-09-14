@@ -432,6 +432,38 @@ def test_the_durable_REPORTER_posts_one_marker_led_comment_and_never_emits(
         failure, "https://github.com/o/r/pull/1", tmp_path, None) == ""
 
 
+def test_the_durable_REPORT_passes_through_the_capture_filter(
+        tmp_path: Path, monkeypatch) -> None:
+    """The one store write with no preceding emit still meets requirement 10.
+
+    `capture_filter` runs at APPEND, so a write that never reaches `paired_write`
+    is a write it never sees — and this one carries an exception message onto a
+    public pull-request thread. A credential shape in the failing write's
+    detail must land as the filter's placeholder, not as itself.
+    """
+    from modules.assistant import assistant_activities as act
+    from modules.journal.capture_filter import placeholder_for
+    from modules.journal.emit import JournalUnwritable
+
+    launched: list[list[str]] = []
+
+    class _Done:
+        returncode, stdout, stderr = 0, "https://github.com/o/r/pull/1#c9\n", ""
+
+    monkeypatch.setattr(act, "run_bounded",
+                        lambda cmd, **kw: launched.append(list(cmd)) or _Done())
+    key = "AKIA" + "Q" * 16
+    failure = JournalUnwritable(
+        f"JOURNAL-UNWRITABLE: bag-info.txt refused a line carrying {key}")
+    act.report_unwritable_journal(failure, "https://github.com/o/r/pull/1",
+                                  tmp_path, None)
+    (argv,) = launched
+    body = argv[argv.index("--body") + 1]
+    assert key not in body, "a credential shape reached the public surface"
+    assert placeholder_for("aws-access-key") in body
+    assert body.startswith("**JOURNAL-UNWRITABLE**"), "the marker survives the filter"
+
+
 def test_a_comment_that_QUOTES_the_marker_still_emits(tmp_path: Path,
                                                      monkeypatch) -> None:
     """THE FALSE-POSITIVE DIRECTION, which nothing asserted until it was found.
@@ -576,6 +608,34 @@ def test_the_CLI_TRANSCRIPT_emits_verbatim_and_a_failed_emit_STOPS_the_run(
     assert emitter.bag.incomplete
 
 
+def test_a_child_that_wrote_NO_log_has_an_EMPTY_transcript_not_an_error(
+        tmp_path: Path) -> None:
+    """`run-claude.sh` creates `LOG_FILE` only when it launches the CLI.
+
+    A rate-limit abort or a failed model resolution returns non-zero BEFORE
+    that, so the parent meets a log that does not exist. `from_log` already
+    answers `(None, None)` for it; the transcript read must answer "" for the
+    same reason — a `FileNotFoundError` here would replace the `code != 0`
+    branch's message (the runner's stderr, the observed git state) with "No
+    such file", and skip the resource row on the run whose numbers are
+    evidence. The transcript is still EMITTED, as empty, so the record says the
+    invocation's stream was empty rather than saying nothing.
+    """
+    from modules.assistant import assistant_activities as act
+    from modules.assistant import resource_telemetry
+
+    missing = tmp_path / "review-pr-1-never-started.jsonl"
+    assert resource_telemetry.from_log(missing) == (None, None), (
+        "the precedent this mirrors has moved")
+    assert act._read_transcript(missing) == ""
+    emitter = _emitter(tmp_path)
+    with emitting_into(emitter):
+        act.emit_cli_transcript(missing, act._read_transcript(missing))
+    (event,) = _events(emitter)
+    assert event.write_path == "cli-transcript" and event.content == ""
+    assert event.destination.address == str(missing)
+
+
 def test_run_claude_EMITS_the_transcript_before_its_failure_branch() -> None:
     """The call site, held by AST — `run_claude` is not driven end to end here.
 
@@ -646,33 +706,46 @@ def test_a_RUN_LOG_event_emits_and_the_run_CONTINUES_past_a_failed_emit(
         "the run continued and the log line still landed")
 
 
-def test_every_entrypoint_REACHES_the_case_d_reporter() -> None:
+#: Run in a FRESH INTERPRETER per entrypoint: import the runner the way a
+#: dispatch does, then ask the slot. Exit 0 when a reporter is registered, 3
+#: when the slot is empty — a distinct code so an import error (1) cannot be
+#: misread as the property failing.
+_PROBE_THE_CASE_D_SLOT = (
+    "import importlib, sys; sys.path.insert(0, sys.argv[1]); "
+    "importlib.import_module(sys.argv[2]); "
+    "from modules.journal import emit; "
+    "sys.exit(0 if emit.current_case_d_reporter() is not None else 3)")
+
+
+@pytest.mark.parametrize("entrypoint", sorted(
+    (MODULES.parent / "scripts").glob("run_*.py")), ids=lambda p: p.stem)
+def test_every_entrypoint_REACHES_the_case_d_reporter(entrypoint: Path) -> None:
     """The durable channel's producer is registered by importing the assistant
     layer — so every entrypoint must import it, directly or through its
-    workflow modules, before its bag opens. Asked of the import graph the
-    entrypoint's own imports pull in, at the module level, so a runner that
-    reached `harvest_github_surfaces` with the slot empty is a red test here
-    rather than a quiet "no reporter registered" on the one path that matters.
+    workflow modules, before its bag opens.
+
+    ASKED OF A FRESH PROCESS PER ENTRYPOINT, and the reason is the test this
+    replaces. That one imported each runner into the suite's own interpreter
+    and asserted `assistant_activities` was in `sys.modules` afterwards — which
+    it already was, put there by every earlier test in this file, so the
+    assertion could not go red for any entrypoint. The property is *a run of
+    this entrypoint ALONE reaches the harvest with the slot filled*, and only a
+    process that has imported nothing else can answer it. Sixteen interpreters
+    at ~0.15 s each; the alternative, a static import closure over relative
+    imports, re-implements the import system to answer a question the import
+    system answers directly.
     """
-    import importlib
+    import subprocess
     import sys
-    from modules.journal import emit as emitmod
 
     scripts = MODULES.parent / "scripts"
-    entrypoints = sorted(scripts.glob("run_*.py"))
-    assert len(entrypoints) >= 10, entrypoints
-    if str(scripts) not in sys.path:
-        sys.path.insert(0, str(scripts))
-    for path in entrypoints:
-        with emitmod.reporting_case_d_through(None):
-            module = importlib.import_module(path.stem)
-            # `assistant_activities` is imported once per process, so a second
-            # entrypoint sees the registration the first one caused. What is
-            # asserted per entrypoint is that ITS import graph contains the
-            # registering module — the property that holds when it runs alone.
-            names = {m for m in sys.modules if m.startswith("modules.assistant")}
-            assert "modules.assistant.assistant_activities" in names, (
-                f"{path.name} imports no path to `assistant_activities`, so a "
-                f"run of it alone would reach the harvest with no case-(d) "
-                f"reporter registered")
-            assert module is not None
+    probe = subprocess.run(
+        [sys.executable, "-c", _PROBE_THE_CASE_D_SLOT, str(scripts), entrypoint.stem],
+        capture_output=True, text=True, timeout=60)
+    assert probe.returncode != 3, (
+        f"{entrypoint.name} imports no path to `assistant_activities`, so a run "
+        f"of it alone would reach the harvest with no case-(d) reporter "
+        f"registered")
+    assert probe.returncode == 0, (
+        f"{entrypoint.name} did not import cleanly in a fresh interpreter "
+        f"(exit {probe.returncode}):\n{probe.stderr[-2000:]}")

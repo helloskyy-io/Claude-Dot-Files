@@ -25,6 +25,7 @@ from pathlib import Path
 from . import resource_telemetry
 from . import routing
 from ..journal import emit as journal_emit
+from ..journal.capture_filter import filter_capture
 from ..journal.events import Destination, Provenance
 
 _WORKFLOWS = Path(__file__).resolve().parents[3]          # scripts/workflows
@@ -867,7 +868,7 @@ def _append_run_event(log_file: Path, event_type: str, event: dict) -> None:
 
 
 def _read_transcript(log_file: Path) -> str:
-    """The child's stream, as text, for the journal.
+    """The child's stream, as text, for the journal — "" when the child wrote none.
 
     `errors="replace"` AND NOT STRICT, stated because the emit rule's word is
     VERBATIM. The CLI writes UTF-8 JSON lines, so a byte this cannot decode is
@@ -875,9 +876,21 @@ def _read_transcript(log_file: Path) -> str:
     transcript over its last partial character would lose the fleet's only
     record of what commands ran, to protect a byte that was never a character.
     A replacement character is visible in the record; a missing transcript is
-    not. `resource_telemetry.from_log` has already read this file once above,
-    so an unreadable file has already raised before this is reached.
+    not.
+
+    A MISSING FILE IS AN EMPTY TRANSCRIPT, NOT AN ERROR. `run-claude.sh` creates
+    `LOG_FILE` only when it launches the CLI, and it returns non-zero BEFORE
+    that on a rate-limit abort or a failed model resolution — so a child that
+    never started leaves no file. That run's `code != 0` branch below is the
+    one carrying its message (the runner's stderr, the observed git state), and
+    a `FileNotFoundError` raised here would replace it with "No such file" and
+    skip the resource row on exactly the run whose numbers are evidence.
+    `resource_telemetry.from_log` returns `(None, None)` for the same file
+    for the same reason; this mirrors it. The emit still happens, so the record
+    says the invocation's transcript was empty rather than saying nothing.
     """
+    if not log_file.is_file():
+        return ""
     return log_file.read_text(encoding="utf-8", errors="replace")
 
 
@@ -1541,6 +1554,15 @@ def report_unwritable_journal(failure: journal_emit.JournalUnwritable,
         f"non-zero with this same marker; this comment is the durable half of "
         f"that report."
     )
+    # THROUGH THE CAPTURE-TIME FILTER, EVEN THOUGH NO EMIT PRECEDES IT. This is
+    # the one store write that bypasses `paired_write`, so it is the one write
+    # whose bytes `capture_filter` would otherwise never see — and its `detail`
+    # is an exception message composed from whatever the failing write held
+    # (a path, an errno, and on `UnicodeError` a repr of the offending text).
+    # It lands on a public pull-request thread. Requirement 10's argument —
+    # capture is the only point where a secret can be cheaply kept out — is
+    # stronger here than in the journal: a PR comment has no redaction event.
+    body = filter_capture(body).text
     noun = "issue" if "/issues/" in surface_url else "pr"
     result = gh_attempt([noun, "comment", surface_url, "--body", body], repo_root,
                         case_d_report=True)

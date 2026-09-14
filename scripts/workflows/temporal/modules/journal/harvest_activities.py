@@ -175,20 +175,31 @@ def harvest_github_surfaces(*, run_id: str, repo_root: Path,
     then RAISES, so the process channel carries it too.
     """
     refs = tuple(refs)
-    root = journal_root if journal_root is not None else resolve_journal_root(
-        config=load_journal_config(config_path), create=False)
-    default_repo = repo_slug_of(origin_remote(repo_root))
     # THE BAG'S PATH IS THE REPORT'S, NOT A RESOLVED BAG: in case (d) the bag
     # may be exactly what is gone, so it is named rather than stat'ed. Rebound
     # through `validated_run_id` first — the same allowlist `resolve_bag` and
     # `open_bag` join under — so the path cannot escape the root.
     run_id = validated_run_id(run_id)
-    bag_path = root / run_id
+    default_repo = repo_slug_of(origin_remote(repo_root))
+    # THE IN-FLIGHT CHECK IS FIRST, AND THE ROOT IS NOT RESOLVED ON ITS PATH.
+    # This runs inside every entrypoint's `finally` while the failure that
+    # ended the run may still be propagating, so anything that raises between
+    # here and the report REPLACES that failure and the durable half is never
+    # posted. `resolve_journal_root` is exactly such a thing when the root is
+    # what is gone — so on the in-flight path the bag is named from the root
+    # the caller already holds, or not at all (`bag: -` in the report).
+    # `origin_remote` returns "" rather than raising, and `run_id` was accepted
+    # by the bag that opened, so neither line above can preempt the report.
     in_flight = in_flight_journal_failure()
     if in_flight is not None:
-        report_case_d_durably(in_flight, refs=refs, repo_root=repo_root,
-                              bag_path=bag_path, default_repo=default_repo)
+        report_case_d_durably(
+            in_flight, refs=refs, repo_root=repo_root,
+            bag_path=journal_root / run_id if journal_root is not None else None,
+            default_repo=default_repo)
         return None
+    root = journal_root if journal_root is not None else resolve_journal_root(
+        config=load_journal_config(config_path), create=False)
+    bag_path = root / run_id
     # r2 FIRST, BEFORE THE LOGIN PROBE. `harvest_run` resolves the bag again —
     # three stat calls, idempotent — but it takes the login as a VALUE, and the
     # probe is a network request. Resolving here is what makes "a run id with

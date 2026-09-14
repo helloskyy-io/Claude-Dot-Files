@@ -663,6 +663,43 @@ def test_a_JournalUnwritable_IN_FLIGHT_posts_the_durable_report_and_harvests_NOT
     assert "durable report posted at" in err and reporter.address in err
 
 
+def test_a_ROOT_that_is_GONE_cannot_preempt_the_in_flight_report(
+        journal, monkeypatch, capsys) -> None:
+    """The in-flight check runs before the root is resolved, and this is why.
+
+    The harvest sits in every entrypoint's `finally` while the failure that
+    ended the run propagates. Anything that raises between the start of the
+    activity and the report REPLACES that failure — and when the journal root
+    is what is gone, `resolve_journal_root` is exactly such a thing. So on the
+    in-flight path the root is not resolved: the bag is named from the
+    caller's `journal_root` or not at all, the report is posted with `bag: -`,
+    and the exception that reaches the entrypoint is the JournalUnwritable
+    that ended the run, not a JournalRootError about the harvest's own lookup.
+    """
+    from modules.journal import emit as emitmod
+    from modules.journal.emit import JournalUnwritable
+    from modules.journal.root import JournalRootError
+
+    def _gone(**kwargs):
+        raise JournalRootError("the journal root is not there")
+
+    monkeypatch.setattr("modules.journal.harvest_activities.resolve_journal_root", _gone)
+    monkeypatch.setattr("modules.journal.harvest_activities.load_journal_config",
+                        lambda path: {})
+    monkeypatch.setattr("modules.journal.harvest_activities.origin_remote",
+                        lambda repo_root: f"git@github.com:{REPO}.git")
+    reporter = _Reporter()
+    failure = JournalUnwritable("JOURNAL-UNWRITABLE: root gone")
+
+    with emitmod.reporting_case_d_through(reporter), pytest.raises(JournalUnwritable) as raised:
+        _in_a_finally(lambda: harvest_github_surfaces(
+            run_id="run-1", repo_root=journal, refs=(PR,),
+            journal_root=None, runner=FakeGh({})), failure)
+
+    assert raised.value is failure, "the harvest's own lookup replaced the run's failure"
+    assert reporter.calls == [(failure, PR, journal, None)]
+
+
 def test_the_harvest_s_OWN_case_d_posts_the_report_and_RAISES(
         journal, monkeypatch, capsys) -> None:
     """The journal died between the workflow's last emit and this call.

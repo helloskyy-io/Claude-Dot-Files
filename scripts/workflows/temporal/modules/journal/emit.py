@@ -356,8 +356,12 @@ def in_flight_journal_failure() -> JournalUnwritable | None:
     handoff — `test_every_parent_HARVESTS_its_github_surfaces` holds that
     placement — so the harvest is the one activity that runs while the failure
     which ended the run is still in flight AND holds the surfaces the run wrote
-    to. `sys.exception()` is Python's name for that in-flight exception inside a
-    `finally`; this narrows it to the one class case (d) is about.
+    to. `sys.exc_info()[1]` is that in-flight exception inside a `finally`;
+    this narrows it to the one class case (d) is about. `exc_info` AND NOT
+    `sys.exception()`: they answer identically here, but the latter is 3.11+
+    and nothing else in the fleet sets that floor — this call runs in every
+    entrypoint's `finally` on every run, so on a 3.10 host it would be the one
+    line that broke every workflow rather than the one that reported case (d).
 
     `None` MEANS "NOTHING OF THIS KIND IS IN FLIGHT", which is the answer on the
     success path, on every other failure, and for a caller that is not inside a
@@ -365,7 +369,7 @@ def in_flight_journal_failure() -> JournalUnwritable | None:
     `JournalUnwritable` raised and already caught by an enclosing `except` is
     also in flight here and is reported — which is correct: it ended the run.
     """
-    exc = sys.exception()
+    exc = sys.exc_info()[1]
     return exc if isinstance(exc, JournalUnwritable) else None
 
 
