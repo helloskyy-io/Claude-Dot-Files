@@ -32,6 +32,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+import urllib.parse
 from pathlib import Path
 from typing import NamedTuple
 
@@ -52,6 +53,10 @@ REQUIRED = ("Binding scope", "Read when", "Breaking it looks like")
 #: the hub the index most needs to render correctly.
 _FIELD = re.compile(r"^\*\*([^:*]+):\*\*[ \t]*(.*)$", re.M)
 
+#: The line after a field that is prose continuing it: not blank, not another
+#: field, not a heading, fence, blockquote or list marker.
+_CONTINUATION = re.compile(r"^(?![ \t]*$)(?!\*\*[^:*]+:\*\*)(?![#>`\-*|])(?![ \t]*[-*] )")
+
 #: Everything above the first `##`. The contract says the header block lives there,
 #: so a `**Read when:**` written *inside* a section is not a header and is not counted —
 #: which is the difference between a parsed contract and a substring search.
@@ -66,10 +71,26 @@ class Standard(NamedTuple):
     path: Path
     fields: dict[str, str]
     vendored: bool
+    #: Required fields whose value runs onto the following line(s).
+    wrapped: tuple[str, ...] = ()
 
     @property
     def missing(self) -> list[str]:
-        return [r for r in REQUIRED if not self.fields.get(r, "").strip()]
+        """What keeps this standard out of the index: a field absent, or WRAPPED.
+
+        A WRAPPED FIELD IS A DEFECT, NOT A STYLE. The contract says three header
+        LINES, and the parser reads one line per field on purpose (see `_FIELD`).
+        A value continued onto the next line renders as its first line only —
+        MDC's index carried "*adding a step to an* Breaking it looks like: *a
+        component that exists on a running system and in no*" in the entry every
+        session reads first (MDC-PM3, 2026-09-14). Refusing is cheaper than
+        teaching the parser continuation, which would reopen the swallowing
+        `_FIELD` was narrowed to stop.
+        """
+        out = [r for r in REQUIRED if not self.fields.get(r, "").strip()]
+        out += [f"{r} (wrapped onto a second line — a field is ONE line)"
+                for r in REQUIRED if r in self.wrapped]
+        return out
 
 
 #: Friendlier headings for the buckets that have one; the order they read best in.
@@ -81,6 +102,12 @@ _BUCKET_TITLES = {
     "claude-code": "Tooling standards (the claude-dot-files corpus)",
     "documentation": "Documentation and process",
     "findings": "Findings and routing",
+    # Spellings no rule derives from a folder name. An override is honest about
+    # that where a smarter title-caser would only be wrong less often.
+    "api": "API",
+    "argocd": "ArgoCD",
+    "deploy-a-saurus": "Deploy-A-Saurus",
+    "yaml": "YAML",
 }
 _BUCKET_ORDER = {"architecture": 0, "claude-code": 1, "workflows": 2, "services": 3,
                  "documentation": 4, "findings": 5, "research": 6, "testing": 7,
@@ -113,9 +140,14 @@ def read_standard(path: Path) -> Standard:
     text = path.read_text(encoding="utf-8", errors="replace")
     cut = _FIRST_SECTION.search(text)
     head = text[: cut.start()] if cut else text
-    return Standard(path=path,
-                    fields={m.group(1).strip(): m.group(2) for m in _FIELD.finditer(head)},
-                    vendored=bool(_VENDORED.search(text)))
+    fields, wrapped = {}, []
+    for m in _FIELD.finditer(head):
+        fields[m.group(1).strip()] = m.group(2)
+        following = head[m.end():].split("\n", 2)[1:2]
+        if following and _CONTINUATION.match(following[0]):
+            wrapped.append(m.group(1).strip())
+    return Standard(path=path, fields=fields, vendored=bool(_VENDORED.search(text)),
+                    wrapped=tuple(wrapped))
 
 
 def standards_in(root: Path) -> list[Standard]:
@@ -130,6 +162,40 @@ def standards_in(root: Path) -> list[Standard]:
     if not d.is_dir():
         return []
     return [read_standard(p) for p in sorted(d.rglob("*.md")) if p.name != "README.md"]
+
+
+#: A relative markdown link with a `.md` target; URLs, mailto, bare anchors and
+#: absolute paths are somebody else's problem. Same shape as the repo gate in
+#: `test_relative_links_resolve.py`; this one travels with the tool so a corpus
+#: with no suite beside it can still ask.
+_REL_LINK = re.compile(r"\]\((?!https?:|mailto:|#|/)([^)\s#]+\.md)(?:#[^)]*)?\)")
+_FENCE_LINE = re.compile(r"^[ \t]*```")
+_INLINE_CODE = re.compile(r"`[^`\n]*`")
+
+
+def dead_links(items: list[Standard]) -> list[tuple[Path, int, str]]:
+    """Every relative `.md` link in an OWNED standard whose target is not a file.
+
+    Fenced blocks and inline code are illustrations, not navigation, and are
+    skipped — the documentation standard's worked examples of link shape are
+    written as code on purpose. Only owned standards: a mirror's links resolve
+    in its owner's tree, which is where the owner checks them.
+    """
+    out = []
+    for s in items:
+        if s.vendored:
+            continue
+        fenced = False
+        for n, line in enumerate(s.path.read_text(encoding="utf-8", errors="replace").split("\n"), 1):
+            if _FENCE_LINE.match(line):
+                fenced = not fenced
+                continue
+            if fenced:
+                continue
+            for m in _REL_LINK.finditer(_INLINE_CODE.sub("", line)):
+                if not (s.path.parent / urllib.parse.unquote(m.group(1))).is_file():
+                    out.append((s.path, n, m.group(1)))
+    return out
 
 
 def unindexed(root: Path, items: list[Standard]) -> list[Standard]:
@@ -202,7 +268,7 @@ def render_index(items: list[Standard], root: Path) -> str:
         grouped.setdefault(rel.parts[0] if len(rel.parts) > 1 else "", []).append(s)
     for bucket in sorted(grouped, key=lambda b: (_BUCKET_ORDER.get(b, 99), b)):
         if bucket:
-            out += [f"### {_BUCKET_TITLES.get(bucket, bucket.replace('-', ' ').title())}", ""]
+            out += [f"### {_BUCKET_TITLES.get(bucket, re.sub(r'[-_]+', ' ', bucket).title())}", ""]
         for s in grouped[bucket]:
             link = (root / s.path).resolve().relative_to(root.resolve()).as_posix()
             out.append(f"- **[{_title(s.path)}]({link})** — "
@@ -309,6 +375,8 @@ def main(argv: list[str] | None = None) -> int:
                     help="the repo owning `standards/` — a FILESYSTEM PATH")
     ap.add_argument("--check", action="store_true",
                     help="exit 1 on findings, for CI; without it this only reports")
+    ap.add_argument("--links", action="store_true",
+                    help="also resolve every relative .md link in the owned standards")
     ap.add_argument("--generate", action="store_true",
                     help="render the index block from the headers and print it")
     ap.add_argument("--write", action="store_true",
@@ -353,6 +421,12 @@ def main(argv: list[str] | None = None) -> int:
     drift = stale_block(root, items)
     if drift:
         print(f"INDEX BLOCK IS STALE — {drift}\n")
+    dead = dead_links(items) if a.links else []
+    if dead:
+        print(f"DEAD LINKS — {len(dead)} relative link(s) in owned standards point at no file:")
+        for path, n, target in dead:
+            print(f"  {path.relative_to(root)}:{n}  {target}")
+        print()
     if mirror_gaps:
         print(f"VENDORED, AND THE OWNER'S TO FIX — not this repo's work ({len(mirror_gaps)}):")
         for s in mirror_gaps:
@@ -362,9 +436,10 @@ def main(argv: list[str] | None = None) -> int:
     # the truth: a stale index reported "clean" on the last line of a run that exited
     # 1, and the last line is what a reader takes away. Observed 2026-09-08 driving
     # the staleness gate with a mutation — the gate was right and its summary was not.
-    if not (gaps or stray or drift):
-        print("clean: every owned standard carries the three header lines and is indexed.")
-    return 1 if (a.check and (gaps or stray or drift)) else 0
+    if not (gaps or stray or drift or dead):
+        print("clean: every owned standard carries the three header lines and is indexed"
+              + (", and every relative link resolves." if a.links else "."))
+    return 1 if (a.check and (gaps or stray or drift or dead)) else 0
 
 
 if __name__ == "__main__":

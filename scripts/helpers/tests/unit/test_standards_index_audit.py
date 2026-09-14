@@ -261,3 +261,49 @@ def test_THE_BLOCK_DOES_NOT_DEPEND_ON_WHERE_THE_TREE_SITS(tmp_path: Path) -> Non
     assert si.stale_block(longer, si.standards_in(longer)) is None
     assert si.main(["--repo-root", str(longer), "--check"]) == 0
 
+
+def test_A_WRAPPED_FIELD_IS_REPORTED_not_truncated(tmp_path: Path) -> None:
+    """The contract says three header LINES; a value continued onto the next line
+    rendered as its first line only, mid-sentence, in the entry every session
+    reads first. Refused by name rather than silently cut."""
+    _std(tmp_path, "a/x.md", "# X\n\n**Binding scope:** any chart under `deployments/`\n"
+         "**Read when:** writing a chart, or\nreviewing one\n"
+         "**Breaking it looks like:** an image tag pinned to `latest`\n## Body\n")
+    (s,) = si.standards_in(tmp_path)
+    assert s.wrapped == ("Read when",)
+    assert any(m.startswith("Read when (wrapped") for m in s.missing), s.missing
+    assert not any(m.startswith("Binding scope") for m in s.missing)
+
+
+@pytest.mark.parametrize("following", ["", "**Companion to:** y.md", "## Body", "> quote", "- a list", "```"])
+def test_A_LINE_THAT_IS_NOT_PROSE_DOES_NOT_MAKE_THE_FIELD_WRAPPED(tmp_path: Path, following: str) -> None:
+    _std(tmp_path, "a/x.md", f"# X\n\n**Binding scope:** any chart\n{following}\n\n"
+         "**Read when:** writing a chart\n\n**Breaking it looks like:** `latest`\n## Body\n")
+    (s,) = si.standards_in(tmp_path)
+    assert s.wrapped == (), (following, s.wrapped)
+
+
+@pytest.mark.parametrize("folder, heading", [
+    ("lifecycle_management", "### Lifecycle Management"),
+    ("platform-deployment", "### Platform Deployment"),
+    ("argocd", "### ArgoCD"),
+    ("yaml", "### YAML"),
+])
+def test_A_BUCKET_HEADING_reads_as_a_title(tmp_path: Path, folder: str, heading: str) -> None:
+    """Underscores and hyphens are both separators; acronyms are spelled, not cased."""
+    _complete(tmp_path, f"{folder}/x.md", "X")
+    assert heading in si.render_index(si.standards_in(tmp_path), tmp_path)
+
+
+def test_LINKS_reports_a_dead_relative_link_and_skips_illustrations(tmp_path: Path, capsys) -> None:
+    _std(tmp_path, "a/x.md", f"# X\n\n{HEAD}\n## Body\n"
+         "see [Y](../b/y.md) and [gone](../b/gone.md)\n"
+         "shape: `[Standard §N](path.md)`\n```\n[E](example.md)\n```\n")
+    _complete(tmp_path, "b/y.md", "Y")
+    (tmp_path / "CLAUDE.md").write_text("[x](standards/a/x.md) [y](standards/b/y.md)", encoding="utf-8")
+    dead = si.dead_links(si.standards_in(tmp_path))
+    assert [(p.name, n, t) for p, n, t in dead] == [("x.md", 8, "../b/gone.md")]
+    assert si.main(["--repo-root", str(tmp_path), "--check", "--links"]) == 1
+    assert "DEAD LINKS" in capsys.readouterr().out
+    assert si.main(["--repo-root", str(tmp_path), "--check"]) == 0, "without --links the link is not a finding"
+
