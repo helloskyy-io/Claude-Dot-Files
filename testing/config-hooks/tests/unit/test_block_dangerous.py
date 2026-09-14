@@ -1370,59 +1370,16 @@ def test_the_respelt_separator_sweep_is_not_vacuous() -> None:
 
 
 # ---------------------------------------------------------------------------
-# THE ELISION-NEIGHBOUR SWEEP — the class check for the one step in this hook
-# that MUTATES the string the patterns are matched against.
-#
-# WHY IT IS A THIRD SWEEP AND NOT MORE CORPUS ENTRIES. Every other check in this
-# file asks whether a REGEX matches a string, and for that question a corpus of
-# hand-picked boundary cases is the right technique — a pattern either covers a
-# literal command or it does not. The SCRATCH-DELETE ELISION is not a regex; it
-# is a stateful transform that deletes text, and a transform has structural
-# invariants a finite corpus can circle without ever landing on. It shipped with
-# 1680 tests green and a live fail-open: the first version deleted an elided
-# segment with `${CMD//"$_SEG"/}`, which removes EVERY occurrence of that text
-# anywhere in the command, so an allowed scratch delete disarmed a DIFFERENT
-# segment that the narrow regex had correctly refused. The corpus already had
-# the near-miss for that risk (`rm -rf /tmp/x && rm -rf /`); it passed, because
-# its two segments happen not to share text. Nobody wrote the sibling where they
-# do, and nobody would have.
-#
-# So the property is swept rather than enumerated: ELIDING A SEGMENT MUST NOT
-# CHANGE THE VERDICT ON ANY OTHER SEGMENT. Every dangerous command in the corpus
-# is placed beside an elidable scratch delete, in both orders, and must still be
-# denied.
-#
-# THE NEIGHBOUR IS ABSOLUTE (`/tmp/…`) ON PURPOSE. A `cd /tmp && rm -rf x`
-# neighbour would ALSO establish the scratch directory, and a relative-target
-# entry in the corpus (`rm -r olddir`) would then be legitimately elided — the
-# sweep would be asserting against the hook's designed behaviour rather than
-# against the defect. An absolute scratch delete leaves `_IN_SCRATCH_DIR` at 0.
-_ELIDABLE_NEIGHBOUR = "rm -rf /tmp/elision-probe"
-
-# The SHARED-TEXT half, generated from each corpus command rather than written
-# out: any `rm <short flags> /tmp/<name>` substring inside a dangerous command
-# is itself elidable, so pairing the command with that substring reproduces the
-# exact collision the first version fell to — mechanically, for entries added
-# later as well as the ones here now.
-_SCRATCH_SUBSTRING = re.compile(r"rm(?: +-[A-Za-z]+)+ +/(?:var/)?tmp/[A-Za-z0-9._-]+")
-
-
-def _elision_neighbour_probes() -> list[tuple[str, str]]:
-    probes: list[tuple[str, str]] = []
-    for label, command in DANGEROUS:
-        probes.append((f"{label} :: after an unrelated elision", f"{_ELIDABLE_NEIGHBOUR} && {command}"))
-        probes.append((f"{label} :: before an unrelated elision", f"{command} && {_ELIDABLE_NEIGHBOUR}"))
-        for shared in dict.fromkeys(_SCRATCH_SUBSTRING.findall(command)):
-            probes.append((f"{label} :: after an elision sharing its text", f"{shared} && {command}"))
-            probes.append((f"{label} :: before an elision sharing its text", f"{command} && {shared}"))
-    return probes
-
-
-_ELISION_NEIGHBOUR_PROBES = _elision_neighbour_probes()
-
-
-
-
+# THERE IS NO THIRD SWEEP, AND THE REASON IS A PROPERTY OF THE HOOK. The two
+# sweeps above ask whether a REGEX matches a string, which a corpus of boundary
+# cases answers. A transform that DELETES text from `$CMD` before matching would
+# need more — eliding one segment must not change the verdict on another, and a
+# finite corpus circles that invariant without landing on it. The hook has no
+# such transform: the only rewriting it does is whitespace normalisation, which
+# is content-independent and is covered by corpus entries. If a step that
+# removes segments is ever reintroduced, it needs a generated sweep over
+# `DANGEROUS` in both orders, with and without shared text — see the hook's own
+# account of why the last one was removed before building it.
 
 
 # The canonicalization step is what makes the sweep above pass for every
@@ -1536,24 +1493,23 @@ def test_claimed_block_is_denied_end_to_end(command: str) -> None:
     denies" could not come apart in this direction, so a per-pattern check was
     enough.
 
-    The SCRATCH-DELETE ELISION breaks that equivalence deliberately: it removes
-    text before any pattern is tried, so a `MUST BLOCK:` claim can now be
-    perfectly TRUE of its regex while the hook lets the command through. That
-    is the "true and misleading" shape the allow-direction test names, arriving
-    from the other side — and the elision is exactly the kind of change that
-    would produce it silently. `MUST BLOCK: rm -rf /tmp/build` was such a claim
-    for the length of one commit; this test is what makes the next one fail
-    instead of shipping.
+    Any step that rewrites `$CMD` before a pattern is tried breaks that
+    equivalence: a `MUST BLOCK:` claim can be perfectly TRUE of its regex while
+    the hook lets the command through. That is the "true and misleading" shape
+    the allow-direction test names, arriving from the other side. The
+    scratch-delete elision the hook once carried produced exactly that —
+    `MUST BLOCK: rm -rf /tmp/build` was such a claim for the length of one
+    commit — and this test is what makes the next one fail instead of shipping.
 
-    It also bounds the elision generally: whatever else a future exemption
-    swallows, it cannot swallow anything this file claims to block.
+    It also bounds any future exemption: whatever else one swallows, it cannot
+    swallow anything this file claims to block.
     """
     result = run_hook(command)
     assert result.denied, (
         f"{command!r} is claimed by a `MUST BLOCK:` marker and the hook does "
         f"NOT deny it. The pattern may still match in isolation — check "
-        f"whether a step before the pattern loop (canonicalization, the "
-        f"scratch-delete elision) is removing it. A claim that is true of the "
+        f"whether a step before the pattern loop (canonicalization, or any "
+        f"step that rewrites $CMD) is removing it. A claim that is true of the "
         f"regex and false of the hook is worse than a claim that is simply "
         f"wrong, because reading the pattern confirms it."
     )
@@ -1563,8 +1519,8 @@ def test_hook_parses_under_bash_n() -> None:
     """The hook is syntactically valid bash — which is a SAFETY property here.
 
     Pinned because the failure mode is silent and fail-open, and it was hit
-    while writing the elision above. `shopt -s extglob` is set for the
-    whitespace collapse; with extglob on, a `+(` written inside `[[ =~ ]]`
+    while this hook was being written, when the whitespace collapse ran under
+    `shopt -s extglob`: with extglob on, a `+(` written inside `[[ =~ ]]`
     parses as the extglob operator rather than a regex quantifier. Bash
     reported `syntax error near '+('`, kept executing, and reached `exit 0` —
     so `rm -rf /` was ALLOWED while the hook looked present and healthy.
@@ -1605,9 +1561,9 @@ _PATTERN_MATCH_LINE = re.compile(
 )
 _LOOP_START = re.compile(r'for pattern in "\$\{(?:REGEX_PATTERNS|FIXED_PATTERNS)\[@\]\}"; do')
 
-# The input-normalisation region: everything between `shopt -s extglob` and the
-# start of the pattern arrays. Whitespace canonicalization and the
-# scratch-delete elision both live here, and both match against `$CMD`.
+# The input-normalisation region: everything between the first canonicalising
+# substitution and the start of the pattern arrays. Whitespace canonicalization
+# lives here and rewrites `$CMD`.
 # The region opens at the FIRST canonicalising substitution. It used to anchor on
 # `shopt -s extglob`, which stopped existing when the space-collapse was rewritten
 # to not need extglob — and this scanner failed loudly rather than silently
@@ -1634,10 +1590,10 @@ def test_pattern_matching_is_reachable_only_through_the_two_guarded_arrays() -> 
     a violation while a `grep -q … && deny` bolted on above the arrays would
     have kept the count at two only by luck.
 
-    So the region is now named and bounded instead. Between `shopt -s extglob`
-    and `REGEX_PATTERNS=(` sits the input-normalisation region: whitespace
-    canonicalization and the elision. Matching there is allowed; reaching a
-    verdict there is not, and that is asserted rather than assumed.
+    So the region is named and bounded instead. Between the first canonicalising
+    substitution and `REGEX_PATTERNS=(` sits the input-normalisation region.
+    Matching there is allowed; reaching a verdict there is not, and that is
+    asserted rather than assumed.
 
     WHAT IT SEES, stated precisely, because an overstated guarantee is the
     defect this very suite exists to catch — and the first version of this

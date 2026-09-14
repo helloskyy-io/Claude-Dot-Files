@@ -158,6 +158,12 @@ def _outside_fences(text: str) -> str:
     the prose around the example.
 
     Lines are replaced rather than removed so reported line context stays true.
+
+    AN INLINE CODE SPAN IS THE SAME ILLUSTRATION AT SMALLER SCALE. A backticked
+    `[Standard §N](path.md)` renders as literal text, not as a link, so the
+    documentation standard's eight worked examples of link SHAPE are not
+    navigation either. Blanked for the same reason as a fence; measured when
+    added: every one of the eight was a placeholder (`path.md`, `phaseN_x.md`).
     """
     out, fenced = [], False
     for line in text.split("\n"):
@@ -165,8 +171,11 @@ def _outside_fences(text: str) -> str:
             fenced = not fenced
             out.append("")
             continue
-        out.append("" if fenced else line)
+        out.append("" if fenced else _INLINE_CODE.sub(lambda m: " " * len(m.group(0)), line))
     return "\n".join(out)
+
+
+_INLINE_CODE = re.compile(r"`[^`\n]*`")
 
 
 def _broken(path: Path) -> list[tuple[str, str]]:

@@ -83,6 +83,35 @@ def _document_frequency(docs: list[set[str]]) -> dict[str, int]:
     return df
 
 
+def _scores(docs: list[set[str]], mine: set[str]) -> list[float]:
+    """One score per document: cosine over IDF-weighted terms, in [0, 1].
+
+    COSINE, NOT A RAW SUM OF SHARED WEIGHTS, because a sum grows with the
+    document's LENGTH and the items that grow are the ones that recur. Measured
+    on the live store before this landed (I-cyavezck): the five longest of 148
+    candidates held 28% of every top-5 slot, and one 9 KB item was the runner-up
+    for 20 of 148 title queries about other subjects — the check pointed filers
+    at the wrong item exactly when it mattered. Dividing by each side's own
+    weight mass is ordinary vector-space cosine with binary term frequency; it
+    makes the score a share of the document rather than a count of its words.
+
+    Rarity is a property of the corpus a thing is ranked WITHIN, so `docs` is
+    the whole population being ranked and nothing else.
+    """
+    df = _document_frequency(docs)
+    total = len(docs)
+
+    def idf(term: str) -> float:
+        return math.log(1 + total / df.get(term, total))
+
+    mine_norm = math.sqrt(sum(idf(t) ** 2 for t in mine)) or 1.0
+    out = []
+    for terms in docs:
+        norm = math.sqrt(sum(idf(t) ** 2 for t in terms)) or 1.0
+        out.append(sum(idf(t) ** 2 for t in mine & terms) / (norm * mine_norm))
+    return out
+
+
 def similar(root: Path, store: ti.Store, text: str, *,
             key: dict[str, str] | None = None, limit: int = 5) -> list[Match]:
     """Existing items worth reading before filing `text` into `store`.
@@ -98,8 +127,9 @@ def similar(root: Path, store: ti.Store, text: str, *,
     shared term is weighted by the inverse of how many items in the store carry
     it, so a word that appears in a hundred items contributes almost nothing and
     a word that appears in two contributes most of the score. This is ordinary
-    IDF and it is written out rather than imported because the whole scorer is
-    six lines and a dependency here would be the larger cost.
+    IDF, normalised for length in `_scores`, and it is written out rather than
+    imported because the whole scorer is a dozen lines and a dependency here
+    would be the larger cost.
 
     RETURNS AN EMPTY LIST FOR AN EMPTY STORE, which is the honest answer and not
     a failure — the first item filed into a store has nothing to recur against.
@@ -125,17 +155,13 @@ def similar(root: Path, store: ti.Store, text: str, *,
         return []
 
     docs = [_terms(t) for _, _, t, _ in items]
-    df = _document_frequency(docs)
-    total = len(items)
-    mine = _terms(text)
+    scores = _scores(docs, _terms(text))
 
     key = {k: v.strip() for k, v in (key or {}).items() if v and v.strip()}
     identifying = _IDENTIFYING.get(store.name, ())
 
     out: list[Match] = []
-    for (cid, fields, _, path), terms in zip(items, docs):
-        shared = mine & terms
-        score = sum(math.log(1 + total / df[t]) for t in shared)
+    for (cid, fields, _, path), score in zip(items, scores):
         basis = "text"
         if identifying and all(
                 fields.get(f, "").strip() == key.get(f, "\0") for f in identifying):
@@ -237,12 +263,8 @@ def similar_intake(issues: list[dict], text: str, *, limit: int = 5) -> list[Int
     if not issues:
         return []
     docs = [_terms(f"{i.get('title', '')}\n{i.get('body') or ''}") for i in issues]
-    df = _document_frequency(docs)
-    total = len(issues)
-    mine = _terms(text)
     out = []
-    for issue, terms in zip(issues, docs):
-        score = sum(math.log(total / df[t]) + 1.0 for t in (mine & terms))
+    for issue, score in zip(issues, _scores(docs, _terms(text))):
         if score > 0:
             out.append(IntakeMatch(number=issue.get("number", 0),
                                    title=issue.get("title", ""), score=score))
