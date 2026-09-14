@@ -723,23 +723,14 @@ SURFACES = [
         # own review, and this gate's job was to make the gap visible. The
         # ratchet opens the guide (`_consumer_file`), so the line leaves the
         # day the page names them.
-        unread={
-            "compare_run_config.py": "the named reader of `Journal-Config-"
-                                     "Digest` (Phase 5 r3), run by hand over "
-                                     "two sealed bags; `guide/workflows.md` "
-                                     "and `guide/operations.md` do not name "
-                                     "it, and outside tests its only mentions "
-                                     "are two bug-history comments in "
-                                     "`modules/journal/config_digest.py` and "
-                                     "the repo map",
-            "reconcile_harvest.py": "PMP Phase 10's per-run reconciler, landed "
-                                    "in #184; `modules/journal/"
-                                    "harvest_activities.py`'s docstring "
-                                    "DECLARES it as the index's consumer, "
-                                    "which is a producer naming its reader in "
-                                    "prose, not a document an operator reads "
-                                    "— no guide page names it",
-        },
+        # EMPTY AS OF 2026-09-14, AND THAT IS THE RATCHET CLOSING. Two readers sat
+        # here frozen — `compare_run_config.py` and `reconcile_harvest.py` — with
+        # the note that "the line leaves the day the page names them". The
+        # planning repo's `guide/operations.md` named both on 2026-09-13
+        # (ed5f119), the gate went red for exactly the reason it was built to,
+        # and the entries left. The dict stays so the next frozen reader has a
+        # place to land.
+        unread={},
     ),
 ]
 
