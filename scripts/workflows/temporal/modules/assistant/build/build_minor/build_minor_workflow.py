@@ -47,6 +47,7 @@ def _spend(repo_root, started) -> str:
 def run_build_minor(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildResult:
     """Draft, refine, disposition, and route on the verdict."""
     notes: list[str] = []
+    issue_urls: list[str] = []
     started = act.clock_now()
     description = task_text(task, repo_root)
 
@@ -72,7 +73,8 @@ def run_build_minor(task: BuildInput, repo_root: Path, worktree_name: str) -> Bu
 
     loops = 0
     verdict = _refine_then_dispose(task, description, pr, repo_root,
-                                   worktree, worktree_name, notes, correction=False)
+                                   worktree, worktree_name, notes, issue_urls,
+                                   correction=False)
 
     # Same bound as the major tier and for the same reason: self-correction
     # plateaus at roughly 3-5 passes, and past it the model justifies rather than
@@ -84,7 +86,8 @@ def run_build_minor(task: BuildInput, repo_root: Path, worktree_name: str) -> Bu
                      + (" The last automated pass."
                         if loops == helper.MAX_LOOPS else ""))
         verdict = _refine_then_dispose(task, description, pr, repo_root, worktree,
-                                       worktree_name, notes, correction=True,
+                                       worktree_name, notes, issue_urls,
+                                       correction=True,
                                        loops_left=helper.MAX_LOOPS - loops)
 
     if verdict is Verdict.HOLD_NEEDS_ASSISTANCE:
@@ -102,13 +105,15 @@ def run_build_minor(task: BuildInput, repo_root: Path, worktree_name: str) -> Bu
                      f"loop-back(s) is the cap.")
 
     return BuildResult(pr_number=pr, pr_url=pr_url, verdict=verdict,
-                       loops_used=loops, notes=notes)
+                       loops_used=loops, notes=notes, issue_urls=issue_urls)
 
 
 def _refine_then_dispose(task: BuildInput, description: str, pr: str,
                          repo_root: Path, worktree: Path, worktree_name: str,
-                         notes: list[str], *, correction: bool,
-                         loops_left: int = 0) -> Verdict:
+                         notes: list[str], issue_urls: list[str], *,
+                         correction: bool, loops_left: int = 0) -> Verdict:
+    # `notes` and `issue_urls` are the caller's accumulators — see the
+    # sibling `build_workflow._refine_then_dispose`.
     ci_settled = wait_for_ci(pr, repo_root=repo_root)
     if not ci_settled:
         notes.append("CI had not settled before refine; the child was told so.")
@@ -142,4 +147,12 @@ def _refine_then_dispose(task: BuildInput, description: str, pr: str,
         repo_root, worktree_name=worktree_name,
     )
     notes.extend(result.notes)
+    # THE URLS TRAVEL BESIDE THE NOTES, AND ONLY THE NOTES TRAVELLED BEFORE. The
+    # reviewer's banner line ("Filed N intake(s), handed to the harvest") rode
+    # `notes` up to the entrypoint while the URLs it names died here with the
+    # local `result` — so the parent SAID it handed them over and handed over
+    # nothing, and no gap fired for a ref the harvest was never given.
+    # Accumulated across passes: a loop-back that files again files a
+    # different issue, and the harvest dedupes a repeat by reference.
+    issue_urls.extend(result.issue_urls)
     return Verdict(result.verdict.value)

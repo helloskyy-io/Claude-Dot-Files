@@ -24,7 +24,7 @@ from ..research_draft import research_draft_workflow as draft
 from ..research_refine import research_refine_workflow as verify
 from ...review_pr import review_pr_workflow as review_pr
 from ...review_pr.review_pr_helper import ReviewInput, ReviewType, Verdict
-from ...assistant_activities import (ci_verdict, extract_pr_url, repo_slug,
+from ...assistant_activities import (ci_verdict, repo_slug,
                                      wait_for_ci)
 from ... import routing
 
@@ -35,8 +35,14 @@ MAX_LOOPS = 1
 def run_research(*, research_dir: Path, repo_root: Path, worktree_name: str,
                  context: str = "", pr_number: str | None = None,
                  verbose: bool = False) -> dict:
-    """Produce, verify, disposition. Returns a typed result."""
+    """Produce, verify, disposition. Returns a typed result.
+
+    `issue_urls` in the result is every intake the embedded reviewer reported
+    filing, for the entrypoint to hand the post-exit harvest
+    (`plan_workflow.run_plan` says why it rides beside `notes`).
+    """
     notes: list[str] = []
+    issue_urls: list[str] = []
 
     # Read BEFORE THE CUT, so a `gh` failure costs a dispatch that has produced
     # nothing AND leaves no registered worktree behind — the reason
@@ -59,7 +65,8 @@ def run_research(*, research_dir: Path, repo_root: Path, worktree_name: str,
 
     loops = 0
     verdict = _verify_then_dispose(research_dir, pr, repo_root, worktree,
-                                   worktree_name, notes, verbose, correction=False)
+                                   worktree_name, notes, issue_urls, verbose,
+                                   correction=False)
 
     # ONE loop-back. Self-correction plateaus at 3-5 passes; past it the model
     # justifies rather than corrects. Counting across the pipeline:
@@ -68,7 +75,8 @@ def run_research(*, research_dir: Path, repo_root: Path, worktree_name: str,
         loops += 1
         notes.append("HOLD (redispatch): looping back ONCE — the last automated pass.")
         verdict = _verify_then_dispose(research_dir, pr, repo_root, worktree,
-                                       worktree_name, notes, verbose, correction=True)
+                                       worktree_name, notes, issue_urls, verbose,
+                                       correction=True)
 
     if verdict is Verdict.HOLD_NEEDS_ASSISTANCE:
         # THE LOOP DECISION AND NOTHING ELSE. Wiring the CI gate above gave this
@@ -85,12 +93,12 @@ def run_research(*, research_dir: Path, repo_root: Path, worktree_name: str,
         notes.append("The automated loop is SPENT — one loop-back is the cap.")
 
     return {"pr_number": pr, "pr_url": pr_url, "verdict": verdict,
-            "loops_used": loops, "notes": notes}
+            "loops_used": loops, "notes": notes, "issue_urls": issue_urls}
 
 
 def _verify_then_dispose(research_dir: Path, pr: str, repo_root: Path,
                          worktree: Path, worktree_name: str,
-                         notes: list[str], verbose: bool,
+                         notes: list[str], issue_urls: list[str], verbose: bool,
                          *, correction: bool) -> Verdict:
     verify.run_verify(
         research_dir=research_dir, pr_number=pr, repo_root=repo_root,
@@ -130,4 +138,8 @@ def _verify_then_dispose(research_dir: Path, pr: str, repo_root: Path,
         repo_root, worktree_name=worktree_name,
     )
     notes.extend(result.notes)
+    # THE URLS TRAVEL BESIDE THE NOTES — see `build_workflow._refine_then_dispose`
+    # for the miss this closes: the reviewer's "handed to the harvest" note
+    # reached the banner while the URLs it named died here with `result`.
+    issue_urls.extend(result.issue_urls)
     return result.verdict

@@ -768,6 +768,18 @@ claude-dot-files/
 │                   │                                #   cannot), the prompt instructs the exact shapes the parsers read, the real `run_review`
 │                   │                                #   carries the union on `ReviewResult.issue_urls`, and a run that raises after the child
 │                   │                                #   filed still fails loud — the intakes die with it
+│                   ├── test_an_EMBEDDED_reviewer_s_intakes_reach_the_harvest.py # The dynamic half of PMP Phase 10 r1/r5 for a
+│                   │                                #   reviewer that runs INSIDE a parent: measured on bag 74802cb7, a build's reviewer filed
+│                   │                                #   skyynet-master-planning#32, the banner said "handed to the harvest", and the bag held
+│                   │                                #   no event for it and no gap — the URL died at `_refine_then_dispose`'s return while the
+│                   │                                #   NOTE rode up. Four levels: every embedding parent's dispose pass carries the reviewer's
+│                   │                                #   `issue_urls` to its caller (accumulates across loop-backs, untouched on a CI hold); every
+│                   │                                #   embedding parent's WHOLE RUN returns them on its result shape, read strictly (the outer
+│                   │                                #   return review-pr found unpinned for four of five parents); the
+│                   │                                #   REAL `run_review` reading a block-only cross-repo intake inside the REAL `run_build`
+│                   │                                #   lands it on `BuildResult.issue_urls`; and `run_build.main()` LIVE against a real repo,
+│                   │                                #   the sandboxed journal and a fake `gh` puts the issue's body in the bag with the issue as
+│                   │                                #   destination — or, when `gh` cannot read it, a typed gap naming it and `incomplete`
 │                   ├── test_runner_discovery.py     # An orphaned test file FAILS the suite — runs python.sh against a synthetic tree
 │                   ├── test_turn_cap_banner_reads_the_worktree.py # The turn-cap banner reports the tree it can SEE (#65): worktree_delivery_state
 │                   │                                #   extracted from run-claude.sh and run against real git fixtures under BOTH caller shapes —

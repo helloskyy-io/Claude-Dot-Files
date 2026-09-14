@@ -132,7 +132,7 @@ def _verdicts(monkeypatch: pytest.MonkeyPatch, calls: _Calls, *sequence: routing
     monkeypatch.setattr(pm.review_pr, "run_review", fake_review)
 
 
-def _run(**kw: object) -> tuple[str, routing.Verdict, int, list[str]]:
+def _run(**kw: object) -> tuple[str, routing.Verdict, int, list[str], list[str]]:
     return pm.run_plan_project(
         repo_root=Path("/repo"), worktree_name="wt",
         candidates_path=Path("/repo/c.md"), research_dir=Path("/repo/r"), **kw,
@@ -142,7 +142,7 @@ def _run(**kw: object) -> tuple[str, routing.Verdict, int, list[str]]:
 def test_merge_runs_one_of_each_child(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
     """The happy path spends exactly one triage and one review, never two."""
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
-    url, verdict, loops, _notes = _run()
+    url, verdict, loops, _notes, _intakes = _run()
     assert (url, verdict, loops) == (PR_URL, routing.Verdict.MERGE, 0)
     assert (wired.triage, wired.review) == (1, 1)
 
@@ -253,7 +253,7 @@ def test_redispatch_loops_to_the_bound_then_stops(wired: _Calls, monkeypatch: py
     only the loop bound stops it.
     """
     _verdicts(monkeypatch, wired, routing.Verdict.HOLD_REDISPATCH)
-    _url, verdict, loops, notes = _run()
+    _url, verdict, loops, notes, _intakes = _run()
     assert loops == routing.MAX_LOOPS, (
         f"looped {loops} times against a bound of {routing.MAX_LOOPS}. Asserting a "
         f"LITERAL here made the operator's 1->3 ramp look like a regression."
@@ -314,7 +314,7 @@ def test_the_loop_back_targets_the_OPEN_pr_and_not_a_fresh_one(
 def test_a_loop_back_that_earns_merge_stops_there(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
     """The loop is spent on success too — it does not keep going after MERGE."""
     _verdicts(monkeypatch, wired, routing.Verdict.HOLD_REDISPATCH, routing.Verdict.MERGE)
-    _url, verdict, loops, _notes = _run()
+    _url, verdict, loops, _notes, _intakes = _run()
     assert (verdict, loops) == (routing.Verdict.MERGE, 1)
     # TWO, and deliberately NOT `1 + routing.MAX_LOOPS` as its siblings use: this
     # run EARNS MERGE on its first loop-back and stops, so the bound is never
@@ -330,7 +330,7 @@ def test_needs_assistance_never_loops(wired: _Calls, monkeypatch: pytest.MonkeyP
     must still decline to spend it.
     """
     _verdicts(monkeypatch, wired, routing.Verdict.HOLD_NEEDS_ASSISTANCE)
-    _url, verdict, loops, notes = _run()
+    _url, verdict, loops, notes, _intakes = _run()
     assert (verdict, loops) == (routing.Verdict.HOLD_NEEDS_ASSISTANCE, 0)
     assert (wired.triage, wired.review) == (1, 1)
     # THE NOTE STATES THE LOOP DECISION AND NOTHING ELSE. It used to say
@@ -365,7 +365,7 @@ def test_a_RED_tree_HOLDS_before_review_pr_is_ever_dispatched(
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
     monkeypatch.setattr(pm, "ci_verdict",
                         lambda pr, **kw: (routing.CiVerdict.RED, ["suite"]))
-    _url, verdict, loops, notes = _run()
+    _url, verdict, loops, notes, _intakes = _run()
 
     assert verdict is routing.Verdict.HOLD_REDISPATCH, (
         "a red tree reached a MERGE verdict — the gate did not hold")
@@ -417,7 +417,7 @@ def test_merge_still_says_it_is_not_an_unattended_merge(wired: _Calls, monkeypat
     so a clean verdict must not read as authorisation.
     """
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
-    _url, _verdict, _loops, notes = _run()
+    _url, _verdict, _loops, notes, _intakes = _run()
     assert any("does NOT mean" in n for n in notes)
 
 
@@ -507,7 +507,7 @@ def test_EVERY_field_of_Scaffolded_REACHES_THE_OPERATOR_as_its_own_note(
     monkeypatch.setattr(pm.own, "scaffold_candidate_components",
                         lambda *a, **k: scaffolded)
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
-    _url, _verdict, _loops, notes = _run()
+    _url, _verdict, _loops, notes, _intakes = _run()
 
     for field in pm.own.Scaffolded._fields:
         entries = getattr(scaffolded, field)
@@ -547,7 +547,7 @@ def test_a_scaffolded_component_NAMES_THE_TWO_DISPATCHES_that_take_it_forward(
     monkeypatch.setattr(pm.own, "scaffold_candidate_components",
                         lambda *a, **k: scaffolded)
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
-    _url, _verdict, _loops, notes = _run()
+    _url, _verdict, _loops, notes, _intakes = _run()
 
     for slug in ("alpha", "beta"):
         note = next(n for n in notes if slug in n)
