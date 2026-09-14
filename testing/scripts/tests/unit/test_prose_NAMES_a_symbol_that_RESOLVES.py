@@ -64,22 +64,10 @@ bar `test_journal_regex_anchors` sets for its own exemptions.
 
 ⚠ WHAT THIS DOES NOT COVER, because a sweep is only as good as its predicate:
 
-  * IT SWEEPS `scripts/` AND `testing/scripts/` AND NOTHING ELSE — the temporal
-    fleet, the helper scripts beside it, and the repo-wide guard suite. `testing/config-hooks/` is
-    OUT, and not because it is clean: one comment there names a variable from
-    the 193-line scratch-delete elision that `block-dangerous.sh` deleted on
-    2026-08-15. That is a live instance of this exact class, and correcting it
-    is not a rename — the sentence's whole premise is a mechanism that no longer
-    exists, so it needs a read of what that sweep is still for. It is tracked at
-    issue #178 with the other disclosed blind spot, rather than laundered into a
-    row below. Widening the scope is what closes it.
-
-    ⚠ THAT SENTENCE PREVIOUSLY SAID THE INSTANCE WAS *"SURFACED on the PR that
-    added this file"*, AND IT WAS NOT — not in the body, not in any comment. So
-    the only record of a disclosed live defect was this paragraph, in the file
-    whose own docstring calls a permanent list of dead names the thing the guard
-    exists to prevent. A reader checking whether the disclosure had been actioned
-    would have found the PR silent and concluded it was handled off-thread.
+  * IT SWEEPS `scripts/`, `testing/scripts/` AND `testing/config-hooks/` AND
+    NOTHING ELSE — the temporal fleet, the helper scripts beside it, the
+    repo-wide guard suite, and the safety hook's own tests. Everything else in
+    the tree is invisible here.
   * IT RESOLVES AGAINST THIS TREE'S BINDINGS AND NOTHING ELSE, so a prose
     reference to a name the RUNTIME provides — `_replace`, `_field_defaults` on
     a `NamedTuple` — needs a row below. That is two rows across the whole tree,
@@ -110,9 +98,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[4]
 
-# The Python fleet and the repo-wide guard suite. See the docstring for why
-# `testing/config-hooks/` is outside it and what is known to be sitting there.
-SWEPT_PREFIXES = ("scripts/", "testing/scripts/")
+# The Python fleet, the repo-wide guard suite, and the safety hook's tests.
+SWEPT_PREFIXES = ("scripts/", "testing/scripts/", "testing/config-hooks/")
 
 # A backticked module-private identifier, optionally qualified by a module. The
 # trailing `[A-Za-z0-9]` refuses a name ending in `_`, which is how this tree

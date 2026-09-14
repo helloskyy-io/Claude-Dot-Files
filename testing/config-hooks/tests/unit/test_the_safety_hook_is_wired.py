@@ -19,9 +19,11 @@ THE THREE FAILURE MODES, none of which is loud:
      script was renamed. The path is a string in JSON; nothing checks it points
      at anything.
   3. A dispatch STRIPS user settings — `--setting-sources project,local` excludes
-     the user-level file the hook is declared in. No runner passes it today, and
-     the Managed Configuration sprint has it as a live proposal, so this test is
-     the tripwire on that change rather than a claim about current code.
+     the user-level file the hook is declared in, and `--safe-mode`,
+     `--restricted` and `--bare` each leave the hook not running by their own
+     route (`_HOOK_STRIPPING_FLAGS`). No runner passes any of them today, and
+     the Managed Configuration sprint has the first as a live proposal, so the
+     test is the tripwire on that change rather than a claim about current code.
 
 Mode 2 is the one worth stating plainly: the hook's own tests pass whether or not
 the file is reachable from a dispatch, because they invoke it by path directly.
@@ -455,6 +457,15 @@ def _dispatchers() -> list[str]:
     return found
 
 
+#: Every CLI flag known to leave the user-scope hook not running. The list is
+#: OPEN — it is what has been looked at, not a closed set — and its one carrier
+#: is the phase doc's Hazard vectors table; `test_the_strip_sweep_COVERS_every_
+#: hazard_vector_the_corpus_names` holds this tuple to it.
+_HOOK_STRIPPING_FLAGS = ("--setting-sources", "--safe-mode", "--restricted", "--bare")
+_STRIPS_THE_HOOK = re.compile(
+    r"(?<![\w-])(?:" + "|".join(re.escape(f) for f in _HOOK_STRIPPING_FLAGS) + r")(?![\w-])")
+
+
 def test_no_runner_STRIPS_the_settings_file_the_safety_hook_lives_in() -> None:
     """Failure mode 3: a tripwire on a change that is actively proposed.
 
@@ -463,6 +474,12 @@ def test_no_runner_STRIPS_the_settings_file_the_safety_hook_lives_in() -> None:
     flag as a candidate mechanism, and its own checkbox says the safety blocker
     must be resolved BEFORE the flag is touched. This is what makes that
     ordering enforceable instead of remembered.
+
+    IT WAS WRITTEN AGAINST THAT ONE FLAG, and three others do the same job by
+    their own route — `--safe-mode` disables hooks outright, `--restricted`
+    ignores the user settings file (and `--tools Bash` hands the code-running
+    tool back), `--bare` skips hooks. Measured from the CLI's own help text
+    (I-pymkwrl4); all four trip this now.
     """
     offenders = []
     for path in _swept_sources():
@@ -473,14 +490,48 @@ def test_no_runner_STRIPS_the_settings_file_the_safety_hook_lives_in() -> None:
         for n, line in enumerate(text.splitlines(), 1):
             if line.lstrip().startswith("#"):
                 continue          # a comment discussing the flag is not passing it
-            if re.search(r"--setting-sources", line):
+            if _STRIPS_THE_HOOK.search(line):
                 offenders.append(f"{path.relative_to(REPO_ROOT)}:{n}: {line.strip()[:90]}")
     assert not offenders, (
-        "A runner restricts settings sources, which drops the user-level file the "
-        "safety hook is declared in. Resolve the safety blocker first — give the "
-        "hook another supply route — then change this test with it:\n  "
+        "A runner passes a flag that leaves the user-scope safety hook not running "
+        f"({', '.join(_HOOK_STRIPPING_FLAGS)}). Resolve the safety blocker first — "
+        "give the hook another supply route — then change this test with it:\n  "
         + "\n  ".join(offenders)
     )
+
+
+def test_the_strip_sweep_MATCHES_each_flag_it_claims_to() -> None:
+    """Positive control for the tripwire's predicate, per flag.
+
+    The sweep is green today because no runner passes any of these — which is
+    indistinguishable from a pattern that matches none of them. So each flag is
+    shown to trip it in the shape a runner would write, and a lookalike is shown
+    not to, so the boundary is not doing the matching.
+    """
+    for flag in _HOOK_STRIPPING_FLAGS:
+        assert _STRIPS_THE_HOOK.search(f'claude -p "$TASK" {flag} project,local --verbose'), flag
+        assert _STRIPS_THE_HOOK.search(f"  {flag}"), flag
+        assert not _STRIPS_THE_HOOK.search(f"{flag}-metrics"), f"{flag}: prefix matched a longer flag"
+
+
+def test_the_strip_sweep_COVERS_every_hazard_vector_the_corpus_names() -> None:
+    """The flag list is DERIVED from the phase doc that enumerates the hazard
+    vectors, not restated beside it — a vector added there and not here is the
+    hole the corpus already warned about (its list is open by its own words).
+    """
+    import sys
+    sys.path.insert(0, str(REPO_ROOT / "scripts" / "workflows" / "temporal" / "tests"))
+    import planning_corpus
+    planning_corpus.require_planning_corpus()
+    doc = (planning_corpus.planning_root() / "development" / "edge-assistant"
+           / "workflow-decomposition" / "phase5_configuration_a_run_absorbed.md")
+    assert doc.exists(), f"the hazard-vector carrier moved: {doc}"
+    section = doc.read_text(encoding="utf-8").split("### Hazard vectors", 1)[1].split("\n### ", 1)[0]
+    named = set(re.findall(r"^\|\s*`(--[a-z-]+)", section, re.M))
+    assert named, "the Hazard vectors table did not parse — this read nothing"
+    missing = sorted(named - set(_HOOK_STRIPPING_FLAGS))
+    assert not missing, (
+        f"the corpus names hazard vector(s) the strip sweep does not watch for: {missing}")
 
 
 def test_the_settings_source_sweep_SEES_every_file_that_DISPATCHES_claude() -> None:
