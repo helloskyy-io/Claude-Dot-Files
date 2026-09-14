@@ -59,6 +59,42 @@ def test_a_RARE_shared_term_outranks_many_common_ones(root: Path) -> None:
         f"{[(h.id, round(h.score, 2)) for h in hits]}")
 
 
+def test_a_LONG_item_does_not_outrank_a_short_one_that_is_ABOUT_the_query(root: Path) -> None:
+    """The defect I-cyavezck measured twice on live PRs: the one 4 KB item won
+    unrelated queries because a raw sum of shared weights grows with length.
+
+    The decoy is a long item whose many recurrence notes, between them, happen
+    to mention MORE of the query's words than the short item does — each one
+    once, on a different subject. The real match is short and about the query.
+    Under a raw sum the decoy wins on volume; under a length-normalised score
+    it does not, because most of the decoy is about something else.
+    """
+    store = root / "candidates"
+    _item(store, "C-shortone", "Heartbeat interval is unbounded on the worker",
+          "The heartbeat interval on the worker has no ceiling.")
+    notes = [
+        "the worktree path regressed again and the worker log shows it",
+        "the journal append was refused mid-run and never cancelled",
+        "the envelope was unreadable after the interval elapsed",
+        "the nonce was reissued and the heartbeat stayed silent",
+        "the manifest drifted from the chart and the diff is unbounded",
+        "the quota check fired on the sidecar before the cgroup cap",
+        "the tailnet route flapped during the rollout and the ratchet slipped",
+        "the reviewer held the record and the store write was withheld",
+    ]
+    _item(store, "C-longdecoy", "Eight recurrence notes about eight subjects",
+          "\n".join(f"- recurrence {n}: {note}" for n, note in enumerate(notes)))
+    for w in ("worktree", "journal", "envelope"):
+        _item(store, f"C-filler{w[:2]}", f"The {w} check", f"the {w} check reads the {w}")
+
+    hits = own.similar(root, ti.STORES["candidates"],
+                       "The worker heartbeat interval is unbounded and the run "
+                       "is never cancelled")
+    assert hits[0].id == "C-shortone", (
+        f"a long item that mentions the subject once must not outrank a short "
+        f"item that is about it; got {[(h.id, round(h.score, 3)) for h in hits]}")
+
+
 def test_an_EXACT_key_match_outranks_every_text_match(root: Path) -> None:
     """`standards` is the one store with a field that IDENTIFIES rather than
     narrows (§4.1: a named target and an actionable anchor). Two proposals
