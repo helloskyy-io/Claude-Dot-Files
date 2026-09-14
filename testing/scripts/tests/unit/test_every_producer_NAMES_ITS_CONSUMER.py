@@ -38,7 +38,11 @@ check is built from it:
         by the runner, not by the system.
       * CODE CONSUMED BY IMPORT — `modules/`. The import graph, the suite and
         `code-reviewer`'s structure lens hold it; a gate keyed on names would
-        re-implement dead-code detection badly.
+        re-implement dead-code detection badly. The THREE FLAT LIBRARIES beside
+        the entrypoints (`preflight.py`, `dispatch_identity.py`,
+        `dispatch_context.py`) are NOT this class: `scripts/` is no package,
+        each is loaded by a `sys.path` insert and a bare stem import, and that
+        is one shape an AST predicate can see — so they are ruled IN below.
       * A SURFACE HELD BY ANOTHER GATE — the shared prompt pool, the repo map.
         Named here with the gate that holds it, so a reader can go and check
         that claim rather than take it.
@@ -53,8 +57,9 @@ TWO WAYS A CONSUMER IS NAMED, and the difference is where the claim lives.
     README whose rows name each member's consumer. The gate holds the
     population — a member with no row fails — and a person holds the cell.
   * A DERIVED surface (`config/hooks/`, `config/agents/`, the bash libraries,
-    `scripts/services/`, `testing/suites/`, the three bash workflows) has no
-    table, and cannot: `config/agents/` and `config/hooks/` are symlinked
+    `scripts/services/`, `testing/suites/`, the three bash workflows, and the
+    four populations of `scripts/workflows/temporal/scripts/`) has no table,
+    and cannot: `config/agents/` and `config/hooks/` are symlinked
     WHOLESALE into `~/.claude/`, so a README there would be loaded as an agent
     named `README`. Its consumer is FOUND on disk by a predicate written for
     that surface's own invocation shape — `settings.json` for a hook, a
@@ -108,15 +113,24 @@ WHAT THIS GATE DOES NOT LOOK AT. Stated here so nobody over-reads a green suite:
     rule that names an agent to explain it from one that dispatches it. The
     gap between *mentions* and *invokes* is recorded in
     `scripts/helpers/README.md` and is not closed here either.
-  * It does not reach INSIDE a ruled-out directory. `scripts/workflows/
-    temporal/scripts/` is the one ruled out for being unruled rather than for
-    a property of its own — see `RULED_OUT` — and `compare_run_config.py`
-    in it has no documented operator entry. ONE producer in it IS ruled, by
-    name: Phase 4's dispatch-context ECHO (`RunContext.echo`, shipped
-    2026-09-01), which the phase doc records as *a producer this gate is
-    expected to cover*. Its consumer is the operator reading stderr — the
-    human-only class — and that every entrypoint emits it is HELD BY ANOTHER
-    GATE (`HELD_BY`). #170 recorded the echo as un-landed; it had landed.
+  * It does not reach INSIDE a ruled-out directory, and no directory is any
+    longer ruled out for being unruled. `scripts/workflows/temporal/scripts/`
+    was — #181 said so in its own `RULED_OUT` reason — and is now FOUR
+    surfaces on one root, one per consumer shape the directory holds: a shim
+    is named in an operator document (the bash workflows' claim), a runner
+    is exec'd by a shim beside it, a library is imported by stem from a fleet
+    module, a tool is named in an operator document. The four member
+    predicates partition the directory, and that partition is asserted, so a
+    file of a fifth shape fails rather than falling between them. What the
+    four DO NOT see: a shim's usage line naming itself and a runner existing
+    beside every shim (both HELD BY `test_shim_usage_names_itself.py`, the
+    shim→runner direction — the runner surface here is the reverse, which
+    nothing held before); and Phase 4's dispatch-context ECHO
+    (`RunContext.echo`, shipped 2026-09-01), a producer ruled by NAME rather
+    than by surface, whose consumer is the operator reading stderr — the
+    human-only class — and whose presence at every entrypoint is HELD BY
+    ANOTHER GATE (`HELD_BY`). #170 recorded the echo as un-landed; it had
+    landed.
   * It does not see a RECORD A RUN WRITES FOR A LATER RUN — a journal bag and
     its tags, a typed exit record, the run log. Those are written under a
     configured root OUTSIDE any tracked tree, so a `git ls-files` walk cannot
@@ -127,7 +141,10 @@ WHAT THIS GATE DOES NOT LOOK AT. Stated here so nobody over-reads a green suite:
     `validate_bag.py`, `verify_citations.py`, `compare_run_config.py` — and
     the exit record's reader, `review_pr/exit_record.py`, are named machine
     readers invoked on demand (requirement 2's shape) that no check here
-    opens. Ruling that class is the extension after `temporal/scripts/`.
+    opens. Ruling that class is the one open extension. (Whether a HUMAN can
+    find those readers IS held, since `temporal/scripts/` was ruled in: two
+    of the three are named in `guide/operations.md`, and
+    `compare_run_config.py` is baselined as unread for lacking exactly that.)
   * A "HELD BY ANOTHER GATE" claim is a cross-file coverage claim, and one
     whose holder was renamed covers nothing while reading as if it did. So
     every holder is registered in `HELD_BY` and asserted to resolve to a test
@@ -146,6 +163,7 @@ WHAT THIS GATE DOES NOT LOOK AT. Stated here so nobody over-reads a green suite:
 
 from __future__ import annotations
 
+import ast
 import re
 import subprocess
 import sys
@@ -165,6 +183,8 @@ _REPO = Path(__file__).resolve().parents[4]
 # checkouts every dispatch runs in.
 sys.path.insert(0, str(_REPO / "scripts" / "workflows" / "temporal" / "tests"))
 from planning_corpus import PLANNING_ROOT  # noqa: E402
+
+_ENTRYPOINTS = _REPO / "scripts" / "workflows" / "temporal" / "scripts"
 
 
 def _is_transient(p: Path) -> bool:
@@ -312,16 +332,51 @@ def _dirs(root: Path) -> set[str]:
     return {p.name for p in root.iterdir() if p.is_dir() and not _is_transient(p)}
 
 
+# THE FOUR POPULATIONS OF `scripts/workflows/temporal/scripts/`, one per consumer
+# shape, and they PARTITION the directory (asserted by `test_the_ENTRYPOINT_
+# populations_PARTITION_the_directory`). Two are by name and two by a shebang:
+# a `run_*.py` is a runner whatever its first line says, and among the rest a
+# file that declares itself executable is a TOOL an operator runs, while one
+# that does not is a LIBRARY something imports. Both directions of the split
+# fail loudly — a tool that drops its shebang is judged as a library and must
+# be imported; a library that gains one must be documented for the operator.
+
+def _entrypoint_shims(root: Path) -> set[str]:
+    return {p.name for p in root.glob("*.sh") if not _is_transient(p)}
+
+
+def _entrypoint_runners(root: Path) -> set[str]:
+    return {p.name for p in root.glob("run_*.py") if not _is_transient(p)}
+
+
+def _has_shebang(p: Path) -> bool:
+    with p.open("rb") as fh:
+        return fh.read(2) == b"#!"
+
+
+def _entrypoint_libraries(root: Path) -> set[str]:
+    return {n for n in _py(root) - _entrypoint_runners(root)
+            if not _has_shebang(root / n)}
+
+
+def _entrypoint_tools(root: Path) -> set[str]:
+    return {n for n in _py(root) - _entrypoint_runners(root)
+            if _has_shebang(root / n)}
+
+
 # --- derived-consumer predicates, one per invocation shape --------------------
 #
-# THREE corpus functions below are `lru_cache`d and read the module-level
+# FOUR corpus functions below are `lru_cache`d and read the module-level
 # `_REPO`. A control that repoints `_REPO` at a fixture must clear ALL of them,
 # before and after — clearing only the one it happens to call leaves a fixture-
 # derived result cached for the rest of the process the day a later edit adds a
 # second call. The `repo_at` fixture is the one way a control repoints the module.
+# (`_imported_stems` is keyed on an absolute path, so a fixture cannot collide
+# with the tree; it is cleared with the rest so nothing has to reason about that.)
 
 def _clear_corpus_caches() -> None:
-    for fn in (_dispatch_corpus, _bash_corpus, _operator_docs):
+    for fn in (_dispatch_corpus, _bash_corpus, _operator_docs, _fleet_python,
+               _imported_stems):
         fn.cache_clear()
 
 
@@ -448,6 +503,54 @@ def _documented_for_the_operator(script: str) -> list[str]:
     return sorted(out)
 
 
+def _execd_by_a_shim(runner: str) -> list[str]:
+    """A runner is consumed by a shim beside it naming it on a NON-COMMENT
+    line — `exec python3 "${SCRIPT_DIR}/run_build.py" "$@"`. The other
+    direction, every shim has a runner beside it and a usage line naming
+    itself, is `test_shim_usage_names_itself.py`'s; this is the reverse,
+    which nothing held: a `run_*.py` that no shim execs."""
+    root = _REPO / "scripts" / "workflows" / "temporal" / "scripts"
+    shims = sorted(p for p in root.glob("*.sh") if not _is_transient(p))
+    return _found_in(shims, runner, text_of=lambda p: _code_lines(_text(p)))
+
+
+@lru_cache(maxsize=None)
+def _fleet_python() -> tuple[Path, ...]:
+    """Every non-test `.py` under `scripts/` — everywhere a stem import of a
+    library beside the entrypoints could come from."""
+    return tuple(sorted(
+        p for p in (_REPO / "scripts").rglob("*.py")
+        if "tests" not in p.relative_to(_REPO).parts
+        and not _is_transient(p)
+        and not any(_is_transient(q) for q in p.relative_to(_REPO).parents)
+    ))
+
+
+@lru_cache(maxsize=None)
+def _imported_stems(p: Path) -> frozenset[str]:
+    """The module names `p` imports, read off its AST: `import x` and
+    `from x import y`, absolute only. A stem in a comment, a docstring or a
+    string literal is not here — which is the mentions/invokes line, drawn
+    structurally rather than by a regex that has to know what a comment is."""
+    out: set[str] = set()
+    for node in ast.walk(ast.parse(_text(p), filename=str(p))):
+        if isinstance(node, ast.Import):
+            out.update(a.name for a in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            out.add(node.module)
+    return frozenset(out)
+
+
+def _imported_by_stem(lib: str) -> list[str]:
+    """A library beside the entrypoints is consumed by another fleet module
+    IMPORTING it by stem. `modules/journal/config_digest.py` names
+    `compare_run_config` twice, both in bug-history comments; under this
+    predicate that is not a consumer, and it must not be."""
+    stem = lib[:-3] if lib.endswith(".py") else lib
+    return sorted(_rel(p) for p in _fleet_python()
+                  if p.name != lib and stem in _imported_stems(p))
+
+
 SURFACES = [
     Surface(
         name="scripts/helpers/measure/",
@@ -572,6 +675,72 @@ SURFACES = [
         accumulates=False,
         consumers=_documented_for_the_operator,
     ),
+    # --- scripts/workflows/temporal/scripts/: FOUR surfaces on ONE root ---------
+    # The directory holds four consumer shapes, and one predicate for all of
+    # them would be their union — which passes a library nobody imports the
+    # day a guide page mentions it. #181 ruled the directory OUT *"for being
+    # unruled rather than for a property of its own"*; this is the ruling.
+    # The four member predicates partition the directory, asserted by
+    # `test_the_ENTRYPOINT_populations_PARTITION_the_directory`. Two claims
+    # about the directory are held elsewhere and registered in `HELD_BY`: the
+    # shim→runner pairing (`test_shim_usage_names_itself.py`) and the
+    # dispatch-context echo every runner emits (`test_dispatch_context.py`).
+    # The shims and the tools make the bash workflows' claim — an operator
+    # document names them — and so, like that surface, SKIP on a clone with
+    # no planning repo beside it; the runners and the libraries assert
+    # everywhere.
+    Surface(
+        name="scripts/workflows/temporal/scripts/ (the shims)",
+        root=_ENTRYPOINTS,
+        members=_entrypoint_shims,
+        accumulates=False,
+        consumers=_documented_for_the_operator,
+    ),
+    Surface(
+        name="scripts/workflows/temporal/scripts/ (the runners)",
+        root=_ENTRYPOINTS,
+        members=_entrypoint_runners,
+        accumulates=False,
+        consumers=_execd_by_a_shim,
+    ),
+    Surface(
+        name="scripts/workflows/temporal/scripts/ (the libraries)",
+        root=_ENTRYPOINTS,
+        members=_entrypoint_libraries,
+        accumulates=False,
+        consumers=_imported_by_stem,
+    ),
+    Surface(
+        name="scripts/workflows/temporal/scripts/ (the tools)",
+        root=_ENTRYPOINTS,
+        members=_entrypoint_tools,
+        accumulates=False,
+        consumers=_documented_for_the_operator,
+        # TWO OF FOUR, found when this directory was ruled in on 2026-09-13.
+        # Each is a working, tested reader of the journal that a human is
+        # meant to run — and no document a human reads says so. Frozen, not
+        # fixed: naming them in the guide is a planning-repo edit with its
+        # own review, and this gate's job was to make the gap visible. The
+        # ratchet opens the guide (`_consumer_file`), so the line leaves the
+        # day the page names them.
+        unread={
+            "compare_run_config.py": "the named reader of `Journal-Config-"
+                                     "Digest` (Phase 5 r3), run by hand over "
+                                     "two sealed bags; `guide/workflows.md` "
+                                     "and `guide/operations.md` do not name "
+                                     "it, and outside tests its only mentions "
+                                     "are two bug-history comments in "
+                                     "`modules/journal/config_digest.py` and "
+                                     "the repo map",
+            "reconcile_harvest.py": "PMP Phase 10's per-run reconciler, landed "
+                                    "in #184; `modules/journal/"
+                                    "harvest_activities.py`'s docstring "
+                                    "DECLARES it as the index's consumer, "
+                                    "which is a producer naming its reader in "
+                                    "prose, not a document an operator reads "
+                                    "— no guide page names it",
+        },
+    ),
 ]
 
 _BY_NAME = {s.name: s for s in SURFACES}
@@ -612,17 +781,6 @@ RULED_OUT = {
         "`test_every_POOL_fragment_is_render_checked_by_some_consumer` and "
         "`test_prompt_completeness.py` require every shared fragment to be "
         "loaded by a consumer or excluded with a reason",
-    "scripts/workflows/temporal/scripts": "a MIXED population this sweep does "
-        "not rule wholesale: 16 shim↔runner pairs, held by "
-        "`test_shim_usage_names_itself.py`, and six library modules consumed "
-        "by import. Ruling the entrypoints against a documented operator entry "
-        "— the claim made of the bash workflows — is the next extension; "
-        "`compare_run_config.py` is named by nothing but tests and would be "
-        "its first finding. ONE producer here is ruled by name: the "
-        "dispatch-context echo every entrypoint emits to stderr, whose reader "
-        "is the operator (human-only) and whose presence at every entrypoint "
-        "is HELD BY ANOTHER GATE: `test_every_entrypoint_BUILDS_a_context_"
-        "and_SAYS_IT`",
     "testing/config-hooks": "tests for `config/hooks/`, read by the runner — "
                             "placed here rather than beside the hooks for the "
                             "reason its README records",
@@ -723,6 +881,14 @@ HELD_BY: dict[str, tuple[str, str]] = {
     "the shim<->runner pairs under temporal/scripts/": (
         "scripts/workflows/temporal/tests/unit/test_shim_usage_names_itself.py",
         "test_every_usage_line_invokes_this_shim"),
+    # TWO claims, TWO holders. The entry above holds that a shim's usage line
+    # names itself; the `assert runner.is_file()` that holds "a runner exists
+    # beside every shim" lives in a DIFFERENT function of the same module, and
+    # registering only the first left the second resolving to a test that
+    # never asserted it — a rename of the real holder would have passed here.
+    "a runner beside every shim under temporal/scripts/": (
+        "scripts/workflows/temporal/tests/unit/test_shim_usage_names_itself.py",
+        "test_every_usage_FLAG_is_one_the_runner_ACCEPTS"),
     "Phase 4's dispatch-context echo, at every entrypoint": (
         "scripts/workflows/temporal/tests/unit/test_dispatch_context.py",
         "test_every_entrypoint_BUILDS_a_context_and_SAYS_IT"),
@@ -1317,6 +1483,16 @@ def test_every_DERIVED_consumer_path_is_one_the_RATCHET_can_see(surface: Surface
             f"`_paths_in` does not recognise — widen its extension list, or the "
             f"ratchet is blind to this surface"
         )
+        # AND EACH ONE OPENS. `_paths_in` is a shape test; the ratchet then
+        # opens the path, and a path the predicate reports in a form the
+        # ratchet cannot resolve — a planning-repo page, before
+        # `_consumer_file` — passes the shape test and never forces a line out.
+        unopenable = [p for p in found if _consumer_file(p) is None]
+        assert not unopenable, (
+            f"{surface.name}: {member}'s consumers {unopenable} do not resolve "
+            f"to a file from this repo or the planning repo's parent — the "
+            f"ratchet cannot open them"
+        )
 
 
 def test_a_SERVICE_counts_only_when_install_sh_reads_it_FROM_THE_REPO() -> None:
@@ -1380,6 +1556,119 @@ def test_the_OPERATOR_DOCS_corpus_reaches_both_repos() -> None:
     assert any(p.is_relative_to(_REPO) for p in docs)
     assert any(p.is_relative_to(PLANNING_ROOT) for p in docs)
     assert _documented_for_the_operator("__no_such_workflow__.sh") == []
+
+
+# --- scripts/workflows/temporal/scripts/: the partition and its two predicates ---
+
+def test_the_ENTRYPOINT_populations_PARTITION_the_directory() -> None:
+    """Four surfaces share one root, so the gap BETWEEN them is where a file
+    of a fifth shape would sit, ruled by nobody while the directory reads as
+    ruled. Every file in the directory is in exactly one population, and no
+    population is empty — a predicate that read nothing would partition
+    trivially."""
+    on_disk = _files(_ENTRYPOINTS)
+    parts = {s.name: _population(s) for s in SURFACES if s.root == _ENTRYPOINTS}
+    assert len(parts) == 4, sorted(parts)
+    for name, members in parts.items():
+        assert members, f"{name} is empty — its member predicate read nothing"
+    union = set().union(*parts.values())
+    assert union == on_disk, (
+        f"files in scripts/workflows/temporal/scripts/ that no surface claims: "
+        f"{sorted(on_disk - union)} — a fifth shape needs a fifth ruling"
+    )
+    assert sum(len(m) for m in parts.values()) == len(union), (
+        f"a file is in two populations: "
+        f"{sorted(n for n in union if sum(n in m for m in parts.values()) > 1)}"
+    )
+    # The measured shape on the day of the ruling, as a floor rather than an
+    # equality — a runner or a tool may be added, but the split itself
+    # reading as 16/16/0/0 would mean the shebang test broke.
+    assert len(parts["scripts/workflows/temporal/scripts/ (the libraries)"]) >= 3
+    assert len(parts["scripts/workflows/temporal/scripts/ (the tools)"]) >= 4
+
+
+def test_the_SHEBANG_splits_a_tool_from_a_library_and_the_NAME_makes_a_runner(tmp_path: Path) -> None:
+    """Self-contained control for the four member predicates. The fixture
+    varies the SHAPE: a shebang under a `run_` name is still a runner, and a
+    `.sh` never reaches either `.py` population."""
+    (tmp_path / "tool.py").write_text("#!/usr/bin/env python3\n")
+    (tmp_path / "lib.py").write_text('"""a library"""\n')
+    (tmp_path / "run_x.py").write_text("#!/usr/bin/env python3\n")
+    (tmp_path / "run_y.py").write_text('"""a runner without a shebang"""\n')
+    (tmp_path / "x.sh").write_text("#!/usr/bin/env bash\n")
+    assert _entrypoint_shims(tmp_path) == {"x.sh"}
+    assert _entrypoint_runners(tmp_path) == {"run_x.py", "run_y.py"}
+    assert _entrypoint_libraries(tmp_path) == {"lib.py"}
+    assert _entrypoint_tools(tmp_path) == {"tool.py"}
+
+
+def test_an_EXEC_line_counts_and_a_SHIM_COMMENT_does_not(tmp_path: Path, repo_at) -> None:
+    """Control for the runner predicate, on a corpus built here. `b.sh`
+    names `run_b.py` ONLY in its header comment and execs `run_a.py` — the
+    shape a shim cloned from a sibling and half-renamed would have — so
+    `run_a.py` has two consumers, `run_b.py` none, and `run_c.py`, with no
+    shim at all, none."""
+    d = tmp_path / "scripts" / "workflows" / "temporal" / "scripts"
+    d.mkdir(parents=True)
+    (d / "a.sh").write_text('exec python3 "${SCRIPT_DIR}/run_a.py" "$@"\n')
+    (d / "b.sh").write_text('# b — thin shim over run_b.py\n'
+                            'exec python3 "${SCRIPT_DIR}/run_a.py" "$@"\n')
+    for n in ("run_a.py", "run_b.py", "run_c.py"):
+        (d / n).write_text("")
+    repo_at(tmp_path)
+    assert _execd_by_a_shim("run_a.py") == ["scripts/workflows/temporal/scripts/a.sh",
+                                            "scripts/workflows/temporal/scripts/b.sh"]
+    assert _execd_by_a_shim("run_b.py") == [], "a comment mention counted as an exec"
+    assert _execd_by_a_shim("run_c.py") == [], "a runner no shim execs was found a consumer"
+
+
+def test_an_IMPORT_counts_and_a_MENTION_does_not(tmp_path: Path, repo_at) -> None:
+    """Control for the library predicate, on a corpus built here, derived
+    from the claim the predicate makes: a stem in a comment, a docstring or
+    a string is NOT an import. The fixture varies the shape — `from lib
+    import`, `import lib`, an import from `modules/` rather than a sibling,
+    and three mentions that are not imports: a comment, a string literal,
+    and `import lib_extra`, whose stem CONTAINS the member's. A test file
+    importing it is outside the corpus and does not count."""
+    d = tmp_path / "scripts" / "workflows" / "temporal" / "scripts"
+    d.mkdir(parents=True)
+    (d / "lib.py").write_text('"""lib — imported by run_a.py, says this docstring"""\n')
+    (d / "lib_extra.py").write_text("")
+    (d / "run_a.py").write_text("from lib import thing\n")
+    (d / "run_b.py").write_text("import lib\n")
+    (d / "run_c.py").write_text("# see lib for the shape\nimport lib_extra\nX = 'lib'\n")
+    m = tmp_path / "scripts" / "workflows" / "temporal" / "modules"
+    m.mkdir()
+    (m / "m.py").write_text("from lib import other\n")
+    t = tmp_path / "scripts" / "tests"
+    t.mkdir()
+    (t / "test_lib.py").write_text("import lib\n")
+    repo_at(tmp_path)
+    assert _imported_by_stem("lib.py") == [
+        "scripts/workflows/temporal/modules/m.py",
+        "scripts/workflows/temporal/scripts/run_a.py",
+        "scripts/workflows/temporal/scripts/run_b.py",
+    ]
+    assert _imported_by_stem("lib_extra.py") == ["scripts/workflows/temporal/scripts/run_c.py"]
+    assert _imported_by_stem("__no_such__.py") == []
+
+
+def test_the_FLEET_PYTHON_corpus_is_the_fleet_and_not_the_tests() -> None:
+    """Vacuity floor and scope for `_imported_by_stem`: the corpus reaches
+    both the entrypoints and `modules/`, holds no test file, and is not
+    trivially small."""
+    corpus = [_rel(p) for p in _fleet_python()]
+    assert len(corpus) > 50, f"only {len(corpus)} fleet modules read"
+    assert not [p for p in corpus if "/tests/" in p]
+    assert any(p.startswith("scripts/workflows/temporal/scripts/run_") for p in corpus)
+    assert any(p.startswith("scripts/workflows/temporal/modules/") for p in corpus)
+    # The finding this predicate was written around: two comment mentions
+    # in `config_digest.py`, and no import anywhere.
+    assert "compare_run_config" in _text(
+        _REPO / "scripts" / "workflows" / "temporal" / "modules" / "journal" / "config_digest.py"
+    ), "the fixture assumption — config_digest.py mentions the tool in a comment — no longer holds"
+    assert _imported_by_stem("compare_run_config.py") == [], \
+        "a comment mention in config_digest.py counted as an import"
 
 
 # --- the cadence clause, which binds ACCUMULATING surfaces only -----------------
@@ -1541,6 +1830,21 @@ def test_the_NOT_AN_INVOKER_exclusions_still_exist_on_disk() -> None:
         )
 
 
+def _consumer_file(rel: str) -> Path | None:
+    """The file a consumer cell's path names, or `None`. A path is relative to
+    this repo — or, for a document in the planning repo, which
+    `_documented_for_the_operator` reports relative to the directory the two
+    repos share, to that parent. WITHOUT THE SECOND CLAUSE THE RATCHET COULD
+    NOT OPEN A GUIDE PAGE: a tool baselined for lacking a guide entry would
+    stay baselined after gaining one, and the ratchet would only ever shrink
+    on a consumer inside this repo. Found while ruling `temporal/scripts/`
+    in, whose two unread tools have the guide as their likeliest fix."""
+    for base in (_REPO, PLANNING_ROOT.parent):
+        if (base / rel).is_file():
+            return base / rel
+    return None
+
+
 def _regained(listed: dict, unread: dict) -> list[tuple[str, list[str]]]:
     """Baselined members whose cell now names a consumer that resolves and
     mentions them. On a derived surface the cell was built from files that
@@ -1550,10 +1854,11 @@ def _regained(listed: dict, unread: dict) -> list[tuple[str, list[str]]]:
     for member, cell in listed.items():
         if member not in unread:
             continue
-        live = [p for p in _paths_in(cell)
-                if p not in NOT_AN_INVOKER
-                and (_REPO / p).is_file()
-                and _names(member, _text(_REPO / p))]
+        live = []
+        for p in _paths_in(cell):
+            target = None if p in NOT_AN_INVOKER else _consumer_file(p)
+            if target is not None and _names(member, _text(target)):
+                live.append(p)
         if live:
             out.append((member, live))
     return out
@@ -1609,6 +1914,31 @@ def test_the_RATCHET_fires_on_a_DERIVED_surface_too(tmp_path: Path, repo_at) -> 
     )
     regained = _regained(_listed(probe), probe.unread)
     assert [m for m, _ in regained] == ["frozen.sh"], regained
+
+
+def test_the_RATCHET_can_open_a_consumer_in_the_PLANNING_repo(tmp_path: Path, monkeypatch, repo_at) -> None:
+    """The tools surface's likeliest fix is a guide page, which the predicate
+    reports as `skyynet-master-planning/guide/<page>.md` — relative to the
+    directory the two repos share, not to this repo. Before `_consumer_file`
+    the ratchet resolved every path against `_REPO`, so that cell could never
+    force a line out: predicted 0 regained under the old resolver, 1 under
+    this one. Self-contained: both repos are built here."""
+    repo = tmp_path / "repo"
+    planning = tmp_path / "skyynet-master-planning"
+    (repo / "lib").mkdir(parents=True)
+    (planning / "guide").mkdir(parents=True)
+    (repo / "lib" / "frozen.py").write_text("#!/usr/bin/env python3\n")
+    (planning / "guide" / "ops.md").write_text("after a run, `frozen.py` reads it\n")
+    repo_at(repo)
+    monkeypatch.setattr(sys.modules[__name__], "PLANNING_ROOT", planning)
+    probe = Surface(
+        name="probe", root=repo / "lib", members=_files, accumulates=False,
+        consumers=lambda m: ["skyynet-master-planning/guide/ops.md"],
+        unread={"frozen.py": "r"},
+    )
+    assert [m for m, _ in _regained(_listed(probe), probe.unread)] == ["frozen.py"], \
+        "a consumer in the planning repo did not force the baselined line out"
+    assert _consumer_file("skyynet-master-planning/guide/gone.md") is None
 
 
 def test_a_baselined_member_that_GAINS_a_consumer_forces_its_line_out(surface: Surface) -> None:
