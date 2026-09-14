@@ -13,7 +13,7 @@ Format rules:
 - Include all files and directories that are part of the project
 
 Component boundary rule:
-- If a subdirectory or component has its own docs/ folder with its own file_structure.txt, stop at that component's directory name with a comment noting it is self-documenting
+- If a subdirectory or component has its own docs/ folder with its own file_structure.txt, stop at that component's directory name and point at its map: `# self-documenting — see <component>/docs/file_structure.txt`. The canonical map MUST name the component map at that node (Documentation Standard § Repo structure documentation)
 - Do not expand into that component's internals — its own file_structure.txt handles that
 
 Preserve any supplementary sections below the tree (e.g., symlink maps, notes) but update them if they are outdated.

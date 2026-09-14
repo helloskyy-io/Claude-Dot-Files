@@ -430,3 +430,46 @@ def test_an_EXPANSION_naming_an_ITEM_THAT_DOES_NOT_EXIST_files_normally(
     assert failed == []
     assert len(list((root / "candidates").glob("*.md"))) == 1, "the finding was lost"
     assert moved[0][1].stem != "C-zzzzzzzz"
+
+
+# ---------------------------------------------------------------- repo: exists
+
+def _with_repo(number: int, repo: str) -> dict:
+    return {"number": number, "title": "t",
+            "body": f"---\nstore: issues\nrepo: {repo}\n---\n\nprose\n",
+            "createdAt": "2026-08-20T10:00:00Z"}
+
+
+def test_a_WELL_FORMED_TYPO_in_repo_is_refused_by_name_and_the_drain_continues(
+        root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tracked Items §4.0: `repo:` names a repository that EXISTS. `skyy-comand`
+    passes every form check and then matches nothing, which is worse than a
+    parse failure because nothing reports it. No list anywhere — the checkouts
+    beside the planning repo and the org are the oracle."""
+    (root.parent.parent / "skyy-command").mkdir(exist_ok=True)
+    monkeypatch.setattr(own.shared, "gh_attempt",
+                        lambda args, cwd=None: type("R", (), {"returncode": 1})())
+    monkeypatch.setattr(own.shared, "repo_slug", lambda root: "helloskyy-io/x")
+    gh = _FakeGh([_with_repo(7, "skyy-comand"), _with_repo(8, "skyy-command")])
+    monkeypatch.setattr(own, "_gh", gh)
+
+    moved, failed = own.harvest(root, dry_run=True)
+    assert [n for n, _ in failed] == [7] and "skyy-comand" in failed[0][1], failed
+    assert [n for n, _ in moved] == [8]
+
+
+def test_a_REAL_repo_NOT_CHECKED_OUT_here_is_accepted_via_the_org(
+        root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    asked = []
+
+    def gh_attempt(args, cwd=None):
+        asked.append(args)
+        return type("R", (), {"returncode": 0 if args[:2] == ["repo", "view"] else 1})()
+    monkeypatch.setattr(own.shared, "gh_attempt", gh_attempt)
+    monkeypatch.setattr(own.shared, "repo_slug", lambda root: "helloskyy-io/x")
+    monkeypatch.setattr(own, "_gh", _FakeGh([_with_repo(9, "real-but-not-checked-out-here")]))
+
+    moved, failed = own.harvest(root, dry_run=True)
+    assert not failed and [n for n, _ in moved] == [9]
+    assert ["repo", "view", "helloskyy-io/real-but-not-checked-out-here", "--json", "name"] in asked, asked
+

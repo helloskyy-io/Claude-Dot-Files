@@ -124,6 +124,29 @@ def _gh(*args: str, cwd: Path | None = None) -> str:
     return done.stdout
 
 
+#: Where a repository checkout lives on any machine this fleet runs on. Tracked
+#: Items §4.0: `repo:` is the bare directory name AS THE CHECKOUT HAS IT, so the
+#: checkouts are the oracle — and no standard carries a list of repositories.
+_CHECKOUT_ROOTS = (Path("/opt/skyy-net"), Path.home() / "Repos")
+
+
+def repo_exists(name: str, root: Path, *, cwd: Path | None = None) -> bool:
+    """Does `repo:` name a repository that exists? Checkouts first, then the org.
+
+    A well-formed typo (`skyy-comand`) passes every FORM check and then drops the
+    item out of every filter that matches on the field. The checkouts beside this
+    planning repo answer without a network call; a repository that is real but
+    not checked out here is asked of the GitHub organisation the planning repo
+    belongs to, so a filer on a thin machine is not refused for a real repo.
+    """
+    for base in (root.parent.parent, *_CHECKOUT_ROOTS):
+        if (base / name).is_dir():
+            return True
+    owner = shared.repo_slug(root).partition("/")[0]
+    return shared.gh_attempt(["repo", "view", f"{owner}/{name}", "--json", "name"],
+                             cwd).returncode == 0
+
+
 def open_intakes(cwd: Path | None = None) -> list[dict]:
     """Every open intake issue, oldest first, so harvest order is filing order."""
     issues = json.loads(_gh(
@@ -232,6 +255,12 @@ def harvest(root: Path, *, cwd: Path | None = None,
             else:
                 status = fields.pop("status", "open")
                 filed_by = fields.pop("filed_by", "review-pr")
+                repo = fields.get("repo", "").strip()
+                if repo and not repo_exists(repo, root, cwd=cwd):
+                    raise ValueError(
+                        f"repo: `{repo}` names no repository — not a checkout beside "
+                        f"this planning repo and not in its GitHub organisation "
+                        f"(Tracked Items §4.0). A well-formed typo would match nothing.")
                 if dry_run:
                     # ⚠ VALIDATE EVEN THOUGH NOTHING IS WRITTEN. A dry run that
                     # skips the field check reports every intake movable and then
