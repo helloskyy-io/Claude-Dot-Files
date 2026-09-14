@@ -193,9 +193,18 @@ def test_the_population_this_sweeps_MATCHES_THE_TREE() -> None:
     # `main()` on EVERY bag-inspection entrypoint it discovers, which is the
     # point of it. Confirmed it cannot litter the operator's root: every case
     # passes a `tmp_path` child, and each tool returns before reaching a bag.
-    assert len(modules) == 7, (
+    #
+    # 7 → 8 on 2026-09-14: `test_an_EMBEDDED_reviewer_s_intakes_reach_the_harvest.py`
+    # drives `run_build.main()` on the LIVE path — bag open, workflow stubbed,
+    # a REAL harvest against a fake `gh` — to prove a reviewer's cross-repo
+    # intake lands its body in the bag, or a typed gap, never neither. It
+    # cannot litter the operator's root BY CONSTRUCTION AND BY ASSERTION: it
+    # takes the redirect fixture by name and asserts the bag it reads is under
+    # the sandbox root that fixture yields, so a redirect not in force is a red
+    # test there before it is a stray bag here.
+    assert len(modules) == 8, (
         f"{len(modules)} test module(s) under {UNIT_DIR} drive an entrypoint "
-        f"`main()`; it was 7 when this was pinned. Found: "
+        f"`main()`; it was 8 when this was pinned. Found: "
         f"{[m.name for m in modules]}.\n"
         f"If a module was ADDED, it now runs inside the subprocess sweep below "
         f"and this number goes up. If the count DROPPED, the discovery "

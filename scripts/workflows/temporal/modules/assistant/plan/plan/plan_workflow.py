@@ -49,8 +49,15 @@ def run_plan(*, component: Path, repo_root: Path, worktree_name: str,
              sprint_path: Path, candidates_path: Path,
              context: str = "", pr_number: str | None = None,
              repo_target: str | None = None,
-             verbose: bool = False) -> tuple[str, routing.Verdict, list[str]]:
-    """Plan ONE component end to end. Returns (pr_url, verdict, notes).
+             verbose: bool = False) -> tuple[str, routing.Verdict, list[str], list[str]]:
+    """Plan ONE component end to end. Returns (pr_url, verdict, notes, issue_urls).
+
+    `issue_urls` is every intake the embedded reviewer reported filing, for
+    the entrypoint to hand the post-exit harvest after the PR pair — the
+    same trailing refs `run_review_pr.py` passes. It rides beside `notes`
+    because the notes alone rode before, which put the reviewer's
+    "handed to the harvest" line in the banner of a run whose harvest was
+    handed nothing (`build_inputs.BuildResult.issue_urls`).
 
     THE PARENT ESTABLISHES ISOLATION ONCE AND PASSES IT DOWN — a child never
     cuts its own worktree. Taking a NAME rather than a path is what makes that
@@ -59,6 +66,7 @@ def run_plan(*, component: Path, repo_root: Path, worktree_name: str,
     given a different one by accident.
     """
     notes: list[str] = []
+    issue_urls: list[str] = []
     pr = pr_number
     # READ BEFORE THE CUT. `repo_slug` shells out and can refuse, and a refusal
     # after `worktree_add` strands a registered worktree and a completed fetch —
@@ -92,7 +100,8 @@ def run_plan(*, component: Path, repo_root: Path, worktree_name: str,
     verdict = _refine_size_and_dispose(
         component=component, repo_root=repo_root, worktree=worktree,
         worktree_name=worktree_name, sprint_path=sprint_path, candidates_path=candidates_path, pr=pr,
-        repo_target=repo_target, notes=notes, correction_pass=False,
+        repo_target=repo_target, notes=notes, issue_urls=issue_urls,
+        correction_pass=False,
         verbose=verbose,
     )
 
@@ -131,7 +140,8 @@ def run_plan(*, component: Path, repo_root: Path, worktree_name: str,
         verdict = _refine_size_and_dispose(
             component=component, repo_root=repo_root, worktree=worktree,
             worktree_name=worktree_name, sprint_path=sprint_path, candidates_path=candidates_path, pr=pr,
-            repo_target=repo_target, notes=notes, correction_pass=True,
+            repo_target=repo_target, notes=notes, issue_urls=issue_urls,
+            correction_pass=True,
             verbose=verbose,
         )
 
@@ -150,13 +160,14 @@ def run_plan(*, component: Path, repo_root: Path, worktree_name: str,
         notes.append(f"The automated loop is SPENT — {routing.MAX_LOOPS} loop-back(s) "
                      f"is the cap. What remains needs a human or a scoped redispatch.")
 
-    return pr_url, verdict, notes
+    return pr_url, verdict, notes, issue_urls
 
 
 def _refine_size_and_dispose(*, component: Path, repo_root: Path, worktree: Path,
                              worktree_name: str,
                              sprint_path: Path, candidates_path: Path, pr: str,
                              repo_target: str | None, notes: list[str],
+                             issue_urls: list[str],
                              correction_pass: bool, verbose: bool) -> routing.Verdict:
     """`plan-refine` -> `plan-sprint` -> CI gate -> `review-pr`, as one unit.
 
@@ -202,4 +213,8 @@ def _refine_size_and_dispose(*, component: Path, repo_root: Path, worktree: Path
         repo_root, worktree_name=worktree_name,
     )
     notes.extend(result.notes)
+    # THE URLS TRAVEL BESIDE THE NOTES — see `build_workflow._refine_then_dispose`
+    # for the miss this closes: the reviewer's "handed to the harvest" note
+    # reached the banner while the URLs it named died here with `result`.
+    issue_urls.extend(result.issue_urls)
     return result.verdict

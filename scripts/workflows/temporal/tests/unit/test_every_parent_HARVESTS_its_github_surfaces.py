@@ -46,6 +46,19 @@ THE FOUR PROPERTIES, EACH ITS OWN TEST:
      An entrypoint whose child never creates a PR passes a literal `None` and
      is DECLARED in `SINGLE_SURFACE_ENTRYPOINTS` with the reason — a second
      expression that silently duplicated the first was the earlier shape.
+  5. THE INTAKES TRAIL THE PAIR — every entrypoint whose workflow RUNS THE
+     REVIEWER (`review_pr.run_review`, directly or through the workflow it
+     hands off to) splices the intakes that reviewer reported filing after
+     the two refs, starred, reading an `issue_urls` the handoff assigned.
+     THE POPULATION IS DERIVED, NOT DECLARED, AND THE DECLARATION WAS THE
+     MISS: this file listed `run_review_pr.py` alone while five parents
+     embed the same reviewer, so a build whose reviewer filed
+     `skyynet-master-planning#32` carried the reviewer's "handed to the
+     harvest" NOTE up to its banner and dropped the URL at
+     `_refine_then_dispose`'s return — bag 74802cb7 holds PR #192 and no
+     event for #32, and no gap, because a ref never handed over is not a
+     surface the harvest failed to read. A list is a claim somebody made
+     once; the derivation is re-made on every push.
 
 ⚠ WHAT THIS DOES NOT COVER, stated here AND in the failure messages:
 
@@ -94,17 +107,88 @@ SINGLE_SURFACE_ENTRYPOINTS = {
         "`task.pr_number` passed through — the same value as `ctx.pr_number` — "
         "and passing it as the second ref read as multi-surface support the "
         "workflow does not have. The intakes its child FILES are a different "
-        "surface and trail the pair — see TRAILING_REF_ENTRYPOINTS.",
+        "surface and trail the pair — see `runs_the_reviewer`.",
 }
 
-#: Entrypoints whose child reports surfaces BEYOND the PR pair — the reviewer's
-#: filed intakes (`FILED-INTAKE:` lines and the block's `filed_intakes:`, #185)
-#: — spliced in after the two refs
-#: every parent passes, as `*<handoff target>.<field>`. Value: the name of the
-#: handoff's assignment the trailing refs must consume.
-TRAILING_REF_ENTRYPOINTS = {
-    "run_review_pr.py": "result",
-}
+# The reviewer's entry function. An entrypoint that calls it, or hands off to
+# a workflow module that calls it, has a child that FILES INTAKES (`FILED-
+# INTAKE:` lines and the block's `filed_intakes:`, #185) — a surface beyond
+# the PR pair, which its harvest call must be handed.
+REVIEWER = "run_review"
+# The field every result shape carries the reported intakes on:
+# `ReviewResult.issue_urls`, `BuildResult.issue_urls`, the plan tuples' last
+# element, the research dict's key. The trailing ref must READ it by name.
+INTAKES_FIELD = "issue_urls"
+
+MODULES_DIR = ENTRYPOINTS_DIR.parent / "modules"
+
+
+def _workflow_modules(path: Path) -> set[Path]:
+    """The `*_workflow` module files `path` imports, absolute or relative.
+
+    Two spellings, because the fleet has two: an entrypoint does
+    `from modules.assistant.build.build.build_workflow import run_build` or
+    `from modules.assistant.research.research import research_workflow as rw`;
+    a workflow does `from ...review_pr import review_pr_workflow as review_pr`.
+    Both resolve to a file under `modules/`, or to nothing when the target is
+    not a workflow module — a helper, an activities module — which the walk
+    below does not descend into: the reviewer is reached through workflows.
+    """
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    found: set[Path] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        if node.level:
+            base = path.parent
+            for _ in range(node.level - 1):
+                base = base.parent
+        elif node.module and node.module.startswith("modules."):
+            base = MODULES_DIR.parent
+        else:
+            continue
+        package = base.joinpath(*(node.module or "").split(".")) if node.module else base
+        if package.name.endswith("_workflow") and package.with_suffix(".py").is_file():
+            found.add(package.with_suffix(".py"))
+        for alias in node.names:
+            candidate = package / f"{alias.name}.py"
+            if alias.name.endswith("_workflow") and candidate.is_file():
+                found.add(candidate)
+    return found
+
+
+def calls_the_reviewer(tree: ast.AST) -> bool:
+    """Does this module CALL `run_review` — `wf.run_review(...)` or bare?"""
+    return any(isinstance(node, ast.Call)
+               and getattr(node.func, "attr", getattr(node.func, "id", None)) == REVIEWER
+               for node in ast.walk(tree))
+
+
+def runs_the_reviewer(entrypoint: Path) -> bool:
+    """Does this entrypoint's run include a review pass — anywhere down the handoff?
+
+    TRANSITIVE over `*_workflow` modules, because the reviewer is one hop down
+    today (`run_build.py` → `build_workflow.py` → `review_pr.run_review`) and
+    a guard that stops at one hop is a guard the next refactor walks out of.
+    ⚠ NOT SEEN: a reviewer reached through a module that is not named
+    `*_workflow`, or invoked by a spelling that is not a call to `run_review`.
+    """
+    seen: set[Path] = set()
+    frontier = [entrypoint]
+    while frontier:
+        module = frontier.pop()
+        if module in seen:
+            continue
+        seen.add(module)
+        if calls_the_reviewer(ast.parse(module.read_text(encoding="utf-8"),
+                                        filename=str(module))):
+            return True
+        frontier.extend(_workflow_modules(module) - seen)
+    return False
+
+
+def reviewer_running_entrypoints() -> list[str]:
+    return sorted(p.name for p in _entrypoints(ENTRYPOINTS_DIR) if runs_the_reviewer(p))
 
 
 def harvest_calls(tree: ast.AST) -> list[ast.Call]:
@@ -315,50 +399,64 @@ def test_the_harvest_is_handed_BOTH_the_dispatched_PR_and_the_reported_one(
         f"while handling the workflow's exception and hide it")
 
 
-@pytest.mark.parametrize("name", sorted(TRAILING_REF_ENTRYPOINTS))
-def test_an_entrypoint_whose_child_FILES_INTAKES_hands_them_to_the_harvest(name: str) -> None:
-    """`refs=(ctx.pr_number, None, *(result.issue_urls if result is not None else ()))`.
+@pytest.mark.parametrize("name", reviewer_running_entrypoints())
+def test_an_entrypoint_whose_run_FILES_INTAKES_hands_them_to_the_harvest(name: str) -> None:
+    """`refs=(ctx.pr_number, <pair>, *(<target>.issue_urls if <target> is not None else ()))`.
 
     THREE PROPERTIES, EACH WITH A FAILURE THE OTHERS CANNOT SEE. The trailing
-    ref must exist at all — the single-surface test above returns satisfied on
-    `(ctx.pr_number, None)` and would keep passing if the intakes were dropped.
-    It must be STARRED: an unstarred `result.issue_urls` is one ref holding a
-    list, which `parse_ref` turns into `str(list)` and REFUSES, and the refusal
-    lands in the `finally` of every review that filed anything. And it must
-    consume the handoff's own None-bound target, for the reason the two-ref
-    test gives — on the failure path an unbound name is a NameError raised
-    while the workflow's exception is in flight.
+    ref must exist at all — the two-ref test above returns satisfied on the
+    pair and would keep passing if the intakes were dropped, WHICH IS WHAT
+    HAPPENED on the five parents that embed the reviewer. It must be STARRED:
+    an unstarred `result.issue_urls` is one ref holding a list, which
+    `parse_ref` turns into `str(list)` and REFUSES, and the refusal lands in
+    the `finally` of every run that filed anything. And it must consume the
+    handoff's own None-bound target, for the reason the two-ref test gives —
+    on the failure path an unbound name is a NameError raised while the
+    workflow's exception is in flight.
     """
     tree = ast.parse(_sources()[name], filename=name)
     guard = guarding_try(tree)
     assert guard is not None, f"{name}: every-path test owns this"
     refs = refs_argument(harvest_calls(tree)[0])
     assert refs is not None and len(refs) >= 3, (
-        f"{name}: the harvest is handed {refs} — no trailing ref, so the intakes "
-        f"its child reported filing are never harvested")
-    target = TRAILING_REF_ENTRYPOINTS[name]
+        f"{name}: its run includes a review pass, and the harvest is handed "
+        f"{refs} — no trailing ref, so every intake that reviewer files is "
+        f"harvested NOWHERE and no gap records it. Splice "
+        f"`*(<handoff target>.{INTAKES_FIELD} if <target> is not None else ())` "
+        f"after the pair, and carry `{INTAKES_FIELD}` out of the workflow beside "
+        f"its notes.")
     for expr in refs[2:]:
         assert expr.startswith("*"), (
             f"{name}: trailing ref {expr!r} is not starred; a sequence passed as "
             f"one ref is `str(list)` to `parse_ref`, which refuses it")
-        assert "issue_urls" in expr, (
-            f"{name}: trailing ref {expr!r} does not read `issue_urls` — the field "
-            f"`ReviewResult` carries the filed intakes on")
-        assert base_name(expr) == target, (
-            f"{name}: trailing ref {expr!r} reads {base_name(expr)!r}, not the "
-            f"handoff target `{target}`")
-    assert target in assigned_in(guard.body), (
-        f"{name}: `{target}` is not assigned by the guarded handoff "
-        f"({sorted(assigned_in(guard.body))})")
-    assert target in none_bound_before(tree, guard), (
-        f"{name}: `{target}` is not bound to None above the `try` at line "
-        f"{guard.lineno}; the `finally` would raise NameError on the failure path")
+        assert INTAKES_FIELD in expr, (
+            f"{name}: trailing ref {expr!r} does not read `{INTAKES_FIELD}` — the "
+            f"field every result shape carries the filed intakes on")
+        target = base_name(expr)
+        assert target in assigned_in(guard.body), (
+            f"{name}: trailing ref {expr!r} reads `{target}`, which the guarded "
+            f"handoff does not assign ({sorted(assigned_in(guard.body))}); the "
+            f"value the harvest reads did not come from the workflow")
+        assert target in none_bound_before(tree, guard), (
+            f"{name}: `{target}` is not bound to None above the `try` at line "
+            f"{guard.lineno}; the `finally` would raise NameError on the failure path")
 
 
-def test_every_declared_trailing_ref_entrypoint_EXISTS() -> None:
-    stale = sorted(set(TRAILING_REF_ENTRYPOINTS) - set(_sources()))
-    assert not stale, (
-        f"TRAILING_REF_ENTRYPOINTS names entrypoints that do not exist: {stale}")
+def test_the_reviewer_running_population_is_DERIVED_and_not_a_handful() -> None:
+    """The vacuity guard on the derivation — and the record of the miss.
+
+    The standalone reviewer is in it by construction (it calls `run_review`
+    itself); the draft children are out by construction (a draft posts a PR
+    and disposes nothing). And it is LARGER THAN ONE: one was the size of the
+    declared list this replaced, and one is the number of parents that hand
+    their intakes over when six run a reviewer.
+    """
+    population = reviewer_running_entrypoints()
+    assert "run_review_pr.py" in population, population
+    assert "run_build_draft.py" not in population, population
+    assert len(population) >= 6, (
+        f"the derivation found {population}; six entrypoints ran a reviewer "
+        f"when this was written, and a shrink is a walk that stopped seeing")
 
 
 def test_every_declared_single_surface_entrypoint_EXISTS() -> None:
@@ -479,3 +577,43 @@ def test_the_predicates_DISCRIMINATE_on_literal_source() -> None:
     assert starred == ["ctx.pr_number", "None",
                        "*(result.issue_urls if result is not None else ())"]
     assert base_name(starred[2]) == "result"
+
+    # The reviewer predicate reads CALLS, attribute or bare, and not the name
+    # in any other position — a module that merely imports or defines
+    # `run_review` does not run one.
+    assert calls_the_reviewer(ast.parse("v = review_pr.run_review(x)"))
+    assert calls_the_reviewer(ast.parse("v = run_review(x)"))
+    assert not calls_the_reviewer(ast.parse("def run_review(x):\n    return x\n"))
+    assert not calls_the_reviewer(ast.parse("from a import run_review\n"))
+
+
+def test_the_reviewer_walk_RESOLVES_both_import_spellings(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """An absolute `modules.…` import in an entrypoint, a relative one in a
+    workflow, and a reviewer two hops down — the walk reaches it; a sibling
+    tree whose workflow never calls the reviewer is not reached into."""
+    modules = tmp_path / "modules" / "assistant"
+    (modules / "outer").mkdir(parents=True)
+    (modules / "inner").mkdir()
+    (modules / "review_pr").mkdir()
+    (modules / "review_pr" / "review_pr_workflow.py").write_text(
+        "def run_review(task):\n    return task\n", encoding="utf-8")
+    (modules / "inner" / "inner_workflow.py").write_text(
+        "from ..review_pr import review_pr_workflow as review_pr\n"
+        "def run_inner():\n    return review_pr.run_review(1)\n", encoding="utf-8")
+    (modules / "outer" / "outer_workflow.py").write_text(
+        "from ..inner import inner_workflow as inner\n"
+        "def run_outer():\n    return inner.run_inner()\n", encoding="utf-8")
+    (modules / "outer" / "quiet_workflow.py").write_text(
+        "def run_quiet():\n    return 1\n", encoding="utf-8")
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    (scripts / "run_outer.py").write_text(
+        "from modules.assistant.outer.outer_workflow import run_outer\n"
+        "run_outer()\n", encoding="utf-8")
+    (scripts / "run_quiet.py").write_text(
+        "from modules.assistant.outer import quiet_workflow as qw\n"
+        "qw.run_quiet()\n", encoding="utf-8")
+    monkeypatch.setitem(globals(), "MODULES_DIR", tmp_path / "modules")
+    assert runs_the_reviewer(scripts / "run_outer.py")
+    assert not runs_the_reviewer(scripts / "run_quiet.py")

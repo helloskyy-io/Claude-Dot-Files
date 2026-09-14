@@ -244,7 +244,19 @@ _HERE = Path(__file__).resolve().parent
 # moved because it already carried its literal control (the census's own
 # `test_the_predicate_answers_correctly_on_a_LITERAL` family), and the widening
 # was proven by mutation: a `-X PATCH` on the probe went red.
-_PINNED = (47, 37)
+# 47 -> 48 and 37 -> 38 on 2026-09-14 when
+# `test_every_parent_HARVESTS_its_github_surfaces.py` stopped DECLARING which
+# entrypoints must hand the reviewer's filed intakes to the harvest and started
+# DERIVING it — a walk from each entrypoint over the `*_workflow` modules it
+# imports, transitively, to whichever one CALLS `run_review`. The declared list
+# named one entrypoint while five parents embed the same reviewer, and a build
+# whose reviewer filed `skyynet-master-planning#32` harvested nothing of it and
+# recorded no gap. BOTH numbers moved because it arrived with its control: a
+# synthetic two-hop tree under `tmp_path` proving both import spellings resolve
+# and a sibling tree without a reviewer is not reached into, plus four literal
+# snippets on the call predicate (an attribute call, a bare call, a `def` and an
+# `import` — the last two bind the name and run nothing).
+_PINNED = (48, 38)
 
 
 # GRANDFATHERED — walks the tree, has no literal control, PREDATES this rule.

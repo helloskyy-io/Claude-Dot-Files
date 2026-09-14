@@ -62,14 +62,19 @@ from ..triage_candidates import triage_candidates_workflow as triage
 def run_plan_project(*, repo_root: Path, worktree_name: str,
                      candidates_path: Path, research_dir: Path,
                      pr_number: str | None = None, repo_target: str | None = None,
-                     verbose: bool = False) -> tuple[str, routing.Verdict, int, list[str]]:
+                     verbose: bool = False) -> tuple[str, routing.Verdict, int,
+                                                     list[str], list[str]]:
     """Triage the candidates, scaffold the shipped ones, judge the result.
 
-    Returns (pr_url, verdict, loops_used, notes). A HOLD is a RESULT, not a
+    Returns (pr_url, verdict, loops_used, notes, issue_urls) — the last is
+    every intake the embedded reviewer reported filing, for the entrypoint
+    to hand the post-exit harvest (`plan_workflow.run_plan` says why it
+    rides beside `notes`). A HOLD is a RESULT, not a
     failure — the caller branches on the verdict, which is the entire point of
     returning a typed value rather than an exit code.
     """
     notes: list[str] = []
+    issue_urls: list[str] = []
 
     # Read BEFORE THE CUT, so a `gh` failure costs a dispatch that has produced
     # nothing AND leaves no registered worktree behind — the reason
@@ -172,7 +177,8 @@ def run_plan_project(*, repo_root: Path, worktree_name: str,
 
     # --- Step 3: DISPOSITION, with one bounded loop-back -------------------
     loops = 0
-    verdict = _dispose(pr, repo_root, repo_target, worktree_name, notes, verbose)
+    verdict = _dispose(pr, repo_root, repo_target, worktree_name, notes,
+                       issue_urls, verbose)
 
     while routing.should_loop_back(verdict, loops):
         loops += 1
@@ -213,7 +219,8 @@ def run_plan_project(*, repo_root: Path, worktree_name: str,
             candidates_path=candidates_path, research_dir=research_dir,
             pr_number=pr, verbose=verbose,
         )
-        verdict = _dispose(pr, repo_root, repo_target, worktree_name, notes, verbose)
+        verdict = _dispose(pr, repo_root, repo_target, worktree_name, notes,
+                           issue_urls, verbose)
 
     if verdict is routing.Verdict.HOLD_NEEDS_ASSISTANCE:
         # THE LOOP DECISION AND NOTHING ELSE. Wiring the CI gate into `_dispose`
@@ -239,12 +246,13 @@ def run_plan_project(*, repo_root: Path, worktree_name: str,
                      "merge unattended: any direction.md rows are rulings only the "
                      "operator can make.")
 
-    return pr_url, verdict, loops, notes
+    return pr_url, verdict, loops, notes, issue_urls
 
 
 def _dispose(pr: str, repo_root: Path, repo_target: str | None,
              worktree_name: str,
-             notes: list[str], verbose: bool) -> routing.Verdict:
+             notes: list[str], issue_urls: list[str],
+             verbose: bool) -> routing.Verdict:
     """One disposition pass, judged against the PLANNING criteria, behind the gate.
 
     THIS USED TO SAY "No CI wait: this family changes markdown only, so there is
@@ -284,4 +292,8 @@ def _dispose(pr: str, repo_root: Path, repo_target: str | None,
         repo_root, worktree_name=worktree_name,
     )
     notes.extend(result.notes)
+    # THE URLS TRAVEL BESIDE THE NOTES — see `build_workflow._refine_then_dispose`
+    # for the miss this closes: the reviewer's "handed to the harvest" note
+    # reached the banner while the URLs it named died here with `result`.
+    issue_urls.extend(result.issue_urls)
     return result.verdict

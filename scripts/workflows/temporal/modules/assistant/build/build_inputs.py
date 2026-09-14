@@ -99,6 +99,16 @@ class BuildResult:
     verdict: Verdict
     loops_used: int = 0
     notes: list[str] = field(default_factory=list)
+    # THE INTAKES THE EMBEDDED REVIEWER REPORTED FILING, across every pass this
+    # run made — what the entrypoint hands the post-exit harvest after the PR
+    # pair, exactly as `run_review_pr.py` hands `ReviewResult.issue_urls`. THIS
+    # FIELD WAS MISSING AND THE MISS WAS SILENT: the build parent carried the
+    # reviewer's NOTES (so the banner said "handed to the harvest") and dropped
+    # its URLs (so the harvest was handed nothing), and no gap fired because a
+    # ref that never reaches the harvest is not a surface it failed to read.
+    # Measured on bag 74802cb7 (PR #192, intake skyynet-master-planning#32).
+    # Empty when none was filed; never None, for `ReviewResult`'s reason.
+    issue_urls: list[str] = field(default_factory=list)
 
     @property
     def ready_to_merge(self) -> bool:

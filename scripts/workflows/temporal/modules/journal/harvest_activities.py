@@ -147,8 +147,11 @@ def harvest_github_surfaces(*, run_id: str, repo_root: Path,
     """Harvest every GitHub surface `refs` names into `run_id`'s bag. The activity.
 
     `refs` IS WHATEVER THE PARENT HOLDS: the `--pr` number from its context, the
-    URL its child reported, both, or neither — and, for a review, every intake
-    issue its child reported filing, trailing those two. `None` and empty
+    URL its child reported, both, or neither — and, for every run that includes
+    a review pass (the standalone reviewer AND the five parents that embed
+    it), every intake issue that reviewer reported filing, trailing those
+    two. The embedding parents passed the pair alone until 2026-09-14 and the
+    miss was silent — `BuildResult.issue_urls` records it. `None` and empty
     entries are skipped, so a parent passes `(ctx.pr_number, pr_url)`
     unconditionally and a run that made no PR harvests nothing — recorded as
     such, not refused.

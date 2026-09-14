@@ -127,9 +127,15 @@ def main(argv=None) -> int:
             # the sweep enforcing this can and cannot see:
             # `harvest_activities.py`'s docstring and
             # `tests/unit/test_every_parent_HARVESTS_its_github_surfaces.py`.
+            # AND THE INTAKES ITS EMBEDDED REVIEWER FILED, trailing the pair as
+            # `run_review_pr.py` passes them — starred, so each URL is one ref.
+            # This parent embeds `review_pr.run_review` and the reviewer files
+            # intakes; passing the pair alone harvested the PR and dropped the
+            # issue the run authored, silently (`BuildResult.issue_urls`).
             harvest.harvest_github_surfaces(run_id=ctx.run_id, repo_root=repo_root,
                                             refs=(ctx.pr_number,
-                                                  result.get("pr_url") if result is not None else None),
+                                                  result.get("pr_url") if result is not None else None,
+                                                  *(result.get("issue_urls", ()) if result is not None else ())),
                                             journal_root=ctx.journal_root)
 
         # --- IN-WINDOW SOURCE CAPTURE ----------------------------------
