@@ -49,17 +49,23 @@ status, checks. Nothing a run *authored*; a service's derived view that changes
 after the run has ended, with no moment at which capturing it would be
 capturing a write.
 
-⚠ ALSO OUT, BY LIMIT RATHER THAN BY DESIGN: **issues the run authored that its
-parent cannot name.** The only issue-authoring path in the fleet today is the
-reviewer's `gh issue create --label tracked-intake`, and `ReviewResult` carries
-no issue numbers — the intake body carries `filed_by: review-pr` and no run id.
-A time-and-author search would attribute one concurrent run's intake to another
-run's bag, which is the *confidently wrong about authorship* failure this
-module's docstring warns about below. So the issue arm is built, tested, and
-REFERENCE-DRIVEN: it harvests an issue when handed its URL, and no production
-caller can hand it one yet. The remedy is an identity on the intake — the run id
-in its frontmatter — which is a prompt change plus a search key, not a harvest
-change.
+ALSO IN, BY REFERENCE: **the intakes a reviewer child filed.** The only
+issue-authoring path in the fleet is the reviewer's `gh issue create --label
+tracked-intake`, and nothing on an intake names the run that filed it — the
+body carries `filed_by: review-pr` and no run id, and a time-and-author search
+would attribute one concurrent run's intake to another run's bag, which is the
+*confidently wrong about authorship* failure this module's docstring warns
+about below. So the child REPORTS what it wrote, on two surfaces: one
+`FILED-INTAKE: <url>` line per issue on its text, and the same URLs under its
+posted `pr_review:` block's `filed_intakes:` — the durable one, and the one
+that measurably lands (`review_pr_helper.FILED_INTAKE_LINE`'s comment carries
+the figures). `review_pr_helper` reads both, unions them into
+`ReviewResult.issue_urls`, and `run_review_pr.py` passes them here as trailing
+refs (#185, carrier 1 of 3). The issue arm itself is reference-driven and
+unchanged: it harvests an issue when handed its URL. What it still cannot see is
+an intake the child filed and reported on neither surface — the same limit a PR
+URL has in every producing parent, since only the child's own report carries
+what it wrote.
 
 ## The window, and the surface being mutable
 

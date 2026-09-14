@@ -40,7 +40,7 @@ from modules.assistant.review_pr import review_pr_helper as helper
 # below moved — see `review_run_fakes` for why the coupling was a defect.
 from review_run_fakes import (  # noqa: E402
 
-    EXPECTED_REF, REPO_SLUG, RUN_ID, _FakeWorkflow, _nonce_in, _no_sleep, _record,
+    EXPECTED_REF, RUN_ID, _FakeWorkflow, _nonce_in, _no_sleep, _record,
     _with_comments,
 )
 
@@ -1329,6 +1329,20 @@ HELPER_ONLY_PATTERNS = frozenset({
     # of the two to be wrong: the gate to accept a prefix, or the measurement to
     # drop blocks it should still count.
     "BLOCK_VERDICT",
+    # The child's `FILED-INTAKE: <url>` lines (#185) and the issue-URL grammar
+    # they must satisfy. One-sided because they read the child's STDOUT — the
+    # same surface as `_VERDICT` — and never the durable `pr_review:` block.
+    # `replay_pr_review_blocks` replays archived THREAD blocks; no line of this
+    # shape is on any thread, so there is nothing there to pair with.
+    "FILED_INTAKE_LINE", "ISSUE_URL",
+    # The block's `filed_intakes:` list (#185's durable surface — the printed
+    # line above measurably does not reach the parent in the current regime).
+    # These DO read the thread block, and they are STILL one-sided for
+    # `RUN_ID_IN_BLOCK`'s reason: `replay_pr_review_blocks` has no consumer for
+    # the field — it measures findings and verdicts, and which intakes a pass
+    # filed is not a figure it publishes. The moment that tool reads the list,
+    # the three join the paired table above and this entry is what gets deleted.
+    "_TOP_LEVEL_INDENT", "_FILED_INTAKE_ITEM", "_TRAILING_COMMENT",
 })
 
 

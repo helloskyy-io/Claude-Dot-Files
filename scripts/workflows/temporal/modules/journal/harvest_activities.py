@@ -83,9 +83,11 @@ def harvest_github_surfaces(*, run_id: str, repo_root: Path,
     """Harvest every GitHub surface `refs` names into `run_id`'s bag. The activity.
 
     `refs` IS WHATEVER THE PARENT HOLDS: the `--pr` number from its context, the
-    URL its child reported, both, or neither. `None` and empty entries are
-    skipped, so a parent passes `(ctx.pr_number, pr_url)` unconditionally and
-    a run that made no PR harvests nothing — recorded as such, not refused.
+    URL its child reported, both, or neither — and, for a review, every intake
+    issue its child reported filing, trailing those two. `None` and empty
+    entries are skipped, so a parent passes `(ctx.pr_number, pr_url)`
+    unconditionally and a run that made no PR harvests nothing — recorded as
+    such, not refused.
 
     `journal_root` IS THE BOUNDARY'S ANSWER, TAKEN RATHER THAN RE-DERIVED,
     exactly as `open_run_bag` takes it: the context resolved the root once, and

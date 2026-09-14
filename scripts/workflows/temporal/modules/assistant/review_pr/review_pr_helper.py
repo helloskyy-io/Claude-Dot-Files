@@ -12,9 +12,10 @@ signal.
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import NamedTuple
 
 # `convergence` is aliased because `ReviewResult` has a FIELD of that name
 # (line below), and an annotated assignment binds the name in the class
@@ -96,6 +97,11 @@ class ReviewResult:
     # protocol's `undetermined`; `ConvergenceState` says why the two must not
     # collapse, and collapsing them here in prose is how that starts).
     convergence: _convergence.ConvergenceAssessment | None = None
+    # THE INTAKES THE CHILD REPORTED FILING, as issue URLs — what the parent hands
+    # the post-exit harvest so each intake's body lands in this run's bag (#185).
+    # Empty when none was filed; never None, because "filed nothing" is the
+    # common case and a harvest skips an empty sequence without a branch.
+    issue_urls: list[str] = field(default_factory=list)
 
     @property
     def ready_to_merge(self) -> bool:
@@ -187,6 +193,158 @@ CONVERGED_FLAG = re.compile(r"^\s*converged:\s*(true|false)", re.MULTILINE)
 BLOCK_VERDICT = re.compile(
     r"^\s*verdict:\s*(MERGE|HOLD - (?:redispatch|needs-assistance))\s*$",
     re.MULTILINE)
+
+# THE INTAKES A REVIEWER CHILD REPORTS FILING — one `FILED-INTAKE: <url>` line per
+# `gh issue create` (`disposition.md` § FILING AUTHORITY). The PRINCIPLE is the
+# build prompts' PR URL — the child reports what it wrote and the parent reads
+# its own output — but the SHAPE is `VERDICT:`'s: a labelled line, not the bare
+# final-line URL `routing.PR_URL` reads, and it may repeat. The child's REPORT
+# is the only carrier: nothing on an intake names the run that filed it
+# (`filed_by: review-pr`, no run id — Tracked Items §4 fixes the frontmatter
+# keys), and a time-and-author search attributes one concurrent run's intake to
+# another's bag. So the child says what it wrote and the parent hands each URL
+# to the harvest (#185, carrier 1 of 3).
+#
+# TWO SURFACES CARRY THE REPORT, AND THE LINE IS THE CHEAP ONE. Measured on
+# 27 archived review logs (2026-09-13): in the current regime the child's
+# top-level text is one 27-character block — the sibling `VERDICT:` line
+# reached it 1/7 — while every intake the child filed reached its POSTED
+# `pr_review:` block 29/29. So the same URLs also go in the block's
+# `filed_intakes:` list (`filed_intakes_in_block` below), the parent reads
+# both and unions them, and a line the model never printed costs nothing.
+#
+# ANCHORED, for `_VERDICT`'s reason: an unanchored match would take the line out
+# of a prior pass's comment the child quoted.
+FILED_INTAKE_LINE = re.compile(r"^FILED-INTAKE:[ \t]*(\S+)[ \t]*$", re.MULTILINE)
+
+# THE PAYLOAD GRAMMAR IS AT LEAST AS STRICT AS `journal.harvest.parse_ref`'s
+# issue arm — two identity segments refusing `/`, whitespace and `)` (the
+# `routing.PR_URL` narrowing, for the same reasons), `/issues/<digits>`, and
+# nothing after. That ordering matters: `parse_ref` RAISES on a reference it
+# cannot address, and the harvest runs in the parent's `finally`, so a payload
+# accepted here and refused there would turn a child's typo into a failed run.
+# `test_review_pr_filed_intakes.py` holds the agreement by driving both.
+ISSUE_URL = re.compile(r"\Ahttps://github\.com/[^\s/)]+/[^\s/)]+/issues/\d+\Z")
+
+
+class FiledIntakes(NamedTuple):
+    """What the child's `FILED-INTAKE:` lines carried, split by whether the harvest can address it.
+
+    NAMED, NOT A BARE PAIR: both members are sequences of strings, and a
+    positional reader that transposed them would hand the harvest the malformed
+    payloads and report the good ones as defects.
+    """
+
+    urls: tuple[str, ...]        # distinct, first-seen order — what the harvest is handed
+    malformed: tuple[str, ...]   # payloads that are not an issue URL — reported, never harvested
+
+
+def _split_intakes(payloads: Iterable[str]) -> FiledIntakes:
+    """Distinct, first-seen issue URLs on one side; everything else on the other."""
+    urls: list[str] = []
+    malformed: list[str] = []
+    for payload in payloads:
+        if not ISSUE_URL.match(payload):
+            malformed.append(payload)
+        elif payload not in urls:
+            urls.append(payload)
+    return FiledIntakes(urls=tuple(urls), malformed=tuple(malformed))
+
+
+def filed_intakes(output: str) -> FiledIntakes:
+    """Every intake the child reported filing, from its own output.
+
+    NEVER RAISES. A malformed payload is the child's mistake, and the parent
+    reports it in the banner rather than failing a review that has already
+    posted its verdict — the intake exists on GitHub either way, and the loss
+    is one bag record, which the note makes visible. Duplicates collapse: a
+    child that prints the same URL twice filed one issue.
+    """
+    return _split_intakes(FILED_INTAKE_LINE.findall(output))
+
+
+# THE BLOCK'S `filed_intakes:` LIST — the durable copy of the report above, on
+# the surface the child demonstrably writes. The key is matched at the block's
+# TOP-LEVEL indent ONLY, and that is the same hazard `findings_section` names:
+# `dispatch_context: |` and `precheck: |` are free text inside the same block,
+# deeper-indented, and a reviewer quoting this very schema there (a runway that
+# says "add `filed_intakes:` to the block") would otherwise hand the harvest a
+# list it did not file — a foreign issue's body in this run's bag, the exact
+# mis-attribution the nonce exists to prevent. The value runs to the next key
+# at that indent or the end of the block; an inline `[]` is "none"; anything
+# else on the key's line is a shape the schema does not show and is REPORTED.
+# A trailing `#` comment is tolerated on the key and on each item, for
+# `RUN_ID_IN_BLOCK`'s reason: the schema itself shows one.
+_TOP_LEVEL_INDENT = re.compile(r"^pr_review:[^\n]*\n(?:[ \t]*(?:#[^\n]*)?\n)*([ \t]+)[A-Za-z_]")
+# THE ITEM CAPTURES THE WHOLE REST OF THE LINE and the comment is stripped
+# after, YAML's way — `#` opens a comment only after whitespace — so that
+# `- #163` (a bare number the child commented out by accident) is REPORTED as
+# the malformed item it is rather than silently read as an empty one.
+_FILED_INTAKE_ITEM = re.compile(r"^[ \t]*-[ \t]*([^\n]*?)[ \t]*$", re.MULTILINE)
+_TRAILING_COMMENT = re.compile(r"\s+#.*\Z")
+
+
+def filed_intakes_in_block(block: str) -> FiledIntakes:
+    """Every intake THIS pass's durable block lists under `filed_intakes:`.
+
+    NEVER RAISES, for `filed_intakes`'s reason: the harvest runs in the
+    parent's `finally`. A block with no such key — every archived block, and
+    every pass that filed nothing and omitted it — reads as none, not as an
+    error; `None` is not a third value here because the two surfaces are
+    unioned and an absent key on one changes nothing about the other.
+    """
+    indent = _TOP_LEVEL_INDENT.match(block)
+    if indent is None:
+        return FiledIntakes((), ())
+    section = re.search(
+        r"^" + re.escape(indent.group(1)) + r"filed_intakes:[ \t]*([^\n]*?)[ \t]*$(.*?)"
+        r"(?=^" + re.escape(indent.group(1)) + r"[A-Za-z_][A-Za-z0-9_]*:|\Z)",
+        block, re.MULTILINE | re.DOTALL)
+    if section is None:
+        return FiledIntakes((), ())
+    inline = _TRAILING_COMMENT.sub("", " " + section.group(1)).strip()
+    payloads = [_unquote(_TRAILING_COMMENT.sub("", t))
+                for t in _FILED_INTAKE_ITEM.findall(section.group(2))]
+    if inline not in ("", "[]"):
+        payloads.append(_unquote(inline))
+    return _split_intakes(payloads)
+
+
+def merge_intakes(printed: FiledIntakes, in_block: FiledIntakes) -> tuple[str, ...]:
+    """The URLs from both surfaces, distinct, first-seen, printed line first.
+
+    URLS ONLY. The malformed payloads are reported PER SURFACE by
+    `intake_notes` — which surface a typo sits on is the operator's lead — so a
+    merged malformed set would be computed and read by nothing.
+    """
+    return _split_intakes(printed.urls + in_block.urls).urls
+
+
+def intake_notes(printed: FiledIntakes, in_block: FiledIntakes) -> list[str]:
+    """Banner lines for what the child reported filing — and what it got wrong.
+
+    NAMES BOTH SURFACES, because the count per surface is the evidence that
+    tells the operator whether the printed line reaches the parent at all — the
+    measurement this two-surface design rests on. A malformed payload is named
+    in full so the operator can find the intake the child meant; the harvest
+    will not, and a bag missing that one body is the gap the note exists to
+    make visible.
+    """
+    merged = merge_intakes(printed, in_block)
+    notes: list[str] = []
+    if merged:
+        notes.append(f"Filed {len(merged)} intake(s), handed to the harvest "
+                     f"({len(printed.urls)} on the printed FILED-INTAKE line, "
+                     f"{len(in_block.urls)} in the posted block's filed_intakes): "
+                     + ", ".join(merged))
+    if printed.malformed:
+        notes.append(f"{len(printed.malformed)} FILED-INTAKE line(s) carried no issue URL "
+                     f"and were NOT harvested: " + ", ".join(repr(m) for m in printed.malformed))
+    if in_block.malformed:
+        notes.append(f"{len(in_block.malformed)} filed_intakes item(s) in the posted block "
+                     f"carried no issue URL and were NOT harvested: "
+                     + ", ".join(repr(m) for m in in_block.malformed))
+    return notes
 
 
 def _unquote(token: str) -> str:
@@ -303,7 +461,7 @@ def asserted_converged_in_block(block: str) -> bool | None:
 # reader for this field, so there is no second declaration to keep identical.
 # The moment it acquires one, it belongs in that table.
 # A TRAILING YAML COMMENT IS TOLERATED, and that is measured rather than
-# defensive: the shipped `disposition.md` states this field with a six-line
+# defensive: the shipped `disposition.md` states this field with a multi-line
 # trailing `#` comment, and every other block field the child copies from that
 # spec arrives with one often enough that `_FINDING_ID` already excludes `#`
 # from its capture. A parser that rejected it would read the block the prompt

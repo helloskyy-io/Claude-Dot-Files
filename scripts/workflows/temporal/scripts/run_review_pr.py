@@ -8,7 +8,6 @@ workflow on a task queue; the workflow module itself does not change.
 from __future__ import annotations
 
 import argparse
-import subprocess
 import sys
 import uuid
 from pathlib import Path
@@ -156,10 +155,20 @@ def main(argv: list[str] | None = None) -> int:
             # the sweep enforcing this can and cannot see:
             # `harvest_activities.py`'s docstring and
             # `tests/unit/test_every_parent_HARVESTS_its_github_surfaces.py`.
-            harvest.harvest_github_surfaces(run_id=ctx.run_id, repo_root=repo_root,
-                                            # A REVIEW CREATES NO PR — the dispatched one is its only surface.
-                                            refs=(ctx.pr_number, None),
-                                            journal_root=ctx.journal_root)
+            #
+            # A REVIEW CREATES NO PR — `None` where a producing parent passes the
+            # URL its child reported — BUT IT FILES INTAKES, and those trail the
+            # PR as the issue URLs the child reported, on its `FILED-INTAKE:`
+            # line or in its posted block's `filed_intakes:` (#185). On the
+            # failure path `result` is None and the intakes go unharvested, the
+            # same limit the PR URL has in every other parent: only a returned
+            # result carries what the child reported, and the harvest records a
+            # run that named no surface rather than guessing at one.
+            harvest.harvest_github_surfaces(
+                run_id=ctx.run_id, repo_root=repo_root,
+                refs=(ctx.pr_number, None,
+                      *(result.issue_urls if result is not None else ())),
+                journal_root=ctx.journal_root)
     # OSError covers the log-path freshness guard's FileExistsError, which is a
     # runtime state with an operator-facing message, not a programming error.
     # TypeError is deliberately NOT caught: a signature mismatch should traceback

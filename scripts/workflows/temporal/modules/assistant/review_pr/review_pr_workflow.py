@@ -356,6 +356,18 @@ def run_review(task: ReviewInput, worktree: Path, *,
     # COMPARISON still happens after; only the parse moved.
     shadow, parseable = _prose_shadow(log_file, task.pr_number, worktree)
 
+    # THE INTAKES THE CHILD FILED, FIRST SURFACE: the top-level assistant text,
+    # where `disposition.md` has it print one `FILED-INTAKE:` line per `gh
+    # issue create` — the same surface the prose shadow falls through to. This
+    # is the CHEAP copy and it is read here, before the raise below, because
+    # it is the only one that exists on a path where the thread is never read.
+    # The DURABLE copy — the block's `filed_intakes:` list — is read further
+    # down, once this pass's block is selected, and the two are unioned there.
+    # Carried on the result so the entrypoint can hand them to the post-exit
+    # harvest (#185); nothing here routes on them. A malformed line is noted,
+    # never fatal: the verdict is already posted and the issue already exists.
+    printed_intakes = helper.filed_intakes(_shared.assistant_text(log_file))
+
     # Persist the parent stratum BEFORE the shadow COMPARISON, because a
     # disagreement raises and a machinery failure that leaves no trace is the
     # one Phase 4 most needs counted. Step 4's computed-arm predicate reads
@@ -570,6 +582,19 @@ def run_review(task: ReviewInput, worktree: Path, *,
     # is the state GROUPED BY its reason — the same defect this component
     # recorded at R2 and again at R1a.
     this_block = helper.this_pass_block(blocks, invocation_id) if blocks is not None else None
+    # THE INTAKES THE CHILD FILED, SECOND SURFACE: this pass's durable block,
+    # selected by nonce two lines up. Measured 2026-09-13 on 27 archived review
+    # logs: in the current regime the child's top-level text is one 27-character
+    # block and the printed line never reaches the parent, while what the
+    # child filed reaches its posted block every time — so the block is the
+    # copy that lands, and the union with the printed line is what the harvest
+    # is handed. On the non-evaluable and thread-unreadable paths `this_block`
+    # is None and only the printed line applies; the banner names the count
+    # from each surface so that gap is visible rather than silent.
+    block_intakes = (helper.filed_intakes_in_block(this_block)
+                     if this_block is not None else helper.FiledIntakes((), ()))
+    issue_urls = helper.merge_intakes(printed_intakes, block_intakes)
+    notes.extend(helper.intake_notes(printed_intakes, block_intakes))
     assessment = convergence.assess(
         helper.convergence_history(blocks, record, invocation_id) if blocks is not None else (),
         pass_evaluable=evaluable,
@@ -590,6 +615,7 @@ def run_review(task: ReviewInput, worktree: Path, *,
     return ReviewResult(
         pr_number=task.pr_number, verdict=verdict, this_pass=this_pass,
         parseable=parseable, notes=notes, record=record, convergence=assessment,
+        issue_urls=list(issue_urls),
     )
 
 
