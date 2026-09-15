@@ -29,6 +29,7 @@ not ruled, per requirement 7.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -40,6 +41,13 @@ from modules.journal.journal_activities import load_journal_config  # noqa: E402
 from modules.journal.root import resolve_journal_root  # noqa: E402
 
 
+def _absolute(value: str) -> Path:
+    """`os.path.abspath`, NOT `Path.resolve()`: the containment contract refuses
+    a symlinked root, and resolving here would hide the link from it. A relative
+    path is an operator convenience the CLI absorbs; the module still refuses one."""
+    return Path(os.path.abspath(value))
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="rebuild.py",
@@ -48,16 +56,16 @@ def _parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     def common(p: argparse.ArgumentParser) -> None:
-        p.add_argument("--stores", required=True, type=Path,
+        p.add_argument("--stores", required=True, type=_absolute,
                        help="the tracked/ directory holding the four stores")
-        p.add_argument("--journal", type=Path, default=None,
+        p.add_argument("--journal", type=_absolute, default=None,
                        help="journal root (default: the configured root, read-only)")
 
     snap = sub.add_parser("snapshot", help="record each covered store into the journal")
     common(snap)
     check = sub.add_parser("check", help="replay from the snapshot and diff the test set")
     common(check)
-    check.add_argument("--scratch", type=Path, default=None,
+    check.add_argument("--scratch", type=_absolute, default=None,
                        help="replay into this directory instead of a temporary one")
     rest = sub.add_parser("restore", help="regenerate one store from the journal")
     common(rest)

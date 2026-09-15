@@ -783,7 +783,10 @@ claude-dot-files/
 │                   │                                #   goes red naming the file; the snapshot has two sections and a version and section
 │                   │                                #   (b) is never applied; every store is enumerated; operations is a non-empty
 │                   │                                #   exclusion and a run-authored write to it FAILS the rebuild; a rebuilt row is
-│                   │                                #   distinguishable by origin; the committed fixture replays and holds no real bytes
+│                   │                                #   distinguishable by origin; the committed fixture replays and holds no real bytes.
+│                   │                                #   The SNAPSHOT BOUNDARY is one line: stamped before the stores are read (call order
+│                   │                                #   asserted), judged by the COMPLETION's stamp so the snapshot's own race applies the
+│                   │                                #   write, a foreign store contract refused, a same-second two-run tie REPORTED
 │                   ├── test_rebuild_is_CONTAINED_and_restore_uses_the_allowlist.py # PMP Phase 4 r4/r8 — the containment
 │                   │                                #   contract fed hostile values DIRECTLY (absolute, `..`, wrong shape, symlinked root /
 │                   │                                #   store dir / target, relative root) and THROUGH an event (the id shape refuses them
@@ -791,11 +794,15 @@ claude-dot-files/
 │                   │                                #   a scratch under testing/logs/ refused; replay imports no shell/network/template
 │                   │                                #   means. Restore: dry run by default, --apply creates and overwrites and LEAVES
 │                   │                                #   unknown files in place, cannot name operations, refuses a gapped store and a
-│                   │                                #   symlinked destination, and a write after a restore still needs its emit
+│                   │                                #   symlinked destination, and a write after a restore still needs its emit; a
+│                   │                                #   symlinked directory under a bag's payload is never walked into; no scratch is left
+│                   │                                #   behind when none was given
 │                   ├── test_rebuild_reports_a_GAPPED_journal_as_gapped.py # PMP Phase 4 r7 — a gap is an INPUT: counted with
 │                   │                                #   its denominator, what it covered named, a store it was addressed to `gapped` (diff
 │                   │                                #   reported, not ruled — in BOTH directions), read from the event AND from the flag-only
-│                   │                                #   Journal-Gap line, counted once per run id; an undecodable event line fails the rebuild
+│                   │                                #   Journal-Gap line, counted once per run id; a gap BEFORE the snapshot is counted and
+│                   │                                #   named but rules no store (the baseline absorbed it — restore is not refused for it);
+│                   │                                #   an undecodable event line fails the rebuild
 │                   ├── test_plan_refine.py          # plan-refine's own guards, and the TWO properties unique to a judge: the deliverable
 │                   │                                #   is keyed on STATE where every prohibition in the family is a DELTA — a --pr
 │                   │                                #   correction pass legitimately writes no new hours — and the re-planning guard

@@ -71,16 +71,55 @@ the doc's argument is that at Phase 7 the events may arrive from another
 machine and a path-join bug becomes reachable by anything that can write to the
 shared bucket.
 
+THE SNAPSHOT BOUNDARY IS ONE LINE, AND EVERYTHING THAT READS THE JOURNAL
+STANDS ON THE SAME SIDE OF IT. `taken_at` is stamped BEFORE the stores are read
+(`take_snapshot`), so the materialisation reflects every write that landed
+before it and possibly some that landed after. Replay then applies every write
+whose COMPLETION is recorded at or after `taken_at` — the completion, not the
+intent, because the completion is the event that asserts the write landed and
+the intent only says it was about to: a write whose intent predates the stamp
+but that landed after the store was read is otherwise in neither half, and the
+rebuild reports a mismatch that is nothing but the snapshot's own race.
+Re-applying a write the materialisation already holds is harmless (whole-file
+events, same bytes). The first draft filtered on the intent and stamped the
+snapshot after the read — both caught in review, both now tested.
+
+THE STORE CONTRACT IS COMPARED, NOT MERELY RECORDED (requirement 1). A snapshot
+taken under Tracked Items §7 `v1` and replayed by code that writes `v2` would
+report every shape difference as an ordinary MISMATCH — the unattributable diff
+the requirement exists to prevent — so a `store_contract` that is not this
+build's `CONTRACT_VERSION` is refused, naming the upcast that has to exist
+first. Same rule as `snapshot_version` and `decode_event`: refused, not guessed.
+
 GAPS ARE AN INPUT TO THE TEST, NOT A FAILURE OF IT (requirement 7). A bag whose
 `Journal-Incomplete` flag is set, or that carries a gap event, is counted
-against the bags replayed and reported with what each gap covered. A gap whose
-destination is one of the covered stores makes that store's verdict `gapped`:
-its diff is still REPORTED — the operator wants to see it — but it is not RULED
-green or red, because the journal has said it is short there. A gap elsewhere
-(the transcript, a GitHub surface) counts at the bag level only. Applied
-intents from a gapped bag are still applied: a completion is the journal's
-proof that the write landed, and the gap is about the writes that did not.
-Counting is dedupe-on-`run_id`, per § *Measurement*.
+against the bags replayed and reported with what each gap covered — EVERY bag,
+before or after the snapshot, because the count is the honesty figure and a
+rotated-out gap is exactly what Phase 5 carries forward to keep it honest. A
+gap recorded AT OR AFTER `taken_at` whose destination is a covered store makes
+that store's verdict `gapped`: its diff is still REPORTED — the operator wants
+to see it — but it is not RULED green or red, because the journal has said it
+is short there. A gap BEFORE the snapshot does not rule the store: whatever it
+lost is already reflected (or not) in a materialisation read straight off the
+live store, and a verdict that stayed `gapped` for the lifetime of the journal
+would refuse every restore for an incident the baseline has absorbed. It is
+still counted and still named, with "before the snapshot" beside it. A gap
+elsewhere (the transcript, a GitHub surface) counts at the bag level only.
+Applied intents from a gapped bag are still applied: a completion is the
+journal's proof that the write landed, and the gap is about the writes that did
+not. Counting is dedupe-on-`run_id`, per § *Measurement*.
+
+ORDER ACROSS RUNS IS BY COMPLETION TIME AT SECOND PRECISION, AND A TIE IS
+REPORTED. Every tracked-store event replaces the whole file, so when two runs
+write the same item the last one wins outright. `utc_now` is second-precision
+by design (`bag.py`), and nothing in a version-1 event totally orders writes
+across runs — `sequence` is per writer. Two runs completing writes to one item
+within the same second therefore have no recorded order, and replay would pick
+one lexically. Rather than pick silently, `_apply` reports the tie
+(`ambiguous_order`): the diff still says whether the bytes match, and the
+report says the order was not the journal's to know. A cross-run total order
+is a Phase 3 event-schema addition, surfaced in the producing PR rather than
+faked here.
 
 PROVENANCE SURVIVES THE REBUILD (requirement 9). Every rebuilt file carries a
 `FileProvenance` record in the report: `snapshot` origin with the snapshot id,
@@ -105,7 +144,7 @@ from typing import Iterable
 
 from ...journal.bag import (BAGIT_FILE, BAG_INFO_FILE, MANIFEST_FILE,
                             PAYLOAD_DIR, FILE_MODE, DIR_MODE, BagError,
-                            bag_state, read_tag_file, validated_run_id)
+                            bag_state, read_tag_file, utc_now, validated_run_id)
 from ...journal.events import (EVENTS_FILE, EventError, EventKind,
                                JournalEvent, applied_intents, decode_event,
                                dedupe_on_identity)
@@ -189,8 +228,12 @@ RESTORE_ALLOWLIST: frozenset[str] = frozenset(COVERED)
 #: `Destination.store` for a tracked store is `tracked_<name>` (`_write_item`).
 _DESTINATION_PREFIX = "tracked_"
 #: `write_path` for a tracked store is `tracked:<name>:<verb>`; a `Journal-Gap`
-#: tag line opens with the timestamp, then this write path.
-_GAP_LABEL_RE = re.compile(r"\A\S+\s+tracked:([a-z]+):")
+#: tag line opens with the timestamp (`Bag.mark_incomplete`: `utc_now()`, a
+#: space, the write path), then this write path. Both are captured: the stamp
+#: places the gap against the snapshot boundary, the store attributes it.
+_GAP_LABEL_RE = re.compile(r"\A(\S+)\s+tracked:([a-z]+):")
+#: Any `Journal-Gap` line's stamp, whatever write path follows it.
+_GAP_STAMP_RE = re.compile(r"\A(\S+)\s")
 
 #: §2's id shape, as a WHOLE-STRING match. The one value that reaches a
 #: filename, and it admits no separator, no dot and no line breaker — which is
@@ -344,7 +387,7 @@ class BagRead:
     def gapped(self) -> bool:
         return self.incomplete or bool(self.gap_events)
 
-    def gapped_stores(self) -> set[str]:
+    def gapped_stores(self, *, since: str = "") -> set[str]:
         """The covered stores this bag's gaps are addressed to, from both records.
 
         BOTH THE EVENT AND THE FLAG, because either can land without the other
@@ -352,17 +395,30 @@ class BagRead:
         the flag and its `Journal-Gap` line in `bag-info.txt`. The label carries
         the write path (`tracked:<store>:<verb>`), the event carries the
         destination (`tracked_<store>`); a store named by either is gapped.
+
+        `since` IS THE SNAPSHOT BOUNDARY: only a gap recorded at or after it
+        rules a store (module docstring). Both records carry the stamp — the
+        event's `recorded_at`, the label's first token — in `utc_now`'s one
+        spelling, so the comparison is the same string comparison replay makes.
         """
         stores: set[str] = set()
         for event in self.gap_events:
             name = store_name_of(event.destination.store)
-            if name:
+            if name and event.recorded_at >= since:
                 stores.add(name)
         for label in self.gap_labels:
             match = _GAP_LABEL_RE.match(label)
-            if match:
-                stores.add(match.group(1))
+            if match and match.group(1) >= since:
+                stores.add(match.group(2))
         return stores
+
+    def gapped_before(self, boundary: str) -> bool:
+        """True when every gap this bag records predates `boundary`."""
+        stamps = [e.recorded_at for e in self.gap_events]
+        for label in self.gap_labels:
+            match = _GAP_STAMP_RE.match(label)
+            stamps.append(match.group(1) if match else label)
+        return bool(stamps) and all(stamp < boundary for stamp in stamps)
 
     def describe_gaps(self) -> tuple[str, ...]:
         """What each gap covered — write path, class and byte count, never content."""
@@ -391,6 +447,18 @@ def _read_events_file(path: Path) -> tuple[list[JournalEvent], list[str]]:
     return events, undecodable
 
 
+def _events_files(payload: Path) -> list[Path]:
+    """Every regular `events.jsonl` under the payload, without following a link."""
+    found: list[Path] = []
+    for dirpath, dirnames, filenames in os.walk(payload, followlinks=False):
+        dirnames.sort()
+        if EVENTS_FILE in filenames:
+            candidate = Path(dirpath) / EVENTS_FILE
+            if not candidate.is_symlink() and candidate.is_file():
+                found.append(candidate)
+    return sorted(found)
+
+
 def read_bags(journal_root: Path) -> list[BagRead]:
     """Every bag directly under the root, once each, in run-id order.
 
@@ -402,8 +470,12 @@ def read_bags(journal_root: Path) -> list[BagRead]:
 
     EVERY WRITER'S `events.jsonl` IS READ. A parent writes `data/events.jsonl`;
     each member writes `data/<writer>/events.jsonl`; the harvest writes
-    `data/harvest/events.jsonl`. `rglob` under the payload finds them all, and
-    a symlink is not followed into (the payload contract forbids one).
+    `data/harvest/events.jsonl`. `os.walk(followlinks=False)` under the payload
+    finds them all and NEVER descends a symlinked directory — stated in the
+    call rather than left to `Path.rglob`, whose symlink behaviour changed at
+    3.13 and which this containment claim must not depend on. The payload
+    contract forbids a link; this is what holds if one is planted anyway
+    (Phase 7: a bag may have arrived from another machine).
     """
     bags: dict[str, BagRead] = {}
     for child in sorted(journal_root.iterdir()):
@@ -424,10 +496,8 @@ def read_bags(journal_root: Path) -> list[BagRead]:
         undecodable: list[str] = []
         total = 0
         payload = child / PAYLOAD_DIR
-        if payload.is_dir():
-            for events_file in sorted(payload.rglob(EVENTS_FILE)):
-                if events_file.is_symlink() or not events_file.is_file():
-                    continue
+        if payload.is_dir() and not payload.is_symlink():
+            for events_file in _events_files(payload):
                 total += events_file.stat().st_size
                 found, refused = _read_events_file(events_file)
                 events.extend(found)
@@ -465,12 +535,18 @@ def take_snapshot(journal_root: Path, stores_root: Path) -> Path:
     with their reason (Phase 5 r1). `bags_at_snapshot` is counted here so the
     "rotated out behind the snapshot" denominator exists before anything
     rotates.
+
+    `taken_at` IS THE FIRST LINE, before a single store file or bag is read.
+    A write that lands during the read is then applied again by replay (same
+    bytes, harmless); stamped after the read it would be in neither half.
     """
+    taken_at = utc_now()
     stores_root = _real_root(stores_root, what="stores root")
     materialisation = {name: read_store(stores_root, name) for name in COVERED}
     excluded = {name: cov.reason for name, cov in STORE_COVERAGE.items()
                 if name not in COVERED}
-    return write_snapshot(journal_root, store_contract=ti.CONTRACT_VERSION,
+    return write_snapshot(journal_root, taken_at=taken_at,
+                          store_contract=ti.CONTRACT_VERSION,
                           store_materialisation=materialisation,
                           excluded_stores=excluded,
                           bags_at_snapshot=len(read_bags(journal_root)))
@@ -533,6 +609,8 @@ class RebuildReport:
     bags_seen: int
     bags_gapped: int
     gapped: dict[str, tuple[str, ...]]           # run_id → what each gap covered
+    gapped_before_snapshot: tuple[str, ...]      # counted above; rules no store
+    ambiguous_order: tuple[str, ...]             # same file, same second, two runs
     events_read: int
     events_after_dedupe: int
     intents_applied: int
@@ -582,20 +660,28 @@ def _item_filename(event: JournalEvent, store: str) -> str:
 
 
 def _apply(snapshot: Snapshot, intents: Iterable[JournalEvent],
-           scratch: Path) -> tuple[dict[str, dict[str, str]],
-                                   dict[str, dict[str, FileProvenance]],
-                                   list[str]]:
+           scratch: Path, *, landed_at: dict[str, str]
+           ) -> tuple[dict[str, dict[str, str]],
+                      dict[str, dict[str, FileProvenance]],
+                      list[str], list[str]]:
     """Section (a), then every applied intent in order, into `scratch`.
 
     RETURNS WHAT IT WROTE rather than having the caller re-read the tree, so
     the diff compares the bytes replay produced and not bytes something else
     put there. The tree is still written — that is the artifact an operator
     inspects and the thing restore copies from.
+
+    `landed_at` is each intent's COMPLETION stamp (the caller's sort key). Two
+    intents from different runs landing on one file with the same stamp have no
+    recorded order; the second is applied — the caller's order — and the tie is
+    returned in the fourth slot, never silently resolved (module docstring).
     """
     scratch = _real_root(scratch, what="replay root")
     rebuilt: dict[str, dict[str, str]] = {}
     provenance: dict[str, dict[str, FileProvenance]] = {}
     refused: list[str] = []
+    ambiguous: list[str] = []
+    last_writer: dict[tuple[str, str], tuple[str, str]] = {}
 
     for store in COVERED:
         (scratch / store).mkdir(mode=DIR_MODE, exist_ok=True)
@@ -626,13 +712,22 @@ def _apply(snapshot: Snapshot, intents: Iterable[JournalEvent],
             continue
         filename = _item_filename(event, store)
         target = contained_target(scratch, store, filename)
+        stamp = landed_at[event.event_id]
+        previous = last_writer.get((store, filename))
+        if previous and previous[0] == stamp and previous[1] != event.run_id:
+            ambiguous.append(
+                f"tracked/{store}/{filename}: runs {previous[1]} and "
+                f"{event.run_id} both completed a write at {stamp}; the "
+                f"journal records no order between them and {event.run_id} "
+                f"was applied last")
+        last_writer[(store, filename)] = (stamp, event.run_id)
         _write(target, event.content)
         rebuilt[store][filename] = event.content
         provenance[store][filename] = FileProvenance(
             origin="journal", source_id=event.event_id, run_id=event.run_id,
             edge_id=event.edge_id, provenance=event.provenance.value,
             key_epoch=event.key_epoch, recorded_at=event.recorded_at)
-    return rebuilt, provenance, refused
+    return rebuilt, provenance, refused, ambiguous
 
 
 def _write(target: Path, text: str) -> None:
@@ -653,6 +748,27 @@ def _diff(live: dict[str, str], rebuilt: dict[str, str]) -> tuple[tuple[str, ...
     return missing, extra, mismatched
 
 
+def _attribute_gaps(bags: list[BagRead], taken_at: str
+                    ) -> tuple[dict[str, tuple[str, ...]], tuple[str, ...],
+                               dict[str, list[str]]]:
+    """Every gapped bag with what it lost; which of them predate the snapshot;
+    and, per covered store, the bags whose gaps AT OR AFTER the snapshot are
+    addressed to it — the only ones that rule a verdict (module docstring)."""
+    gapped: dict[str, tuple[str, ...]] = {}
+    before: list[str] = []
+    by_store: dict[str, list[str]] = {name: [] for name in STORE_COVERAGE}
+    for bag in bags:
+        if not bag.gapped:
+            continue
+        gapped[bag.run_id] = bag.describe_gaps()
+        if bag.gapped_before(taken_at):
+            before.append(bag.run_id)
+        for store in bag.gapped_stores(since=taken_at):
+            if store in by_store:
+                by_store[store].append(bag.run_id)
+    return gapped, tuple(before), by_store
+
+
 def rebuild(journal_root: Path, stores_root: Path, *,
             scratch: Path | None = None,
             snapshot: Snapshot | None = None) -> RebuildReport:
@@ -663,8 +779,12 @@ def rebuild(journal_root: Path, stores_root: Path, *,
     matches — the exact weakening the phase doc describes as the likely silent
     resolution — so the refusal names the command that takes one.
 
-    `scratch=None` USES A FRESH TEMPORARY DIRECTORY. A caller may pass one to
-    inspect the tree afterwards; it may not pass one under `testing/logs/`.
+    `scratch=None` USES A TEMPORARY DIRECTORY AND REMOVES IT. The report
+    carries every byte replay produced, so nothing needs the tree afterwards —
+    and a rebuilt store is verbatim store content, which is not left lying in
+    `/tmp` once per invocation (the first draft leaked one per call: 504 on the
+    build host). A caller that wants the tree passes its own scratch, which is
+    left in place; it may not be under `testing/logs/`.
     """
     started = time.monotonic()
     stores_root = _real_root(stores_root, what="stores root")
@@ -680,32 +800,46 @@ def rebuild(journal_root: Path, stores_root: Path, *,
                 f"replay from — the stores predate the journal and a replay "
                 f"from nothing reproduces an empty store that never matches. "
                 f"Take one: rebuild.py snapshot --stores {stores_root}")
+    if snapshot.store_contract != ti.CONTRACT_VERSION:
+        raise RebuildError(
+            f"snapshot {snapshot.snapshot_id} was taken under Tracked Items §7 "
+            f"contract {snapshot.store_contract!r} and this build writes "
+            f"{ti.CONTRACT_VERSION!r}. No upcaster exists between them, and a "
+            f"replay across the change would report every shape difference as "
+            f"an ordinary mismatch — the unattributable diff requirement 1 "
+            f"forbids. Write the upcast, or take a new snapshot under the "
+            f"current contract: rebuild.py snapshot --stores {stores_root}")
 
-    if scratch is None:
-        scratch = Path(tempfile.mkdtemp(prefix="rebuild-"))
-    _refuse_scratch_under_uploaded_logs(scratch)
+    if scratch is not None:
+        _refuse_scratch_under_uploaded_logs(scratch)
+        return _rebuild_into(journal_root, stores_root, scratch, snapshot, started)
+    with tempfile.TemporaryDirectory(prefix="rebuild-") as temporary:
+        return _rebuild_into(journal_root, stores_root, Path(temporary),
+                             snapshot, started)
 
+
+def _rebuild_into(journal_root: Path, stores_root: Path, scratch: Path,
+                  snapshot: Snapshot, started: float) -> RebuildReport:
     bags = read_bags(journal_root)
     all_events = [e for bag in bags for e in bag.events]
     deduped = dedupe_on_identity(all_events)
-    intents = [e for e in applied_intents(all_events)
-               if e.recorded_at >= snapshot.taken_at]
-    intents.sort(key=lambda e: (e.recorded_at, e.run_id, e.write_path, e.sequence))
-    completed = {e.event_id for e in deduped if e.kind is EventKind.COMPLETION}
+    # THE COMPLETION'S STAMP IS WHEN THE WRITE IS KNOWN TO HAVE LANDED, and it
+    # is the boundary comparison and the order key (module docstring). An
+    # intent with no completion is not in `applied_intents` and so never here.
+    landed_at = {e.event_id: e.recorded_at for e in deduped
+                 if e.kind is EventKind.COMPLETION}
+    intents = [e for e in applied_intents(deduped)
+               if landed_at[e.event_id] >= snapshot.taken_at]
+    intents.sort(key=lambda e: (landed_at[e.event_id], e.run_id,
+                                e.write_path, e.sequence))
     unapplied = sum(1 for e in deduped
-                    if e.kind is EventKind.INTENT and e.event_id not in completed)
+                    if e.kind is EventKind.INTENT and e.event_id not in landed_at)
     failures = sum(1 for e in deduped if e.kind is EventKind.STORE_WRITE_FAILURE)
 
-    rebuilt, provenance, refused = _apply(snapshot, intents, scratch)
-
-    gapped_by_store: dict[str, list[str]] = {name: [] for name in STORE_COVERAGE}
-    gapped: dict[str, tuple[str, ...]] = {}
-    for bag in bags:
-        if bag.gapped:
-            gapped[bag.run_id] = bag.describe_gaps()
-            for store in bag.gapped_stores():
-                if store in gapped_by_store:
-                    gapped_by_store[store].append(bag.run_id)
+    rebuilt, provenance, refused, ambiguous = _apply(
+        snapshot, intents, scratch, landed_at=landed_at)
+    gapped, before_snapshot, gapped_by_store = _attribute_gaps(
+        bags, snapshot.taken_at)
 
     stores: dict[str, StoreVerdict] = {}
     for name in TEST_SET:
@@ -731,6 +865,8 @@ def rebuild(journal_root: Path, stores_root: Path, *,
         bags_seen=len(bags),
         bags_gapped=len(gapped),
         gapped=gapped,
+        gapped_before_snapshot=before_snapshot,
+        ambiguous_order=tuple(ambiguous),
         events_read=len(all_events),
         events_after_dedupe=len(deduped),
         intents_applied=len(intents),
@@ -763,8 +899,12 @@ def render_report(report: RebuildReport) -> str:
         f"enumerated · covered: {len(COVERED)}/{len(STORE_COVERAGE)}",
     ]
     for run_id, what in sorted(report.gapped.items()):
-        lines.append(f"  gapped bag {run_id}:")
+        before = " (before the snapshot — counted, rules no store)" \
+            if run_id in report.gapped_before_snapshot else ""
+        lines.append(f"  gapped bag {run_id}:{before}")
         lines.extend(f"    {w}" for w in what)
+    for line in report.ambiguous_order:
+        lines.append(f"  ORDER NOT RECORDED {line}")
     for line in report.undecodable:
         lines.append(f"  UNDECODABLE {line}")
     for line in report.applied_to_excluded:
@@ -845,7 +985,13 @@ def restore(journal_root: Path, stores_root: Path, store: str, *,
             f"{STORE_COVERAGE[store].reason if store in STORE_COVERAGE else 'not a store this module enumerates'} "
             f"Restorable: {', '.join(sorted(RESTORE_ALLOWLIST))}.")
     stores_root = _real_root(stores_root, what="stores root")
-    scratch = Path(tempfile.mkdtemp(prefix="restore-"))
+    with tempfile.TemporaryDirectory(prefix="restore-") as temporary:
+        return _restore_from(journal_root, stores_root, store, Path(temporary),
+                             apply=apply)
+
+
+def _restore_from(journal_root: Path, stores_root: Path, store: str,
+                  scratch: Path, *, apply: bool) -> RestoreReport:
     plan = rebuild(journal_root, stores_root, scratch=scratch)
     verdict = plan.stores[store]
     if verdict.verdict == "gapped":

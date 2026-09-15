@@ -15,6 +15,7 @@ either says so, and the store is attributed from whichever record names it.
 
 from __future__ import annotations
 
+import dataclasses
 from pathlib import Path
 
 import pytest
@@ -22,7 +23,8 @@ import pytest
 from modules.assistant.tracked import rebuild as rb
 from modules.journal.bag import open_bag
 from modules.journal.emit import Emitter
-from modules.journal.events import Destination, GapClass
+from modules.journal.events import Destination, GapClass, gap_event
+from modules.journal.snapshot import latest_snapshot
 from rebuild_fixture import RUN_PREFIX, build
 
 
@@ -105,6 +107,50 @@ def test_a_FLAG_ONLY_gap_is_read_from_bag_info_and_attributed_by_write_path(
     assert any(w.startswith("flag: ") for w in report.gapped[f"{RUN_PREFIX}g3"])
     assert report.stores["candidates"].gapped_bags == (f"{RUN_PREFIX}g3",)
     assert report.stores["candidates"].verdict == "gapped"
+
+
+def test_a_gap_BEFORE_the_snapshot_is_COUNTED_but_rules_no_store(fixture) -> None:
+    """The baseline was read straight off the live store after the gap, so
+    whatever the gap lost is already reflected there. The bag is still
+    counted against the denominator and named as before the snapshot; the
+    store is RULED (match here) and a restore is not refused for it. A verdict
+    that stayed `gapped` for the journal's lifetime would block requirement 8
+    for an incident the snapshot absorbed."""
+    journal, stores = fixture
+    taken_at = latest_snapshot(journal).taken_at
+    bag = open_bag(journal, f"{RUN_PREFIX}g0")
+    emitter = Emitter.for_run(bag, writer=None, journal_root=journal)
+    old = dataclasses.replace(
+        gap_event(run_id=bag.run_id, edge_id=emitter.edge_id,
+                  key_epoch=emitter.key_epoch, write_path="tracked:candidates:file",
+                  sequence=0, gap_class=GapClass.WRITE_FAILED, lost_bytes=321,
+                  destination=Destination(store="tracked_candidates")),
+        recorded_at="2000-01-01T00:00:00Z")
+    assert old.recorded_at < taken_at
+    emitter._append(old)
+    report = rb.rebuild(journal, stores)
+    assert (report.bags_gapped, report.bags_seen) == (2, 5)          # counted
+    assert report.gapped_before_snapshot == (f"{RUN_PREFIX}g0",)
+    assert report.stores["candidates"].gapped_bags == ()               # rules nothing
+    assert report.stores["candidates"].verdict == "match"
+    rendered = rb.render_report(report)
+    assert f"gapped bag {RUN_PREFIX}g0: (before the snapshot" in rendered
+    assert "gapped: 2/5" in rendered
+    rb.restore(journal, stores, "candidates")                          # not refused
+
+
+def test_a_FLAG_ONLY_gap_before_the_snapshot_is_placed_by_the_labels_own_stamp() -> None:
+    """The `Journal-Gap` line opens with `utc_now()`; that stamp, not the
+    bag's, decides which side of the boundary the gap is on."""
+    bag = rb.BagRead(run_id="x", path=Path("/x"), incomplete=True,
+                     gap_labels=("2000-01-01T00:00:00Z tracked:candidates:file — emit failed",
+                                 "2999-01-01T00:00:00Z tracked:candidates:increment — emit failed"),
+                     events=(), undecodable=(), events_bytes=0)
+    assert bag.gapped_stores(since="2026-01-01T00:00:00Z") == {"candidates"}
+    assert bag.gapped_stores(since="2999-06-01T00:00:00Z") == set()
+    assert bag.gapped_stores() == {"candidates"}
+    assert not bag.gapped_before("2026-01-01T00:00:00Z")
+    assert bag.gapped_before("3000-01-01T00:00:00Z")
 
 
 def test_a_gap_addressed_to_an_EXCLUDED_store_counts_at_the_bag_level_only(

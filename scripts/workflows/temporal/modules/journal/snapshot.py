@@ -37,11 +37,16 @@ absent, and a reader of the snapshot can tell "not covered" from "was empty".
 
 `taken_at` IS RECORDED BEFORE THE STORES ARE READ, and the ordering is what
 makes replay-from-here correct rather than approximately correct. Replay applies
-every event recorded at or after `taken_at`; an event that landed while the
-stores were being read is therefore applied AGAIN over a materialisation that
-already reflects it — which is harmless, because every tracked-store event
-carries the WHOLE file and applying it twice writes the same bytes. Recording
-`taken_at` after the read would instead lose any write in that window.
+every write whose COMPLETION is recorded at or after `taken_at`; a write that
+landed while the stores were being read is therefore applied AGAIN over a
+materialisation that already reflects it — which is harmless, because every
+tracked-store event carries the WHOLE file and applying it twice writes the
+same bytes. Recording `taken_at` after the read would instead lose any write in
+that window. **So `write_snapshot` takes `taken_at` FROM THE CALLER and does not
+mint it**: the first draft stamped it inside this function, after
+`take_snapshot` had read every store and walked every bag to count them — the
+exact inversion this paragraph forbids, caught in review, and now held by
+`test_the_snapshot_is_STAMPED_before_the_stores_are_read`.
 
 THE VERSION IS REFUSED, NOT GUESSED, when it is one this code has no upcaster
 for — the same rule `events.decode_event` applies to an event. A v2 snapshot
@@ -59,7 +64,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
 
-from .bag import FILE_MODE, JOURNAL_SCHEMA_VERSION, utc_now
+from .bag import FILE_MODE, JOURNAL_SCHEMA_VERSION
 from .edge_id import read_edge_id
 
 __all__ = ["SNAPSHOT_VERSION", "SNAPSHOT_NAME_RE", "Snapshot", "SnapshotError",
@@ -146,11 +151,14 @@ class Snapshot:
         return f"{_PREFIX}{stamp}-{self.snapshot_id}{_SUFFIX}"
 
 
-def write_snapshot(root: Path, *, store_contract: str,
+def write_snapshot(root: Path, *, taken_at: str, store_contract: str,
                    store_materialisation: Mapping[str, Mapping[str, str]],
                    excluded_stores: Mapping[str, str],
                    bags_at_snapshot: int) -> Path:
     """Write one snapshot at the journal root and return its path.
+
+    `taken_at` IS THE CALLER'S, stamped before it read anything (module
+    docstring). This function only records it.
 
     `O_EXCL` AND `FILE_MODE` AT CREATION, for the reason `Emitter._append`
     gives: the materialisation is the verbatim text of every covered store, and
@@ -175,7 +183,7 @@ def write_snapshot(root: Path, *, store_contract: str,
     snapshot = Snapshot(
         snapshot_version=SNAPSHOT_VERSION,
         snapshot_id=secrets.token_hex(4),
-        taken_at=utc_now(),
+        taken_at=taken_at,
         edge_id=edge,
         journal_schema_version=JOURNAL_SCHEMA_VERSION,
         store_contract=store_contract,

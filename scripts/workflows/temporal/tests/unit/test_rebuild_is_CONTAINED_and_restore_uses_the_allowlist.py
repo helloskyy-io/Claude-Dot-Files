@@ -179,6 +179,56 @@ def test_the_event_ADDRESS_is_never_where_the_file_lands(fixture, tmp_path: Path
     assert not any(elsewhere.iterdir())
 
 
+def test_a_SYMLINKED_DIRECTORY_under_the_payload_is_NOT_followed(
+        fixture, tmp_path: Path) -> None:
+    """A bag that arrived from elsewhere (Phase 7) may carry a link under
+    `data/`. `read_bags` walks with `followlinks=False`, stated in the call:
+    an `events.jsonl` reachable only through the link is not read, so an event
+    planted outside the bag cannot reach the replay."""
+    journal, stores = fixture
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    bag = open_bag(journal, f"{RUN_PREFIX}linked")
+    emitter = Emitter.for_run(bag, writer="planted", journal_root=journal)
+    text = ti.render({"id": "C-fixt0040", "title": "planted", "status": "open",
+                      "count": "1", "filed": "2026-09-14", "filed_by": "x"}, "\nx\n")
+    emitter.paired_write(write_path="tracked:candidates:file",
+                         destination=Destination(store="tracked_candidates"),
+                         content=text, perform=lambda: "written")
+    real_dir = emitter.events_path.parent
+    (outside / "events.jsonl").write_bytes(emitter.events_path.read_bytes())
+    emitter.events_path.unlink()
+    real_dir.rmdir()
+    real_dir.symlink_to(outside)
+    assert (real_dir / "events.jsonl").is_file()          # reachable through the link
+    read = {b.run_id: b for b in rb.read_bags(journal)}[f"{RUN_PREFIX}linked"]
+    assert read.events == ()
+    assert read.events_bytes == 0
+    assert "C-fixt0040.md" not in rb.rebuild(journal, stores).stores["candidates"].provenance
+
+
+def test_rebuild_and_restore_leave_NO_scratch_behind_when_none_was_given(
+        fixture, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A rebuilt store is verbatim store content; one copy per invocation
+    left in the temp directory is a leak (504 on the build host before this
+    was held). A caller-supplied scratch is left in place — that is what it
+    asked for."""
+    import tempfile
+    journal, stores = fixture
+    temp = tmp_path / "temp"
+    temp.mkdir()
+    monkeypatch.setattr(tempfile, "tempdir", str(temp))
+    rb.rebuild(journal, stores)
+    rb.restore(journal, stores, "candidates")
+    (stores / "candidates" / "C-fixt0005.md").unlink()
+    rb.restore(journal, stores, "candidates", apply=True)
+    assert list(temp.iterdir()) == []
+    kept = tmp_path / "kept"
+    kept.mkdir()
+    rb.rebuild(journal, stores, scratch=kept)
+    assert (kept / "candidates" / "C-fixt0005.md").is_file()
+
+
 def test_a_scratch_under_the_UPLOADED_LOGS_directory_is_refused(fixture, tmp_path) -> None:
     journal, stores = fixture
     scratch = tmp_path / "testing" / "logs" / "scratch"

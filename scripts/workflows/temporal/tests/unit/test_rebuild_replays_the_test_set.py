@@ -31,7 +31,8 @@ from modules.journal import emit as journal_emit
 from modules.journal import snapshot as snap
 from modules.journal.bag import open_bag
 from modules.journal.emit import Emitter, emitting_into
-from modules.journal.events import Destination, Provenance
+from modules.journal.events import (Destination, EventKind, JournalEvent,
+                                    Provenance, event_identity)
 from modules.journal.snapshot import Snapshot, SnapshotError, latest_snapshot
 from rebuild_fixture import COMMITTED, FIXTURE_EDGE, RUN_PREFIX, build
 
@@ -83,6 +84,102 @@ def test_the_diff_is_BYTE_IDENTICAL_under_the_empty_normalisation_set(fixture) -
     assert report.stores["candidates"].mismatched == ("C-fixt0001.md",)
     assert report.stores["candidates"].verdict == "mismatch"
     assert not report.ok
+
+
+def _paired(emitter: Emitter, *, item_id: str, body: str, run_id: str,
+            intent_at: str, completion_at: str) -> None:
+    """Append an intent/completion pair with CHOSEN stamps, through the
+    emitter's own append — the one place a byte reaches the journal — so the
+    on-disk shape is the writer's and only the timestamps are the test's."""
+    text = ti.render({"id": item_id, "title": f"stamped {item_id}",
+                      "status": "open", "count": "1", "filed": "2026-09-14",
+                      "filed_by": run_id}, body)
+    common = dict(event_id=event_identity(run_id=run_id,
+                                          write_path="tracked:candidates:file",
+                                          sequence=0),
+                  run_id=run_id, edge_id=emitter.edge_id,
+                  key_epoch=emitter.key_epoch,
+                  provenance=Provenance.FLEET_AUTHORED,
+                  write_path="tracked:candidates:file", sequence=0,
+                  content=text, content_bytes=len(text.encode()))
+    emitter._append(JournalEvent(kind=EventKind.INTENT, recorded_at=intent_at,
+                                 destination=Destination(store="tracked_candidates"),
+                                 **common))
+    emitter._append(JournalEvent(kind=EventKind.COMPLETION, recorded_at=completion_at,
+                                 destination=Destination(store="tracked_candidates",
+                                                         address=f"{item_id}.md"),
+                                 **common))
+
+
+def test_a_write_whose_INTENT_predates_the_snapshot_but_LANDED_after_is_applied(
+        fixture) -> None:
+    """The snapshot's own race. `taken_at` is stamped, then the stores are
+    read; a write whose intent was recorded just before the stamp can land
+    after the read. It is in neither half unless the boundary is judged by the
+    COMPLETION — the event that says the write landed — so that is the rule."""
+    journal, stores = fixture
+    taken_at = latest_snapshot(journal).taken_at
+    before = "2000-01-01T00:00:00Z"
+    after = "2999-01-01T00:00:00Z"
+    bag = open_bag(journal, f"{RUN_PREFIX}race")
+    emitter = Emitter.for_run(bag, writer=None, journal_root=journal)
+    body = "\nlanded after the store was read\n"
+    _paired(emitter, item_id="C-fixt0030", body=body, run_id=bag.run_id,
+            intent_at=before, completion_at=after)
+    text = ti.render({"id": "C-fixt0030", "title": "stamped C-fixt0030",
+                      "status": "open", "count": "1", "filed": "2026-09-14",
+                      "filed_by": bag.run_id}, body)
+    (stores / "candidates" / "C-fixt0030.md").write_text(text)   # it landed
+    assert before < taken_at < after
+    report = rb.rebuild(journal, stores)
+    assert report.stores["candidates"].verdict == "match", rb.render_report(report)
+    assert report.stores["candidates"].provenance["C-fixt0030.md"].origin == "journal"
+
+
+def test_a_write_that_COMPLETED_before_the_snapshot_is_the_materialisations_to_hold(
+        fixture) -> None:
+    """The other side of the boundary: completed before `taken_at`, so the
+    store read already saw it (or its absence is a real gap). Not re-applied."""
+    journal, stores = fixture
+    bag = open_bag(journal, f"{RUN_PREFIX}old")
+    emitter = Emitter.for_run(bag, writer=None, journal_root=journal)
+    _paired(emitter, item_id="C-fixt0031", body="\nold\n", run_id=bag.run_id,
+            intent_at="2000-01-01T00:00:00Z", completion_at="2000-01-01T00:00:01Z")
+    report = rb.rebuild(journal, stores)
+    assert "C-fixt0031.md" not in report.stores["candidates"].provenance
+    assert report.stores["candidates"].verdict == "match"
+
+
+def test_two_runs_completing_a_write_to_ONE_item_in_the_same_second_is_REPORTED(
+        fixture) -> None:
+    """`utc_now` is second-precision and `sequence` is per writer, so two runs
+    landing on one file in one second have no recorded order. Replay applies
+    one and SAYS the order was not the journal's to know — never silently."""
+    journal, stores = fixture
+    stamp = "2999-01-01T00:00:00Z"
+    texts = {}
+    for name in ("tie-a", "tie-b"):
+        bag = open_bag(journal, f"{RUN_PREFIX}{name}")
+        emitter = Emitter.for_run(bag, writer=None, journal_root=journal)
+        _paired(emitter, item_id="C-fixt0032", body=f"\nby {name}\n",
+                run_id=bag.run_id, intent_at=stamp, completion_at=stamp)
+        texts[name] = ti.render({"id": "C-fixt0032", "title": "stamped C-fixt0032",
+                                 "status": "open", "count": "1",
+                                 "filed": "2026-09-14", "filed_by": bag.run_id},
+                                f"\nby {name}\n")
+    (stores / "candidates" / "C-fixt0032.md").write_text(texts["tie-b"])
+    report = rb.rebuild(journal, stores)
+    assert len(report.ambiguous_order) == 1
+    assert "C-fixt0032.md" in report.ambiguous_order[0]
+    assert f"{RUN_PREFIX}tie-a" in report.ambiguous_order[0]
+    assert f"{RUN_PREFIX}tie-b" in report.ambiguous_order[0]
+    assert "ORDER NOT RECORDED" in rb.render_report(report)
+    # Two runs, DIFFERENT seconds: an order exists and nothing is reported.
+    bag = open_bag(journal, f"{RUN_PREFIX}later")
+    _paired(Emitter.for_run(bag, writer=None, journal_root=journal),
+            item_id="C-fixt0032", body="\nlater\n", run_id=bag.run_id,
+            intent_at="2999-01-01T00:00:01Z", completion_at="2999-01-01T00:00:01Z")
+    assert rb.rebuild(journal, stores).ambiguous_order == report.ambiguous_order
 
 
 # --- requirement 3: deleting one emit makes the test fail -------------------------
@@ -139,6 +236,38 @@ def test_the_snapshot_has_two_named_sections_and_a_version(fixture) -> None:
     # Phase 5 r1: a store that cannot be rebuilt is NAMED, not silently absent.
     assert "operations" in raw["excluded_stores"]
     assert "§1.2" in raw["excluded_stores"]["operations"]
+
+
+def test_the_snapshot_is_STAMPED_before_the_stores_are_read(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`taken_at` first, then the reads. Stamped after them, a write landing
+    during the read is in neither the materialisation nor the replay. The
+    order of two calls is the invariant, so the order of two calls is what is
+    asserted."""
+    journal, stores = build(tmp_path / "f")
+    for path in snap.snapshot_paths(journal):
+        path.unlink()
+    calls: list[str] = []
+    real_read_store, real_read_bags = rb.read_store, rb.read_bags
+    monkeypatch.setattr(rb, "utc_now", lambda: (calls.append("stamp"), "2026-09-15T00:00:00Z")[1])
+    monkeypatch.setattr(rb, "read_store", lambda *a, **k: (calls.append("read_store"), real_read_store(*a, **k))[1])
+    monkeypatch.setattr(rb, "read_bags", lambda *a, **k: (calls.append("read_bags"), real_read_bags(*a, **k))[1])
+    rb.take_snapshot(journal, stores)
+    assert calls[0] == "stamp", calls
+    assert "read_store" in calls and "read_bags" in calls
+    assert latest_snapshot(journal).taken_at == "2026-09-15T00:00:00Z"
+
+
+def test_a_snapshot_under_ANOTHER_store_contract_is_REFUSED_not_diffed(fixture) -> None:
+    """Requirement 1: a contract change is an upcast on read, never an
+    unattributable diff. Until the upcast exists the replay refuses."""
+    journal, stores = fixture
+    path = snap.snapshot_paths(journal)[0]
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    raw["store_contract"] = "v0"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    with pytest.raises(rb.RebuildError, match="contract 'v0' and this build writes 'v1'"):
+        rb.rebuild(journal, stores)
 
 
 def test_replay_applies_section_a_and_NEVER_section_b(fixture, tmp_path: Path) -> None:
