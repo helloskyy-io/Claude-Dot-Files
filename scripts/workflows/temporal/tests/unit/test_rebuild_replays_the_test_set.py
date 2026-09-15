@@ -67,11 +67,24 @@ def test_a_retried_member_write_is_deduped_and_a_failed_store_write_is_not_appli
     journal, stores = fixture
     report = rb.rebuild(journal, stores)
     assert (report.events_read, report.events_after_dedupe) == (13, 11)
-    assert report.intents_applied == 4
+    assert report.intents_after_snapshot == report.intents_applied == 4
     assert report.intents_unapplied == 1
     assert report.store_write_failures == 1
     assert not (stores / "candidates" / "C-fixt0007.md").exists()
     assert "C-fixt0007.md" not in report.stores["candidates"].provenance
+
+    # "APPLIED" IS REPLAY'S OWN COUNT, NOT EVERY PAIRED INTENT. A fleet-code
+    # GitHub write after the snapshot is a paired intent replay never applies;
+    # it moves the after-snapshot figure and leaves the applied one alone.
+    bag = open_bag(journal, f"{RUN_PREFIX}gh-only")
+    emitter = Emitter.for_run(bag, writer=None, journal_root=journal)
+    emitter.paired_write(write_path="github:pr:comment",
+                         destination=Destination(store="github"),
+                         content="a PR comment", perform=lambda: "posted")
+    again = rb.rebuild(journal, stores)
+    assert again.intents_after_snapshot == 5
+    assert again.intents_applied == 4
+    assert "5 paired intents after the snapshot, 4 of them applied" in rb.render_report(again)
 
 
 def test_the_diff_is_BYTE_IDENTICAL_under_the_empty_normalisation_set(fixture) -> None:
@@ -339,6 +352,11 @@ def test_rebuild_enumerates_every_store_the_contract_declares() -> None:
     for name, cov in rb.STORE_COVERAGE.items():
         assert cov.store == name
         assert cov.reason.strip(), f"{name} has no stated reason"
+        # THE ROWS ARE COPIED INTO THE PHASE DOC'S § Stores not covered. A row
+        # that calls a ruled question open re-opens it there; Phase 3 ruled the
+        # out-of-run question on 2026-09-10 and a reason cites the ruling.
+        assert "is open" not in cov.reason, f"{name}'s reason re-opens a ruled question"
+    assert "2026-09-10" in rb.STORE_COVERAGE["operations"].reason
     assert rb.TEST_SET == ("candidates", "operations")
     assert rb.COVERED == ("candidates",)
     assert rb.RESTORE_ALLOWLIST == {"candidates"}
@@ -378,6 +396,57 @@ def test_a_RUN_AUTHORED_write_to_operations_is_refused_and_fails_the_rebuild(
     assert not (stores / "operations" / "O-fixt0003.md").exists()
 
 
+def test_a_run_authored_write_to_a_REBUILDABLE_store_OUTSIDE_the_test_set_is_COUNTED_not_refused(
+        fixture, tmp_path: Path) -> None:
+    """`issues/` and `standards/` are rebuildable (the enumeration says so) and
+    not in the test set: the fleet is permitted to write them and the phase
+    does not diff them yet. The first harvested issue on a host must therefore
+    be neither applied nor refused — counted and named, and the rebuild stays
+    green. The negative control fires on `rebuildable=False` alone."""
+    journal, stores = fixture
+    bag = open_bag(journal, f"{RUN_PREFIX}issue")
+    emitter = Emitter.for_run(bag, writer=None, journal_root=journal)
+    with emitting_into(emitter):
+        ti.file_item(stores, ti.STORES["issues"], title="first harvested issue",
+                     filed_by="intake.harvest", status="open", body="b",
+                     item_id="I-fixt0001")
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    report = rb.rebuild(journal, stores, scratch=scratch)
+    assert report.ok, rb.render_report(report)
+    assert report.applied_to_excluded == ()
+    assert report.outside_test_set == ("tracked/issues/I-fixt0001.md (run fixture-run-issue)",)
+    assert "intents to stores outside the test set: 1 (tracked/issues/I-fixt0001.md" \
+        in rb.render_report(report)
+    assert report.intents_applied == 4                      # unchanged: not applied
+    assert "issues" not in report.stores                    # not diffed either
+    assert not (scratch / "issues").exists()                # and not written by replay
+
+
+def test_MALFORMED_content_to_a_store_outside_the_test_set_is_NAMED_not_an_abort(
+        fixture) -> None:
+    """An `issues/` event replay never applies must not take the covered
+    stores' verdict down with it: it is counted with its parse failure, and
+    the same content addressed to a COVERED store is the abort it always was."""
+    journal, stores = fixture
+    bag = open_bag(journal, f"{RUN_PREFIX}malformed")
+    emitter = Emitter.for_run(bag, writer=None, journal_root=journal)
+    emitter.paired_write(write_path="tracked:issues:file",
+                         destination=Destination(store="tracked_issues"),
+                         content="not frontmatter at all\n", perform=lambda: "written")
+    report = rb.rebuild(journal, stores)
+    assert report.ok, rb.render_report(report)
+    assert len(report.outside_test_set) == 1
+    assert report.outside_test_set[0].startswith("tracked/issues/? (content is not a tracked item:")
+    assert report.applied_to_excluded == ()
+
+    emitter.paired_write(write_path="tracked:candidates:file",
+                         destination=Destination(store="tracked_candidates"),
+                         content="not frontmatter at all\n", perform=lambda: "written")
+    with pytest.raises(rb.RebuildError, match="not a tracked item"):
+        rb.rebuild(journal, stores)
+
+
 # --- requirement 9: provenance survives the rebuild -------------------------------
 
 def test_a_rebuilt_row_is_DISTINGUISHABLE_by_origin(fixture) -> None:
@@ -412,6 +481,15 @@ def test_the_COMMITTED_fixture_replays_to_a_match() -> None:
     assert report.stores["candidates"].verdict == "match"
     assert report.stores["operations"].verdict == "excluded"
     assert report.bags_seen == 4 and report.bags_gapped == 1
+    # THE COMMITTED SNAPSHOT IS A SECOND CARRIER OF THE ENUMERATION'S REASONS,
+    # captured at generation. A row edited after that leaves the old prose in a
+    # checked-in file no guard on `STORE_COVERAGE` reaches — measured: the
+    # "is open" wording outlived its correction here. Regenerate on a row edit.
+    committed = latest_snapshot(COMMITTED / "journal")
+    assert committed is not None
+    assert committed.excluded_stores == {
+        name: cov.reason for name, cov in rb.STORE_COVERAGE.items()
+        if name not in rb.COVERED}, "the committed fixture's reasons are stale: regenerate it (rebuild_fixture.py)"
 
 
 def test_the_committed_fixture_holds_NO_REAL_JOURNAL_BYTES() -> None:

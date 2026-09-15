@@ -269,6 +269,17 @@ def test_restore_is_a_DRY_RUN_by_default_and_writes_nothing(fixture) -> None:
     assert after == before
     assert "DRY RUN — nothing written" in rb.render_restore(report)
 
+    # A HAND EDIT TO A JOURNALLED ITEM IS AN OVERWRITE, AND THE DRY RUN SAYS
+    # SO IN THE WORD THAT MATTERS. Applying would revert the edit; the `~`
+    # line must carry that before the operator chooses `--apply`.
+    edited = stores / "candidates" / "C-fixt0001.md"
+    edited.write_text(edited.read_text() + "decision: ship\n")
+    report = rb.restore(journal, stores, "candidates")
+    assert report.overwritten == ("C-fixt0001.md",)
+    line = next(l for l in rb.render_restore(report).splitlines() if l.startswith("  ~ C-fixt0001.md"))
+    assert "REVERTS" in line, line
+    assert edited.read_text().endswith("decision: ship\n")     # dry run: untouched
+
 
 def test_restore_APPLY_regenerates_the_store_and_leaves_unknown_files_in_place(
         fixture) -> None:

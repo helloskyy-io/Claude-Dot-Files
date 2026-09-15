@@ -4,11 +4,11 @@
  "edge_id": "fixture-edge",
  "excluded_stores": {
   "issues": "OUT OF THE TEST SET: shares §3's core, §4.2's prune rule and the file-per-item shape with `candidates/` and adds no writer axis. Rebuildable through the same `_write_item` path; not snapshotted at Phase 4, so not restorable until a snapshot covers it.",
-  "operations": "NEGATIVE CONTROL. Tracked Items §1.2 makes it human-in-the-loop only — no workflow, dispatch or agent writes it — so no run-authored event for it exists BY CONSTRUCTION, and out-of-run writes have no ingest (Phase 3 § out-of-run writes is open). What would change that: Phase 3 specifying the git commit as the emit for the file binding.",
+  "operations": "NEGATIVE CONTROL. Tracked Items §1.2 makes it human-in-the-loop only — no workflow, dispatch or agent writes it — so no run-authored event for it exists BY CONSTRUCTION, and out-of-run writes are RULED (Phase 3 § The write-path inventory, 2026-09-10): excluded from replay, recorded by their git commit — so there is no ingest to build and no rebuild target.",
   "standards": "OUT OF THE TEST SET for the reason `issues/` is. `ratification` is the operator's alone (§4) and is an out-of-run write like every other hand edit — reported as a mismatch, never normalised."
  },
  "journal_schema_version": 1,
- "snapshot_id": "daca5a8f",
+ "snapshot_id": "b8895b9d",
  "snapshot_version": 1,
  "store_contract": "v1",
  "store_materialisation": {
@@ -19,5 +19,5 @@
    "C-fixt0004.md": "---\nid: C-fixt0004\ntitle: Fixture candidate four, rejected long ago\nstatus: rejected\ncount: 1\nfiled: 2025-12-01\nfiled_by: fixture\ndecision: reject\n---\n\n**Synthetic item 4 for the rebuild fixture.** It says nothing about any real run; its only job is to be bytes the journal can reproduce.\n"
   }
  },
- "taken_at": "2026-09-15T21:24:49Z"
+ "taken_at": "2026-09-15T22:57:48Z"
 }

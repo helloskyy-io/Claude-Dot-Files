@@ -27,12 +27,15 @@ would be an autonomous write into the one store reserved to the operator, so
 the allowlist is derived from the same rows that say why that store cannot be
 rebuilt.
 
-THE OUT-OF-RUN RULING (requirement 5). Phase 4 § *Which stores are in the test
-set* offers exactly two answers: Phase 3 specifies an ingest for out-of-run
-writes, or requirement 1 is scoped to RUN-AUTHORED content and the exclusion is
-recorded. **This build takes the second, because the first is a Phase 3
-amendment in the planning repo and no dispatch writes one.** Consequences,
-stated rather than normalised away:
+THE OUT-OF-RUN RULING (requirement 5) IS PHASE 3's, NOT THIS BUILD's. Phase 4
+§ *Which stores are in the test set* offers exactly two answers: Phase 3
+specifies an ingest for out-of-run writes, or requirement 1 is scoped to
+RUN-AUTHORED content and the exclusion is recorded. **Phase 3 took the second
+on 2026-09-10 (§ *The write-path inventory*): hand edits are excluded from
+REPLAY and included in the RECORD by their existing binding, the git commit,
+so a second copy would be a second carrier of one fact.** This build conforms
+to that ruling; it does not re-open it. Consequences, stated rather than
+normalised away:
 
   * `tracked/operations/` — in the test set as the NEGATIVE CONTROL — is
     reported as an exclusion with its live item count, never diffed. If a
@@ -43,10 +46,15 @@ stated rather than normalised away:
     does not hold — so the report says "mismatch: a missing emit OR an
     out-of-run write" and names the file. Silently discarding the difference is
     the one answer the phase doc forbids.
-  * A restore leaves such files IN PLACE and says so. Reverting operator
-    rulings — the highest-value content in the stores — is the failure the
-    ruling exists to prevent, and a restore that deleted what the journal does
-    not know would be exactly that.
+  * A restore OVERWRITES a hand-EDITED item with the journal's last write —
+    the edit is reverted — and leaves a hand-CREATED item in place, because
+    that file is one the journal does not know and deleting it would be replay
+    reverting the highest-value content in the stores. Both halves are said:
+    the dry run lists every overwrite with "REVERTS" beside it before anything
+    is written, and the operator who meant the edit takes a new snapshot. The
+    first draft's prose said only the second half, which documented the
+    opposite of the tool's behaviour for exactly the case the roadmap warns
+    about (someone edits an item and watches the edit disappear).
 
 THE NORMALISATION SET IS EMPTY, and that is a stated ruling, not an omission.
 Requirement 1 permits a normalisation if it is stated and justified; the two
@@ -155,7 +163,7 @@ from . import tracked_items as ti
 __all__ = ["Coverage", "STORE_COVERAGE", "TEST_SET", "RESTORE_ALLOWLIST",
            "RebuildError", "ContainmentError", "BagRead", "FileProvenance",
            "StoreVerdict", "RebuildReport", "RestoreReport",
-           "store_name_of", "contained_target", "read_bags", "read_store",
+           "NOT_THE_JOURNALS", "store_name_of", "contained_target", "read_bags", "read_store",
            "take_snapshot", "rebuild", "restore", "render_report",
            "render_restore", "SCRATCH_FORBIDDEN_SEGMENTS"]
 
@@ -198,9 +206,9 @@ STORE_COVERAGE: dict[str, Coverage] = {
         reason="NEGATIVE CONTROL. Tracked Items §1.2 makes it human-in-the-loop "
                "only — no workflow, dispatch or agent writes it — so no "
                "run-authored event for it exists BY CONSTRUCTION, and out-of-run "
-               "writes have no ingest (Phase 3 § out-of-run writes is open). "
-               "What would change that: Phase 3 specifying the git commit as the "
-               "emit for the file binding."),
+               "writes are RULED (Phase 3 § The write-path inventory, 2026-09-10): "
+               "excluded from replay, recorded by their git commit — so there is "
+               "no ingest to build and no rebuild target."),
     "issues": Coverage(
         store="issues", in_test_set=False, rebuildable=True,
         reason="OUT OF THE TEST SET: shares §3's core, §4.2's prune rule and the "
@@ -243,6 +251,13 @@ _ITEM_ID_RE = re.compile(r"\A([A-Z])-([0-9a-z]{8})\Z")
 #: A scratch root under any of these is refused: CI uploads `testing/logs/` as
 #: a downloadable artifact, and a rebuilt store is verbatim store content.
 SCRATCH_FORBIDDEN_SEGMENTS: tuple[tuple[str, ...], ...] = (("testing", "logs"),)
+
+#: What a live file the journal cannot reproduce IS — stated once, rendered
+#: wherever the report names one (a MISSING line, a restore's `~` and `?`
+#: lines). Replay cannot tell the two apart (requirement 5's ruling, module
+#: docstring), and a carrier that said only one half would document the
+#: opposite of the tool's behaviour for the other.
+NOT_THE_JOURNALS = "an out-of-run write or a missing emit (requirement 5 ruling)"
 
 
 def store_name_of(destination_store: str) -> str | None:
@@ -613,11 +628,13 @@ class RebuildReport:
     ambiguous_order: tuple[str, ...]             # same file, same second, two runs
     events_read: int
     events_after_dedupe: int
-    intents_applied: int
+    intents_after_snapshot: int                  # every paired intent past the boundary, any destination
+    intents_applied: int                         # of those, the writes to a COVERED store — replay's own count
     intents_unapplied: int                       # intent with no completion
     store_write_failures: int
     undecodable: tuple[str, ...]
     applied_to_excluded: tuple[str, ...]         # a fleet write to a store it may not write
+    outside_test_set: tuple[str, ...]            # a permitted write to a store the phase does not diff
     events_bytes: int
     wall_clock_s: float
     stores: dict[str, StoreVerdict]
@@ -659,11 +676,20 @@ def _item_filename(event: JournalEvent, store: str) -> str:
     return f"{item_id}.md"
 
 
+@dataclass
+class Applied:
+    """What `_apply` produced: the tree it wrote, and every intent it did not apply, named."""
+
+    rebuilt: dict[str, dict[str, str]] = field(default_factory=dict)
+    provenance: dict[str, dict[str, FileProvenance]] = field(default_factory=dict)
+    refused: list[str] = field(default_factory=list)          # the negative control
+    outside_test_set: list[str] = field(default_factory=list) # rebuildable, not tested
+    ambiguous: list[str] = field(default_factory=list)
+    applied: int = 0                                          # writes to a covered store
+
+
 def _apply(snapshot: Snapshot, intents: Iterable[JournalEvent],
-           scratch: Path, *, landed_at: dict[str, str]
-           ) -> tuple[dict[str, dict[str, str]],
-                      dict[str, dict[str, FileProvenance]],
-                      list[str], list[str]]:
+           scratch: Path, *, landed_at: dict[str, str]) -> Applied:
     """Section (a), then every applied intent in order, into `scratch`.
 
     RETURNS WHAT IT WROTE rather than having the caller re-read the tree, so
@@ -671,27 +697,37 @@ def _apply(snapshot: Snapshot, intents: Iterable[JournalEvent],
     put there. The tree is still written — that is the artifact an operator
     inspects and the thing restore copies from.
 
+    THREE ARMS FOR A TRACKED-STORE INTENT, AND THE ENUMERATION DECIDES WHICH,
+    ROW BY ROW: a store `STORE_COVERAGE` says no run writes (`rebuildable=False`)
+    is REFUSED — the negative control firing, and the rebuild fails; a store
+    that is rebuildable but outside the test set (`issues`, `standards`) is
+    neither applied nor refused — COUNTED and named (by filename when its
+    content parses, by the parse failure when it does not; it never aborts
+    the rebuild), because the fleet is permitted to write it and the phase
+    simply does not diff it yet; a covered store is applied, and there a
+    malformed event IS an abort (`_item_filename`), because a file replay
+    cannot name is a diff it cannot run. The first draft keyed the refusal on `COVERED`, so the
+    first harvested issue on a host accused the fleet of a write the
+    enumeration permits — a predicate that disagreed with the rows it consumed.
+
     `landed_at` is each intent's COMPLETION stamp (the caller's sort key). Two
     intents from different runs landing on one file with the same stamp have no
     recorded order; the second is applied — the caller's order — and the tie is
-    returned in the fourth slot, never silently resolved (module docstring).
+    returned in `ambiguous`, never silently resolved (module docstring).
     """
     scratch = _real_root(scratch, what="replay root")
-    rebuilt: dict[str, dict[str, str]] = {}
-    provenance: dict[str, dict[str, FileProvenance]] = {}
-    refused: list[str] = []
-    ambiguous: list[str] = []
+    out = Applied()
     last_writer: dict[tuple[str, str], tuple[str, str]] = {}
 
     for store in COVERED:
         (scratch / store).mkdir(mode=DIR_MODE, exist_ok=True)
-        rebuilt[store] = {}
-        provenance[store] = {}
+        out.rebuilt[store] = {}
+        out.provenance[store] = {}
         for filename, text in sorted(snapshot.store_materialisation.get(store, {}).items()):
             target = contained_target(scratch, store, filename)
             _write(target, text)
-            rebuilt[store][filename] = text
-            provenance[store][filename] = FileProvenance(
+            out.rebuilt[store][filename] = text
+            out.provenance[store][filename] = FileProvenance(
                 origin="snapshot", source_id=snapshot.snapshot_id,
                 edge_id=snapshot.edge_id, recorded_at=snapshot.taken_at)
 
@@ -700,34 +736,48 @@ def _apply(snapshot: Snapshot, intents: Iterable[JournalEvent],
         if store is None:
             continue                                 # not a tracked store
         if store not in STORE_COVERAGE:
-            refused.append(f"event {event.event_id} addresses unknown store "
-                           f"{event.destination.store!r}")
+            out.refused.append(f"event {event.event_id} addresses unknown store "
+                               f"{event.destination.store!r}")
             continue
-        if store not in COVERED:
+        if not STORE_COVERAGE[store].rebuildable:
             # A FLEET WRITE INTO A STORE THE ENUMERATION SAYS NO RUN WRITES.
             # Not applied and not ignored: it is the negative control firing.
-            refused.append(f"event {event.event_id} (run {event.run_id}) is a "
-                           f"run-authored write to tracked/{store}/, which "
-                           f"STORE_COVERAGE rules no run writes")
+            out.refused.append(f"event {event.event_id} (run {event.run_id}) is a "
+                               f"run-authored write to tracked/{store}/, which "
+                               f"STORE_COVERAGE rules no run writes")
+            continue
+        if store not in COVERED:
+            # REBUILDABLE BUT NOT IN THE TEST SET: a permitted write the phase
+            # does not diff. Named so the figure exists; never a refusal — and
+            # never an abort: content this arm cannot parse is named with the
+            # reason rather than raised, because raising would take the
+            # covered stores' verdict down with an event replay never applies.
+            try:
+                filename = _item_filename(event, store)
+            except RebuildError as exc:
+                filename = f"? (content is not a tracked item: {exc})"
+            out.outside_test_set.append(
+                f"tracked/{store}/{filename} (run {event.run_id})")
             continue
         filename = _item_filename(event, store)
         target = contained_target(scratch, store, filename)
         stamp = landed_at[event.event_id]
         previous = last_writer.get((store, filename))
         if previous and previous[0] == stamp and previous[1] != event.run_id:
-            ambiguous.append(
+            out.ambiguous.append(
                 f"tracked/{store}/{filename}: runs {previous[1]} and "
                 f"{event.run_id} both completed a write at {stamp}; the "
                 f"journal records no order between them and {event.run_id} "
                 f"was applied last")
         last_writer[(store, filename)] = (stamp, event.run_id)
         _write(target, event.content)
-        rebuilt[store][filename] = event.content
-        provenance[store][filename] = FileProvenance(
+        out.applied += 1
+        out.rebuilt[store][filename] = event.content
+        out.provenance[store][filename] = FileProvenance(
             origin="journal", source_id=event.event_id, run_id=event.run_id,
             edge_id=event.edge_id, provenance=event.provenance.value,
             key_epoch=event.key_epoch, recorded_at=event.recorded_at)
-    return rebuilt, provenance, refused, ambiguous
+    return out
 
 
 def _write(target: Path, text: str) -> None:
@@ -836,8 +886,8 @@ def _rebuild_into(journal_root: Path, stores_root: Path, scratch: Path,
                     if e.kind is EventKind.INTENT and e.event_id not in landed_at)
     failures = sum(1 for e in deduped if e.kind is EventKind.STORE_WRITE_FAILURE)
 
-    rebuilt, provenance, refused, ambiguous = _apply(
-        snapshot, intents, scratch, landed_at=landed_at)
+    applied = _apply(snapshot, intents, scratch, landed_at=landed_at)
+    rebuilt, provenance = applied.rebuilt, applied.provenance
     gapped, before_snapshot, gapped_by_store = _attribute_gaps(
         bags, snapshot.taken_at)
 
@@ -866,14 +916,21 @@ def _rebuild_into(journal_root: Path, stores_root: Path, scratch: Path,
         bags_gapped=len(gapped),
         gapped=gapped,
         gapped_before_snapshot=before_snapshot,
-        ambiguous_order=tuple(ambiguous),
+        ambiguous_order=tuple(applied.ambiguous),
         events_read=len(all_events),
         events_after_dedupe=len(deduped),
-        intents_applied=len(intents),
+        # TWO POPULATIONS, TWO NAMES. `intents` is every paired intent past the
+        # boundary — a `gh_attempt` PR comment is one — and replay applies only
+        # the tracked-store subset; the first draft labelled the former as the
+        # latter and § Measurement's honesty figure over-counted from the first
+        # fleet-code GitHub write after a snapshot.
+        intents_after_snapshot=len(intents),
+        intents_applied=applied.applied,
         intents_unapplied=unapplied,
         store_write_failures=failures,
         undecodable=tuple(u for bag in bags for u in bag.undecodable),
-        applied_to_excluded=tuple(refused),
+        applied_to_excluded=tuple(applied.refused),
+        outside_test_set=tuple(applied.outside_test_set),
         events_bytes=sum(bag.events_bytes for bag in bags),
         wall_clock_s=time.monotonic() - started,
         stores=stores,
@@ -889,10 +946,15 @@ def render_report(report: RebuildReport) -> str:
         f"  bags replayed: {report.bags_seen} · gapped: {report.bags_gapped}/"
         f"{report.bags_seen}",
         f"  events: {report.events_read} read, {report.events_after_dedupe} after "
-        f"dedupe, {report.intents_applied} intents applied, "
+        f"dedupe, {report.intents_after_snapshot} paired intents after the "
+        f"snapshot, {report.intents_applied} of them applied to a covered store, "
         f"{report.intents_unapplied} intents with no completion, "
         f"{report.store_write_failures} store-write failures, "
         f"{len(report.undecodable)} undecodable",
+        f"  intents to stores outside the test set: "
+        f"{len(report.outside_test_set)}"
+        + (" (" + ", ".join(sorted(set(report.outside_test_set))) + ")"
+           if report.outside_test_set else ""),
         f"  wall-clock: {report.wall_clock_s:.3f}s over {report.events_bytes} "
         f"event bytes in {report.bags_seen} bags",
         f"  stores in test set: {len(report.stores)}/{len(STORE_COVERAGE)} "
@@ -925,8 +987,7 @@ def render_report(report: RebuildReport) -> str:
             lines.append(f"    gapped by {len(v.gapped_bags)} bag(s): "
                          f"{', '.join(v.gapped_bags)} — diff reported, not ruled")
         for f in v.missing_from_rebuild:
-            lines.append(f"    MISSING from rebuild: {f} — a missing emit OR an "
-                         f"out-of-run write (requirement 5 ruling)")
+            lines.append(f"    MISSING from rebuild: {f} — {NOT_THE_JOURNALS}")
         for f in v.extra_in_rebuild:
             lines.append(f"    EXTRA in rebuild: {f} — deleted from the live "
                          f"store outside a run")
@@ -977,7 +1038,13 @@ def restore(journal_root: Path, stores_root: Path, store: str, *,
     FILES THE JOURNAL DOES NOT KNOW ARE LEFT IN PLACE, per the requirement 5
     ruling in the module docstring: they are out-of-run content or a missing
     emit, and in either case deleting them would be replay reverting the
-    highest-value content in the store.
+    highest-value content in the store. FILES THE JOURNAL DOES KNOW ARE MADE
+    THE JOURNAL'S BYTES: a live file whose content differs from the last
+    journalled write is overwritten — and that difference is `NOT_THE_JOURNALS`,
+    an out-of-run edit OR a missing emit, which restore cannot tell apart any
+    more than the diff can. Applying REVERTS the live content either way. The
+    dry run names each such file with that word, so an operator rules on it
+    before choosing `apply`.
     """
     if store not in RESTORE_ALLOWLIST:
         raise RebuildError(
@@ -1043,7 +1110,9 @@ def render_restore(report: RestoreReport) -> str:
     for f in report.overwritten:
         p = report.provenance[f]
         lines.append(f"  ~ {f}  [{p.origin}:{p.source_id} run={p.run_id or '-'} "
-                     f"edge={p.edge_id} class={p.provenance or 'snapshot'}]")
+                     f"edge={p.edge_id} class={p.provenance or 'snapshot'}] "
+                     f"— live bytes differ from the journal's last write: "
+                     f"{NOT_THE_JOURNALS}; applying REVERTS the live content")
     for f in report.left_in_place:
-        lines.append(f"  ? {f}  left in place — out-of-run content or a missing emit")
+        lines.append(f"  ? {f}  left in place — {NOT_THE_JOURNALS}")
     return "\n".join(lines)

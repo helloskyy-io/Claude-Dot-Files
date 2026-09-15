@@ -3,7 +3,7 @@ Event-Schema-Version: 1
 Bag-Software-Agent: claude-dot-files journal (Persistent Memory Protocol Phase 1)
 Journal-Workflow: fixture
 Journal-Incomplete: true
-Journal-Gap: 2026-09-15T21:24:49Z cli-transcript — emit failed: disk_full
+Journal-Gap: 2026-09-15T22:57:48Z cli-transcript — emit failed: disk_full
 Payload-Oxum: 1828.1
 Bagging-Date: 2026-09-15
-Journal-Sealed-At: 2026-09-15T21:24:49Z
+Journal-Sealed-At: 2026-09-15T22:57:48Z

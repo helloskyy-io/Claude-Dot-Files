@@ -35,6 +35,14 @@ which no run has yet filed a tracked item — measured on the build host on
 real journal and a completeness guarantee over ZERO run-authored writes. The
 figure is in the report so nobody reads "PASS" as more than it is.
 
+A GAP, OR AN UNRECORDED ORDER, REACHES THE SUMMARY ON A GREEN RUN. A `gapped`
+store is neither green nor red by design (`RebuildReport.ok`), and a
+same-second cross-run tie is reported rather than resolved — but a report that
+pytest captured on pass is a report nobody read, and `python.sh` passes no
+`-s`. So both are raised as `warnings.warn` here: they print in pytest's
+warnings summary without `-s`, red nothing, and requirement 7's "reported, not
+silently tolerated" is then true at the tier that runs, not only under a flag.
+
 WHAT A RED RUN ON A HOST MEANS. A `MISSING from rebuild` or `MISMATCH` line is
 one of two things and the report cannot tell them apart (requirement 5's
 ruling, `rebuild.py`'s docstring): a fleet write that never emitted — the
@@ -46,6 +54,7 @@ the baseline.
 from __future__ import annotations
 
 import os
+import warnings
 from pathlib import Path
 
 from modules.assistant.tracked import rebuild as rb
@@ -111,3 +120,16 @@ def test_the_journal_rebuilds_the_test_set(tmp_path: Path) -> None:
         f"  A MISSING or MISMATCH line is a fleet write that never emitted, OR "
         f"an out-of-run edit. Rule which. For a deliberate edit, take a new "
         f"snapshot: rebuild.py snapshot --stores {stores}")
+
+    # Green, and still two facts the summary must carry (module docstring).
+    gapped_stores = sorted(n for n, v in report.stores.items() if v.verdict == "gapped")
+    if report.has_gaps or gapped_stores:
+        warnings.warn(
+            f"[{ARM}] gapped: {report.bags_gapped}/{report.bags_seen} bag(s); "
+            f"stores gapped: {', '.join(gapped_stores) or 'none'} — diff "
+            f"reported, not ruled\n{rendered}", stacklevel=1)
+    if report.ambiguous_order:
+        warnings.warn(
+            f"[{ARM}] {len(report.ambiguous_order)} write(s) with no recorded "
+            f"cross-run order — applied last by lexical tie-break, not by the "
+            f"journal\n" + "\n".join(report.ambiguous_order), stacklevel=1)
