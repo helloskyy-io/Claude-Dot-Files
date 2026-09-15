@@ -578,7 +578,7 @@ def test_every_DECLARED_TEST_MODULE_row_is_still_REACHED(
 #: including two coverage claims whose "held by" named functions that went with
 #: the deleted corpus gate three `_DECLARED_TEST_MODULES` rows above describe.
 #: That is what shows this half is not merely noise.
-_BARE_NAME_CENSUS = 9
+_BARE_NAME_CENSUS = 10
 
 #: `_FILENAME_CENSUS` is the GATED half, and every site in it is covered by a
 #: `_DECLARED_TEST_MODULES` row — `test_EVERY_TEST_MODULE_PROSE_CITES_EXISTS`
