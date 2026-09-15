@@ -198,11 +198,22 @@ def parse(path: Path) -> tuple[dict[str, str], str]:
     colon as structure and fails, or worse, silently reshapes the item. A title
     STATES A CONSEQUENCE (§3) and consequences contain colons.
     """
-    text = path.read_text()
+    return parse_text(path.read_text(), source=str(path))
+
+
+def parse_text(text: str, *, source: str = "<text>") -> tuple[dict[str, str], str]:
+    """`parse`, over text that is not (yet) a file.
+
+    SPLIT OUT FOR PMP PHASE 4's REPLAY, which holds an item as the verbatim
+    `content` of a journal event and needs its `id` BEFORE deciding the file it
+    would become — the filename is derived from the id, never from the event's
+    address. `source` only names the origin in the error, so a refusal reads
+    the same whether the text came off disk or out of a bag.
+    """
     match = _FRONTMATTER.match(text)
     if not match:
         raise ValueError(
-            f"{path} has no frontmatter block — every tracked item opens with "
+            f"{source} has no frontmatter block — every tracked item opens with "
             f"one, per Tracked Items Standard §3"
         )
     fields: dict[str, str] = {}
@@ -211,7 +222,7 @@ def parse(path: Path) -> tuple[dict[str, str], str]:
             continue
         key, sep, value = line.partition(":")
         if not sep:
-            raise ValueError(f"{path}: frontmatter line is not `key: value`: {line!r}")
+            raise ValueError(f"{source}: frontmatter line is not `key: value`: {line!r}")
         fields[key.strip()] = value.strip()
     return fields, text[match.end():]
 
