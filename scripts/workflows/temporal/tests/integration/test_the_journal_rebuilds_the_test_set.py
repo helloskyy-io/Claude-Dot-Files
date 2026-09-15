@@ -33,7 +33,7 @@ and on demand from `scripts/rebuild.py check`. A host on
 which no run has yet filed a tracked item — measured on the build host on
 2026-09-15: 168 bags, 0 `tracked_*` events — proves the mechanism over the
 real journal and a completeness guarantee over ZERO run-authored writes. The
-figure is in the log so nobody reads "PASS" as more than it is.
+figure is in the report so nobody reads "PASS" as more than it is.
 
 WHAT A RED RUN ON A HOST MEANS. A `MISSING from rebuild` or `MISMATCH` line is
 one of two things and the report cannot tell them apart (requirement 5's
