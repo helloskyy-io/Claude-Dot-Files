@@ -26,8 +26,10 @@ writes into a `tmp_path` scratch, and `rebuild()` reads bags and the snapshot
 only — so `test_the_suite_never_writes_to_the_operators_journal.py`'s property
 holds.
 
-WHAT A GREEN RUN ON A HOST MEANS, WITH ITS DENOMINATOR. The report prints the
-number of tracked-store intents applied against the bags replayed. A host on
+WHAT A GREEN RUN ON A HOST MEANS, WITH ITS DENOMINATOR. The report states the
+number of tracked-store intents applied against the bags replayed; pytest
+captures it, so it is visible under `-s`, in full in every failure message,
+and on demand from `scripts/rebuild.py check`. A host on
 which no run has yet filed a tracked item — measured on the build host on
 2026-09-15: 168 bags, 0 `tracked_*` events — proves the mechanism over the
 real journal and a completeness guarantee over ZERO run-authored writes. The
@@ -88,7 +90,7 @@ def test_the_journal_rebuilds_the_test_set(tmp_path: Path) -> None:
 
     report = rb.rebuild(journal, stores, scratch=scratch)
     rendered = rb.render_report(report)
-    print(f"[{ARM}]\n{rendered}")                  # the figures reach the run log
+    print(f"[{ARM}]\n{rendered}")                  # shown under -s; in full on red
 
     assert report.bags_seen > 0, f"[{ARM}] replay read no bags — it examined nothing"
     assert set(report.stores) == set(rb.TEST_SET)

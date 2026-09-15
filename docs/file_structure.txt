@@ -442,8 +442,8 @@ claude-dot-files/
 │               │   │                                #   THIS machine's journal against the planning repo's live tracked/, resolved at module
 │               │   │                                #   scope so the session sandbox cannot hide it. A host with no journal or no snapshot
 │               │   │                                #   goes RED and names the remedy. Reads the operator's root, writes only a tmp scratch.
-│               │   │                                #   Prints the report so the figures — intents applied against bags replayed, gapped
-│               │   │                                #   against replayed — reach the run log with their denominators
+│               │   │                                #   Every figure — intents applied against bags replayed, gapped against replayed —
+│               │   │                                #   carries its denominator, in full in every failure message and under `-s`
 │               │   └── test_citations_verify_offline.py # PMP Phase 2 r2 — the offline demonstration, and the network is DENIED rather
 │               │                                    #   than asserted absent: an LD_PRELOAD shim fails socket(), connect() and
 │               │                                    #   getaddrinfo() at the C library, below the code under test. A control fetch runs
