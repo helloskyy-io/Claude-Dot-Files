@@ -163,6 +163,6 @@ tests existing — both in the fix that shipped alongside them.
 ## The gate
 
 `.github/workflows/tests.yml` runs this suite plus a `ruff --select F821`
-executability sweep on every PR and every push to `main`. It has no `paths:`
+executability sweep on every PR; a newer push to the same PR cancels the run in flight, and there is no post-merge run on `main`. It has no `paths:`
 filter on purpose — see the standards README for why the obvious one is
 silently wrong.
