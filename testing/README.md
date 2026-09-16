@@ -49,18 +49,24 @@ to clear.
 must never look alike in a summary.
 
 **`integration/` now exists** (`scripts/workflows/temporal/tests/integration/`,
-added with the journal package) — and it has a limit worth knowing before you
-add to it. Its tests read bags that real dispatches left on this machine, which
-a clean checkout does not have, so every test in it is `skipif`-gated and the
-whole tier reports **PASS having asserted nothing** on a CI runner. That is the
-category-present-but-nothing-ran case, which is a different thing from the
-category being absent, and `run-all.sh` cannot currently tell them apart — no
-pytest exit code carries an executed-test count. It is the same gap
-`skyynet-master-planning/tracked/candidates/` already
-describes for `mutate.sh`'s legs, met here through a second tool. **So an
-integration test is never the evidence that a guard works** — write the unit
-test that runs everywhere, and let the integration tier confirm the shape
-against real output.
+added with the journal package) — and it holds two shapes, and which one you
+copy matters. Its tests read bags that real dispatches left on this machine,
+which a clean checkout does not have. **The `skipif`-gated shape** skips when
+the input is absent, so on a CI runner those tests report **PASS having
+asserted nothing**. That is the category-present-but-nothing-ran case, which
+is a different thing from the category being absent, and `run-all.sh` cannot
+currently tell them apart — no pytest exit code carries an executed-test
+count. It is the same gap `skyynet-master-planning/tracked/candidates/` already
+describes for `mutate.sh`'s legs, met here through a second tool. **The
+no-skip, two-input shape** (`test_the_journal_rebuilds_the_test_set.py`) is
+the other: ONE test whose input is chosen by where it runs — a committed
+synthetic fixture on the merge path (`GITHUB_ACTIONS=true`), this host's live
+journal otherwise — and which goes **red, never skips**, when the host input is
+missing. It asserts on both paths. **Copy that shape when a requirement forbids
+skipping** (PMP Phase 4 r4 does); copy the `skipif` shape only when a runner
+genuinely has nothing to assert on. Either way **an integration test is never
+the evidence that a guard works** — write the unit test that runs everywhere,
+and let the integration tier confirm the shape against real output.
 
 ## Prerequisites
 

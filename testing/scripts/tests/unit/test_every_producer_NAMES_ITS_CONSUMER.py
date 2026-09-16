@@ -741,7 +741,20 @@ SURFACES = [
         # (ed5f119), the gate went red for exactly the reason it was built to,
         # and the entries left. The dict stays so the next frozen reader has a
         # place to land.
-        unread={},
+        # ONE AS OF 2026-09-15: `rebuild.py`, PMP Phase 4's operator tool. The
+        # same shape as the two that left — a working, tested reader of the
+        # journal a human is meant to run, that no document a human reads yet
+        # names. Naming it in the guide is a planning-repo edit with its own
+        # review (the phase's requirement 6 already routes an amendment there);
+        # the producing PR surfaces it. The ratchet opens the guide, so the
+        # line leaves the day the page names it.
+        unread={
+            "rebuild.py": "PMP Phase 4's snapshot / check / restore tool, "
+                          "landed with the phase; `guide/operations.md` does "
+                          "not name it yet, and outside tests its only "
+                          "mentions are the repo map and the docstrings of "
+                          "the modules it drives",
+        },
     ),
 ]
 
@@ -1054,6 +1067,22 @@ RUNTIME_RECORDS: dict[str, RuntimeRecord] = {
         f"{_JOURNAL}/harvest.py", "HARVEST_INDEX_FILE",
         f"{_JOURNAL}/harvest.py", "read_harvest_indexes",
         via=(f"{_TOOLS}/reconcile_harvest.py",)),
+    # --- a bag's event stream, as PMP Phase 4's replay reads it ------------
+    #     Every writer's `events.jsonl` under the payload, decoded and deduped
+    #     on identity, then applied from the starting snapshot forward. Reached
+    #     by the operator through `rebuild.py check` and by the suite on both
+    #     arms of requirement 4.
+    "a bag's event stream, events.jsonl": RuntimeRecord(
+        f"{_JOURNAL}/events.py", "EVENTS_FILE",
+        "scripts/workflows/temporal/modules/assistant/tracked/rebuild.py",
+        "read_bags",
+        via=(f"{_TOOLS}/rebuild.py",)),
+    # --- the starting snapshot, as the same replay starts from it ----------
+    "the starting snapshot at the journal root": RuntimeRecord(
+        f"{_JOURNAL}/snapshot.py", "SNAPSHOT_NAME_RE",
+        f"{_JOURNAL}/snapshot.py", "latest_snapshot",
+        via=(f"{_TOOLS}/rebuild.py",
+             "scripts/workflows/temporal/modules/assistant/tracked/rebuild.py")),
     # --- the machine's persisted identity, read by every LATER bag open -----
     "the edge-id file under the journal root": RuntimeRecord(
         f"{_JOURNAL}/edge_id.py", "EDGE_ID_FILE",
@@ -1094,24 +1123,15 @@ class UnreadRecord:
 
 
 UNREAD_RUNTIME_RECORDS: dict[str, UnreadRecord] = {
-    # FOUND WHEN THE CLASS WAS RULED, 2026-09-14. A bag's event stream has a
-    # full decoder — `decode_event`, `dedupe_on_identity`, `applied_intents` —
-    # and every caller of it is a test. The only read-back on disk is the
-    # emitter's own idempotency index (`_appended_pairs`, `json.loads` per line
-    # on its OWN file), which is the writer's use and not a consumer. Frozen,
-    # not fixed: the reader is SCHEDULED, not undecided — it is Persistent
-    # Memory Protocol Phase 4's replay ("read one edge's journal in order,
-    # dedupe on event identity, apply each event", the planning repo's
-    # `persistent-memory-protocol/phase4_rebuild_is_a_test.md`), which
-    # `applied_intents`'s own docstring names as the consumer it exists for —
-    # and the emit rule that just landed (#192) is not the place to grow it.
-    # Do NOT file a candidate for the reader; the plan already holds it. This
-    # line leaves the day that replay lands as a FLEET module — the ratchet
-    # walks `scripts/` only, so a replay placed under `testing/` is not seen.
-    "a bag's event stream, events.jsonl": UnreadRecord(
-        f"{_JOURNAL}/events.py", "EVENTS_FILE", "decode_event",
-        "decoded by tests only until PMP Phase 4's replay lands; the emitter "
-        "reads back its own file for idempotency"),
+    # EMPTY AS OF 2026-09-15, AND THAT IS THE RATCHET CLOSING. One record sat
+    # here frozen from the day the class was ruled (2026-09-14): a bag's event
+    # stream, `events.jsonl`, decoded by tests only. The note said its reader
+    # was SCHEDULED — PMP Phase 4's replay — and that the line would leave the
+    # day that replay landed as a FLEET module. It landed as
+    # `modules/assistant/tracked/rebuild.py` (`read_bags`, reached from
+    # `scripts/rebuild.py`), the gate went red for exactly the reason it was
+    # built to, and the record moved to `RUNTIME_RECORDS`. The dict stays so
+    # the next unread record has a place to land.
 }
 
 
@@ -1322,12 +1342,11 @@ def test_every_DECLARED_runtime_record_is_RULED_read_or_unread() -> None:
     )
 
 
-def test_an_UNREAD_runtime_record_is_still_declared_and_still_UNREAD() -> None:
-    """The ratchet, both ways: the baselined record must still exist, and the
-    day a fleet module names its accessor the line must leave."""
-    assert UNREAD_RUNTIME_RECORDS, "nothing is baselined — delete this test"
-    assert _regained_records(UNREAD_RUNTIME_RECORDS, repo=_REPO,
-                             fleet=list(_fleet_python())) == []
+# `test_an_UNREAD_runtime_record_is_still_declared_and_still_UNREAD` stood here
+# until 2026-09-15 and left on its own instruction ("nothing is baselined —
+# delete this test") when the one baselined record gained its reader. Its
+# predicate, `_regained_records`, stays — its control below still exercises it —
+# so the next baselined record re-adds the two-line test rather than the helper.
 
 
 # The repo map's annotation of this gate NARRATES its two unread figures, and a

@@ -152,6 +152,16 @@ NON_STARTING_FILES = {
         "prints the window's cost with its denominator (PMP Phase 10 r3c). It "
         "starts no run, opens no bag and emits nothing — a measurement that "
         "recorded itself would change the number it was measuring.",
+    "rebuild.py":
+        "the fifth operator tool, PMP Phase 4's: it READS every bag under the "
+        "root plus the starting snapshot, replays them into a scratch tree and "
+        "diffs the tracked stores — and, on `restore --apply`, writes a STORE, "
+        "never a bag. It starts no run and opens no bag: a rebuild that "
+        "recorded itself would add to the journal it is replaying, and the "
+        "snapshot it takes is a root-level file beside the bags, not a run. "
+        "Its store writes carry no emit either, deliberately — every byte it "
+        "writes is already the journal's, so the invariant it would emit to "
+        "protect holds by construction (see `tracked/rebuild.py`).",
 }
 
 # A shim is `<workflow>.sh` beside its runner: thin by design, it resolves the
