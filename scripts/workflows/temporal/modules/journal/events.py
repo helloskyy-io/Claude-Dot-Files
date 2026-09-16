@@ -163,6 +163,18 @@ class GapClass(str, Enum):
     # event's `destination`, this is the why, and the closed set still holds:
     # no message, no URL fragment the run did not already know, no bytes.
     SURFACE_UNREADABLE = "surface_unreadable"
+    # THE SIXTH IS THE RESEARCH CAPTURE'S, AND IT NAMES AN ABSENCE RATHER THAN
+    # A FAILED I/O. A research run cited sources — the paper it committed names
+    # them by URL — and NONE of them reached the content store: no
+    # `citations.json` beside the paper, or one that paired nothing capturable.
+    # The sources exist and did not land, which is case (c) exactly, and until
+    # this class existed the miss was reported only as a `NOT RUN` line in the
+    # parent's notes, which is a silent gap wearing a sentence. Measured on
+    # skyynet-master-planning#36: 28 cited sources, an empty store, nothing red.
+    # A PER-CITATION fetch failure is NOT this class — those are recorded
+    # capture-failures on the row and the bag stays complete, because the
+    # capture never fails the run and one rotted footnote is not a lost store.
+    SOURCES_UNCAPTURED = "sources_uncaptured"
 
 
 @dataclass(frozen=True)

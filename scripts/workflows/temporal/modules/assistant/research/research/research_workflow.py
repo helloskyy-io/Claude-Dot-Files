@@ -92,8 +92,14 @@ def run_research(*, research_dir: Path, repo_root: Path, worktree_name: str,
     elif verdict is Verdict.HOLD_REDISPATCH:
         notes.append("The automated loop is SPENT — one loop-back is the cap.")
 
+    # `worktree` RIDES IN THE RESULT because the entrypoint's source capture
+    # reads the pool the run WROTE INTO, and that is this tree — not the main
+    # checkout `research_dir` names. Capturing against the main-checkout path
+    # was the second half of skyynet-master-planning#36's empty store: even a
+    # perfectly written `citations.json` sat in a tree nothing read.
     return {"pr_number": pr, "pr_url": pr_url, "verdict": verdict,
-            "loops_used": loops, "notes": notes, "issue_urls": issue_urls}
+            "loops_used": loops, "notes": notes, "issue_urls": issue_urls,
+            "worktree": worktree}
 
 
 def _verify_then_dispose(research_dir: Path, pr: str, repo_root: Path,

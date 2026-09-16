@@ -537,7 +537,14 @@ BUDGETS: dict[str, int] = {
     # all three edits CORRECT, none of them its to make, and one against a runway's
     # explicit DO-NOT-TOUCH. The block carries its own exit: report it, do not fix
     # it, because a boundary with no route turns a real finding into a silent drop.
-    "research/research_refine/prompts/refine.md": 14_583,
+    # RAISED 14_583 -> 15_223 (+640): the verify pass gained the `citations.json`
+    # obligation — a repaired span changes its sidecar row, and a draft that wrote
+    # no sidecar gets one from the spans verified in round 1. The paper's
+    # citations were reaching a content store that nothing filled
+    # (skyynet-master-planning#36: 28 sources, empty store); the sidecar is the
+    # only machine-readable claim→bytes pairing, and the fixer is the last actor
+    # to hold every (url, span, sha) tuple before the run exits.
+    "research/research_refine/prompts/refine.md": 15_223,
     # SET AT ITS SIZE ON THE DAY IT LANDED, like `plan_draft.md` above and for
     # the same reason: this prompt is new, so it MEETS this gate rather than
     # being measured into it. Measured in BYTES with `wc -c`, never eyeballed —
@@ -730,7 +737,14 @@ BUDGETS: dict[str, int] = {
     # `skyy-command` cites its planning repo the same way, hundreds of times —
     # and it is the only form that resolves from a worktree of another repo.
     # NO INSTRUCTION WAS ADDED; the same sentences got longer.
-    "research/research_draft/prompts/draft.md": 21_122,
+    # RAISED 21_122 -> 22_434 (+1,312): the parent now RELAYS the sidecar
+    # obligation to the analyst in its binding §3 list, resets the file once per
+    # run, checks it parses after each analyst, and — the actual defect — its
+    # WRITE BOUNDARY names `citations.json` as permitted. The boundary read
+    # "only raw/, synthesis.md and topics.md", which FORBADE the file the
+    # analyst's own definition told it to write; measured on
+    # skyynet-master-planning#36, 28 cited sources and no sidecar.
+    "research/research_draft/prompts/draft.md": 22_434,
     "build/build_draft_minor/prompts/update_pr.md": 10_675,
     # SHARED FRAGMENTS ARE THE EXPENSIVE ONES — every workflow that includes one
     # pays for it, so a byte here costs more than a byte in any single prompt.

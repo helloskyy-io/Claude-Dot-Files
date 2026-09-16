@@ -12,7 +12,9 @@ from modules.journal import journal_activities as journal  # noqa: E402
 from modules.journal import harvest_activities as harvest  # noqa: E402
 from modules.assistant.research.research import research_workflow as rw  # noqa: E402
 from modules.assistant.research import research_activities as act  # noqa: E402
-from modules.assistant.research.capture_cited_sources import capture_cited_sources  # noqa: E402
+from modules.assistant.research.capture_cited_sources import (  # noqa: E402
+    capture_cited_sources, record_capture_gap)
+from modules.journal import emit as journal_emit  # noqa: E402
 
 BANNER = "=" * 64
 
@@ -148,18 +150,43 @@ def main(argv=None) -> int:
         # paper that MERGES; capturing an intermediate draft would store bytes for
         # citations the paper no longer makes.
         #
+        # AGAINST THE WORKTREE, NOT `research_dir`. The run wrote its papers and
+        # its `citations.json` into the tree the parent cut; `research_dir` is
+        # the same relative path inside the MAIN CHECKOUT, where no run writes.
+        # `in_worktree` is the re-anchor every other consumer of this path
+        # already uses, and its absence here is why a written sidecar could
+        # never have been read (skyynet-master-planning#36).
+        #
         # ⚠ IT CANNOT FAIL THE RUN. The paper is the deliverable; the capture is
         # evidence about it. `capture_cited_sources` catches every per-citation
         # error itself, and this call is guarded too — a defect in the sweep must
         # not cost a completed research run either.
+        #
+        # ⚠ BUT AN EMPTY STORE FOR A CITED PAPER IS NOT ALLOWED TO BE QUIET.
+        # `record_capture_gap` marks the bag INCOMPLETE with a typed gap when the
+        # run's papers name sources and none reached the store — the case that
+        # was a `NOT RUN` line nobody read. Per-citation failures stay rows in
+        # the report; the gap is for the store holding nothing at all.
         try:
-            report = capture_cited_sources(pool_dir=research_dir, bag=bag,
-                                           stage="research")
+            pool = act.in_worktree(research_dir, repo_root, result["worktree"])
+            report = capture_cited_sources(pool_dir=pool, bag=bag, stage="research",
+                                           worktree=result["worktree"],
+                                           base=f"origin/{act.default_branch(repo_root)}")
+            # THE RUN'S OWN EMITTER, registered by `open_run_bag` — never a
+            # second `Emitter.for_run`, which would allocate a second writer
+            # subfolder and split this run's events across two.
+            emitter = journal_emit.current_emitter()
+            if emitter is None:
+                raise RuntimeError("no emitter is registered for this run — "
+                                   "open_run_bag did not register one, so the "
+                                   "capture gap has nowhere to land")
+            record_capture_gap(report, emitter=emitter, pool_dir=pool)
             result.setdefault("notes", []).append(report.as_note())
         except Exception as exc:                  # noqa: BLE001 - see above
             result.setdefault("notes", []).append(
-                f"source capture: NOT RUN — the sweep itself failed ({exc}). "
-                f"The paper is unaffected.")
+                f"⚠ source capture: NOT RUN — the sweep itself failed ({exc}). "
+                f"The paper is unaffected; the content store holds NOTHING for "
+                f"this run and no gap could be recorded.")
     except (RuntimeError, FileNotFoundError, ValueError) as exc:
         return refuse(exc)
 

@@ -417,7 +417,7 @@ claude-dot-files/
 │               │   │                                #   the surface's own comment count, per_page honoured) re-read from the live API.
 │               │   │                                #   SKIPS — distinctly from passing — where `gh` is not authenticated: CI carries no
 │               │   │                                #   token by design, so this runs for real only on a machine that dispatches
-│               │   └── test_citations_verify_offline.py # PMP Phase 2 r2 — the offline demonstration, and the network is DENIED rather
+│               │   ├── test_citations_verify_offline.py # PMP Phase 2 r2 — the offline demonstration, and the network is DENIED rather
 │               │                                    #   than asserted absent: an LD_PRELOAD shim fails socket(), connect() and
 │               │                                    #   getaddrinfo() at the C library, below the code under test. A control fetch runs
 │               │                                    #   under the same shim FIRST and must fail, or the verify run proves only that
@@ -425,7 +425,17 @@ claude-dot-files/
 │               │                                    #   _userns is 1 — and that is recorded because "how the network was disabled" is a
 │               │                                    #   checklist item. Also walks one bag holding one of EACH outcome, and each outcome
 │               │                                    #   alone, so the mixed-run exit code cannot pass by accident
+│               │   └── test_pr36_citations_end_to_end.py # Paper + citations.json → capture → offline verify, on skyynet-master-planning#36's
+│               │                                    #   REAL citations — the run that proved the store empty (28 sources, no sidecar).
+│               │                                    #   Forward: the sidecar that run should have written fills a store and verify
+│               │                                    #   resolves every row with the network denied. Reverse: the same cited paper with
+│               │                                    #   no sidecar trips the sources_uncaptured gap and marks the bag INCOMPLETE. And
+│               │                                    #   one rotted source is a recorded failure, not a gap and not an exception
 │               ├── fixtures/                        # MEASURED inputs, not written ones
+│               │   ├── pr36_citations/              # skyynet-master-planning#36's sidecar as the run SHOULD have written it — five real
+│               │   │                                #   (claim, verbatim span, SHA-pinned raw URL, commit) rows — with the gzipped bytes
+│               │   │                                #   each URL served at its SHA and a sha256 manifest making them tamper-evident.
+│               │   │                                #   Fetched once 2026-09-16; every URL and span is literal in the paper
 │               │   └── schema_declared_run.jsonl    # A real CLI 2.1.224 run with --json-schema declared. Carries the finding that
 │               │                                    #   declaring a schema REPLACES .result with the structured output — the reason
 │               │                                    #   run-claude.sh's completion gate reads assistant text blocks instead

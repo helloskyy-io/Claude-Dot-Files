@@ -22,6 +22,7 @@ In scope, every round:
 - **The honest-boundary section** — present, per the Research Standard.
 - **The source-count floor** — met for the paper's size.
 - **Every statement about OUR PLATFORM** — you are in the worktree and hold the repo; the authoring run was on the web and could not check these. A paper that misdescribes shipped state is a defect even when every citation is perfect.
+- **`${RESEARCH_DIR}/citations.json` — present, a JSON array, and IN STEP WITH THE PAPERS.** It is the run's machine-readable `{"claim_id", "quote", "url", "sha", "paper"}` list, read after this run to store every cited source for offline re-check; a cited paper with no sidecar marks the run's record INCOMPLETE. **Every span you repair, add or drop changes its row** — a repaired span is a new claim, and a row still carrying the old span stores bytes that no longer support the paper. If the draft wrote none, write it from the spans you verify in round 1: you hold every (url, span, sha) tuple at the moment your `grep -F` matches.
 
 ### WRITE BOUNDARY (binding) — and the route for everything outside it
 
