@@ -320,6 +320,14 @@ claude-dot-files/
 │           │                                        #   report is dispatched from: a JournalUnwritable in flight (or its own) goes to the
 │           │                                        #   registered reporter for the first addressable ref, and the harvest writes NOTHING into
 │           │                                        #   a journal that just refused a flag
+│           │                                        #   PHASE 4 ADDS THE STARTING SNAPSHOT as one more file here — snapshot.py — because it is a
+│           │                                        #   journal-ROOT artifact Phase 5 retains and budgets: `snapshot-<stamp>-<id>.json` beside
+│           │                                        #   the bags (a FILE, because every root walker treats every directory as a bag), two named
+│           │                                        #   sections and a version — (a) store materialisation, which replay applies, and (b)
+│           │                                        #   carried-forward journal-meta events, empty at Phase 4, which replay never applies as
+│           │                                        #   a store write — plus the stores it does NOT cover, named with their reason. It takes
+│           │                                        #   the store contents as DATA so the one-way import rule holds; the replay that knows
+│           │                                        #   what a tracked store is lives beside the store writers (modules/assistant/tracked/)
 │           ├── modules/__init__.py                  # The package marker, and nothing else — every module under modules/ is
 │           │                                        #   imported by its own path, so this file exports nothing and re-exports nothing
 │           ├── modules/vocabulary.py                # ONE DECLARATION per concept the typed exit record and the journal event share
@@ -333,7 +341,7 @@ claude-dot-files/
 │           │                                        #   same string, so a rebuild diffing them reports a difference that is not one
 │           ├── scripts/                             # Kickoff entrypoints, until an SDK path replaces them — plus preflight.py,
 │           │                                        #   validate_bag.py, verify_citations.py, compare_run_config.py, reconcile_harvest.py,
-│           │                                        #   dispatch_identity.py and dispatch_context.py,
+│           │                                        #   rebuild.py, dispatch_identity.py and dispatch_context.py,
 │           │                                        #   which are NOT kickoffs: they are what a run checks before, what an operator checks
 │           │                                        #   after (validate_bag asks whether a bag's bytes match its manifest; verify_citations
 │           │                                        #   asks whether the claims in it still stand against the sources they were made from;
@@ -342,7 +350,10 @@ claude-dot-files/
 │           │                                        #   ON DEMAND when two runs are suspected to disagree; reconcile_harvest re-reads the
 │           │                                        #   GitHub surfaces a bag's harvest index names and prints the window's cost with its
 │           │                                        #   denominator — late comments exit 0, a comment that was there and was MISSED exits 1),
-│           │                                        #   who NAMES the run, and what the run DERIVED. All seven live here because they are
+│           │                                        #   who NAMES the run, and what the run DERIVED; rebuild.py takes the PMP Phase 4
+│           │                                        #   starting snapshot, replays the journal against tracked/ and diffs the test set with
+│           │                                        #   every figure carrying its denominator, and RESTORES one store through an allowlist —
+│           │                                        #   a dry run unless --apply). All eight live here because they are
 │           │                                        #   launch concerns rather than workflow concerns. None is named run_*.py, and that
 │           │                                        #   is load-bearing — the entrypoint sweeps glob that prefix, so a helper wearing it
 │           │                                        #   is swept as a runner and fails five guards at once (measured 2026-09-01)
@@ -402,6 +413,14 @@ claude-dot-files/
 │               │                                    #   and exposes PLANNING_ROOT. ONE resolver: 17 modules read
 │               │                                    #   a corpus that is no longer in this repo, and a copy per
 │               │                                    #   module is 17 chances to point at a stale path
+│               ├── rebuild_fixture.py               # PMP Phase 4's synthetic journal + stores, built by the REAL writers (open_bag,
+│               │                                    #   Emitter, tracked_items.file_item/increment, record_gap) so the on-disk format under
+│               │                                    #   test is whatever they produce today. A helper and not a test because three consumers
+│               │                                    #   share it: the unit tier builds it live under tmp_path (the negative test needs the
+│               │                                    #   write path live), the committed copy under fixtures/rebuild/ is what the merge path
+│               │                                    #   replays, and the integration tier uses that copy on the merge path. Every id is
+│               │                                    #   recognisably synthetic (`fixture-run-*`, `fixture-edge`, `X-fixt000N`); run it as a
+│               │                                    #   script to regenerate the committed copy DELIBERATELY when a writer's format changes
 │               ├── integration/                    # Runs against what the FLEET actually wrote, not against a constructed fixture
 │               │   ├── conftest.py                  # The `journal_root` fixture, at the package's own DIR_MODE rather than a bare 0o700
 │               │   │                                #   literal. tests/unit/conftest.py is not reachable from here — pytest resolves
@@ -417,6 +436,15 @@ claude-dot-files/
 │               │   │                                #   the surface's own comment count, per_page honoured) re-read from the live API.
 │               │   │                                #   SKIPS — distinctly from passing — where `gh` is not authenticated: CI carries no
 │               │   │                                #   token by design, so this runs for real only on a machine that dispatches
+│               │   ├── test_the_journal_rebuilds_the_test_set.py # PMP Phase 4 r4's COMPLETENESS arm: ONE test, TWO inputs, NO SKIP. On the
+│               │   │                                #   merge path (GITHUB_ACTIONS=true — the runner's own declaration, and a runner has no
+│               │   │                                #   journal by Phase 1's ruling) it replays the committed fixture; on a host it replays
+│               │   │                                #   THIS machine's journal against the planning repo's live tracked/, resolved at module
+│               │   │                                #   scope so the session sandbox cannot hide it. A host with no journal or no snapshot
+│               │   │                                #   goes RED and names the remedy. Reads the operator's root, writes only a tmp scratch.
+│               │   │                                #   Every figure — intents applied against bags replayed, gapped against replayed —
+│               │   │                                #   carries its denominator, in full in every failure message and under `-s`; a
+│               │   │                                #   gapped store or an unrecorded cross-run order reaches the warnings summary on GREEN
 │               │   └── test_citations_verify_offline.py # PMP Phase 2 r2 — the offline demonstration, and the network is DENIED rather
 │               │                                    #   than asserted absent: an LD_PRELOAD shim fails socket(), connect() and
 │               │                                    #   getaddrinfo() at the C library, below the code under test. A control fetch runs
@@ -425,7 +453,12 @@ claude-dot-files/
 │               │                                    #   _userns is 1 — and that is recorded because "how the network was disabled" is a
 │               │                                    #   checklist item. Also walks one bag holding one of EACH outcome, and each outcome
 │               │                                    #   alone, so the mixed-run exit code cannot pass by accident
-│               ├── fixtures/                        # MEASURED inputs, not written ones
+│               ├── fixtures/                        # MEASURED inputs, not written ones — plus one BUILT input whose builder is committed
+│               │   ├── rebuild/                     # PMP Phase 4's committed synthetic fixture: journal/ (four bags — clean, member-retried,
+│               │   │                                #   failed store write, transcript-gapped — an edge-id and one snapshot) and tracked/
+│               │   │                                #   (candidates in three retention states, operations as the never-journalled negative
+│               │   │                                #   control). Generated by tests/rebuild_fixture.py, NEVER hand-edited, and holds no
+│               │   │                                #   real journal byte — test_the_committed_fixture_holds_NO_REAL_JOURNAL_BYTES reads it
 │               │   └── schema_declared_run.jsonl    # A real CLI 2.1.224 run with --json-schema declared. Carries the finding that
 │               │                                    #   declaring a schema REPLACES .result with the structured output — the reason
 │               │                                    #   run-claude.sh's completion gate reads assistant text blocks instead
@@ -743,6 +776,34 @@ claude-dot-files/
 │                   │                                #   against the VENDORED standard — the drift the v1 contract exists to catch
 │                   ├── test_intake.py               # The §5.0 exemption's three conditions, and the write-then-close
 │                   │                                #   ordering that decides whether a finding can be lost
+│                   ├── test_rebuild_replays_the_test_set.py # PMP Phase 4 r1/r2/r3/r5/r9 — the MECHANISM arm, on the merge path. Replay
+│                   │                                #   from the snapshot forward reproduces candidates byte-identically (the normalisation
+│                   │                                #   set is EMPTY and a trailing newline is a mismatch); the retried member write is
+│                   │                                #   deduped and the failed store write is not applied (13 → 11 → 4, predicted from the
+│                   │                                #   fixture); the NEGATIVE TEST deletes the emit from the live write path and the rebuild
+│                   │                                #   goes red naming the file; the snapshot has two sections and a version and section
+│                   │                                #   (b) is never applied; every store is enumerated; operations is a non-empty
+│                   │                                #   exclusion and a run-authored write to it FAILS the rebuild; a rebuilt row is
+│                   │                                #   distinguishable by origin; the committed fixture replays and holds no real bytes.
+│                   │                                #   The SNAPSHOT BOUNDARY is one line: stamped before the stores are read (call order
+│                   │                                #   asserted), judged by the COMPLETION's stamp so the snapshot's own race applies the
+│                   │                                #   write, a foreign store contract refused, a same-second two-run tie REPORTED
+│                   ├── test_rebuild_is_CONTAINED_and_restore_uses_the_allowlist.py # PMP Phase 4 r4/r8 — the containment
+│                   │                                #   contract fed hostile values DIRECTLY (absolute, `..`, wrong shape, symlinked root /
+│                   │                                #   store dir / target, relative root) and THROUGH an event (the id shape refuses them
+│                   │                                #   before a path is composed; the event's own address is never where a file lands);
+│                   │                                #   a scratch under testing/logs/ refused; replay imports no shell/network/template
+│                   │                                #   means. Restore: dry run by default, --apply creates and overwrites and LEAVES
+│                   │                                #   unknown files in place, cannot name operations, refuses a gapped store and a
+│                   │                                #   symlinked destination, and a write after a restore still needs its emit; a
+│                   │                                #   symlinked directory under a bag's payload is never walked into; no scratch is left
+│                   │                                #   behind when none was given
+│                   ├── test_rebuild_reports_a_GAPPED_journal_as_gapped.py # PMP Phase 4 r7 — a gap is an INPUT: counted with
+│                   │                                #   its denominator, what it covered named, a store it was addressed to `gapped` (diff
+│                   │                                #   reported, not ruled — in BOTH directions), read from the event AND from the flag-only
+│                   │                                #   Journal-Gap line, counted once per run id; a gap BEFORE the snapshot is counted and
+│                   │                                #   named but rules no store (the baseline absorbed it — restore is not refused for it);
+│                   │                                #   an undecodable event line fails the rebuild
 │                   ├── test_plan_refine.py          # plan-refine's own guards, and the TWO properties unique to a judge: the deliverable
 │                   │                                #   is keyed on STATE where every prohibition in the family is a DELTA — a --pr
 │                   │                                #   correction pass legitimately writes no new hours — and the re-planning guard
@@ -1031,9 +1092,9 @@ claude-dot-files/
 │                   │                                #   reaches PAST the boundary, never that anybody reaches it — a fleet capturing
 │                   │                                #   nothing passes every assertion, which is today's fleet. Its vacuity control
 │                   │                                #   asserts a floor PER swept directory after a mutation showed a single total floor
-│                   │                                #   of fifty stayed green with all 23 modules under scripts/ dropped from the
-│                   │                                #   population, modules/ alone holding 61 of the 84. EVERY FIGURE IN ITS OWN PROSE IS
-│                   │                                #   DERIVED and asserted — the ten shapes, the twenty-three call sites, 61/23/84 — and each
+│                   │                                #   of fifty stayed green with all 24 modules under scripts/ dropped from the
+│                   │                                #   population, modules/ alone holding 62 of the 86. EVERY FIGURE IN ITS OWN PROSE IS
+│                   │                                #   DERIVED and asserted — the ten shapes, the twenty-three call sites, 62/24/86 — and each
 │                   │                                #   enumerated shape must have a fixture that writes it, so a shape added to the prose
 │                   │                                #   without a control goes red rather than reading as covered
 │                   ├── test_content_store.py        # PMP Phase 2 r7(b)/r7(d) — the on-disk path is a function of the COMPUTED DIGEST and
@@ -1215,8 +1276,10 @@ claude-dot-files/
 │   │       │                                        #   bag files and tags, the typed exit record, the run log's member events — written off-tree,
 │   │       │                                        #   invisible to the walk) is ruled by DECLARATION: every journal `_RECORD_CONSTANT` and
 │   │       │                                        #   run-log member names a reader that resolves on disk (RUNTIME_RECORDS) or sits in
-│   │       │                                        #   UNREAD_RUNTIME_RECORDS. 6 unread producers and 1 unread runtime record (events.jsonl,
-│   │       │                                        #   read by PMP Phase 4's replay once built) are baselined on a two-way ratchet, not fixed.
+│   │       │                                        #   UNREAD_RUNTIME_RECORDS. 7 unread producers and 0 unread runtime records are baselined
+│   │       │                                        #   on a two-way ratchet, not fixed — the one runtime record that sat here (events.jsonl)
+│   │       │                                        #   left the day PMP Phase 4's replay landed as its reader, and the seventh producer is
+│   │       │                                        #   that phase's rebuild.py, unread until the operator guide names it.
 │   │       │                                        #   HELD_BY registers every surface
 │   │       │                                        #   deferred to another gate (prompt pool, repo map, shims, Phase 4's echo, run log)
 │   │       │                                        #   and asserts each holder resolves by file and function. Moved here from

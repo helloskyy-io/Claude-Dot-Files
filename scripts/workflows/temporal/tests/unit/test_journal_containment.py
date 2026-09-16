@@ -135,6 +135,15 @@ _TRUSTED_JOINS = {
     ("bag.py", "rel"):
         "seal() joins paths that payload_files() derived by walking the bag's "
         "own data/ directory — they come off the filesystem, not off a caller.",
+    # ── snapshot.py ───────────────────────────────────────────────────────
+    ("snapshot.py", "snapshot.name"):
+        "write_snapshot composes the name from the module's own `_PREFIX` and "
+        "`_SUFFIX`, a `utc_now()` stamp with `-` and `:` stripped (digits, `T` "
+        "and `Z` only), and `secrets.token_hex(4)` — no caller-supplied value "
+        "reaches any of the three, so the result is one filename with no "
+        "separator and cannot be a relative segment. `SNAPSHOT_NAME_RE` is the "
+        "same shape on the READ side, anchored \\A/\\Z, and `snapshot_paths` "
+        "matches names off `iterdir()` against it rather than composing.",
     ("validate.py", "rel"):
         "same as seal(): payload_files() output, derived from the tree itself.",
     ("validate.py", "name"):
