@@ -197,6 +197,9 @@ def test_the_GUARD_PREDICATE_fires_only_for_a_cited_paper_with_an_EMPTY_store() 
     assert CaptureReport(cited=None, captured=0).store_is_empty_for_a_cited_paper
     assert not CaptureReport(cited=4, captured=1).store_is_empty_for_a_cited_paper
     assert not CaptureReport(cited=0, captured=0).store_is_empty_for_a_cited_paper
+    # Unknown coverage over a store WITH bytes in it is not this class: the store
+    # is not empty, whatever the `git diff` failed to say about the denominator.
+    assert not CaptureReport(cited=None, captured=1).store_is_empty_for_a_cited_paper
     # A per-citation failure with the rest stored is NOT the predicate — that is
     # the invariant the tests above hold, seen from this side.
     assert not CaptureReport(cited=4, captured=3,
@@ -274,3 +277,122 @@ def test_the_paper_set_is_THE_DIFF_not_the_pool_and_unreadable_is_None(tmp_path:
     r = capture_cited_sources(pool_dir=wt / "pool", bag=object(), stage="research",
                               capture_fn=lambda **kw: None, worktree=wt, base="main")
     assert r.cited == 1 and r.papers == ["pool/raw/new.md"]
+
+
+def test_worktree_and_base_are_a_PAIR_and_half_of_one_is_refused(tmp_path: Path) -> None:
+    """One without the other would leave `cited` silently None — which is a gap on
+    an empty store — so a caller bug is a ValueError, not an incomplete bag."""
+    pool = _pool(tmp_path, [ROW])
+    with pytest.raises(ValueError, match="TOGETHER"):
+        capture_cited_sources(pool_dir=pool, bag=object(), stage="research",
+                              capture_fn=lambda **kw: None, worktree=tmp_path)
+    with pytest.raises(ValueError, match="TOGETHER"):
+        capture_cited_sources(pool_dir=pool, bag=object(), stage="research",
+                              capture_fn=lambda **kw: None, base="main")
+
+
+# --- the helper every entrypoint calls: NEVER raises, NEVER quiet ------------------
+#
+# `capture_into_the_run_bag` is the anchor + sweep + gap + notes sequence that used
+# to live inline in `run_research.py` alone — and whose `except` branch answered a
+# dead sweep with "no gap could be recorded", a complete-looking bag over an empty
+# store. These drive every arm of it with no `gh`, no network and no registered
+# emitter: `base` and `capture_fn` are injected, `emitter` is the recorder above.
+
+from modules.assistant.research import capture_cited_sources as ccs  # noqa: E402
+from modules.assistant.research.capture_cited_sources import capture_into_the_run_bag  # noqa: E402
+
+
+def _tree(tmp_path: Path, rows=None) -> tuple[Path, Path, Path]:
+    """`(repo_root, worktree, research_dir)` — a pool inside a worktree that is a
+    real git repo, so `papers_changed` can answer, cut from a `main` holding the
+    pool before the run."""
+    import subprocess
+    env = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+           "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t", "PATH": "/usr/bin:/bin"}
+    repo_root = tmp_path / "main-checkout"
+    (repo_root / "pool").mkdir(parents=True)
+    wt = tmp_path / "wt"
+    (wt / "pool" / "raw").mkdir(parents=True)
+
+    def git(*a):
+        subprocess.run(["git", *a], cwd=wt, check=True, capture_output=True, env=env)
+    git("init", "-q", "-b", "main")
+    (wt / "pool" / "raw" / "legacy.md").write_text("no url here\n")
+    git("add", "-A"); git("commit", "-q", "-m", "base")
+    git("checkout", "-q", "-b", "run")
+    (wt / "pool" / "raw" / "new.md").write_text("Cites https://e.invalid/a\n")
+    if rows is not None:
+        (wt / "pool" / SIDECAR_NAME).write_text(json.dumps(rows), encoding="utf-8")
+    git("add", "-A"); git("commit", "-q", "-m", "run")
+    return repo_root, wt, repo_root / "pool"
+
+
+def test_the_helper_ANCHORS_into_the_worktree_and_reports_coverage(tmp_path: Path) -> None:
+    """`research_dir` names the main checkout's pool, which has no sidecar; the
+    worktree's does. A helper that read the former would report NOT RUN."""
+    repo_root, wt, research_dir = _tree(tmp_path, rows=[ROW])
+    em = _Emitter()
+    notes = capture_into_the_run_bag(research_dir=research_dir, repo_root=repo_root,
+                                     worktree=wt, bag=object(), emitter=em, base="main",
+                                     capture_fn=lambda **kw: None)
+    assert notes == ["source capture: 1 captured. coverage 1/1 cited sources captured."], notes
+    assert em.calls == []
+
+
+def test_a_DEAD_SWEEP_still_records_the_gap_and_says_so(tmp_path: Path, monkeypatch) -> None:
+    """THE ARM THAT WAS SILENT. `default_branch` asks `gh`; when that dies the
+    store is empty and coverage unknown, and the bag must say incomplete — the
+    first version wrote "no gap could be recorded" and left it complete."""
+    repo_root, wt, research_dir = _tree(tmp_path, rows=[ROW])
+    monkeypatch.setattr(ccs, "default_branch",
+                        lambda repo_root: (_ for _ in ()).throw(RuntimeError("gh: network is down")))
+    em = _Emitter()
+    notes = capture_into_the_run_bag(research_dir=research_dir, repo_root=repo_root,
+                                     worktree=wt, bag=object(), emitter=em,
+                                     capture_fn=lambda **kw: None)
+    assert len(em.calls) == 1 and "UNKNOWN" in em.calls[0]["detail"], em.calls
+    assert len(notes) == 2, notes
+    assert notes[0].startswith("⚠ source capture: NOT RUN — the sweep itself failed (RuntimeError: gh: network is down)")
+    assert "INCOMPLETE (gap: sources_uncaptured)" in notes[1]
+
+
+def test_a_sweep_that_RAISES_mid_way_is_the_same_arm(tmp_path: Path, monkeypatch) -> None:
+    """Any exception out of the sweep, not only the `gh` one: the helper's own
+    guard, not the sweep's, is what makes this path never fail the run."""
+    repo_root, wt, research_dir = _tree(tmp_path, rows=[ROW])
+    monkeypatch.setattr(ccs, "capture_cited_sources",
+                        lambda **kw: (_ for _ in ()).throw(OSError("worktree vanished")))
+    em = _Emitter()
+    notes = capture_into_the_run_bag(research_dir=research_dir, repo_root=repo_root,
+                                     worktree=wt, bag=object(), emitter=em, base="main")
+    assert len(em.calls) == 1
+    assert "OSError: worktree vanished" in notes[0] and "sources_uncaptured" in notes[1]
+
+
+def test_a_gap_that_CANNOT_BE_WRITTEN_is_named_not_swallowed(tmp_path: Path) -> None:
+    """The one arm that ends without a gap. Its note says the bag does NOT carry
+    the flag — in the gap's own voice — rather than "the sweep failed"."""
+    repo_root, wt, research_dir = _tree(tmp_path, rows=None)      # cited, no sidecar
+
+    class _Unwritable:
+        def record_gap(self, **kw):
+            raise RuntimeError("bag-info.txt: read-only file system")
+    notes = capture_into_the_run_bag(research_dir=research_dir, repo_root=repo_root,
+                                     worktree=wt, bag=object(), emitter=_Unwritable(),
+                                     base="main", capture_fn=lambda **kw: None)
+    assert notes[0].startswith("⚠ CONTENT STORE EMPTY FOR A CITED PAPER"), notes
+    assert "could NOT be recorded (RuntimeError: bag-info.txt" in notes[1], notes
+    assert "read it as incomplete" in notes[1]
+
+
+def test_NO_REGISTERED_EMITTER_is_the_unwritable_arm_too(tmp_path: Path) -> None:
+    """Outside a run nothing is registered; the helper says the gap has no home
+    rather than minting a second writer or raising."""
+    from modules.journal.emit import current_emitter
+    assert current_emitter() is None
+    repo_root, wt, research_dir = _tree(tmp_path, rows=None)
+    notes = capture_into_the_run_bag(research_dir=research_dir, repo_root=repo_root,
+                                     worktree=wt, bag=object(), base="main",
+                                     capture_fn=lambda **kw: None)
+    assert "could NOT be recorded (RuntimeError: no emitter is registered" in notes[1], notes

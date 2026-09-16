@@ -146,7 +146,7 @@ class GapClass(str, Enum):
     lost; if its `why` were derived from the content or from an exception string,
     the report would become a side channel for exactly the bytes it exists to say
     were dropped — and a gap event is written on the failure path, which is the
-    least-reviewed path there is. Five classes, a byte count and a timestamp cost
+    least-reviewed path there is. Six classes, a byte count and a timestamp cost
     a few hundred bytes and cannot leak.
     """
 

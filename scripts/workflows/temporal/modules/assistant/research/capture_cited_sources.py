@@ -45,7 +45,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ..assistant_activities import run_bounded
+from ..assistant_activities import default_branch, run_bounded
+from .research_activities import in_worktree
 
 #: The run's machine-readable citation list, at the root of the pool it wrote.
 #: ONE PER RUN rather than one per paper: a run may touch several papers, and a
@@ -62,6 +63,14 @@ REQUIRED_FIELDS = ("claim_id", "quote", "url")
 OPTIONAL_FIELDS = ("sha", "paper")
 
 _SHA_RE = re.compile(r"\A[0-9a-f]{40}\Z")
+#: What "well-formed" means per optional field, keyed by the tuple above so a
+#: field added there without a check here is a KeyError at the first row that
+#: carries it, not a silently unvalidated column. Each returns the problem, or "".
+_OPTIONAL_FIELD_PROBLEM = {
+    "sha": lambda v: "" if _SHA_RE.match(v) else (
+        "is not a full 40-hex commit — the row states no reproducible ref"),
+    "paper": lambda v: "" if v.startswith("raw/") else "is not under raw/",
+}
 _URL_RE = re.compile(r"https?://[^\s<>()\[\]`'\"]+")
 
 #: The gap's write path and destination. The path names WHAT was lost — the
@@ -97,17 +106,25 @@ class CaptureReport:
 
     @property
     def store_is_empty_for_a_cited_paper(self) -> bool:
-        """THE GUARD'S PREDICATE. The paper names sources and none was stored.
+        """THE GUARD'S PREDICATE. The paper names sources and NONE was stored.
 
-        `cited is None` counts as TRUE: if the paper set could not be read then
-        coverage is unknown, and unknown coverage is incomplete coverage — the
-        bag must not read as complete on the strength of a check that did not
-        run. A run whose papers cite nothing (a retirement-only cycle, a
-        synthesis rewrite) is NOT this case: nothing was there to capture.
+        `cited is None` counts as cited: if the paper set could not be read then
+        coverage is unknown, and an EMPTY store under unknown coverage must not
+        read as complete on the strength of a check that did not run. But the
+        store having to be EMPTY is the whole predicate, and it holds on that
+        arm too — a run that captured ten rows and then lost its `git diff` to
+        a timeout has a store with bytes in it, which is not `SOURCES_UNCAPTURED`
+        by that class's own definition; its note says `coverage UNKNOWN` and
+        that is the true statement. A run whose papers cite nothing (a
+        retirement-only cycle, a synthesis rewrite) is NOT this case: nothing
+        was there to capture. And a PARTIAL sidecar — two rows for a paper that
+        names twenty sources — is not this case either: the coverage figure in
+        the note carries it, and the gap is reserved for the store holding
+        nothing at all.
         """
-        if self.cited is None:
-            return True
-        return self.cited > 0 and self.captured == 0
+        if self.captured:
+            return False
+        return self.cited is None or self.cited > 0
 
     def coverage_line(self) -> str:
         if self.cited is None:
@@ -192,13 +209,10 @@ def validate_rows(rows: list[dict]) -> tuple[list[dict], list[str]]:
         if not url.startswith(("http://", "https://")) or any(c.isspace() for c in url):
             problems.append(f"row {i}: url is not an http(s) URL: {url!r}")
             continue
-        sha = str(row.get("sha") or "").strip()
-        if sha and not _SHA_RE.match(sha):
-            problems.append(f"row {i}: sha {sha!r} is not a full 40-hex commit "
-                            f"— the row states no reproducible ref")
-        paper = str(row.get("paper") or "").strip()
-        if paper and not paper.startswith("raw/"):
-            problems.append(f"row {i}: paper {paper!r} is not under raw/")
+        for name in OPTIONAL_FIELDS:
+            value = str(row.get(name) or "").strip()
+            if value and (why := _OPTIONAL_FIELD_PROBLEM[name](value)):
+                problems.append(f"row {i}: {name} {value!r} {why}")
         capturable.append(row)
     return capturable, problems
 
@@ -264,6 +278,10 @@ def capture_cited_sources(*, pool_dir: Path, bag, stage: str,
     pool with no git behind it — then `cited` stays `None` and the report says
     coverage is unknown, which is the truth about a pool nobody diffed.
     """
+    if (worktree is None) != (not base):
+        raise ValueError(f"`worktree` and `base` name the paper set TOGETHER; got "
+                         f"worktree={worktree!r}, base={base!r}. One without the "
+                         f"other would leave coverage silently unknown.")
     report = CaptureReport()
     if worktree is not None and base:
         papers = papers_changed(pool_dir, worktree, base)
@@ -321,7 +339,7 @@ def record_capture_gap(report: CaptureReport, *, emitter, pool_dir: Path) -> boo
     ⚠ A GAP THAT CANNOT BE WRITTEN IS CASE (d) AND PROPAGATES. `record_gap`
     raises `JournalUnwritable` when the flag cannot land; that is the one
     exception this module lets out, because a silent failure to record a gap is
-    the exact thing the gap exists to prevent. The entrypoint's outer guard
+    the exact thing the gap exists to prevent. `capture_into_the_run_bag`
     turns it into a note rather than a dead run.
     """
     if not report.store_is_empty_for_a_cited_paper:
@@ -334,3 +352,77 @@ def record_capture_gap(report: CaptureReport, *, emitter, pool_dir: Path) -> boo
                        lost_bytes=0,
                        detail=report.coverage_line())
     return True
+
+
+def capture_into_the_run_bag(*, research_dir: Path, repo_root: Path, worktree: Path,
+                             bag, emitter=None, base: str | None = None,
+                             capture_fn=None) -> list[str]:
+    """The whole in-window capture, for EVERY research entrypoint: anchor the
+    pool into the run's worktree, sweep the sidecar, record the gap, and return
+    the notes the entrypoint prints. NEVER RAISES.
+
+    ONE OWNER, THREE CALLERS. `run_research.py`, `run_research_draft.py` and
+    `run_research_refine.py` each open a bag, cut a worktree and dispatch the
+    prompts that write `citations.json`; a capture that lived inline in one of
+    them left the other two dispatching a sidecar nothing read — the #36 shape
+    again, on a supported path, with no note at all. The family ruling in
+    `run_build_draft.py` makes the standalone children real entrypoints, so the
+    capture is a function they call rather than a block they copy. A standalone
+    draft captures the draft's citations and a standalone refine the refined
+    paper's: each bag records what ITS run cited, which is the truth about that
+    run even when a later run changes the paper.
+
+    ⚠ THE FAILURE PATH IS AS LOUD AS THE FOUND-NOTHING PATH. The sweep can die
+    before it reads a row — `default_branch` asks `gh` (a network call), the
+    worktree may be gone, the emitter may be missing — and the first version of
+    this block answered every one of those with *"no gap could be recorded"*
+    and a complete-looking bag: the silent empty store, moved to the except
+    branch. Here a dead sweep yields an EMPTY report (`cited=None`, `captured=0`),
+    which is the predicate's unknown-and-empty arm, so the gap still fires. Only
+    a gap that itself cannot be written ends without one, and that line says so
+    in the same voice as the gap.
+
+    `emitter` DEFAULTS TO THE RUN'S REGISTERED ONE, which `open_run_bag`
+    registers — never a second `Emitter.for_run`, which would allocate a second
+    writer subfolder and split the run's events across two. `base` and
+    `capture_fn` are injected for the same reason the sweep injects them: so the
+    path can be driven with no `gh` and no network.
+    """
+    notes: list[str] = []
+    pool = research_dir
+    # AN EMPTY REPORT IS THE DEAD-SWEEP REPORT: `cited=None`, `captured=0` — the
+    # predicate's unknown-and-empty arm. It is replaced only if the sweep returns.
+    report = CaptureReport()
+    sweep_ran = False
+    try:
+        pool = in_worktree(research_dir, repo_root, worktree)
+        if base is None:
+            base = f"origin/{default_branch(repo_root)}"
+        report = capture_cited_sources(pool_dir=pool, bag=bag, stage="research",
+                                       capture_fn=capture_fn,
+                                       worktree=worktree, base=base)
+        sweep_ran = True
+        notes.append(report.as_note())
+    except Exception as exc:                          # noqa: BLE001 - never fails the run
+        notes.append(f"⚠ source capture: NOT RUN — the sweep itself failed "
+                     f"({type(exc).__name__}: {exc}). The paper is unaffected; the "
+                     f"content store holds NOTHING for this run and coverage is UNKNOWN.")
+
+    try:
+        if emitter is None:
+            from ...journal.emit import current_emitter          # noqa: PLC0415
+            emitter = current_emitter()
+        if emitter is None:
+            raise RuntimeError("no emitter is registered for this run — open_run_bag "
+                               "did not register one, so the gap has nowhere to land")
+        recorded = record_capture_gap(report, emitter=emitter, pool_dir=pool)
+        if recorded and not sweep_ran:
+            # `as_note` was never reached on this arm, so the gap says so here,
+            # in the same words the note uses when the sweep ran and found nothing.
+            notes.append("⚠ CONTENT STORE EMPTY FOR THIS RUN — the bag is marked "
+                         "INCOMPLETE (gap: sources_uncaptured).")
+    except Exception as exc:                          # noqa: BLE001 - never fails the run
+        notes.append(f"⚠ the sources_uncaptured gap could NOT be recorded "
+                     f"({type(exc).__name__}: {exc}). The bag does NOT say its content "
+                     f"store is incomplete — read it as incomplete.")
+    return notes

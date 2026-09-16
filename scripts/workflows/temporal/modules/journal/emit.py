@@ -415,7 +415,7 @@ def gap_class_for(exc: BaseException) -> GapClass:
     THE MESSAGE IS DELIBERATELY DISCARDED. A gap event reports that content was
     lost; a `why` carrying `exc.strerror` or `exc.filename` would put the failing
     path — and, for some filesystems, a fragment of what was being written — into
-    the record that exists to say those bytes were dropped. Five classes, a byte
+    the record that exists to say those bytes were dropped. Six classes, a byte
     count and a timestamp cost a few hundred bytes and cannot leak.
 
     THE OPERATOR STILL GETS THE MESSAGE — on stderr, and in the exception this
