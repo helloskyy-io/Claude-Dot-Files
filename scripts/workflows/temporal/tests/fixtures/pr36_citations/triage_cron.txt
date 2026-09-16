@@ -1,0 +1,12 @@
+"""Fixture triage cron (synthetic).
+
+A fabricated cron body standing in for a crash-triage policy. Nothing here
+runs; the docstring below is the span a citation row quotes.
+"""
+FIXTURE_THRESHOLD = 7
+
+
+def should_file(crash) -> bool:
+    """File when the crash reproduced on each of the last N fixture days and
+    its fixture crash total crossed the threshold."""
+    return crash.days_seen >= FIXTURE_THRESHOLD and crash.total > FIXTURE_THRESHOLD

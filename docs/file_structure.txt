@@ -445,7 +445,7 @@ claude-dot-files/
 │               │   │                                #   Every figure — intents applied against bags replayed, gapped against replayed —
 │               │   │                                #   carries its denominator, in full in every failure message and under `-s`; a
 │               │   │                                #   gapped store or an unrecorded cross-run order reaches the warnings summary on GREEN
-│               │   └── test_citations_verify_offline.py # PMP Phase 2 r2 — the offline demonstration, and the network is DENIED rather
+│               │   ├── test_citations_verify_offline.py # PMP Phase 2 r2 — the offline demonstration, and the network is DENIED rather
 │               │                                    #   than asserted absent: an LD_PRELOAD shim fails socket(), connect() and
 │               │                                    #   getaddrinfo() at the C library, below the code under test. A control fetch runs
 │               │                                    #   under the same shim FIRST and must fail, or the verify run proves only that
@@ -453,7 +453,19 @@ claude-dot-files/
 │               │                                    #   _userns is 1 — and that is recorded because "how the network was disabled" is a
 │               │                                    #   checklist item. Also walks one bag holding one of EACH outcome, and each outcome
 │               │                                    #   alone, so the mixed-run exit code cannot pass by accident
-│               ├── fixtures/                        # MEASURED inputs, not written ones — plus one BUILT input whose builder is committed
+│               │   └── test_pr36_citations_end_to_end.py # Paper + citations.json → capture → offline verify, in skyynet-master-planning#36's
+│               │                                    #   SHAPE — the run that proved the store empty (28 sources, no sidecar).
+│               │                                    #   Forward: a sidecar in the shape that run should have written fills a store and
+│               │                                    #   verify resolves every row with the network denied. Reverse: the same cited paper
+│               │                                    #   with no sidecar trips the sources_uncaptured gap and marks the bag INCOMPLETE.
+│               │                                    #   One rotted source is a recorded failure, not a gap and not an exception. And a
+│               │                                    #   licence control holds the fixture to being synthetic and self-contained
+│               ├── fixtures/                        # MEASURED inputs, BUILT inputs whose builder is committed, and one SYNTHETIC input
+│               │   ├── pr36_citations/              # A sidecar in skyynet-master-planning#36's SHAPE — five (claim, verbatim span,
+│               │   │                                #   SHA-pinned URL) rows over four sources — with EVERY BYTE FABRICATED: four small
+│               │   │                                #   plain-text sources at an RFC 2606 `.invalid` host, sha1-as-commit, and a sha256
+│               │   │                                #   manifest (sources.json) making them tamper-evident. Replaced the real third-party
+│               │   │                                #   files it first froze: a public repo redistributes no Apache/MIT file without notices
 │               │   ├── rebuild/                     # PMP Phase 4's committed synthetic fixture: journal/ (four bags — clean, member-retried,
 │               │   │                                #   failed store write, transcript-gapped — an edge-id and one snapshot) and tracked/
 │               │   │                                #   (candidates in three retention states, operations as the never-journalled negative
@@ -1276,10 +1288,10 @@ claude-dot-files/
 │   │       │                                        #   bag files and tags, the typed exit record, the run log's member events — written off-tree,
 │   │       │                                        #   invisible to the walk) is ruled by DECLARATION: every journal `_RECORD_CONSTANT` and
 │   │       │                                        #   run-log member names a reader that resolves on disk (RUNTIME_RECORDS) or sits in
-│   │       │                                        #   UNREAD_RUNTIME_RECORDS. 7 unread producers and 0 unread runtime records are baselined
+│   │       │                                        #   UNREAD_RUNTIME_RECORDS. 6 unread producers and 0 unread runtime records are baselined
 │   │       │                                        #   on a two-way ratchet, not fixed — the one runtime record that sat here (events.jsonl)
-│   │       │                                        #   left the day PMP Phase 4's replay landed as its reader, and the seventh producer is
-│   │       │                                        #   that phase's rebuild.py, unread until the operator guide names it.
+│   │       │                                        #   left the day PMP Phase 4's replay landed as its reader, and that phase's rebuild.py
+│   │       │                                        #   left the day after, when the operator guide named it.
 │   │       │                                        #   HELD_BY registers every surface
 │   │       │                                        #   deferred to another gate (prompt pool, repo map, shims, Phase 4's echo, run log)
 │   │       │                                        #   and asserts each holder resolves by file and function. Moved here from

@@ -415,7 +415,7 @@ def gap_class_for(exc: BaseException) -> GapClass:
     THE MESSAGE IS DELIBERATELY DISCARDED. A gap event reports that content was
     lost; a `why` carrying `exc.strerror` or `exc.filename` would put the failing
     path — and, for some filesystems, a fragment of what was being written — into
-    the record that exists to say those bytes were dropped. Five classes, a byte
+    the record that exists to say those bytes were dropped. Six classes, a byte
     count and a timestamp cost a few hundred bytes and cannot leak.
 
     THE OPERATOR STILL GETS THE MESSAGE — on stderr, and in the exception this
@@ -430,6 +430,32 @@ def gap_class_for(exc: BaseException) -> GapClass:
     if code in (errno.ENOENT, errno.ENOTDIR, errno.ESTALE):
         return GapClass.PATH_GONE
     return GapClass.WRITE_FAILED
+
+
+#: The `Journal-Gap` flag's human-readable reason, PER CLASS. The four append
+#: classes are what the flag always said — an emit that failed. The two that
+#: name an ABSENCE are not: `surface_unreadable` is a GitHub surface the harvest
+#: could not READ, and `sources_uncaptured` is a store that holds nothing for a
+#: cited paper, with no append attempted on either. A flag reading "emit failed:
+#: sources_uncaptured" sent an operator looking for a write that never happened.
+#: Keyed by the closed set so a class added there without a reason here is a
+#: `KeyError` at the first gap that carries it, and the completeness control in
+#: `test_journal_emit.py` fires before any run does. Nothing parses this text —
+#: `rebuild.py` reads the stamp and the `tracked:` write path — so the change is
+#: to the words alone; the class value is still the label's last token.
+GAP_FLAG_REASON: dict[GapClass, str] = {
+    GapClass.DISK_FULL: "emit failed",
+    GapClass.READ_ONLY: "emit failed",
+    GapClass.PATH_GONE: "emit failed",
+    GapClass.WRITE_FAILED: "emit failed",
+    GapClass.SURFACE_UNREADABLE: "surface not read",
+    GapClass.SOURCES_UNCAPTURED: "nothing captured",
+}
+
+
+def gap_flag_label(gap_class: GapClass) -> str:
+    """The reason `mark_incomplete` records for a gap of this class."""
+    return f"{GAP_FLAG_REASON[gap_class]}: {gap_class.value}"
 
 
 @dataclass
@@ -951,6 +977,11 @@ class Emitter:
         missing flag is a bag that lost data and reads as complete, which is the
         outcome this function exists to prevent.
         """
+        # THE LABEL IS DERIVED FIRST, outside both guards below: a class with no
+        # reason in `GAP_FLAG_REASON` is a programming error, and it must surface
+        # before this function has written half a record rather than inside the
+        # handler that is recording a loss.
+        flag_reason = gap_flag_label(gap_class)
         event_written = True
         # THE EVENT IS BUILT INSIDE THE GUARD, third member of the same class as
         # the two sites in `paired_write`. `gap_event` constructs a
@@ -971,8 +1002,7 @@ class Emitter:
             event_written = False
 
         try:
-            self.bag.mark_incomplete(
-                write_path, f"emit failed: {gap_class.value}")
+            self.bag.mark_incomplete(write_path, flag_reason)
         except (OSError, BagError) as flag_exc:
             # ⚠ A FAILED FLAG RAISES WHETHER OR NOT THE EVENT LANDED, and the
             # earlier `if not event_written` guard here was the one hole in *a

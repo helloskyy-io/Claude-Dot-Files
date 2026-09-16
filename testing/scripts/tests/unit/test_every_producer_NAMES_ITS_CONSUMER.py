@@ -741,20 +741,12 @@ SURFACES = [
         # (ed5f119), the gate went red for exactly the reason it was built to,
         # and the entries left. The dict stays so the next frozen reader has a
         # place to land.
-        # ONE AS OF 2026-09-15: `rebuild.py`, PMP Phase 4's operator tool. The
-        # same shape as the two that left — a working, tested reader of the
-        # journal a human is meant to run, that no document a human reads yet
-        # names. Naming it in the guide is a planning-repo edit with its own
-        # review (the phase's requirement 6 already routes an amendment there);
-        # the producing PR surfaces it. The ratchet opens the guide, so the
-        # line leaves the day the page names it.
-        unread={
-            "rebuild.py": "PMP Phase 4's snapshot / check / restore tool, "
-                          "landed with the phase; `guide/operations.md` does "
-                          "not name it yet, and outside tests its only "
-                          "mentions are the repo map and the docstrings of "
-                          "the modules it drives",
-        },
+        # EMPTY AGAIN AS OF 2026-09-16. `rebuild.py`, PMP Phase 4's operator
+        # tool, sat here from 2026-09-15 with the same note the two before it
+        # carried — "the line leaves the day the page names it". The planning
+        # repo's `guide/operations.md` named it the next day, the gate went red
+        # on main for exactly the reason it was built to, and the entry left.
+        unread={},
     ),
 ]
 

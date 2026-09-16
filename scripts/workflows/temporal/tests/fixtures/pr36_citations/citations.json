@@ -1,0 +1,37 @@
+[
+  {
+    "claim_id": "A6-token-usage",
+    "quote": "Counts the fixture tokens consumed by one invocation, split by direction.",
+    "url": "https://sources.invalid/fixture/32999863bdba0d9ee09345877f5b1f97a67d4789/metrics_spec.md",
+    "sha": "32999863bdba0d9ee09345877f5b1f97a67d4789",
+    "paper": "raw/measured_baseline_and_method_transfer.md"
+  },
+  {
+    "claim_id": "A6-inference-calls",
+    "quote": "The number of fixture model calls one agent invocation makes before it returns.",
+    "url": "https://sources.invalid/fixture/32999863bdba0d9ee09345877f5b1f97a67d4789/metrics_spec.md",
+    "sha": "32999863bdba0d9ee09345877f5b1f97a67d4789",
+    "paper": "raw/measured_baseline_and_method_transfer.md"
+  },
+  {
+    "claim_id": "A7-result-record-fields",
+    "quote": "turn_count: int",
+    "url": "https://sources.invalid/fixture/4b90e9e993ff0a8b7b78c2a32baadd369b18b8a4/sdk_types.txt",
+    "sha": "4b90e9e993ff0a8b7b78c2a32baadd369b18b8a4",
+    "paper": "raw/measured_baseline_and_method_transfer.md"
+  },
+  {
+    "claim_id": "D2-unreproducible-crash-filing",
+    "quote": "reproduced on each of the last N fixture days",
+    "url": "https://sources.invalid/fixture/f8f747b23cf367f9a2965936d2ec073d1ec674bf/triage_cron.txt",
+    "sha": "f8f747b23cf367f9a2965936d2ec073d1ec674bf",
+    "paper": "raw/measured_baseline_and_method_transfer.md"
+  },
+  {
+    "claim_id": "L5-verdict-pattern",
+    "quote": "^FIXTURE-VERDICT: (PASS|HOLD - (?:retry|assist))$",
+    "url": "https://sources.invalid/fixture/51c0e11d1b27e66d798b9c77c0b7b58b75c96af7/verdict_routing.txt",
+    "sha": "51c0e11d1b27e66d798b9c77c0b7b58b75c96af7",
+    "paper": "raw/measured_baseline_and_method_transfer.md"
+  }
+]

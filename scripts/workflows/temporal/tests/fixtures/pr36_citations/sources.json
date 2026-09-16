@@ -1,0 +1,28 @@
+{
+  "synthetic": true,
+  "shape": "skyynet-master-planning#36's sidecar SHAPE \u2014 five (claim, verbatim span, SHA-pinned URL) rows over four sources, one source quoted twice \u2014 with every byte FABRICATED for this fixture. No third-party file is redistributed here: the repo is public, and the mechanism under test (sidecar \u2192 capture \u2192 content store \u2192 offline verify) needs bytes that contain the quoted spans, not the bytes any real URL served. The end-to-end proof on real citations is a live research run, not this.",
+  "sha": "each row's `sha` is the sha1 of its synthetic file, standing in for the commit a real row pins; the URL host is RFC 2606's reserved `.invalid`, so nothing here can resolve on a network by accident",
+  "sha256": "sha256 of each plain-text file; `_bytes_for` refuses a file that no longer matches",
+  "sources": {
+    "https://sources.invalid/fixture/32999863bdba0d9ee09345877f5b1f97a67d4789/metrics_spec.md": {
+      "file": "metrics_spec.md",
+      "sha256": "89216166c5633ccacfc19bea7c4fbc88d13d944d9ec5ef9aa891080c6720f4c0",
+      "bytes": 407
+    },
+    "https://sources.invalid/fixture/4b90e9e993ff0a8b7b78c2a32baadd369b18b8a4/sdk_types.txt": {
+      "file": "sdk_types.txt",
+      "sha256": "ccbaa5c216f7bf7160eafeacedbf84068ed2347b595814e7416f1508c272d6de",
+      "bytes": 307
+    },
+    "https://sources.invalid/fixture/f8f747b23cf367f9a2965936d2ec073d1ec674bf/triage_cron.txt": {
+      "file": "triage_cron.txt",
+      "sha256": "be84199969ad88341c77e3fb9dc242f3673f12847cee456d92c78649515b793a",
+      "bytes": 448
+    },
+    "https://sources.invalid/fixture/51c0e11d1b27e66d798b9c77c0b7b58b75c96af7/verdict_routing.txt": {
+      "file": "verdict_routing.txt",
+      "sha256": "13a87a47755def59acdba90c28b8b36735dde7575309de7efd52f761ebbd54d9",
+      "bytes": 267
+    }
+  }
+}

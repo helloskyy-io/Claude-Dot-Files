@@ -146,7 +146,7 @@ class GapClass(str, Enum):
     lost; if its `why` were derived from the content or from an exception string,
     the report would become a side channel for exactly the bytes it exists to say
     were dropped — and a gap event is written on the failure path, which is the
-    least-reviewed path there is. Five classes, a byte count and a timestamp cost
+    least-reviewed path there is. Six classes, a byte count and a timestamp cost
     a few hundred bytes and cannot leak.
     """
 
@@ -163,6 +163,18 @@ class GapClass(str, Enum):
     # event's `destination`, this is the why, and the closed set still holds:
     # no message, no URL fragment the run did not already know, no bytes.
     SURFACE_UNREADABLE = "surface_unreadable"
+    # THE SIXTH IS THE RESEARCH CAPTURE'S, AND IT NAMES AN ABSENCE RATHER THAN
+    # A FAILED I/O. A research run cited sources — the paper it committed names
+    # them by URL — and NONE of them reached the content store: no
+    # `citations.json` beside the paper, or one that paired nothing capturable.
+    # The sources exist and did not land, which is case (c) exactly, and until
+    # this class existed the miss was reported only as a `NOT RUN` line in the
+    # parent's notes, which is a silent gap wearing a sentence. Measured on
+    # skyynet-master-planning#36: 28 cited sources, an empty store, nothing red.
+    # A PER-CITATION fetch failure is NOT this class — those are recorded
+    # capture-failures on the row and the bag stays complete, because the
+    # capture never fails the run and one rotted footnote is not a lost store.
+    SOURCES_UNCAPTURED = "sources_uncaptured"
 
 
 @dataclass(frozen=True)

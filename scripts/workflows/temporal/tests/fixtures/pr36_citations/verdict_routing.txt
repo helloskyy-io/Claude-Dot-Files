@@ -1,0 +1,8 @@
+"""Fixture verdict routing (synthetic).
+
+A fabricated pattern standing in for a reviewer's verdict line. The regex is
+the span a citation row quotes; it routes nothing.
+"""
+import re
+
+FIXTURE_VERDICT = re.compile(r"^FIXTURE-VERDICT: (PASS|HOLD - (?:retry|assist))$")

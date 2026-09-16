@@ -43,6 +43,7 @@ from dispatch_context import RunContext  # noqa: E402
 from modules.journal import journal_activities as journal  # noqa: E402
 from modules.journal import harvest_activities as harvest  # noqa: E402
 from modules.assistant import assistant_activities as act  # noqa: E402
+from modules.assistant.research.capture_cited_sources import capture_into_the_run_bag  # noqa: E402
 from modules.assistant.research.research_refine.research_refine_workflow import (  # noqa: E402
     run_verify)
 
@@ -92,11 +93,11 @@ def main(argv: list[str] | None = None) -> int:
                                workflow_key=WORKFLOW_KEY, pr_number=a.pr_number,
                                target=target)
         ctx.echo()
-        journal.open_run_bag(run_id=ctx.run_id, writer=ctx.writer,
-                             repo_root=ctx.repo_root,
-                             workflow_key=ctx.workflow_key,
-                             worktree_name=ctx.worktree_name,
-                             journal_root=ctx.journal_root)
+        bag = journal.open_run_bag(run_id=ctx.run_id, writer=ctx.writer,
+                                   repo_root=ctx.repo_root,
+                                   workflow_key=ctx.workflow_key,
+                                   worktree_name=ctx.worktree_name,
+                                   journal_root=ctx.journal_root)
 
         # `origin/<the PR's branch>`, because `--pr` is set and required. Never
         # the operator's checkout position.
@@ -124,6 +125,17 @@ def main(argv: list[str] | None = None) -> int:
             harvest.harvest_github_surfaces(run_id=ctx.run_id, repo_root=repo_root,
                                             refs=(ctx.pr_number, pr_url),
                                             journal_root=ctx.journal_root)
+
+        # --- IN-WINDOW SOURCE CAPTURE ----------------------------------
+        # THE SAME CALL `run_research.py` MAKES, because this entrypoint dispatches
+        # the same prompt that writes `citations.json` and opens its own bag: a
+        # standalone refine that skipped it would leave a sidecar nothing read and
+        # a store empty with no note — skyynet-master-planning#36's shape on a
+        # supported path. Against the worktree this run wrote into; never fails
+        # the run; an empty store for a cited paper marks the bag INCOMPLETE.
+        # The helper's docstring is the contract.
+        capture_notes = capture_into_the_run_bag(
+            research_dir=research_dir, repo_root=repo_root, worktree=worktree, bag=bag)
     except (RuntimeError, FileNotFoundError, ValueError) as exc:
         return refuse(exc)
 
@@ -131,6 +143,8 @@ def main(argv: list[str] | None = None) -> int:
           f"and corrected\n{BANNER}", file=sys.stderr)
     print("  disposition it with:  ./review_pr.sh --pr <n> --type research\n"
           "  clean up with      :  /cleanup-merged-worktrees", file=sys.stderr)
+    for note in capture_notes:
+        print(f"  {note}", file=sys.stderr)
     print(pr_url)
     return 0
 

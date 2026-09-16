@@ -12,7 +12,7 @@ from modules.journal import journal_activities as journal  # noqa: E402
 from modules.journal import harvest_activities as harvest  # noqa: E402
 from modules.assistant.research.research import research_workflow as rw  # noqa: E402
 from modules.assistant.research import research_activities as act  # noqa: E402
-from modules.assistant.research.capture_cited_sources import capture_cited_sources  # noqa: E402
+from modules.assistant.research.capture_cited_sources import capture_into_the_run_bag  # noqa: E402
 
 BANNER = "=" * 64
 
@@ -148,18 +148,21 @@ def main(argv=None) -> int:
         # paper that MERGES; capturing an intermediate draft would store bytes for
         # citations the paper no longer makes.
         #
-        # ⚠ IT CANNOT FAIL THE RUN. The paper is the deliverable; the capture is
-        # evidence about it. `capture_cited_sources` catches every per-citation
-        # error itself, and this call is guarded too — a defect in the sweep must
-        # not cost a completed research run either.
-        try:
-            report = capture_cited_sources(pool_dir=research_dir, bag=bag,
-                                           stage="research")
-            result.setdefault("notes", []).append(report.as_note())
-        except Exception as exc:                  # noqa: BLE001 - see above
-            result.setdefault("notes", []).append(
-                f"source capture: NOT RUN — the sweep itself failed ({exc}). "
-                f"The paper is unaffected.")
+        # AGAINST THE WORKTREE, NOT `research_dir` — the run wrote its papers and
+        # its `citations.json` into the tree the parent cut; `research_dir` is
+        # the same relative path inside the MAIN CHECKOUT, where no run writes.
+        # Capturing against the latter is why a written sidecar could never have
+        # been read (skyynet-master-planning#36).
+        #
+        # ⚠ IT CANNOT FAIL THE RUN, AND IT CANNOT BE QUIET EITHER. The helper
+        # owns both halves — every per-citation error is a row in its report, an
+        # empty store for a cited paper is a typed gap marking the bag INCOMPLETE,
+        # and a sweep that dies before reading a row records that same gap rather
+        # than a complete-looking bag. Its docstring is the contract; this is one
+        # of three entrypoints that call it.
+        result.setdefault("notes", []).extend(capture_into_the_run_bag(
+            research_dir=research_dir, repo_root=repo_root,
+            worktree=result["worktree"], bag=bag))
     except (RuntimeError, FileNotFoundError, ValueError) as exc:
         return refuse(exc)
 

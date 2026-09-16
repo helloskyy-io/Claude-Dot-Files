@@ -22,7 +22,7 @@ import pytest
 
 from modules.assistant.tracked import rebuild as rb
 from modules.journal.bag import open_bag
-from modules.journal.emit import Emitter
+from modules.journal.emit import Emitter, gap_flag_label
 from modules.journal.events import Destination, GapClass, gap_event
 from modules.journal.snapshot import latest_snapshot
 from rebuild_fixture import RUN_PREFIX, build
@@ -37,7 +37,7 @@ def _gap_bag(journal: Path, name: str, *, write_path: str, store: str,
              flag_only: bool = False) -> None:
     bag = open_bag(journal, f"{RUN_PREFIX}{name}")
     if flag_only:
-        bag.mark_incomplete(write_path, f"emit failed: {GapClass.WRITE_FAILED.value}")
+        bag.mark_incomplete(write_path, gap_flag_label(GapClass.WRITE_FAILED))
         return
     Emitter.for_run(bag, writer=None, journal_root=journal).record_gap(
         write_path=write_path, gap_class=GapClass.WRITE_FAILED,
