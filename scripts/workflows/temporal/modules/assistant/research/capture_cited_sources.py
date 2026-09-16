@@ -133,28 +133,37 @@ class CaptureReport:
             return "coverage n/a — the run's papers cite no source by URL"
         return f"coverage {len(self.captured_urls)}/{self.cited} cited sources captured"
 
+    #: What the note leads with whenever the gap fires. ONE STRING, prefixed by
+    #: `_loud` on every arm of `as_note`, so the note and `record_capture_gap`
+    #: cannot disagree about when the gap fires: both read the predicate above.
+    #: The malformed-sidecar arm returned early without it once — the gap fired
+    #: and the note said only `NOT RUN`, which is the quiet line this banner
+    #: exists to replace.
+    GAP_BANNER = ("⚠ CONTENT STORE EMPTY FOR A CITED PAPER — the bag is marked "
+                  "INCOMPLETE (gap: sources_uncaptured). ")
+
+    def _loud(self, note: str) -> str:
+        if self.store_is_empty_for_a_cited_paper:
+            return self.GAP_BANNER + note
+        return note
+
     def as_note(self) -> str:
         cov = self.coverage_line()
         if self.parse_error:
-            return (f"source capture: NOT RUN — {self.parse_error}. The paper is "
-                    f"unaffected; no citation was captured for this run. {cov}.")
+            return self._loud(
+                f"source capture: NOT RUN — {self.parse_error}. The paper is "
+                f"unaffected; no citation was captured for this run. {cov}.")
         if self.sidecar is None:
-            head = ("source capture: NOT RUN — no `citations.json` beside the paper. "
-                    "The run cited sources it did not pair with quoted spans, so "
-                    "nothing could be stored against a claim.")
-            if self.store_is_empty_for_a_cited_paper:
-                head = ("⚠ CONTENT STORE EMPTY FOR A CITED PAPER — the bag is marked "
-                        "INCOMPLETE (gap: sources_uncaptured). " + head)
-            return f"{head} {cov}."
+            return self._loud(
+                "source capture: NOT RUN — no `citations.json` beside the paper. "
+                "The run cited sources it did not pair with quoted spans, so "
+                f"nothing could be stored against a claim. {cov}.")
         bits = [f"{self.captured} captured"]
         if self.failed:
             bits.append(f"{len(self.failed)} failed")
         if self.skipped:
             bits.append(f"{self.skipped} skipped")
-        note = "source capture: " + ", ".join(bits) + f". {cov}."
-        if self.store_is_empty_for_a_cited_paper:
-            note = ("⚠ CONTENT STORE EMPTY FOR A CITED PAPER — the bag is marked "
-                    "INCOMPLETE (gap: sources_uncaptured). " + note)
+        note = self._loud("source capture: " + ", ".join(bits) + f". {cov}.")
         for url, reason in self.failed[:5]:
             note += f"\n  FAILED {url} — {reason}"
         if len(self.failed) > 5:
@@ -373,14 +382,24 @@ def capture_into_the_run_bag(*, research_dir: Path, repo_root: Path, worktree: P
     run even when a later run changes the paper.
 
     ⚠ THE FAILURE PATH IS AS LOUD AS THE FOUND-NOTHING PATH. The sweep can die
-    before it reads a row — `default_branch` asks `gh` (a network call), the
-    worktree may be gone, the emitter may be missing — and the first version of
-    this block answered every one of those with *"no gap could be recorded"*
-    and a complete-looking bag: the silent empty store, moved to the except
-    branch. Here a dead sweep yields an EMPTY report (`cited=None`, `captured=0`),
-    which is the predicate's unknown-and-empty arm, so the gap still fires. Only
-    a gap that itself cannot be written ends without one, and that line says so
-    in the same voice as the gap.
+    before it reads a row — the worktree may be gone, the emitter may be
+    missing — and the first version of this block answered every one of those
+    with *"no gap could be recorded"* and a complete-looking bag: the silent
+    empty store, moved to the except branch. Here a dead sweep yields an EMPTY
+    report (`cited=None`, `captured=0`), which is the predicate's
+    unknown-and-empty arm, so the gap still fires. Only a gap that itself cannot
+    be written ends without one, and that line says so in the same voice as the
+    gap.
+
+    ⚠ AND A DEAD `gh` IS NOT A DEAD SWEEP. `default_branch` asks `gh` — a network
+    call — and it names only the DENOMINATOR: the paper set the coverage figure
+    is counted over. The second version of this block resolved it inside the
+    sweep's guard, so a `gh` failure skipped the sweep, fetched nothing, and
+    recorded `sources_uncaptured` over a sidecar that was capturable the whole
+    time — the capture path manufacturing the empty store it exists to detect.
+    Now a failed resolution is a NOTE, the sweep runs with no paper set
+    (`cited=None`, coverage UNKNOWN), every capturable row is still fetched, and
+    the gap fires only when the store is genuinely empty afterwards.
 
     `emitter` DEFAULTS TO THE RUN'S REGISTERED ONE, which `open_run_bag`
     registers — never a second `Emitter.for_run`, which would allocate a second
@@ -396,11 +415,20 @@ def capture_into_the_run_bag(*, research_dir: Path, repo_root: Path, worktree: P
     sweep_ran = False
     try:
         pool = in_worktree(research_dir, repo_root, worktree)
+        paper_set: dict = {"worktree": worktree, "base": base}
         if base is None:
-            base = f"origin/{default_branch(repo_root)}"
+            try:
+                paper_set["base"] = f"origin/{default_branch(repo_root)}"
+            except Exception as exc:                  # noqa: BLE001 - the denominator only
+                # The sweep goes on WITHOUT a paper set: `cited` stays `None`,
+                # the note says coverage is UNKNOWN, and the rows are fetched.
+                paper_set = {"worktree": None, "base": None}
+                notes.append(f"⚠ source capture: the default branch could not be "
+                             f"resolved ({type(exc).__name__}: {exc}), so the run's "
+                             f"paper set was not read and coverage is UNKNOWN. The "
+                             f"sidecar was still swept.")
         report = capture_cited_sources(pool_dir=pool, bag=bag, stage="research",
-                                       capture_fn=capture_fn,
-                                       worktree=worktree, base=base)
+                                       capture_fn=capture_fn, **paper_set)
         sweep_ran = True
         notes.append(report.as_note())
     except Exception as exc:                          # noqa: BLE001 - never fails the run

@@ -32,9 +32,10 @@ import pytest
 from modules.journal import emit as emitmod
 from modules.journal.bag import LABEL_GAP, open_bag, read_tag_file
 from modules.journal.edge_id import NO_CREDENTIAL_EPOCH
-from modules.journal.emit import (EmitFailed, Emitter, JournalUnwritable,
-                                  StoreWriteFailed, current_emitter,
-                                  emitting_into, gap_class_for,
+from modules.journal.emit import (GAP_FLAG_REASON, EmitFailed, Emitter,
+                                  JournalUnwritable, StoreWriteFailed,
+                                  current_emitter, emitting_into,
+                                  gap_class_for, gap_flag_label,
                                   unwritable_journal_in_text,
                                   unwritable_journal_report)
 from modules.journal.events import (EVENTS_FILE, Destination, EventKind,
@@ -447,6 +448,46 @@ def test_case_d_raises_when_even_the_GAP_RECORD_cannot_be_written(
                                      content="x")
     finally:
         bag.info_path.chmod(0o600)
+
+
+def test_the_gap_FLAG_names_the_class_it_carries_and_an_ABSENCE_is_not_an_emit_failure(
+        emitter: Emitter, bag) -> None:
+    """`Journal-Gap` read `emit failed: <class>` for EVERY class, so a research
+    run whose store held nothing for a cited paper — no append attempted — told
+    an operator an emit had failed. The label is human-readable only (rebuild
+    reads the stamp and the `tracked:` write path), so the words are free to
+    tell the truth per class while the class value stays the last token.
+    """
+    emitter.record_gap(write_path="research:cited-sources",
+                       gap_class=GapClass.SOURCES_UNCAPTURED,
+                       destination=Destination(store="content_store", address="pool"),
+                       lost_bytes=0, detail="coverage 0/28")
+    emitter.record_gap(write_path="harvest:pr-comments",
+                       gap_class=GapClass.SURFACE_UNREADABLE,
+                       destination=Destination(store="github", address="pulls/1"),
+                       lost_bytes=0)
+    emitter.record_gap(write_path="run-facts", gap_class=GapClass.WRITE_FAILED,
+                       destination=Destination(store="filesystem"), lost_bytes=12)
+    assert bag.incomplete
+    gaps = [v for label, v in read_tag_file(bag.info_path) if label == LABEL_GAP]
+    assert len(gaps) == 3, gaps
+    by_path = {g.split(" ", 2)[1]: g for g in gaps}
+    assert by_path["research:cited-sources"].endswith("— nothing captured: sources_uncaptured")
+    assert by_path["harvest:pr-comments"].endswith("— surface not read: surface_unreadable")
+    assert by_path["run-facts"].endswith("— emit failed: write_failed")
+
+
+def test_EVERY_gap_class_has_a_flag_reason() -> None:
+    """`gap_flag_label` is read on the failure path before any write; a class
+    with no reason would raise there and lose the gap it was recording. The
+    table is keyed by the closed set so this control, not a run, is where an
+    unlabelled class fails."""
+    assert set(GAP_FLAG_REASON) == set(GapClass), (
+        f"unlabelled: {set(GapClass) - set(GAP_FLAG_REASON)}")
+    for cls in GapClass:
+        label = gap_flag_label(cls)
+        assert label.endswith(f": {cls.value}"), label
+        assert GAP_FLAG_REASON[cls].strip() and "\n" not in label
 
 
 # --- what escaped the taxonomy entirely, until it was probed for -------------

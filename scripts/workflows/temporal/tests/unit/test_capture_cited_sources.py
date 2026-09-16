@@ -116,6 +116,26 @@ def test_A_MALFORMED_SIDECAR_IS_A_FINDING_NOT_AN_EXCEPTION(tmp_path: Path) -> No
     assert rows == [] and "array" in err
 
 
+def test_a_MALFORMED_sidecar_that_LEAVES_THE_STORE_EMPTY_is_loud_in_the_note(tmp_path: Path) -> None:
+    """NOTE ↔ GAP AGREEMENT ON THE MALFORMED ARM. A sidecar that will not parse
+    captures nothing; over a cited paper the predicate holds and the gap fires
+    — and the note returned early with `NOT RUN` and no banner, so the two
+    disagreed on exactly the arm a run that wrote bad JSON lands on."""
+    unparseable = CaptureReport(parse_error="citations.json is not readable JSON", cited=3)
+    assert unparseable.store_is_empty_for_a_cited_paper
+    note = unparseable.as_note()
+    assert note.startswith("⚠ CONTENT STORE EMPTY FOR A CITED PAPER"), note
+    assert "INCOMPLETE (gap: sources_uncaptured)" in note and "NOT RUN" in note
+    assert "coverage 0/3" in note
+    # Malformed over an UNCITED paper is a finding but not a gap — and not loud.
+    assert "⚠" not in CaptureReport(parse_error="citations.json is not readable JSON",
+                                    cited=0).as_note()
+    # And the same agreement through the sweep, over a real malformed file.
+    r = capture_cited_sources(pool_dir=_pool(tmp_path, raw="{not json"), bag=object(),
+                              stage="research", capture_fn=lambda **kw: None)
+    assert r.store_is_empty_for_a_cited_paper == r.as_note().startswith("⚠ CONTENT STORE EMPTY")
+
+
 def test_THE_NOTE_NAMES_THE_FAILURES_A_READER_MUST_ACT_ON(tmp_path: Path) -> None:
     """A count with no URLs is a number an operator cannot act on."""
     r = CaptureReport(captured=1, sidecar=Path("x"),
@@ -340,21 +360,49 @@ def test_the_helper_ANCHORS_into_the_worktree_and_reports_coverage(tmp_path: Pat
     assert em.calls == []
 
 
-def test_a_DEAD_SWEEP_still_records_the_gap_and_says_so(tmp_path: Path, monkeypatch) -> None:
-    """THE ARM THAT WAS SILENT. `default_branch` asks `gh`; when that dies the
-    store is empty and coverage unknown, and the bag must say incomplete — the
-    first version wrote "no gap could be recorded" and left it complete."""
-    repo_root, wt, research_dir = _tree(tmp_path, rows=[ROW])
+def _gh_is_down(monkeypatch) -> None:
     monkeypatch.setattr(ccs, "default_branch",
                         lambda repo_root: (_ for _ in ()).throw(RuntimeError("gh: network is down")))
+
+
+def test_a_DEAD_gh_does_NOT_skip_a_capturable_sidecar(tmp_path: Path, monkeypatch) -> None:
+    """THE ARM THAT MANUFACTURED THE GAP. `default_branch` asks `gh` and names
+    only the coverage DENOMINATOR; the second version resolved it inside the
+    sweep's guard, so `gh` down meant no fetch, an empty store, and a
+    `sources_uncaptured` gap over a sidecar that was capturable the whole time.
+    Now the row is fetched, the note says coverage is UNKNOWN, and no gap fires
+    — the store is not empty."""
+    repo_root, wt, research_dir = _tree(tmp_path, rows=[ROW])
+    _gh_is_down(monkeypatch)
+    attempts: list[str] = []
+    em = _Emitter()
+    notes = capture_into_the_run_bag(research_dir=research_dir, repo_root=repo_root,
+                                     worktree=wt, bag=object(), emitter=em,
+                                     capture_fn=lambda **kw: attempts.append(kw["url"]))
+    assert attempts == [ROW["url"]], "the sweep did not fetch the capturable row"
+    assert em.calls == [], f"a gap was recorded over a store that holds bytes: {em.calls}"
+    assert len(notes) == 2, notes
+    assert notes[0].startswith("⚠ source capture: the default branch could not be resolved "
+                               "(RuntimeError: gh: network is down)"), notes
+    assert "coverage is UNKNOWN" in notes[0] and "still swept" in notes[0]
+    assert notes[1] == "source capture: 1 captured. coverage UNKNOWN — the run's paper set could not be read.", notes
+
+
+def test_a_DEAD_gh_over_NO_sidecar_is_still_the_gap(tmp_path: Path, monkeypatch) -> None:
+    """The other half of the same arm: with `gh` down AND nothing capturable the
+    store is genuinely empty under unknown coverage, and the bag says incomplete
+    — the first version wrote "no gap could be recorded" and left it complete."""
+    repo_root, wt, research_dir = _tree(tmp_path, rows=None)
+    _gh_is_down(monkeypatch)
     em = _Emitter()
     notes = capture_into_the_run_bag(research_dir=research_dir, repo_root=repo_root,
                                      worktree=wt, bag=object(), emitter=em,
                                      capture_fn=lambda **kw: None)
     assert len(em.calls) == 1 and "UNKNOWN" in em.calls[0]["detail"], em.calls
     assert len(notes) == 2, notes
-    assert notes[0].startswith("⚠ source capture: NOT RUN — the sweep itself failed (RuntimeError: gh: network is down)")
-    assert "INCOMPLETE (gap: sources_uncaptured)" in notes[1]
+    assert "could not be resolved" in notes[0]
+    assert notes[1].startswith("⚠ CONTENT STORE EMPTY FOR A CITED PAPER"), notes
+    assert "coverage UNKNOWN" in notes[1]
 
 
 def test_a_sweep_that_RAISES_mid_way_is_the_same_arm(tmp_path: Path, monkeypatch) -> None:
