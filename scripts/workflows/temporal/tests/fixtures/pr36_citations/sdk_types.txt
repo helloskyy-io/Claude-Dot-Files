@@ -1,0 +1,13 @@
+"""Fixture SDK types (synthetic).
+
+A fabricated module standing in for a typed result record. It is never
+imported; its only job is to hold the span a citation row quotes.
+"""
+from dataclasses import dataclass
+
+
+@dataclass
+class FixtureResult:
+    turn_count: int
+    stop_reason: str
+    cost_units: float

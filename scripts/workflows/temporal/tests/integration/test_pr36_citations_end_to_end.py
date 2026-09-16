@@ -1,25 +1,35 @@
-"""Paper + `citations.json` → capture → offline `verify`, on skyynet-master-planning#36's real citations.
+"""Paper + `citations.json` → capture → offline `verify`, in skyynet-master-planning#36's shape.
 
 THE REFERENCE CASE. #36 ("research: Self Improvement — measured baseline and
 method transfer", merged 2026-09-15) is the run that proved the store was
 empty: 28 cited sources, every quoted span byte-checked at a pinned SHA by the
 run itself, and no `citations.json` — so `capture_cited_sources` reported `NOT
 RUN`, nothing went red, and bag `729f3eaa…` holds no bytes for any of them. The
-fixture under `tests/fixtures/pr36_citations/` is the sidecar THAT RUN SHOULD
-HAVE WRITTEN, built from five of its real (url, quoted span, sha) tuples, with
-the bytes each URL served at its pinned SHA — fetched once on 2026-09-16 and
-every span `grep -F`-matched before they were frozen.
+fixture under `tests/fixtures/pr36_citations/` is a sidecar in the SHAPE that
+run should have written — five (claim, verbatim span, SHA-pinned URL) rows over
+four sources, one source quoted twice — with the bytes each URL "served".
+
+⚠ EVERY BYTE OF THE FIXTURE IS SYNTHETIC, AND THAT IS DELIBERATE. The first
+version froze the real files four of #36's URLs served (98 KB of a metrics
+spec, an SDK types module, a triage cron, a routing module) — full third-party
+files, under Apache-2.0 and MIT, committed to a PUBLIC repo with none of the
+notices those licences require. The mechanism under test needs bytes that
+CONTAIN the quoted spans; it does not need the bytes any real URL served. So
+the four sources are fabricated here, their URLs sit under RFC 2606's reserved
+`.invalid` host so nothing can resolve them by accident, each row's `sha` is
+its file's sha1 standing in for a commit, and `sources.json` pins sha256 per
+file so an edited fixture fails before it can make `verify` pass. The proof on
+REAL citations is not this test — it is SN-PM3's next research run, with the
+sidecar writer in place, populating a real content store.
 
 WHAT IS REAL AND WHAT IS SCAFFOLDING, stated so nobody reads more into a green
-run than it proves. REAL: the five citations (claim, verbatim span, SHA-pinned
-raw URL, commit), the bytes at those SHAs, and the paper's identity. SCAFFOLDING:
-the fetch layer — `_fixture_fetch` returns the frozen bytes for a URL instead of
-opening a socket, and it is the ONLY substitution; the store, the citation
-record, the gap emitter and `verify` are the production code — and the paper
-file the tmp pool carries, which is a stub naming the same four sources rather
-than a copy of #36's 321 lines (the planning repo owns those). Where the sibling
-planning repo is checked out, `test_the_fixture_is_FROM_that_paper` reads the
-real paper and proves the four URLs are among the ones it cites.
+run than it proves. REAL: the store, the citation record, the gap emitter,
+`verify` and the verify entrypoint — all production code, none substituted —
+and the call shape `run_research.py` makes (`origin/main` resolves against a
+real remote). SCAFFOLDING: the fetch layer — `_fixture_fetch` returns the
+fixture bytes for a URL instead of opening a socket, and it is the ONLY
+substitution — the bytes themselves, and the paper file the tmp pool carries,
+which is a stub naming the fixture's four sources.
 
 THE GUARD'S TWO DIRECTIONS ARE BOTH DEMONSTRATED. Forward: sidecar present →
 five citations stored → `verify` resolves every one with the network denied at
@@ -32,7 +42,6 @@ no gap, no exception.
 
 from __future__ import annotations
 
-import gzip
 import hashlib
 import json
 import os
@@ -43,21 +52,17 @@ from pathlib import Path
 import pytest
 
 from modules.assistant.research.capture_cited_sources import (
-    GAP_WRITE_PATH, SIDECAR_NAME, capture_cited_sources, cited_sources,
-    record_capture_gap)
+    GAP_WRITE_PATH, SIDECAR_NAME, capture_cited_sources, record_capture_gap)
 from modules.journal.bag import LABEL_GAP, open_bag
 from modules.journal.citations import read_citations
 from modules.journal.content_activities import capture_fetched_source
 from modules.journal.emit import Emitter
 from modules.journal.events import EVENTS_FILE, EventKind, GapClass, decode_event
 from modules.journal.verify import EXIT_OK, VERIFIED, verify_bag
-from tests.planning_corpus import PLANNING_ROOT, require_planning_corpus
 
 COMPONENT_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = COMPONENT_ROOT / "tests" / "fixtures" / "pr36_citations"
 ENTRYPOINT = COMPONENT_ROOT / "scripts" / "verify_citations.py"
-PR36_PAPER = (PLANNING_ROOT / "development" / "edge-assistant" / "self-improvement"
-              / "research" / "raw" / "measured_baseline_and_method_transfer.md")
 
 assert ENTRYPOINT.is_file(), f"the verify entrypoint is not at {ENTRYPOINT}"
 
@@ -68,17 +73,17 @@ URLS = sorted({r["url"] for r in ROWS})
 
 
 def _bytes_for(url: str) -> bytes:
-    """The bytes the URL served at its pinned SHA, checked against the manifest.
+    """The fixture bytes the URL stands for, checked against the manifest.
 
     The sha256 check is what makes the fixture TAMPER-EVIDENT rather than merely
     present: a fixture file edited to make a span match would fail here before
     it could make `verify` pass.
     """
     entry = SOURCES[url]
-    data = gzip.decompress((FIXTURE / entry["file"]).read_bytes())
+    data = (FIXTURE / entry["file"]).read_bytes()
     assert hashlib.sha256(data).hexdigest() == entry["sha256"], (
         f"fixture bytes for {entry['file']} no longer match the manifest — the "
-        f"frozen source was altered, and every span check over it is void")
+        f"source was altered, and every span check over it is void")
     return data
 
 
@@ -146,7 +151,7 @@ def _network_denier(tmp_path: Path) -> Path | None:
 
 def test_a_run_that_WRITES_the_sidecar_fills_the_store_and_verify_resolves_it_OFFLINE(
         tmp_path: Path, journal_root: Path) -> None:
-    """SUCCESS CRITERIA 1 AND 2 in one walk, on the reference case's data."""
+    """SUCCESS CRITERIA 1 AND 2 in one walk, in the reference case's shape."""
     wt, pool = _run_tree(tmp_path, with_sidecar=True)
     bag = open_bag(journal_root, "pr36-forward")
     emitter = Emitter.for_run(bag, writer=None, journal_root=journal_root)
@@ -198,25 +203,27 @@ def test_a_run_that_WRITES_the_sidecar_fills_the_store_and_verify_resolves_it_OF
     assert {c.quote for c in stored} == {r["quote"] for r in ROWS}
 
 
-def test_the_fixture_is_FROM_that_paper() -> None:
-    """The real-data link: the four fixture URLs are cited by #36's actual paper,
-    and `cited_sources` over it returns the figure the defect was measured at.
-
-    Skips — distinctly from passing — without the planning repo beside this one.
-    The paper is a LIVE artifact that a revalidation may edit, so the count is
-    bounded below rather than pinned: the property is "this fixture describes
-    that paper", not "that paper is frozen".
-    """
-    require_planning_corpus()
-    if not PR36_PAPER.is_file():
-        pytest.skip(f"#36's paper is not at {PR36_PAPER} in the corpus beside this repo")
-    text = PR36_PAPER.read_text(encoding="utf-8")
-    for url in URLS:
-        assert url in text, f"fixture URL is not cited by #36's paper: {url}"
+def test_the_fixture_is_SYNTHETIC_and_self_contained() -> None:
+    """THE LICENCE CONTROL. The fixture once redistributed full third-party
+    files without their notices; this holds the replacement to its claim.
+    Every source is small, plain text, named by the manifest, sha256-pinned,
+    and reachable only at an `.invalid` host — and every quoted span is in the
+    bytes exactly once, which is what `verify` will re-check."""
+    manifest = json.loads((FIXTURE / "sources.json").read_text(encoding="utf-8"))
+    assert manifest["synthetic"] is True
+    assert "license" not in json.dumps(manifest).lower(), (
+        "a licence row is a third-party file's shape, and this fixture holds none")
+    on_disk = {p.name for p in FIXTURE.iterdir()} - {SIDECAR_NAME, "sources.json"}
+    assert on_disk == {e["file"] for e in SOURCES.values()}, (
+        f"fixture files and manifest disagree: {on_disk ^ {e['file'] for e in SOURCES.values()}}")
+    for url, entry in SOURCES.items():
+        assert url.startswith("https://sources.invalid/"), url
+        data = _bytes_for(url)
+        assert len(data) < 2048, f"{entry['file']} is {len(data)} bytes — a real file's size"
+        data.decode("utf-8")                         # plain text, not an archive
     for row in ROWS:
-        assert row["quote"] in text, f"the span for {row['claim_id']} is not quoted in the paper"
-    cited = cited_sources([PR36_PAPER])
-    assert cited >= 20, f"#36's paper cites {cited} distinct URLs; it carried 28 when measured"
+        assert _bytes_for(row["url"]).decode("utf-8").count(row["quote"]) == 1, row["claim_id"]
+        assert row["sha"] == hashlib.sha1(_bytes_for(row["url"])).hexdigest(), row["claim_id"]
 
 
 # --- reverse: cited paper, no sidecar → the gap ------------------------------------
@@ -275,12 +282,12 @@ def test_a_paper_that_cites_NOTHING_is_not_a_gap(tmp_path: Path, journal_root: P
 
 def test_ONE_rotted_source_is_a_recorded_failure_NOT_a_gap_and_NOT_an_exception(
         tmp_path: Path, journal_root: Path) -> None:
-    """SUCCESS CRITERION 4, demonstrated on real rows: the D2 fetch dies, the
-    other four are stored and verify, the bag stays complete."""
+    """SUCCESS CRITERION 4: the D2 fetch dies, the other four are stored and
+    verify, the bag stays complete."""
     wt, pool = _run_tree(tmp_path, with_sidecar=True)
     bag = open_bag(journal_root, "pr36-one-dead")
     emitter = Emitter.for_run(bag, writer=None, journal_root=journal_root)
-    dead = next(u for u in URLS if "clusterfuzz" in u)   # D2, the triage cron
+    dead = next(u for u in URLS if u.endswith("/triage_cron.txt"))   # D2's source
 
     def _one_dead(**kw):
         if kw["url"] == dead:

@@ -1,37 +1,37 @@
 [
   {
     "claim_id": "A6-token-usage",
-    "quote": "Number of input and output tokens used.",
-    "url": "https://raw.githubusercontent.com/open-telemetry/semantic-conventions-genai/0c87594975195608dc91b3f702e250a7b240c151/docs/gen-ai/gen-ai-metrics.md",
-    "sha": "0c87594975195608dc91b3f702e250a7b240c151",
+    "quote": "Counts the fixture tokens consumed by one invocation, split by direction.",
+    "url": "https://sources.invalid/fixture/32999863bdba0d9ee09345877f5b1f97a67d4789/metrics_spec.md",
+    "sha": "32999863bdba0d9ee09345877f5b1f97a67d4789",
     "paper": "raw/measured_baseline_and_method_transfer.md"
   },
   {
     "claim_id": "A6-inference-calls",
-    "quote": "The number of inference (model) calls a GenAI agent makes during a single invocation.",
-    "url": "https://raw.githubusercontent.com/open-telemetry/semantic-conventions-genai/0c87594975195608dc91b3f702e250a7b240c151/docs/gen-ai/gen-ai-metrics.md",
-    "sha": "0c87594975195608dc91b3f702e250a7b240c151",
+    "quote": "The number of fixture model calls one agent invocation makes before it returns.",
+    "url": "https://sources.invalid/fixture/32999863bdba0d9ee09345877f5b1f97a67d4789/metrics_spec.md",
+    "sha": "32999863bdba0d9ee09345877f5b1f97a67d4789",
     "paper": "raw/measured_baseline_and_method_transfer.md"
   },
   {
-    "claim_id": "A7-result-message-fields",
-    "quote": "num_turns: int",
-    "url": "https://raw.githubusercontent.com/anthropics/claude-agent-sdk-python/763922b0de2c9fb5371504d73ae54cde49536fe1/src/claude_agent_sdk/types.py",
-    "sha": "763922b0de2c9fb5371504d73ae54cde49536fe1",
+    "claim_id": "A7-result-record-fields",
+    "quote": "turn_count: int",
+    "url": "https://sources.invalid/fixture/4b90e9e993ff0a8b7b78c2a32baadd369b18b8a4/sdk_types.txt",
+    "sha": "4b90e9e993ff0a8b7b78c2a32baadd369b18b8a4",
     "paper": "raw/measured_baseline_and_method_transfer.md"
   },
   {
     "claim_id": "D2-unreproducible-crash-filing",
-    "quote": "everyday for the last X days and total crash count exceeded our threshold",
-    "url": "https://raw.githubusercontent.com/google/clusterfuzz/761b4a38cc667ac18463804a72198ea8f8b88eca/src/clusterfuzz/_internal/cron/triage.py",
-    "sha": "761b4a38cc667ac18463804a72198ea8f8b88eca",
+    "quote": "reproduced on each of the last N fixture days",
+    "url": "https://sources.invalid/fixture/f8f747b23cf367f9a2965936d2ec073d1ec674bf/triage_cron.txt",
+    "sha": "f8f747b23cf367f9a2965936d2ec073d1ec674bf",
     "paper": "raw/measured_baseline_and_method_transfer.md"
   },
   {
     "claim_id": "L5-verdict-pattern",
-    "quote": "^VERDICT: (MERGE|HOLD - (?:redispatch|needs-assistance))$",
-    "url": "https://raw.githubusercontent.com/helloskyy-io/Claude-Dot-Files/736d33e1feaa7b877d22077bbaf0ae4a17fca332/scripts/workflows/temporal/modules/assistant/routing.py",
-    "sha": "736d33e1feaa7b877d22077bbaf0ae4a17fca332",
+    "quote": "^FIXTURE-VERDICT: (PASS|HOLD - (?:retry|assist))$",
+    "url": "https://sources.invalid/fixture/51c0e11d1b27e66d798b9c77c0b7b58b75c96af7/verdict_routing.txt",
+    "sha": "51c0e11d1b27e66d798b9c77c0b7b58b75c96af7",
     "paper": "raw/measured_baseline_and_method_transfer.md"
   }
 ]

@@ -156,6 +156,23 @@ _DECLARED_TAG_VALUES = {
         "produces an ugly finding, not a forged label — and the finding is the "
         "point, since the alternative this replaced was the exception "
         "propagating and killing the whole sweep.",
+    # ⚠ THE TWO ROWS BELOW ARE THE `Journal-Gap` REASON, which DOES reach a tag
+    # line — through `Bag.mark_incomplete`, whose `_refuse_folded_value` is the
+    # guard on the value. The composition surfaced here when the label went from
+    # `emit failed: <class>` (a literal head, which the sweep skips) to a
+    # per-class head, so the words could stop calling an absence gap an emit
+    # failure. Neither half is free text.
+    ("emit.py", "GAP_FLAG_REASON[gap_class]"):
+        "a lookup in a module-level table of six string LITERALS, keyed by the "
+        "closed `GapClass` set; no caller supplies a value. "
+        "`test_EVERY_gap_class_has_a_flag_reason` asserts every label is "
+        "line-break-free, and `mark_incomplete` puts the composed reason "
+        "through `_refuse_folded_value` before the flag lands.",
+    ("emit.py", "gap_class.value"):
+        "a `GapClass` member's value — one of six `[a-z_]` literals on a closed "
+        "`str` enum that its docstring names as the security property: never "
+        "free text, never an exception message. Same `_refuse_folded_value` "
+        "backstop underneath.",
 }
 
 # Spellings of a tag line this package must not use, because the sweep cannot

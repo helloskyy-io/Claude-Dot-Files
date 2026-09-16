@@ -1,35 +1,28 @@
 {
-  "reference": "skyynet-master-planning#36 — research: Self Improvement — measured baseline and method transfer (merged 2026-09-15)",
-  "fetched": "2026-09-16, curl -s <url> at the pinned sha; every URL is cited verbatim in the paper and every span grep -F matched exactly once",
+  "synthetic": true,
+  "shape": "skyynet-master-planning#36's sidecar SHAPE \u2014 five (claim, verbatim span, SHA-pinned URL) rows over four sources, one source quoted twice \u2014 with every byte FABRICATED for this fixture. No third-party file is redistributed here: the repo is public, and the mechanism under test (sidecar \u2192 capture \u2192 content store \u2192 offline verify) needs bytes that contain the quoted spans, not the bytes any real URL served. The end-to-end proof on real citations is a live research run, not this.",
+  "sha": "each row's `sha` is the sha1 of its synthetic file, standing in for the commit a real row pins; the URL host is RFC 2606's reserved `.invalid`, so nothing here can resolve on a network by accident",
+  "sha256": "sha256 of each plain-text file; `_bytes_for` refuses a file that no longer matches",
   "sources": {
-    "https://raw.githubusercontent.com/open-telemetry/semantic-conventions-genai/0c87594975195608dc91b3f702e250a7b240c151/docs/gen-ai/gen-ai-metrics.md": {
-      "file": "a6_gen-ai-metrics.md.gz",
-      "sha256": "afe9d852b4122d9300d999aec3979a318b840dbd6410ba63004aa320033cda77",
-      "bytes": 98206,
-      "license": "Apache-2.0",
-      "repo": "open-telemetry/semantic-conventions-genai"
+    "https://sources.invalid/fixture/32999863bdba0d9ee09345877f5b1f97a67d4789/metrics_spec.md": {
+      "file": "metrics_spec.md",
+      "sha256": "89216166c5633ccacfc19bea7c4fbc88d13d944d9ec5ef9aa891080c6720f4c0",
+      "bytes": 407
     },
-    "https://raw.githubusercontent.com/anthropics/claude-agent-sdk-python/763922b0de2c9fb5371504d73ae54cde49536fe1/src/claude_agent_sdk/types.py": {
-      "file": "a7_types.py.gz",
-      "sha256": "fa526a35292a7463c35793cc4246364caa2e286c5c229cf0cfe2fa3cbd7efafe",
-      "bytes": 89729,
-      "license": "MIT",
-      "repo": "anthropics/claude-agent-sdk-python"
+    "https://sources.invalid/fixture/4b90e9e993ff0a8b7b78c2a32baadd369b18b8a4/sdk_types.txt": {
+      "file": "sdk_types.txt",
+      "sha256": "ccbaa5c216f7bf7160eafeacedbf84068ed2347b595814e7416f1508c272d6de",
+      "bytes": 307
     },
-    "https://raw.githubusercontent.com/google/clusterfuzz/761b4a38cc667ac18463804a72198ea8f8b88eca/src/clusterfuzz/_internal/cron/triage.py": {
-      "file": "d2_triage.py.gz",
-      "sha256": "f61a0bffeba127cb69445b63727596da33b0989743a55ecd078ed43c9a47a86a",
-      "bytes": 25989,
-      "license": "Apache-2.0",
-      "repo": "google/clusterfuzz"
+    "https://sources.invalid/fixture/f8f747b23cf367f9a2965936d2ec073d1ec674bf/triage_cron.txt": {
+      "file": "triage_cron.txt",
+      "sha256": "be84199969ad88341c77e3fb9dc242f3673f12847cee456d92c78649515b793a",
+      "bytes": 448
     },
-    "https://raw.githubusercontent.com/helloskyy-io/Claude-Dot-Files/736d33e1feaa7b877d22077bbaf0ae4a17fca332/scripts/workflows/temporal/modules/assistant/routing.py": {
-      "file": "l5_routing.py.gz",
-      "sha256": "072957e6a7e016c6422473b36753aee2f424b2ea080c5706eb62ba1684887f25",
-      "bytes": 29569,
-      "license": "MIT",
-      "repo": "helloskyy-io/Claude-Dot-Files"
+    "https://sources.invalid/fixture/51c0e11d1b27e66d798b9c77c0b7b58b75c96af7/verdict_routing.txt": {
+      "file": "verdict_routing.txt",
+      "sha256": "13a87a47755def59acdba90c28b8b36735dde7575309de7efd52f761ebbd54d9",
+      "bytes": 267
     }
-  },
-  "licenses": "SPDX ids read from `gh api repos/<owner>/<repo> --jq .license.spdx_id` on 2026-09-16; all four permit redistribution, and the full file is frozen (not an excerpt) because the content store holds full bytes and the fixture must exercise the artifact production stores"
+  }
 }
