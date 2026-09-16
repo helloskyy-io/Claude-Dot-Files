@@ -446,9 +446,9 @@ def capture_into_the_run_bag(*, research_dir: Path, repo_root: Path, worktree: P
         recorded = record_capture_gap(report, emitter=emitter, pool_dir=pool)
         if recorded and not sweep_ran:
             # `as_note` was never reached on this arm, so the gap says so here,
-            # in the same words the note uses when the sweep ran and found nothing.
-            notes.append("⚠ CONTENT STORE EMPTY FOR THIS RUN — the bag is marked "
-                         "INCOMPLETE (gap: sources_uncaptured).")
+            # in the ONE banner string the note leads with when the sweep ran
+            # and found nothing — a second spelling would drift from it.
+            notes.append(CaptureReport.GAP_BANNER.strip())
     except Exception as exc:                          # noqa: BLE001 - never fails the run
         notes.append(f"⚠ the sources_uncaptured gap could NOT be recorded "
                      f"({type(exc).__name__}: {exc}). The bag does NOT say its content "

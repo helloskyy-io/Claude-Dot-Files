@@ -415,7 +415,9 @@ def test_a_sweep_that_RAISES_mid_way_is_the_same_arm(tmp_path: Path, monkeypatch
     notes = capture_into_the_run_bag(research_dir=research_dir, repo_root=repo_root,
                                      worktree=wt, bag=object(), emitter=em, base="main")
     assert len(em.calls) == 1
-    assert "OSError: worktree vanished" in notes[0] and "sources_uncaptured" in notes[1]
+    assert "OSError: worktree vanished" in notes[0]
+    # The dead-sweep arm leads with THE banner, not a second spelling of it.
+    assert notes[1] == CaptureReport.GAP_BANNER.strip(), notes
 
 
 def test_a_gap_that_CANNOT_BE_WRITTEN_is_named_not_swallowed(tmp_path: Path) -> None:

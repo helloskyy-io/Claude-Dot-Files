@@ -220,6 +220,7 @@ def test_the_fixture_is_SYNTHETIC_and_self_contained() -> None:
         assert url.startswith("https://sources.invalid/"), url
         data = _bytes_for(url)
         assert len(data) < 2048, f"{entry['file']} is {len(data)} bytes — a real file's size"
+        assert len(data) == entry["bytes"], f"{entry['file']}: manifest says {entry['bytes']} bytes"
         data.decode("utf-8")                         # plain text, not an archive
     for row in ROWS:
         assert _bytes_for(row["url"]).decode("utf-8").count(row["quote"]) == 1, row["claim_id"]
