@@ -44,10 +44,16 @@ CONTINUATION = re.compile(r"^[│\s]+#")
 
 def tracked_paths(repo: Path) -> set[str]:
     """Every directory and file git tracks, as repo-relative POSIX strings."""
-    out = subprocess.run(["git", "-C", str(repo), "ls-files"],
-                         capture_output=True, text=True, check=True).stdout.split()
+    # `-z` and a NUL split, never whitespace: a path with a space in it —
+    # MDC's `guide/01. Table of Contents/` — shattered into four "top-level
+    # directories" the map could not possibly name, and the coverage floor
+    # refused a map that accounted for every real one.
+    out = subprocess.run(["git", "-C", str(repo), "ls-files", "-z"],
+                         capture_output=True, text=True, check=True).stdout.split("\0")
     paths: set[str] = set()
     for f in out:
+        if not f:
+            continue
         paths.add(f)
         p = Path(f).parent
         while str(p) != ".":

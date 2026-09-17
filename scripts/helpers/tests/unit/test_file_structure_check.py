@@ -85,3 +85,21 @@ def test_A_MAP_THIS_CHECK_CANNOT_READ_IS_REFUSED_NOT_CALLED_CLEAN(tmp_path: Path
     assert "clean" not in r.stdout, (
         "a map the checker cannot read must never report clean — that is an absent "
         f"check wearing a green result: {r.stdout}")
+
+
+def test_A_PATH_WITH_A_SPACE_IS_ONE_PATH_NOT_SEVERAL(tmp_path: Path) -> None:
+    """`git ls-files` split on whitespace turned `guide/01. Getting Started/x.md`
+    into three top-level names, so a map naming every real directory was refused
+    for "not accounting" for `Getting` and `Started`. Measured on MDC's map."""
+    repo = _repo(tmp_path, FULL + "└── guide/      # five\n")
+    # Enough spaced sections to outnumber the real directories: the floor
+    # compares the two, so one spaced path would not have tripped it. Only the
+    # fragment carrying the `/` reads as a top-level name, so one per section.
+    for section in ("01. Getting Started", "02. Day To Day", "03. When It Breaks",
+                    "04. Networking Notes", "05. Service Runbooks", "06. Old Archive"):
+        (repo / "guide" / section).mkdir(parents=True)
+        (repo / "guide" / section / "x.md").write_text("x\n", encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+    r = _run(repo)
+    assert r.returncode == 0, r.stdout
+    assert "clean" in r.stdout
