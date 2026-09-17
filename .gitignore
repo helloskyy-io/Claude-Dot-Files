@@ -1,6 +1,11 @@
 # Claude Code project-local files
 .claude/
 
+# The instance's configuration. DEPLOYMENT-SCOPED, never committed: install.sh
+# writes it from config.template.yaml (the committed defaults) when absent, and
+# an operator edits it per machine. Services Standard § Centralized config.yaml.
+config.yaml
+
 # Legacy service config (replaced by config.yaml — kept for backwards compat)
 scripts/services/*.config.env
 

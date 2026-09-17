@@ -290,11 +290,15 @@ SVCEOF
         info "gh-monitor.timer → linked"
     fi
 
-    # Verify config.yaml exists
+    # config.yaml is THIS INSTANCE'S configuration and is never committed: it is
+    # written once from config.template.yaml (the committed defaults) and then
+    # edited per machine. Never overwritten here — an operator's values survive
+    # every install run. Services Standard § Centralized config.yaml.
     if [ -f "$CONFIG_YAML" ]; then
-        info "config.yaml — found (edit gh-monitor settings there)"
+        info "config.yaml — present (this instance's settings; not overwritten)"
     else
-        warn "config.yaml not found at repo root — gh-monitor will use defaults"
+        cp "$REPO_DIR/config.template.yaml" "$CONFIG_YAML"
+        info "config.yaml → written from config.template.yaml (edit it for this machine)"
     fi
 
     # Enable user lingering — CRITICAL for reboot survival.

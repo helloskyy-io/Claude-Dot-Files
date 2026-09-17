@@ -61,7 +61,7 @@ if [[ -n "${MODEL_OVERRIDE:-}" ]]; then
     echo "→ Model: ${WORKFLOW_MODEL} (MODEL_OVERRIDE — bypassing config.yaml)"
 else
     if [[ ! -f "$_MODELS_CONFIG" ]]; then
-        echo "Error: config.yaml not found at ${_MODELS_CONFIG} — cannot resolve model for '${MODEL_KEY}'" >&2
+        echo "Error: config.yaml not found at ${_MODELS_CONFIG} — cannot resolve model for '${MODEL_KEY}'. Run install.sh; it writes config.yaml from config.template.yaml" >&2
         exit 1
     fi
     WORKFLOW_MODEL="$(yq -r ".models.\"${MODEL_KEY}\" // \"\"" "$_MODELS_CONFIG")"

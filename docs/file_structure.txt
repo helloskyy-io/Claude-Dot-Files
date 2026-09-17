@@ -1384,7 +1384,7 @@ claude-dot-files/
 │
 ├── .gitignore                                       # Git ignore rules
 ├── CLAUDE.md                                        # Project instructions (read by Claude Code when working in this repo)
-├── config.yaml                                      # Centralized service/workflow configuration (gh-monitor, per-workflow models map, journal root + deployment shape)
+├── config.template.yaml                             # The committed DEFAULTS for every service and workflow setting. install.sh writes config.yaml from it once; config.yaml is the instance's file, gitignored, edited per machine
 ├── conftest.py                                      # Repo-root pytest config — RLIMIT_AS memory guardrail (Testing Standard § Test Resource Safety, binding)
 ├── install.sh                                       # Creates symlinks from config/* into ~/.claude/
 ├── LICENSE                                          # MIT license

@@ -79,7 +79,7 @@ def max_turns(key: str) -> int:
     import yaml  # a hard preflight dependency; see scripts/preflight.py
     path = _WORKFLOWS.parents[1] / "config.yaml"
     if not path.is_file():
-        raise FileNotFoundError(f"config.yaml not found at {path}")
+        raise FileNotFoundError(f"config.yaml not found at {path} — run install.sh, which writes it from config.template.yaml")
     doc = yaml.safe_load(path.read_text()) or {}
     value = (doc.get("max_turns") or {}).get(key)
     if value is None:

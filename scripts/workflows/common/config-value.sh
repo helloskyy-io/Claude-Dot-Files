@@ -39,7 +39,7 @@ if ! command -v yq &>/dev/null; then
 fi
 
 if [[ ! -f "${_CONFIG}" ]]; then
-    echo "config-value.sh: config.yaml not found at ${_CONFIG}" >&2
+    echo "config-value.sh: config.yaml not found at ${_CONFIG} — run install.sh, which writes it from config.template.yaml" >&2
     exit 1
 fi
 

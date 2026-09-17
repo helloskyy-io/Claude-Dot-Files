@@ -829,8 +829,9 @@ CONTAINERS = {
             "CLAUDE.md": "the harness, at the start of every session",
             "LICENSE": "humans and GitHub — not a produced surface",
             "README.md": "the operator and GitHub",
-            "config.yaml": "`scripts/workflows/common/config-value.sh` and the "
-                           "Python fleet's `resource_limits:` reader",
+            "config.template.yaml": "`install.sh`, which writes the gitignored "
+                                    "`config.yaml` from it once; `config.yaml` is "
+                                    "then read by `config-value.sh` and the fleet",
             "conftest.py": "pytest — the RLIMIT_AS guardrail",
             "install.sh": "the operator, on every machine that syncs",
             "pytest.ini": "pytest — pins rootdir so the guardrail loads",
