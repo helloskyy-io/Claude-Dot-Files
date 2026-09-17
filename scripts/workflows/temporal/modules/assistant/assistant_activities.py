@@ -1895,6 +1895,51 @@ CI_MAX_WAIT_SECONDS = 600
 _GH_NO_CHECKS_REPLY = "no checks reported"
 
 
+def read_checks(pr: str, repo_root: Path, *, retry: bool) -> subprocess.CompletedProcess:
+    """The PR's CI state, read from ACTIONS RUNS BY HEAD SHA, in `gh pr checks`' shape.
+
+    NOT `gh pr checks`, AND THE REASON IS THE CREDENTIAL. `gh pr checks`,
+    `statusCheckRollup` and `/commits/{sha}/check-runs` all need the Checks
+    API, and GitHub exposes NO Checks permission for a fine-grained personal
+    access token — only a GitHub App can hold it. The VM's token became
+    fine-grained on 2026-09-16 (least privilege for a shared box, operator's
+    ruling), and every CI-gated chain stopped at this read with 403 "Resource
+    not accessible by personal access token" on every private repo (MDC-PM2,
+    MDC-MP #294, skyy-command #293). Actions runs carry the same names and the
+    same pass/fail, under a permission the token CAN hold (`Actions: read`).
+
+    SAME SHAPE OUT, SO `parse_checks` AND EVERY CALLER ARE UNCHANGED: stdout is
+    the JSON list `[{name, state}]` the old command printed, with `state` the
+    run's `conclusion` once completed and its `status` (IN_PROGRESS, QUEUED, …)
+    until then — the same vocabulary `_TERMINAL_CHECK_STATES` already closes
+    over. A PR with no runs for its head yields `[]`, which is the no-checks
+    case the old stderr text used to signal. A failed read yields the failed
+    reply untouched, so it still parses to None and routes UNREADABLE_CHECKS.
+
+    `retry` is `gh_attempt` (the one-shot read `ci_verdict` takes, which may
+    ride out a transient status) versus `run_bounded` (the poll in
+    `wait_for_ci`, whose loop already re-reads).
+    """
+    sha = pr_head(pr, repo_root)
+    if sha is None:
+        return subprocess.CompletedProcess(["gh", "pr", "view", pr], 1, stdout="",
+                                           stderr=f"could not read PR {pr}'s head commit")
+    cmd = ["run", "list", "--commit", sha, "--json", "name,status,conclusion", "--limit", "50"]
+    result = gh_attempt(cmd, repo_root) if retry else run_bounded(["gh", *cmd], cwd=repo_root)
+    if result.returncode != 0:
+        return result
+    try:
+        runs = json.loads(result.stdout or "")
+    except json.JSONDecodeError:
+        return result
+    if not isinstance(runs, list):
+        return subprocess.CompletedProcess(result.args, 1, stdout="", stderr="run list was not a JSON list")
+    checks = [{"name": str(r.get("name", "")),
+               "state": str(r.get("conclusion") or r.get("status") or "").upper()}
+              for r in runs if isinstance(r, dict)]
+    return subprocess.CompletedProcess(result.args, 0, stdout=json.dumps(checks), stderr="")
+
+
 def parse_checks(result: subprocess.CompletedProcess) -> list | None:
     """The check list `gh pr checks --json` reported, or None if it did not answer.
 
@@ -2015,7 +2060,6 @@ def ci_verdict(pr: str, *, repo_root: Path) -> tuple[routing.CiVerdict, list[str
     # through its return — one call, at the only site that needs it.
     policy_declared = (repo_root / routing.POLICY_PATH).is_file()
 
-    cmd = ["pr", "checks", pr, "--json", "name,state"]
     # `--repo` IS NOT PASSED, and this comment is why rather than an omission.
     # Every workflow in this fleet takes `--repo` as a FILESYSTEM PATH — the
     # flag's own help says "never a gh slug" — and this function used to hand
@@ -2062,7 +2106,7 @@ def ci_verdict(pr: str, *, repo_root: Path) -> tuple[routing.CiVerdict, list[str
     # calls that TERMINAL and spends exactly one attempt, and `gh_attempt`
     # returns the reply unjudged — which is why parsing, below, is still the
     # discriminator.
-    result = gh_attempt(cmd, repo_root)
+    result = read_checks(pr, repo_root, retry=True)
 
     # A REPLY THAT DOES NOT PARSE IS ITS OWN STATE, AND BOTH HALVES OF THIS WERE
     # WRONG. `if result.stdout.strip() else []` turned every FAILED `gh` — which
@@ -2247,7 +2291,6 @@ def wait_for_ci(pr: str, *, repo_root: Path) -> bool:
     blocking, _advisory, _readable = read_check_policy(repo_root)
 
     deadline = time.monotonic() + CI_MAX_WAIT_SECONDS
-    cmd = ["gh", "pr", "checks", pr, "--json", "name,state"]
     # `--repo` IS NOT PASSED, and this comment is why rather than an omission.
     # Every workflow in this fleet takes `--repo` as a FILESYSTEM PATH — the
     # flag's own help says "never a gh slug" — and this function used to hand
@@ -2280,7 +2323,7 @@ def wait_for_ci(pr: str, *, repo_root: Path) -> bool:
         # repository, and `None` chooses the operator's shell. A poll loop
         # pointed at the wrong repo does not fail fast — it burns the whole
         # 600-second deadline first.
-        result = run_bounded(cmd, cwd=repo_root)
+        result = read_checks(pr, repo_root, retry=False)
 
         # PARSE FIRST, AND LET A FAILED READ BE ITS OWN STATE. `gh pr checks`
         # exits non-zero whenever checks are FAILING or PENDING, so the return

@@ -38,6 +38,51 @@ from modules.assistant import routing  # noqa: E402
 from modules.assistant.routing import POLICY_PATH, CiVerdict, Verdict  # noqa: E402
 
 
+_HEAD = "0123456789abcdef0123456789abcdef01234567"
+_NO_CHECKS_STDERR_TEXT = "no checks reported"
+
+
+def _to_run_list(reply):
+    """Translate a fake written against `gh pr checks --json name,state` into the
+    `gh run list --json name,status,conclusion` reply `read_checks` consumes.
+
+    The gate tests below were written against the old command's channels — a
+    JSON list of `{name, state}`, or an empty stdout with `no checks reported`
+    on stderr — and those channels are what they assert on. The translation
+    keeps every one of them meaningful: a checks list becomes the same runs; the
+    no-checks stderr becomes an empty run list; anything unparseable passes
+    through untouched so it still reads as a failed read.
+    """
+    body = getattr(reply, "stdout", "") or ""
+    stderr = getattr(reply, "stderr", "") or ""
+    try:
+        checks = json.loads(body)
+    except (json.JSONDecodeError, TypeError):
+        if _NO_CHECKS_STDERR_TEXT in stderr.lower():
+            return subprocess.CompletedProcess([], 0, stdout="[]", stderr="")
+        return reply
+    if not isinstance(checks, list):
+        return reply
+    runs = []
+    for c in checks:
+        state = str(c.get("state", "")).upper()
+        done = state in act._TERMINAL_CHECK_STATES
+        runs.append({"name": c.get("name"), "status": "completed" if done else state.lower(),
+                     "conclusion": state.lower() if done else None})
+    return subprocess.CompletedProcess([], 0, stdout=json.dumps(runs), stderr="")
+
+
+def _dispatch(fake, *, mergeable="MERGEABLE"):
+    """`gh pr view` answered here (head + mergeability); the test's fake sees only
+    the run-list read, so its call counts mean what they meant."""
+    def run(argv, *a, **k):
+        if "view" in argv:
+            body = {"headRefOid": _HEAD} if "headRefOid" in argv else {"mergeable": mergeable}
+            return subprocess.CompletedProcess(argv, 0, stdout=json.dumps(body), stderr="")
+        return _to_run_list(fake(argv, *a, **k))
+    return run
+
+
 def _gh(monkeypatch, payload, *, stdout=None, stderr="", returncode=0):
     """Stand in for `gh pr checks --json name,state`.
 
@@ -50,8 +95,8 @@ def _gh(monkeypatch, payload, *, stdout=None, stderr="", returncode=0):
     body = stdout if stdout is not None else json.dumps(payload)
     monkeypatch.setattr(
         act.subprocess, "run",
-        lambda *a, **k: subprocess.CompletedProcess(
-            a[0] if a else [], returncode, stdout=body, stderr=stderr))
+        _dispatch(lambda *a, **k: subprocess.CompletedProcess(
+            a[0] if a else [], returncode, stdout=body, stderr=stderr)))
 
 
 @pytest.fixture
@@ -212,7 +257,7 @@ def test_a_repo_with_NO_CI_stops_polling_on_the_FIRST_reply(monkeypatch, tmp_pat
         calls.append(a[0] if a else [])
         return subprocess.CompletedProcess([], 1, stdout="", stderr=_NO_CHECKS_STDERR)
 
-    monkeypatch.setattr(act.subprocess, "run", one_reply)
+    monkeypatch.setattr(act.subprocess, "run", _dispatch(one_reply))
     monkeypatch.setattr(act.time, "sleep", lambda *_: None)
     assert act.wait_for_ci("1", repo_root=tmp_path) is True, (
         "a repo with no CI and no declared gate has nothing to settle — the wait "
@@ -252,7 +297,7 @@ def test_a_transient_503_on_the_gate_read_is_RIDDEN_OUT_not_turned_into_a_HOLD(
         calls["n"] += 1
         return r
 
-    monkeypatch.setattr(act.subprocess, "run", run)
+    monkeypatch.setattr(act.subprocess, "run", _dispatch(run))
     monkeypatch.setattr(shared.time, "sleep", lambda _s: None)
 
     assert act.ci_verdict("1", repo_root=repo)[0] is CiVerdict.GREEN, (
@@ -281,7 +326,7 @@ def test_a_merely_RED_pr_still_costs_exactly_one_gate_read(monkeypatch, repo):
             [], 1, stdout=json.dumps([{"name": "suite", "state": "FAILURE"}]),
             stderr="")
 
-    monkeypatch.setattr(act.subprocess, "run", run)
+    monkeypatch.setattr(act.subprocess, "run", _dispatch(run))
     monkeypatch.setattr(shared.time, "sleep", lambda _s: None)
 
     verdict, failed = act.ci_verdict("1", repo_root=repo)
@@ -412,7 +457,7 @@ def _gh_sequence(monkeypatch, payloads):
         calls["n"] += 1
         return R(json.dumps(payloads[i]))
 
-    monkeypatch.setattr(act.subprocess, "run", run)
+    monkeypatch.setattr(act.subprocess, "run", _dispatch(run))
     monkeypatch.setattr(act.time, "sleep", lambda *_: None)
     return calls
 
@@ -793,7 +838,7 @@ def _gh_replies(monkeypatch, replies, *, max_wait: float = 60.0):
         calls["n"] += 1
         return reply
 
-    monkeypatch.setattr(act.subprocess, "run", run)
+    monkeypatch.setattr(act.subprocess, "run", _dispatch(run))
     monkeypatch.setattr(act.time, "monotonic", lambda: clock["t"])
     monkeypatch.setattr(act.time, "sleep", lambda s: clock.__setitem__("t", clock["t"] + max(s, 1.0)))
     monkeypatch.setattr(act, "CI_MAX_WAIT_SECONDS", max_wait)
@@ -1171,9 +1216,11 @@ def _gh_by_command(monkeypatch, *, checks_stdout: str, checks_stderr: str,
     """`gh pr checks` and `gh pr view` answer differently, keyed on the argv."""
     def run(argv, *a, **k):
         if "view" in argv:
+            if "headRefOid" in argv:
+                return subprocess.CompletedProcess(argv, 0, stdout=json.dumps({"headRefOid": _HEAD}), stderr="")
             return subprocess.CompletedProcess(argv, 0, stdout=view_stdout, stderr="")
-        return subprocess.CompletedProcess(argv, 1 if checks_stderr else 0,
-                                           stdout=checks_stdout, stderr=checks_stderr)
+        return _to_run_list(subprocess.CompletedProcess(argv, 1 if checks_stderr else 0,
+                                                        stdout=checks_stdout, stderr=checks_stderr))
     monkeypatch.setattr(act.subprocess, "run", run)
 
 
@@ -1223,4 +1270,59 @@ def test_the_stall_converts_ONLY_a_no_op_redispatch(verdict, before, after) -> N
     notes: list[str] = []
     assert routing.stalled(verdict, before, after, notes, 1) is verdict
     assert notes == []
+
+
+# ---------------------------------------------------------------- read_checks
+
+def _launch(monkeypatch, view: str | None, runs):
+    """`view` is the `pr view --json headRefOid` reply body (None → the launch fails);
+    `runs` is the `run list` reply body or a CompletedProcess to hand back as is."""
+    def run(argv, *a, **k):
+        if "view" in argv:
+            if view is None:
+                return subprocess.CompletedProcess(argv, 1, stdout="", stderr="HTTP 404")
+            return subprocess.CompletedProcess(argv, 0, stdout=view, stderr="")
+        if isinstance(runs, subprocess.CompletedProcess):
+            return runs
+        return subprocess.CompletedProcess(argv, 0, stdout=runs, stderr="")
+    monkeypatch.setattr(act.subprocess, "run", run)
+
+
+def test_read_checks_reads_ACTIONS_RUNS_by_head_sha_not_the_checks_api(monkeypatch, tmp_path):
+    """A fine-grained PAT has no Checks permission — GitHub exposes none — so
+    `gh pr checks` and `statusCheckRollup` 403 on every private repo. Actions
+    runs carry the same names and outcomes under a permission the token can
+    hold. Measured 2026-09-17 on MDC-MP #294 and skyy-command #293."""
+    seen = []
+    def run(argv, *a, **k):
+        seen.append(list(argv))
+        if "view" in argv:
+            return subprocess.CompletedProcess(argv, 0, stdout=json.dumps({"headRefOid": _HEAD}), stderr="")
+        return subprocess.CompletedProcess(argv, 0, stdout=json.dumps([
+            {"name": "suite", "status": "completed", "conclusion": "success"},
+            {"name": "CodeQL", "status": "in_progress", "conclusion": None},
+        ]), stderr="")
+    monkeypatch.setattr(act.subprocess, "run", run)
+    reply = act.read_checks("7", tmp_path, retry=False)
+    assert act.parse_checks(reply) == [{"name": "suite", "state": "SUCCESS"},
+                                       {"name": "CodeQL", "state": "IN_PROGRESS"}]
+    launched = [a for a in seen if "list" in a]
+    assert launched and "--commit" in launched[0] and _HEAD in launched[0], launched
+    assert not any("checks" in a for a in seen), "the Checks API was consulted"
+
+
+def test_read_checks_with_NO_RUNS_for_the_head_is_the_no_checks_case(monkeypatch, tmp_path):
+    _launch(monkeypatch, json.dumps({"headRefOid": _HEAD}), "[]")
+    assert act.parse_checks(act.read_checks("7", tmp_path, retry=False)) == []
+
+
+@pytest.mark.parametrize("view, runs", [
+    (None, "[]"),                                                   # head unreadable
+    (json.dumps({"headRefOid": _HEAD}), subprocess.CompletedProcess([], 1, stdout="", stderr="HTTP 403")),
+    (json.dumps({"headRefOid": _HEAD}), "not json"),
+    (json.dumps({"headRefOid": _HEAD}), json.dumps({"total": 1})),  # wrong shape
+])
+def test_read_checks_FAILURES_stay_unreadable_never_a_pass(monkeypatch, tmp_path, view, runs):
+    _launch(monkeypatch, view, runs)
+    assert act.parse_checks(act.read_checks("7", tmp_path, retry=False)) is None
 

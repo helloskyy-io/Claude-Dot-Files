@@ -29,7 +29,7 @@ EXECUTION ORDER IS MANDATORY. If a stage has nothing to address, emit: ## Stage 
 
 **`CONFLICTING`/`DIRTY` is not a cosmetic state — it SILENTLY DISABLES the merge gate.** `tests.yml` triggers on `pull_request`, which runs against the PR's **merge ref**, and GitHub cannot compute a merge ref for a conflicted PR — **so no run is created at all.** Not a failing run. No run. It reads as "no failures" and it is "no evidence". Measured 2026-08-12: PR #85 went 3,993 changed lines with zero merge-path coverage while a clean sibling PR's run fired between two of its silent drops.
 
-**The instrument that distinguishes "Actions is broken" from "this PR is conflicted" is `git ls-remote origin refs/pull/<N>/merge`** — a stale merge ref is the single observable, and the two causes have completely different remedies. **And compare the check SET against the previous head's, not just each check's colour:** `gh pr checks` cannot distinguish a check that was dropped from one that never ran.
+**The instrument that distinguishes "Actions is broken" from "this PR is conflicted" is `git ls-remote origin refs/pull/<N>/merge`** — a stale merge ref is the observable; the causes have different remedies. **Compare the check SET against the previous head's, not just each check's colour:** `gh run list --commit <sha>` (not `gh pr checks`: 403 on our token) cannot tell a dropped check from an unrun one
 
 **A conflicted PR cannot return MERGE.** Say so and hold.
 
