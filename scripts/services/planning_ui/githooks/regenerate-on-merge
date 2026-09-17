@@ -1,0 +1,79 @@
+#!/bin/sh
+# Regenerate the corpus viewer's artifacts from a MERGED tree, with the
+# merged history, before the merge commit exists. One script, installed under
+# two hook names, because no single hook can do it:
+#
+#   pre-merge-commit  — run by `git merge` before its AUTOMATIC commit. Vetoes
+#                       when the merged tree derives differently from the
+#                       committed artifacts, so the merge stops and the
+#                       commit is made by `git commit` instead.
+#   pre-commit        — run by that `git commit`. Regenerates and stages.
+#
+# WHY NOT THE MERGE DRIVER. Under git's `ort` strategy the merge is computed in
+# memory: when a driver runs, the working tree still holds OUR side of every
+# roadmap and MERGE_HEAD is not written — measured on git 2.43. A driver that
+# regenerated would silently commit artifacts of the pre-merge corpus.
+#
+# WHY NOT REGENERATE IN pre-merge-commit. Two things measured on git 2.43: the
+# automatic merge commit's tree is computed BEFORE this hook runs, so nothing
+# it stages reaches that commit; and MERGE_HEAD is still unwritten while it
+# runs, so the decisions page's `git log` over tracked/ cannot see the incoming
+# side's commits — an item the other lane filed would derive with no age, and
+# the merge commit would derive it with one. So this hook only vetoes. Git then
+# writes MERGE_HEAD and asks for `git commit`.
+#
+# WHY pre-commit CAN. By then MERGE_HEAD exists — `history.py` walks the log
+# from both heads and `git blame` adds the merge head as a parent on its own —
+# and `git commit` re-reads the index after this hook, so what it stages is in
+# the commit. The same path serves a merge that stopped on a conflict elsewhere
+# and was resolved by hand: that commit is also `git commit`.
+#
+# Registration is per clone — see .gitattributes at the repository root. A
+# clone without it gets a whole-file conflict on the artifacts instead, and the
+# rule is the same: regenerate, never pick hunks.
+set -eu
+cd "$(git rev-parse --show-toplevel)"
+
+hook=$(basename "$0")
+
+# Only a merge commit has a merged tree to regenerate from.
+if [ "$hook" = "pre-commit" ] && ! git rev-parse -q --verify MERGE_HEAD >/dev/null; then
+    exit 0
+fi
+
+# Nothing to do when the merged tree derives what is already committed. The
+# predicate is the generator's own answer, `--check`, because nothing else
+# knows the derivation's input set: it is not "any markdown" — the derivation
+# also reads whether a link's TARGET exists, so a lane that deletes the last
+# file of a directory a roadmap links changes the artifacts without touching
+# a `.md` (measured; a path predicate keyed on suffix let that merge commit
+# STALE artifacts). Asking the generator is exact for every input class it
+# reads, today's and the next one's.
+#
+# As pre-merge-commit this asks with MERGE_HEAD unset, so the page's history
+# is HEAD's alone: a merge whose only effect is on `tracked/` HISTORY — the
+# incoming lane touched and reverted an item, netting no content change — can
+# read `current` here, land automatically, and be named STALE by `--check` on
+# `main`. The content side has no such gap: any content change the merged
+# tree carries reads STALE here, and a false STALE costs one `git commit`.
+#
+# The output is kept and shown on a veto so the operator sees WHICH artifact
+# drifted — or the traceback, if the generator itself failed, which vetoes
+# too: a generator that cannot run cannot vouch for the artifacts.
+if verdict=$(python3 -m planning_ui --check 2>&1); then
+    exit 0
+fi
+
+if [ "$hook" = "pre-merge-commit" ]; then
+    echo >&2
+    printf '%s\n' "$verdict" >&2
+    echo >&2
+    echo "planning_ui: this merge leaves the artifacts under development/derived/ stale, and they" >&2
+    echo "planning_ui: can only be regenerated once the merge history is readable. Run \`git commit\`" >&2
+    echo "planning_ui: to regenerate them from the merged tree and record the merge." >&2
+    exit 1
+fi
+
+python3 -m planning_ui
+git add development/derived
+echo "planning_ui: regenerated development/derived/ from the merged tree and staged it with this commit." >&2

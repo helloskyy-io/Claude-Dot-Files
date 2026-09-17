@@ -1,0 +1,22 @@
+# Python configuration for the planning-ui service, scoped to this directory.
+#
+# NOT at the tooling's root: this repository holds several Python programs
+# with their own test trees, and one pyproject per program keeps each suite
+# discoverable on its own — `python -m pytest` from here runs this service's
+# tests and nothing else's.
+#
+# There is no [project] table and no dependency list because the Python has no
+# dependencies: standard library only, which is what lets a planning repo run
+# it from a bare checkout of the tooling. The viewer's third-party code is
+# JavaScript ES modules, vendored under renderers/vendor/ and declared —
+# package, version, integrity, bytes — in renderers/vendor/manifest.json,
+# which is the declaration a browser-side dependency has.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".."]
+python_files = ["test_*.py"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100

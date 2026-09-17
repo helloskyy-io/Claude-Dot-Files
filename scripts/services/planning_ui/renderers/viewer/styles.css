@@ -1,0 +1,229 @@
+/* The viewer's chrome, and the ONE carrier of every colour it draws with:
+   viewer/tokens.mjs reads the four surface properties back off this
+   stylesheet rather than restating them, so the SVG and the chrome cannot
+   disagree and a theme cannot half-apply.
+
+   The first eight custom properties are the Design System Standard's §1.2
+   and §1.3 tokens. Every other colour below is either one of those tokens
+   or a color-mix() of one with ui-dark — a tint is derived, never authored,
+   so a status-colour change propagates here as the standard intends. The
+   four --panel/--line/--text/--muted shades are the ONE exception: the
+   standard codifies one dark surface (ui-dark) and no panel, rule, text or
+   muted-text shade for a dark theme, so the viewer names its own from the
+   slate ramp ui-dark and ui-secondary sit on. A stated exception per the
+   standard's own "diverges without a stated exception" test; surfaced as a
+   candidate for the token set. */
+:root {
+  --ui-dark: #0f172a;
+  --ui-white: #ffffff;
+  --ui-primary: #0ea5e9;
+  --ui-secondary: #64748b;
+  --status-online: #10b981;
+  --status-offline: #ef4444;
+  --status-warning: #f59e0b;
+  --status-maintenance: #8b5cf6;
+  --panel: #1e293b;   /* local — slate-800 */
+  --line: #334155;    /* local — slate-700 */
+  --text: #e2e8f0;    /* local — slate-200 */
+  --muted: #94a3b8;   /* local — slate-400 */
+  --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+/* A THEME CHANGES SURFACES AND NOTHING ELSE.
+   The four status hues and ui-primary/ui-secondary are Design System §1.2/§1.3
+   and mean the same thing on every platform surface — requirement 4 of this
+   phase. Repainting them per theme would make a colour mean one thing here and
+   another on the Admin UI, so no theme below touches them. What a theme may
+   change is the ramp the standard does NOT codify: the ground, the panel, the
+   rules, and the two text weights.
+
+   `contrast` follows VS Code's Dark High Contrast: a true-black ground, a
+   near-black panel that is still distinguishable from it, pure-white body
+   text, and a visible rule on every edge rather than a low-contrast hairline —
+   the point of that theme is that boundaries are stated, not implied. */
+:root[data-theme="contrast"] {
+  --ui-dark: #000000;
+  --panel: #0c0c0c;
+  --line: #6fc3df;
+  --text: #ffffff;
+  --muted: #cccccc;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--ui-dark); color: var(--text);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+a { color: var(--ui-primary); }
+code, .mono { font-family: var(--mono); font-size: 12px; }
+.loading { padding: 2rem; color: var(--muted); }
+
+header.top { display: flex; flex-wrap: wrap; gap: 1rem 1.5rem; align-items: center;
+  padding: .6rem 1rem; border-bottom: 1px solid var(--line); background: var(--panel); }
+header.top h1 { font-size: 15px; margin: 0; font-weight: 600; }
+
+/* Navigation is a set of EQUAL-WIDTH buttons, not a row of links whose width
+   is whatever their words happen to be. `min-width` rather than `width` so a
+   future page with a longer name widens its own button instead of overflowing
+   it; every button still renders at the same width because flex stretches
+   them to the widest. The active page is filled, not underlined — at a glance
+   the filled one is where you are. */
+header.top nav { display: flex; gap: .4rem; }
+header.top nav a { min-width: 11rem; text-align: center; text-decoration: none;
+  padding: .35rem .8rem; border: 1px solid var(--line); border-radius: 4px;
+  color: var(--text); background: var(--ui-dark); }
+header.top nav a:hover { border-color: var(--ui-primary); }
+header.top nav a.active { background: var(--ui-primary); border-color: var(--ui-primary);
+  color: var(--ui-dark); font-weight: 600; }
+
+/* `re-derive` is an ACTION, not a destination, so it must not read as a
+   fourth tab: ghost-styled and pushed to the right beside the stamp it
+   refreshes. */
+header.top .stamp { color: var(--muted); font-size: 12px; }
+header.top .theme { display: inline-flex; gap: .4rem; align-items: center;
+  color: var(--muted); font-size: 12px; margin-left: auto; }
+header.top .theme select { background: var(--ui-dark); color: var(--text);
+  border: 1px solid var(--line); border-radius: 4px; padding: .25rem .4rem; font: inherit; }
+header.top button { background: none; border: 1px solid var(--line); color: var(--muted);
+  padding: .3rem .7rem; border-radius: 4px; cursor: pointer; }
+header.top button:hover { color: var(--text); border-color: var(--ui-primary); }
+
+.error { margin: 1rem; padding: 1rem; border: 2px solid var(--status-offline); border-radius: 6px; background: color-mix(in srgb, var(--status-offline) 15%, var(--ui-dark)); }
+.error h2 { margin: 0 0 .5rem; color: color-mix(in srgb, var(--status-offline) 55%, var(--ui-white)); font-size: 15px; }
+.error pre { white-space: pre-wrap; font-family: var(--mono); font-size: 12px; margin: 0; }
+
+/* The context bar: what you are looking at WITHIN the page the nav chose.
+   Recessed against the header so the two read as a hierarchy rather than as
+   two rows of equal-weight chrome. */
+.controls { display: flex; flex-wrap: wrap; gap: .6rem 1.2rem; align-items: center;
+  padding: .5rem 1rem; border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 50%, var(--ui-dark)); }
+.controls label { display: inline-flex; gap: .4rem; align-items: center; color: var(--muted); }
+.controls select, .controls input { background: var(--ui-dark); color: var(--text);
+  border: 1px solid var(--line); border-radius: 4px; padding: .2rem .4rem; font: inherit; }
+.controls input[type=number] { width: 4.5rem; }
+.controls .note { color: var(--muted); }
+.controls .warn { color: color-mix(in srgb, var(--status-warning) 70%, var(--ui-white)); }
+
+.page { display: grid; grid-template-columns: 1fr 380px; height: calc(100vh - 110px); }
+.page .canvas { position: relative; overflow: hidden; }
+/* user-select: none — a double-click on a node must not select its label's
+   text; a drag after that would become a text drag-and-drop, which cancels
+   the pointer and ends the pan after one move (measured in Chromium 151).
+   touch-action: none hands touch gestures to the pan/zoom handlers. */
+.page .canvas svg { width: 100%; height: 100%; display: block; cursor: grab; background: var(--ui-dark);
+  user-select: none; -webkit-user-select: none; touch-action: none; }
+.page .canvas svg.panning { cursor: grabbing; }
+.page aside { border-left: 1px solid var(--line); overflow: auto; padding: .8rem 1rem; background: var(--panel); }
+aside h2 { font-size: 14px; margin: .2rem 0 .6rem; }
+aside h3 { font-size: 12px; margin: 1rem 0 .3rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+aside ul { margin: 0; padding-left: 1.1rem; }
+aside li { margin: .2rem 0; overflow-wrap: anywhere; }
+aside .muted { color: var(--muted); }
+aside .swatch { display: inline-block; width: 26px; height: 0; border-top: 3px solid; vertical-align: middle; margin-right: .4rem; }
+aside .ring { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 3px solid; vertical-align: middle; margin-right: .4rem; background: var(--ui-primary); }
+aside .ring.nothing { background: var(--status-maintenance); border-style: dashed; }
+aside .ring.missing { background: transparent; border-style: dashed; border-color: var(--status-offline); }
+aside .counts { display: grid; grid-template-columns: auto 1fr; gap: .15rem .8rem; }
+aside .counts b { text-align: right; font-variant-numeric: tabular-nums; }
+aside dl { margin: 0; }
+aside dt { color: var(--muted); font-size: 12px; margin-top: .4rem; }
+aside dd { margin: 0; word-break: break-word; }
+aside button.link { background: none; border: 0; padding: 0; color: var(--ui-primary); cursor: pointer; font: inherit; text-decoration: underline; }
+.badge { display: inline-block; padding: 0 .35rem; border-radius: 3px; font-size: 11px; font-family: var(--mono); background: var(--line); margin-left: .3rem; }
+.badge.state-satisfied { background: color-mix(in srgb, var(--status-online) 35%, var(--ui-dark)); }
+.badge.state-unsatisfied { background: color-mix(in srgb, var(--status-warning) 35%, var(--ui-dark)); }
+.badge.state-broken { background: color-mix(in srgb, var(--status-offline) 35%, var(--ui-dark)); }
+.badge.state-underivable { background: var(--line); }
+
+.sprint-list { list-style: none; padding: 0; margin: 0; }
+.sprint-list li { padding: .3rem .4rem; border-bottom: 1px solid var(--line); cursor: pointer; }
+.sprint-list li.selected { background: color-mix(in srgb, var(--ui-primary) 35%, var(--ui-dark)); }
+.sprint-list li .raw { color: var(--muted); font-size: 12px; display: block; margin-top: .15rem; white-space: pre-wrap; word-break: break-word; }
+.sprint-list li .line { font-family: var(--mono); color: var(--muted); font-size: 11px; }
+.sprint-list li.unlinked { border-left: 3px solid var(--status-offline); }
+
+footer { padding: .6rem 1rem; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; display: flex; flex-wrap: wrap; gap: .3rem 2rem; }
+footer details { display: inline; }
+footer table { border-collapse: collapse; margin-top: .4rem; }
+footer td { padding: .1rem .6rem .1rem 0; font-family: var(--mono); font-size: 11px; }
+.howto { padding: 1rem; max-width: 60rem; }
+.howto pre { background: var(--panel); padding: .6rem .8rem; border-radius: 4px; }
+
+/* Page 1 — the sprint overview. A row per sprint, in the file's order. The
+   row is the click target, so the whole band lifts on hover rather than a
+   link inside it: the subject of the row IS the destination. */
+.overview { padding: 1rem; overflow: auto; height: calc(100vh - 110px); }
+.sprint-rows { list-style: none; margin: 0 auto; padding: 0; max-width: 1100px;
+  display: flex; flex-direction: column; gap: .5rem; }
+.sprint-row { border: 1px solid var(--line); border-left: 5px solid var(--ui-secondary);
+  border-radius: 4px; padding: .6rem .9rem; background: var(--panel); cursor: pointer; }
+.sprint-row:hover { border-color: var(--ui-primary); }
+.sprint-row.done { border-left-color: var(--status-online); }
+.sprint-row.active { border-left-color: var(--ui-primary); }
+.sprint-row.planned { border-left-color: var(--status-maintenance); }
+.sprint-row.unscheduled { border-left-color: var(--ui-secondary); }
+
+.sr-head { display: flex; align-items: baseline; gap: .7rem; }
+.sr-name { font-weight: 600; }
+.sr-line { color: var(--muted); font-size: 11px; margin-left: auto; }
+.sr-marker { font-size: 10px; letter-spacing: .05em; text-transform: uppercase;
+  padding: .12rem .45rem; border-radius: 3px; border: 1px solid currentColor; }
+.sr-marker.done { color: var(--status-online); }
+.sr-marker.active { color: var(--ui-primary); }
+.sr-marker.planned { color: var(--status-maintenance); }
+.sr-marker.unscheduled { color: var(--muted); }
+
+/* The bar carries PROPORTION only. The figures beside it carry the counts,
+   because a bar cannot say "and four of these have no hour figure". */
+.sr-bar { height: 6px; border-radius: 3px; background: var(--ui-dark);
+  margin: .5rem 0 .4rem; overflow: hidden; }
+.sr-fill { height: 100%; background: var(--ui-secondary); }
+.sr-fill.done { background: var(--status-online); }
+.sr-fill.active { background: var(--ui-primary); }
+.sr-fill.planned { background: var(--status-maintenance); }
+
+.sr-facts { display: flex; flex-wrap: wrap; gap: .3rem 1.2rem; font-size: 12px; color: var(--muted); }
+.sr-facts b { color: var(--text); font-variant-numeric: tabular-nums; }
+.sr-warn { color: color-mix(in srgb, var(--status-warning) 75%, var(--ui-white)); }
+
+.controls button.back { background: none; border: 1px solid var(--line);
+  color: var(--text); padding: .2rem .6rem; border-radius: 4px; cursor: pointer; font: inherit; }
+.controls button.back:hover { border-color: var(--ui-primary); }
+
+/* The Issues page — five store tables. Each table scrolls on its own axis so
+   a wide one cannot push the page sideways, which would hide the filter. */
+.stores { padding: 1rem; overflow: auto; height: calc(100vh - 110px); }
+.store { max-width: 1400px; margin: 0 auto 2rem; }
+.store h2 { font-size: 14px; margin: 0 0 .3rem; }
+.store-meta { display: flex; flex-wrap: wrap; gap: .3rem 1.2rem; margin: 0 0 .4rem;
+  font-size: 12px; color: var(--muted); }
+.store-owes { font-size: 12px; color: var(--muted); margin: 0 0 .6rem; max-width: 90ch; }
+.store-note { font-size: 12px; margin: .4rem 0 0; max-width: 90ch; }
+.store-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 4px; }
+.store table { border-collapse: collapse; width: 100%; font-size: 12px; }
+.store th, .store td { text-align: left; padding: .35rem .6rem; border-bottom: 1px solid var(--line);
+  vertical-align: top; }
+.store th { background: var(--panel); position: sticky; top: 0; font-weight: 600; }
+/* A derived column is marked, because a reader must be able to tell what the
+   corpus states from what this tool worked out. */
+.store th.derived::after { content: " ᴰ"; color: var(--ui-primary); }
+.store tbody tr:hover { background: color-mix(in srgb, var(--ui-primary) 8%, transparent); }
+.controls input[type=search] { background: var(--ui-dark); color: var(--text);
+  border: 1px solid var(--line); border-radius: 4px; padding: .2rem .5rem; font: inherit; min-width: 18rem; }
+
+/* The Issues page's sub-tabs — one store at a time. The count rides on the
+   tab because tabbing costs the at-a-glance view the single scroll had, and
+   a store owing nothing still gets a tab: "nothing here" is information. */
+.subtabs { display: flex; flex-wrap: wrap; gap: .3rem; padding: .5rem 1rem;
+  border-bottom: 1px solid var(--line); }
+.subtab { display: inline-flex; align-items: center; gap: .45rem; font: inherit;
+  font-size: 12px; padding: .3rem .7rem; border-radius: 4px; cursor: pointer;
+  background: var(--ui-dark); color: var(--muted); border: 1px solid var(--line); }
+.subtab:hover { color: var(--text); border-color: var(--ui-primary); }
+.subtab.active { background: var(--panel); color: var(--text); border-color: var(--ui-primary); font-weight: 600; }
+.subtab-count { font-variant-numeric: tabular-nums; padding: 0 .35rem; border-radius: 3px;
+  background: color-mix(in srgb, var(--ui-primary) 25%, var(--ui-dark)); color: var(--text); }
+.subtab-count.zero { background: none; color: var(--muted); }
+.subtabs + .stores { height: calc(100vh - 152px); }
+.store th.sortable { cursor: pointer; user-select: none; }
+.store th.sortable:hover { color: var(--ui-primary); }
+.store th.sorted { color: var(--ui-primary); }
+.store th .arrow { font-size: 10px; }

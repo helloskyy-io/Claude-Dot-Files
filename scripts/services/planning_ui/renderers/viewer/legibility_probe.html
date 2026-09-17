@@ -1,0 +1,36 @@
+<!doctype html>
+<!--
+  The legibility probe — NOT a page of the viewer. Renders a synthetic
+  neighbourhood of N nodes through the same ForceGraph the real page uses, so
+  the node cap can be re-measured against the drawing rather than against a
+  figure someone reported: /renderers/viewer/legibility_probe.html?n=30 while
+  `python3 -m planning_ui serve` is running. The live corpus's largest
+  neighbourhood is 15 nodes, which is below the point the layout degrades, so
+  this is the only way to see that point. Figures recorded in the phase doc's
+  runtime verification.
+-->
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="/renderers/viewer/styles.css"></head>
+<body><div id="root" style="height:100vh"></div>
+<script type="module">
+import React from "/renderers/vendor/react@19.0.0/react.mjs";
+import { createRoot } from "/renderers/vendor/react-dom@19.0.0/client.mjs";
+import { ForceGraph } from "/renderers/viewer/graph.mjs";
+const h = React.createElement;
+const n = Number(new URLSearchParams(location.search).get("n") || 30);
+// A neighbourhood shape like the corpus's: a root, a ring of direct
+// dependencies (depth 1) and their dependencies (depth 2), with real-length
+// labels and mixed states.
+const nodes = [{ id: "c:root", kind: "component", label: "common/the_root_component", declares: "resolves" }];
+const edges = [];
+const states = ["satisfied", "unsatisfied", "broken", "underivable"];
+const ring1 = Math.max(1, Math.round(n * 0.35));
+for (let i = 1; i < n; i += 1) {
+  const depth1 = i <= ring1;
+  const id = `c:node_${i}`;
+  nodes.push({ id, kind: "component", label: `${depth1 ? "common" : "service"}/component_number_${i}`, declares: i % 4 === 0 ? "nothing" : "resolves" });
+  edges.push({ source: depth1 ? "c:root" : `c:node_${1 + (i % ring1)}`, target: id, state: states[i % 4] });
+}
+const dist = new Map(nodes.map((x, i) => [x.id, i === 0 ? 0 : (i <= ring1 ? 1 : 2)]));
+createRoot(document.getElementById("root")).render(h("div", { className: "page", style: { gridTemplateColumns: "1fr" } },
+  h("div", { className: "canvas" }, h(ForceGraph, { nodes, edges, shape: "radial", root: "c:root", level: (x) => dist.get(x.id) }))));
+</script></body></html>

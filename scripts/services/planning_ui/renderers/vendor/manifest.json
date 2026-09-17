@@ -1,0 +1,84 @@
+{
+  "top_level": [
+    "react@19.0.0",
+    "react-dom@19.0.0/client",
+    "d3-force@3.0.0"
+  ],
+  "budget_bytes": 262144,
+  "total_bytes": 207657,
+  "rewrite": "esm.sh absolute specifiers rewritten to relative paths; nothing else changed",
+  "files": [
+    {
+      "file": "d3-dispatch@3.0.1/d3-dispatch.mjs",
+      "package": "d3-dispatch",
+      "version": "3.0.1",
+      "source": "https://esm.sh/d3-dispatch@3.0.1/es2022/d3-dispatch.mjs",
+      "fetched_integrity": "sha384-MDxvLHeWCT8RJMbI6ojgx2BEeXJ4NemjVI+aTDZRKct2v23F13O21OeCMU1w++6l",
+      "committed_integrity": "sha384-MDxvLHeWCT8RJMbI6ojgx2BEeXJ4NemjVI+aTDZRKct2v23F13O21OeCMU1w++6l",
+      "bytes": 1628
+    },
+    {
+      "file": "d3-force@3.0.0/d3-force.mjs",
+      "package": "d3-force",
+      "version": "3.0.0",
+      "source": "https://esm.sh/d3-force@3.0.0/es2022/d3-force.mjs",
+      "fetched_integrity": "sha384-gzOjrwBgEBXeGLjK0p8mK6jqG8OFEkmfuFScYxGV1Fby3uV5wl3ziQgaOsuE2UJg",
+      "committed_integrity": "sha384-toWi/B20IEVOcvDUeFoUrl5jU+OyvJrYKlybM8Y+YkqFXFGbCIgL0d62xuUhNxA9",
+      "bytes": 8151
+    },
+    {
+      "file": "d3-quadtree@3.0.1/d3-quadtree.mjs",
+      "package": "d3-quadtree",
+      "version": "3.0.1",
+      "source": "https://esm.sh/d3-quadtree@3.0.1/es2022/d3-quadtree.mjs",
+      "fetched_integrity": "sha384-5JMcL+oiSUXD9pG2r37YwAvzLMwvtQz5dogA8cYJy2Zb56gN/Iyi2l/aTlwtQZwb",
+      "committed_integrity": "sha384-5JMcL+oiSUXD9pG2r37YwAvzLMwvtQz5dogA8cYJy2Zb56gN/Iyi2l/aTlwtQZwb",
+      "bytes": 5024
+    },
+    {
+      "file": "d3-timer@3.0.1/d3-timer.mjs",
+      "package": "d3-timer",
+      "version": "3.0.1",
+      "source": "https://esm.sh/d3-timer@3.0.1/es2022/d3-timer.mjs",
+      "fetched_integrity": "sha384-cszsTcsUTk48J/5yuhD85QnuWjwnhprO8fNzfLjYqi91FDvWUI4yPLHaWLbqIOG2",
+      "committed_integrity": "sha384-cszsTcsUTk48J/5yuhD85QnuWjwnhprO8fNzfLjYqi91FDvWUI4yPLHaWLbqIOG2",
+      "bytes": 1683
+    },
+    {
+      "file": "react-dom@19.0.0/client.mjs",
+      "package": "react-dom",
+      "version": "19.0.0",
+      "source": "https://esm.sh/react-dom@19.0.0/es2022/client.mjs",
+      "fetched_integrity": "sha384-asLA9T6asG6K0YBeCcyRXOgHxBZ5UHMIU0nCwZEghinZM+Pepfb5/X9MaRRyUpY/",
+      "committed_integrity": "sha384-iqnMV3iUNAM7kn6MmLy+Ijl6yS3Kmqw1PoXzosu+lCopjlrY+PXVJJX41/sHPTRA",
+      "bytes": 169990
+    },
+    {
+      "file": "react-dom@19.0.0/react-dom.mjs",
+      "package": "react-dom",
+      "version": "19.0.0",
+      "source": "https://esm.sh/react-dom@19.0.0/es2022/react-dom.mjs",
+      "fetched_integrity": "sha384-HzZxNdbPoHIcYjH0C9494XhLMkufAmj9qS9DEMQwUPuaYyPi5pPx2fvcj8NnkMuv",
+      "committed_integrity": "sha384-STJop4oJstuQfKh8mAEsfnlorn+7H1DGVoackhyizp2Qiqw+LnN4TgJJYsvPW736",
+      "bytes": 5558
+    },
+    {
+      "file": "react@19.0.0/react.mjs",
+      "package": "react",
+      "version": "19.0.0",
+      "source": "https://esm.sh/react@19.0.0/es2022/react.mjs",
+      "fetched_integrity": "sha384-D/qvdBN9elj3j1bvnYFegFbTNYKBHUYs/n4bPkcAtMw1qgcn8y08HCVEvfUWWyEf",
+      "committed_integrity": "sha384-D/qvdBN9elj3j1bvnYFegFbTNYKBHUYs/n4bPkcAtMw1qgcn8y08HCVEvfUWWyEf",
+      "bytes": 9792
+    },
+    {
+      "file": "scheduler@0.25.0/scheduler.mjs",
+      "package": "scheduler",
+      "version": "0.25.0",
+      "source": "https://esm.sh/scheduler@0.25.0/es2022/scheduler.mjs",
+      "fetched_integrity": "sha384-ChPOSphN/b3S/Fxp0Bpx5fbSOW8tzKBy2mY62fDJn99IFydpiXynfhKaQq1CMFf8",
+      "committed_integrity": "sha384-ChPOSphN/b3S/Fxp0Bpx5fbSOW8tzKBy2mY62fDJn99IFydpiXynfhKaQq1CMFf8",
+      "bytes": 5831
+    }
+  ]
+}
