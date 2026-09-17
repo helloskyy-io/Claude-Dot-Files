@@ -145,8 +145,8 @@ def count_broken_relative_links(
     **The fence mask is the same ruling the dependency contract applies**: a
     marker inside a fenced block is prose about the convention rather than a
     use of it, and a link inside one is a placeholder rather than a reference.
-    A corpus's own Documentation Standard shows the cross-reference form as
-    ``[Standard Name §N](relative/path/to/standard.md)`` inside a fence; counted
+    A corpus's own Documentation Standard shows the cross-reference form —
+    link text, then a relative path in parentheses — inside a fence; counted
     literally, **the corpus's documentation of the convention inflates the
     figure the convention is measured by.** Inline code spans are masked for
     the same reason — masking fences alone leaves the tool under-excluding

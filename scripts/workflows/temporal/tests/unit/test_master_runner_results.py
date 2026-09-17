@@ -37,6 +37,11 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[5]
 MASTER = REPO_ROOT / "testing" / "run-all.sh"
 SUITE = REPO_ROOT / "testing" / "suites" / "python.sh"
+#: Every framework runner the master iterates. A scratch tree missing one is
+#: refused by the master as a missing runner before any suite runs — which is
+#: correct of the master and would make every check below fail for the wrong
+#: reason.
+JS_SUITE = REPO_ROOT / "testing" / "suites" / "js.sh"
 
 _PASSING_TEST = "def test_ok() -> None:\n    assert True\n"
 _FAILING_TEST = "def test_red() -> None:\n    assert False, 'deliberately red'\n"
@@ -59,6 +64,7 @@ def _tree(tmp_path: Path, *, tests: dict[str, str] | None = None) -> Path:
     suites.mkdir(parents=True)
     shutil.copy2(MASTER, tmp_path / "testing" / "run-all.sh")
     shutil.copy2(SUITE, suites / "python.sh")
+    shutil.copy2(JS_SUITE, suites / "js.sh")
 
     for rel, body in (tests or {}).items():
         target = tmp_path / rel

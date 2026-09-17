@@ -782,6 +782,13 @@ RULED_OUT = {
     "docs": "the repo map, one file, whose consumer is `scripts/helpers/"
             "file_structure_check.py` — HELD BY ANOTHER GATE: "
             "`test_file_structure_map_covers_the_tree.py`",
+    "scripts/services/planning_ui": "code consumed by IMPORT — the `planning-ui` "
+        "service's Python package, held by the import graph and its own suite "
+        "(`scripts/services/planning_ui/tests`, listed in pytest.ini). Its "
+        "`renderers/vendor/` is third-party JavaScript, declared by package, "
+        "version and integrity in `renderers/vendor/manifest.json` and HELD BY "
+        "ANOTHER GATE: `test_vendor_manifest.py` asserts every file is declared "
+        "and every declaration's bytes match",
     "scripts/workflows/temporal/modules": "code consumed by IMPORT — the import "
         "graph, the suite and `code-reviewer`'s structure lens hold it. The "
         "prompt corpus under it is HELD BY ANOTHER GATE: "
@@ -876,6 +883,9 @@ TESTS_DIR = "tests"
 #: and holds THAT surface — not that it is any good, which is the same weaker
 #: claim this whole gate makes.
 HELD_BY: dict[str, tuple[str, str]] = {
+    "planning-ui's vendored JavaScript — every file declared, every declaration's bytes match": (
+        "scripts/services/planning_ui/tests/unit/test_vendor_manifest.py",
+        "test_the_committed_set_matches_its_manifest_and_is_under_budget"),
     "the repo map, docs/file_structure.txt — population off git ls-files": (
         "testing/scripts/tests/unit/test_file_structure_map_covers_the_tree.py",
         "test_a_directory_the_map_ENUMERATES_is_enumerated_COMPLETELY"),

@@ -71,7 +71,7 @@ SUITES_DIR="$REPO_ROOT/testing/suites"
 LOG_DIR="$REPO_ROOT/testing/logs"
 
 ALL_CATEGORIES=(unit integration e2e)
-FRAMEWORKS=(python)
+FRAMEWORKS=(python js)
 
 CATEGORY="${1:-}"
 COMPONENT="${2:-}"

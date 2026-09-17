@@ -62,6 +62,14 @@ jobs:
         with:
           python-version: '3.13'
 
+      # The js suite (testing/suites/js.sh) REFUSES under Node < 18 rather than
+      # skipping — a green run that ran no JavaScript tests is the thing that
+      # tier exists to prevent — so the runner must carry one. Pinned to a
+      # major for the same reason python is.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+
       # pyyaml is a real runtime dependency, not just a test one: preflight
       # refuses to start without it and the config reads need it. pytest is
       # the suite runner. Pinned to majors so a breaking release fails the

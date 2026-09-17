@@ -1,6 +1,7 @@
 """The serve verb's pure parts: routing a URL to a committed file and
 shaping the API response. The end-to-end request path, against the live
-corpus, is `tests/integration/test_serve_live.py`."""
+corpus, stays with the corpus it asserts against — the tooling's suite
+tests what the tooling owns."""
 from __future__ import annotations
 
 from http import HTTPStatus

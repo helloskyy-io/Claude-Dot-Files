@@ -89,7 +89,16 @@ SKIP_PARTS = {".git", "__pycache__", "worktrees", "node_modules", ".claude"}
 # switches off. The trade is stated rather than hidden: a genuinely broken link
 # inside a skill is not caught here. Every instance this test was built for
 # (eleven, all in `scripts/`) is still covered.
-SKIP_DIRS = (REPO_ROOT / "config" / "skills",)
+# THE PLANNING-UI FIXTURE CORPUS CONTAINS BROKEN LINKS ON PURPOSE. It is the
+# input to a suite whose subject is detecting broken links, and a fixture that
+# a link checker may not fail on cannot contain the case the suite exists to
+# catch. The trade, stated: a genuinely dead link inside that fixture is not
+# caught here — it is caught by the planning-ui suite, which asserts the
+# fixture's link set explicitly.
+SKIP_DIRS = (
+    REPO_ROOT / "config" / "skills",
+    REPO_ROOT / "scripts" / "services" / "planning_ui" / "tests" / "fixtures",
+)
 
 # VENDORED STANDARDS REFERENCE THE UPSTREAM TREE, NOT OURS, AND MUST NOT BE
 # EDITED. Their links point at files that exist in MDC-Master-Planning and do

@@ -1,18 +1,16 @@
-"""The viewer's JavaScript, reached from the one test runner.
+"""The viewer's JavaScript, cross-checked against its Python twin.
 
-The six modules under ``renderers/viewer/`` run in a browser, but two of them
-carry pure functions — the depth walk in ``neighbourhood.mjs``, the layering
-in ``sprint.mjs``, the label wrapper and the layout's ring/row structure in
-``graph.mjs`` — that Node can import and hold to a known answer.
-Two things are held here:
+The modules under ``renderers/viewer/`` run in a browser, but the depth walk
+in ``neighbourhood.mjs`` is a pure function Node can import — and it is the
+same algorithm ``planning_ui.views.neighbourhood.neighbourhood()`` implements
+in Python (the Python one so the tests can hold it; the JavaScript one so a
+depth change is instant in the page). This file holds that they have not
+drifted, on one synthetic index, for the best-connected roots at depths 1–3.
 
-1. ``tests/js/*.test.mjs`` — Node's built-in runner over hand-drawn inputs;
-   this file runs it by explicit path and asserts a non-zero pass count.
-2. ``walk()`` against ``planning_ui.views.neighbourhood.neighbourhood()`` on the
-   same synthetic index, for the three best-connected components at depths
-   1–3. The two walks are the same algorithm written twice (the Python one so
-   the tests can hold it; the JavaScript one so a depth change is instant in
-   the page); this is the check that they have not drifted.
+**The JavaScript tests themselves — ``tests/js/*.test.mjs`` — are NOT run
+from here.** ``testing/suites/js.sh`` runs them, and refuses loudly under a
+Node too old to; a second runner here would be two answers to "did the JS
+pass". This file only asserts the files exist with the exports it needs.
 
 Node is a TEST runtime here, not part of the viewer's serving path — the
 phase's rule 1 (no Node, no bundler, no install step to load the page) is
@@ -23,6 +21,7 @@ loudly); the message says where to get one.
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -60,22 +59,28 @@ def synthetic_index() -> dict:
 NODE_MIN_MAJOR = 18
 
 NO_NODE = (
-    f"the viewer's JavaScript tests need `node` >= {NODE_MIN_MAJOR} on PATH and found {{found}}. "
-    "This is a test runtime, not a viewer dependency. On the dev VM, without sudo: "
-    '`conda create -p /tmp/node -c conda-forge "nodejs>=20"` then `PATH=/tmp/node/bin:$PATH python -m pytest`. '
-    "The pull-request runner installs it with actions/setup-node (see .github/workflows/dev-ui-tier.yml)."
+    f"needs Node >= {NODE_MIN_MAJOR} and found {{found}} — a test runtime, not a viewer "
+    "dependency. THE JAVASCRIPT TESTS THEMSELVES ARE NOT SKIPPED: testing/suites/js.sh runs "
+    "them and REFUSES loudly under an old Node, so a green python suite here never means "
+    "they passed. This is only the Python-side cross-check. Set NODE_BIN, as js.sh does."
 )
 
 
 def node() -> str:
-    """The `node` on PATH, or a failure naming what was found and how to fix it."""
-    found = shutil.which("node")
+    """The Node this cross-check runs, honouring NODE_BIN as testing/suites/js.sh does.
+
+    SKIPS, by name, when it is too old. The JavaScript tests are gated by
+    js.sh, which refuses rather than skips; this Python test only cross-checks
+    one algorithm against its Python twin, and it must not make the python
+    suite red for a runtime the js suite already reports.
+    """
+    found = shutil.which(os.environ.get("NODE_BIN", "node"))
     if found is None:
-        pytest.fail(NO_NODE.format(found="no `node` at all"))
+        pytest.skip(NO_NODE.format(found="no `node` at all"))
     version = subprocess.run([found, "--version"], capture_output=True, text=True, check=True).stdout.strip()
     major = int(re.match(r"v(\d+)", version).group(1))
     if major < NODE_MIN_MAJOR:
-        pytest.fail(NO_NODE.format(found=f"{found} = {version}"))
+        pytest.skip(NO_NODE.format(found=f"{found} = {version}"))
     return found
 
 
@@ -88,25 +93,7 @@ def test_the_js_test_files_exist_and_are_the_three_modules_with_pure_exports():
     assert [p.name for p in JS_TESTS] == ["graph.test.mjs", "neighbourhood.test.mjs", "sprint.test.mjs"]
 
 
-def test_node_runs_the_js_tests_and_every_one_passes():
-    proc = subprocess.run(
-        [node(), "--test", "--test-reporter=tap", *map(str, JS_TESTS)],
-        capture_output=True, text=True, cwd=DEV_UI,
-    )
-    tap = proc.stdout
-    summary = re.search(r"^# pass (\d+)$", tap, re.M), re.search(r"^# fail (\d+)$", tap, re.M)
-    if not all(summary):
-        # No TAP summary at all: node crashed before the runner reported, or
-        # a test file failed to parse. Show what it said rather than a bare
-        # AttributeError on the missing match.
-        pytest.fail(f"node --test produced no TAP summary (exit {proc.returncode}):\n{tap}\n{proc.stderr}")
-    passed, failed = (int(m.group(1)) for m in summary)
-    assert proc.returncode == 0 and failed == 0, f"node --test failed:\n{tap}\n{proc.stderr}"
-    assert passed >= 14, f"positive control: the three files carry fourteen tests, TAP reports {passed}"
-
-
-# ---- the browser's walk against the Python walk, on one synthetic index -------
-
+# The probe: run the JS walk over the same index and print what it returned.
 _PROBE = """
 import fs from "node:fs";
 import { walk } from "{viewer}/neighbourhood.mjs";

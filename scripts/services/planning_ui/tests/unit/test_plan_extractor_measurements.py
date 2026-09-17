@@ -1,11 +1,9 @@
-"""The founding measurements — specifically, what the broken-link sweep counts.
+"""The structural measurements — specifically, what the broken-link sweep counts.
 
 Only this row's own predicate is asserted here — the fence mask, the inline
-code-span mask, and what an unterminated fence costs. The other four rows are
-reproduced against the LIVE corpus in
-``integration/test_plan_extractor_live_corpus.py``, which is where a row whose
-whole job is to reproduce a figure belongs; a fixture corpus can only assert the
-row's shape, and it already does.
+code-span mask, and what an unterminated fence costs. A figure's VALUE on a
+real corpus is that corpus's to assert, in its own live-corpus tier; a fixture
+corpus can only assert the row's shape, and it does.
 """
 
 from __future__ import annotations

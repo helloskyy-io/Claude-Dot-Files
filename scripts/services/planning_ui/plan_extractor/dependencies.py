@@ -10,23 +10,21 @@ and half-guessed.
 The contract, stated once here and filed verbatim as a Documentation Standard
 amendment in ``tracked/standards/`` (ratification is the operator's):
 
-============  ================================================================
-Marker        ``**Depends on:**`` at the start of a line, beneath the phase
-              entry it belongs to in ``roadmap.md``. **The corpus also writes
-              ``**Dependencies:**`` (11 roadmaps) and puts the marker
-              mid-paragraph (2 more). Both are READ and both are reported as
-              non-conforming** — see below
-Dependency    a **markdown link** whose text is ``component/path · Phase Name``
-              and whose target is the depended-on phase document, or the
-              depended-on ``roadmap.md`` where no phase document exists
-Separator     ``·`` between dependencies — read as prose, never parsed
-Prose         permitted, encouraged and **ignored**. Sequencing notes,
-              satisfied-already markers and conditionality all stay
-Standalone    ``**Depends on:** NONE`` — the owner's positive statement that
-              the entry depends on nothing. **Unqualified only**
-Block form    ``**Depends on:**`` alone on its line, with a list beneath it.
-              The parser reads the marker line AND that list
-============  ================================================================
+* **Marker** — ``**Depends on:**`` at the start of a line, beneath the phase
+  entry it belongs to in ``roadmap.md``. **A corpus may also write
+  ``**Dependencies:**`` and put the marker
+  mid-paragraph. Both are READ and both are reported as
+  non-conforming** — see below
+* **Dependency** — a **markdown link** whose text is ``component/path · Phase Name``
+  and whose target is the depended-on phase document, or the
+  depended-on ``roadmap.md`` where no phase document exists
+* **Separator** — ``·`` between dependencies — read as prose, never parsed
+* **Prose** — permitted, encouraged and **ignored**. Sequencing notes,
+  satisfied-already markers and conditionality all stay
+* **Standalone** — ``**Depends on:** NONE`` — the owner's positive statement that
+  the entry depends on nothing. **Unqualified only**
+* **Block form** — ``**Depends on:**`` alone on its line, with a list beneath it.
+  The parser reads the marker line AND that list
 
 Four dispositions per roadmap and no fifth, tested in this order:
 

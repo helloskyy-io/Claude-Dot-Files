@@ -529,9 +529,9 @@ def _entry_name(body: str, link_text: str) -> str:
 
 
 #: What may sit between a legacy entry's bold run and its document link for
-#: the link to be the ENTRY's: whitespace and an opening paren — `**Name**
-#: ([phase1_x.md](./phase1_x.md))`. Anything more is prose, and a link in
-#: prose is a weak claim.
+#: the link to be the ENTRY's: whitespace and an opening paren — the bold
+#: name, then the document link in parentheses. Anything more is prose, and a
+#: link in prose is a weak claim.
 _ADJACENT_RE = re.compile(r"\s*\(?\s*")
 
 
@@ -583,13 +583,11 @@ def _collect_phases(
     a heading carrying the status marker, an `**Implementation:**` line
     beneath it — and REQUIRES tooling to keep accepting the checkbox-list form
     it superseded until the corpus finishes converting; keyed on the ruled
-    shape alone this reader reports *zero phases* for 21 of 38 live roadmaps.
-    **No other shape is admitted.** A heading whose text IS the phase link
-    (`## [Name](phase1_x.md) — ~10h`) was read as a third shape until the
-    operator ruled it OUT of the corpus rather than INTO the standard (intake
-    #262, rejected 2026-09-13): its 24 live entries converted to rule 8's shape
-    at `670294b` and the reader went with them. A phase link in a heading is
-    now what every other non-entry link is — a reference.
+    shape alone this reader reports *zero phases* for every roadmap written the
+    old way. **No other shape is admitted.** A heading whose text IS the phase
+    link is not an entry shape: the ruling was that a corpus converts to rule
+    8 rather than the standard growing a third form, so a phase link in a
+    heading is what every other non-entry link is — a reference.
 
     A section is one shape or the other, never both. A section that carries a
     marker heading or an `**Implementation:**` line is a rule-8 entry, and any
