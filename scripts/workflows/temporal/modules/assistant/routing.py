@@ -507,10 +507,13 @@ def ci_gate(state: CiVerdict, extra: list[str], *, pr: str,
             "cause is a CONFLICTED PR: `pull_request` workflows run against the merge "
             "ref, GitHub cannot compute one for a conflicted PR, so no run is created "
             "at all — check `git ls-remote origin refs/pull/<N>/merge` against the "
-            "current head. Resolve, push, and let the checks run before redispatching; "
-            "the diff is intact on the branch."
+            "current head. NOT looped back: a correction pass cannot make an absent check "
+            "appear — only a push that triggers CI, a merge ref GitHub can compute, or a "
+            "fix to this reader can (skyy-command #298 spent two refine passes proving "
+            "that). Resolve, push, let the checks run, then redispatch; the diff is intact "
+            "on the branch."
         )
-        return Verdict.HOLD_REDISPATCH, notes
+        return Verdict.HOLD_NEEDS_ASSISTANCE, notes
 
     if state is CiVerdict.NO_POLICY:
         # SAYS THE ONE THING THAT IS TRUE, rather than naming two hypotheses

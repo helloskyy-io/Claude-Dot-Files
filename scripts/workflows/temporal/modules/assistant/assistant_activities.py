@@ -1910,11 +1910,22 @@ def read_checks(pr: str, repo_root: Path, *, retry: bool) -> subprocess.Complete
 
     SAME SHAPE OUT, SO `parse_checks` AND EVERY CALLER ARE UNCHANGED: stdout is
     the JSON list `[{name, state}]` the old command printed, with `state` the
-    run's `conclusion` once completed and its `status` (IN_PROGRESS, QUEUED, …)
+    job's `conclusion` once completed and its `status` (IN_PROGRESS, QUEUED, …)
     until then — the same vocabulary `_TERMINAL_CHECK_STATES` already closes
     over. A PR with no runs for its head yields `[]`, which is the no-checks
     case the old stderr text used to signal. A failed read yields the failed
     reply untouched, so it still parses to None and routes UNREADABLE_CHECKS.
+
+    THE NAMES ARE JOB NAMES, ONE HOP BELOW THE RUN, AND THE FIRST VERSION GOT
+    THIS WRONG. A run's `name` is the workflow's `name:` ("Master Test Tier");
+    what `gh pr checks` printed, and what every `testing/check-policy.yaml` in
+    the fleet declares verbatim, is the JOB's name (`master-test-tier` — the job
+    id when the job has no `name:`). Emitting run names made `gating` empty on
+    every repo with a policy, so every green PR held as GATE_DID_NOT_RUN and
+    burned a refine pass proving nothing (MDC-PM3, skyy-command #298, two passes,
+    $18). So each run's jobs are read (`gh run view <id> --json jobs`) and the
+    jobs are the checks. The check-policy contract does not move: a human's
+    `gh pr checks` and the file keep agreeing.
 
     `retry` is `gh_attempt` (the one-shot read `ci_verdict` takes, which may
     ride out a transient status) versus `run_bounded` (the poll in
@@ -1924,8 +1935,8 @@ def read_checks(pr: str, repo_root: Path, *, retry: bool) -> subprocess.Complete
     if sha is None:
         return subprocess.CompletedProcess(["gh", "pr", "view", pr], 1, stdout="",
                                            stderr=f"could not read PR {pr}'s head commit")
-    cmd = ["run", "list", "--commit", sha, "--json", "name,status,conclusion", "--limit", "50"]
-    result = gh_attempt(cmd, repo_root) if retry else run_bounded(["gh", *cmd], cwd=repo_root)
+    launch = (lambda c: gh_attempt(c, repo_root)) if retry else (lambda c: run_bounded(["gh", *c], cwd=repo_root))
+    result = launch(["run", "list", "--commit", sha, "--json", "databaseId,status,conclusion", "--limit", "50"])
     if result.returncode != 0:
         return result
     try:
@@ -1934,9 +1945,24 @@ def read_checks(pr: str, repo_root: Path, *, retry: bool) -> subprocess.Complete
         return result
     if not isinstance(runs, list):
         return subprocess.CompletedProcess(result.args, 1, stdout="", stderr="run list was not a JSON list")
-    checks = [{"name": str(r.get("name", "")),
-               "state": str(r.get("conclusion") or r.get("status") or "").upper()}
-              for r in runs if isinstance(r, dict)]
+    checks: list[dict] = []
+    for run in runs:
+        if not isinstance(run, dict) or run.get("databaseId") is None:
+            continue
+        view = launch(["run", "view", str(run["databaseId"]), "--json", "jobs"])
+        if view.returncode != 0:
+            return view
+        try:
+            decoded = json.loads(view.stdout or "")
+        except json.JSONDecodeError:
+            return subprocess.CompletedProcess(view.args, 1, stdout="", stderr="run view was not JSON")
+        if not isinstance(decoded, dict) or not isinstance(decoded.get("jobs"), list):
+            return subprocess.CompletedProcess(view.args, 1, stdout="", stderr="run view carried no jobs list")
+        jobs = decoded["jobs"]
+        for job in jobs:
+            if isinstance(job, dict):
+                checks.append({"name": str(job.get("name", "")),
+                               "state": str(job.get("conclusion") or job.get("status") or "").upper()})
     return subprocess.CompletedProcess(result.args, 0, stdout=json.dumps(checks), stderr="")
 
 

@@ -42,7 +42,7 @@ _HEAD = "0123456789abcdef0123456789abcdef01234567"
 _NO_CHECKS_STDERR_TEXT = "no checks reported"
 
 
-def _to_run_list(reply):
+def _to_runs_and_jobs(reply):
     """Translate a fake written against `gh pr checks --json name,state` into the
     `gh run list --json name,status,conclusion` reply `read_checks` consumes.
 
@@ -59,27 +59,38 @@ def _to_run_list(reply):
         checks = json.loads(body)
     except (json.JSONDecodeError, TypeError):
         if _NO_CHECKS_STDERR_TEXT in stderr.lower():
-            return subprocess.CompletedProcess([], 0, stdout="[]", stderr="")
-        return reply
+            return {"list": subprocess.CompletedProcess([], 0, stdout="[]", stderr=""), "view": None}
+        return {"list": reply, "view": reply}
     if not isinstance(checks, list):
-        return reply
-    runs = []
+        return {"list": reply, "view": reply}
+    jobs = []
     for c in checks:
         state = str(c.get("state", "")).upper()
         done = state in act._TERMINAL_CHECK_STATES
-        runs.append({"name": c.get("name"), "status": "completed" if done else state.lower(),
+        jobs.append({"name": c.get("name"), "status": "completed" if done else state.lower(),
                      "conclusion": state.lower() if done else None})
-    return subprocess.CompletedProcess([], 0, stdout=json.dumps(runs), stderr="")
+    if not jobs:
+        return {"list": subprocess.CompletedProcess([], 0, stdout="[]", stderr=""), "view": None}
+    all_done = all(j["status"] == "completed" for j in jobs)
+    run = {"databaseId": 1, "status": "completed" if all_done else "in_progress",
+           "conclusion": "success" if all_done else None}
+    return {"list": subprocess.CompletedProcess([], 0, stdout=json.dumps([run]), stderr=""),
+            "view": subprocess.CompletedProcess([], 0, stdout=json.dumps({"jobs": jobs}), stderr="")}
 
 
 def _dispatch(fake, *, mergeable="MERGEABLE"):
-    """`gh pr view` answered here (head + mergeability); the test's fake sees only
-    the run-list read, so its call counts mean what they meant."""
+    """`gh pr view` answered here (head + mergeability); the test's fake is called
+    ONCE per CI read, on `gh run list`, so its call counts mean what they meant;
+    the `gh run view <id> --json jobs` that follows is served from that reply."""
+    last = {}
     def run(argv, *a, **k):
-        if "view" in argv:
+        if "pr" in argv and "view" in argv:
             body = {"headRefOid": _HEAD} if "headRefOid" in argv else {"mergeable": mergeable}
             return subprocess.CompletedProcess(argv, 0, stdout=json.dumps(body), stderr="")
-        return _to_run_list(fake(argv, *a, **k))
+        if "run" in argv and "view" in argv:
+            return last.get("view") or subprocess.CompletedProcess(argv, 1, stdout="", stderr="no run")
+        last.update(_to_runs_and_jobs(fake(argv, *a, **k)))
+        return last["list"]
     return run
 
 
@@ -527,7 +538,7 @@ def test_GATE_DID_NOT_RUN_does_not_also_report_its_gate_as_UNDECLARED(monkeypatc
     # `build_minor` to share, while the property it names was untouched. Calling
     # the decision is strictly stronger and now covers BOTH parents at once.
     hold, notes = routing.ci_gate(verdict, names, pr="1", repo_target=None)
-    assert hold is Verdict.HOLD_REDISPATCH
+    assert hold is Verdict.HOLD_NEEDS_ASSISTANCE
     undeclared = [n for n in notes if "UNDECLARED CHECKS" in n]
     assert not undeclared, (
         "the UNDECLARED-CHECKS branch no longer excludes GATE_DID_NOT_RUN, so an "
@@ -1214,13 +1225,16 @@ def test_neither_CI_READ_can_be_called_without_a_tree():
 def _gh_by_command(monkeypatch, *, checks_stdout: str, checks_stderr: str,
                    view_stdout: str) -> None:
     """`gh pr checks` and `gh pr view` answer differently, keyed on the argv."""
+    shaped = _to_runs_and_jobs(subprocess.CompletedProcess([], 1 if checks_stderr else 0,
+                                                            stdout=checks_stdout, stderr=checks_stderr))
     def run(argv, *a, **k):
-        if "view" in argv:
+        if "pr" in argv and "view" in argv:
             if "headRefOid" in argv:
                 return subprocess.CompletedProcess(argv, 0, stdout=json.dumps({"headRefOid": _HEAD}), stderr="")
             return subprocess.CompletedProcess(argv, 0, stdout=view_stdout, stderr="")
-        return _to_run_list(subprocess.CompletedProcess(argv, 1 if checks_stderr else 0,
-                                                        stdout=checks_stdout, stderr=checks_stderr))
+        if "run" in argv and "view" in argv:
+            return shaped["view"]
+        return shaped["list"]
     monkeypatch.setattr(act.subprocess, "run", run)
 
 
@@ -1278,13 +1292,19 @@ def _launch(monkeypatch, view: str | None, runs):
     """`view` is the `pr view --json headRefOid` reply body (None → the launch fails);
     `runs` is the `run list` reply body or a CompletedProcess to hand back as is."""
     def run(argv, *a, **k):
-        if "view" in argv:
+        if "pr" in argv and "view" in argv:
             if view is None:
                 return subprocess.CompletedProcess(argv, 1, stdout="", stderr="HTTP 404")
             return subprocess.CompletedProcess(argv, 0, stdout=view, stderr="")
         if isinstance(runs, subprocess.CompletedProcess):
             return runs
-        return subprocess.CompletedProcess(argv, 0, stdout=runs, stderr="")
+        try:
+            decoded = json.loads(runs)
+        except json.JSONDecodeError:
+            return subprocess.CompletedProcess(argv, 0, stdout=runs, stderr="")   # hand the junk straight back
+        if "run" in argv and "view" in argv:
+            return subprocess.CompletedProcess(argv, 0, stdout=json.dumps({"jobs": decoded}), stderr="")
+        return subprocess.CompletedProcess(argv, 0, stdout=json.dumps([{"databaseId": 1}]) if decoded else "[]", stderr="")
     monkeypatch.setattr(act.subprocess, "run", run)
 
 
@@ -1296,18 +1316,26 @@ def test_read_checks_reads_ACTIONS_RUNS_by_head_sha_not_the_checks_api(monkeypat
     seen = []
     def run(argv, *a, **k):
         seen.append(list(argv))
-        if "view" in argv:
+        if "pr" in argv and "view" in argv:
             return subprocess.CompletedProcess(argv, 0, stdout=json.dumps({"headRefOid": _HEAD}), stderr="")
+        if "run" in argv and "view" in argv:
+            # THE JOBS, NOT THE RUN: the run is named "Master Test Tier" (the
+            # workflow's `name:`); the policy names the JOB, `master-test-tier`.
+            return subprocess.CompletedProcess(argv, 0, stdout=json.dumps({"jobs": [
+                {"name": "master-test-tier", "status": "completed", "conclusion": "success"},
+                {"name": "codeql", "status": "in_progress", "conclusion": None},
+            ]}), stderr="")
         return subprocess.CompletedProcess(argv, 0, stdout=json.dumps([
-            {"name": "suite", "status": "completed", "conclusion": "success"},
-            {"name": "CodeQL", "status": "in_progress", "conclusion": None},
+            {"databaseId": 41, "name": "Master Test Tier", "status": "in_progress", "conclusion": None},
         ]), stderr="")
     monkeypatch.setattr(act.subprocess, "run", run)
     reply = act.read_checks("7", tmp_path, retry=False)
-    assert act.parse_checks(reply) == [{"name": "suite", "state": "SUCCESS"},
-                                       {"name": "CodeQL", "state": "IN_PROGRESS"}]
+    assert act.parse_checks(reply) == [{"name": "master-test-tier", "state": "SUCCESS"},
+                                       {"name": "codeql", "state": "IN_PROGRESS"}], (
+        "the check names must be the JOB names the policy declares, not the run's")
     launched = [a for a in seen if "list" in a]
     assert launched and "--commit" in launched[0] and _HEAD in launched[0], launched
+    assert any("run" in a and "view" in a and "41" in a for a in seen), "the run's jobs were never read"
     assert not any("checks" in a for a in seen), "the Checks API was consulted"
 
 
@@ -1325,4 +1353,29 @@ def test_read_checks_with_NO_RUNS_for_the_head_is_the_no_checks_case(monkeypatch
 def test_read_checks_FAILURES_stay_unreadable_never_a_pass(monkeypatch, tmp_path, view, runs):
     _launch(monkeypatch, view, runs)
     assert act.parse_checks(act.read_checks("7", tmp_path, retry=False)) is None
+
+
+def test_a_POLICY_NAMING_THE_JOB_gates_green_when_the_run_is_named_differently(monkeypatch, repo):
+    """skyy-command #298: `master-test-tier.yml` has `name: Master Test Tier` and a
+    job id `master-test-tier`; `check-policy.yaml` names the job, as its header
+    says it must. Reading run names made `gating` empty and every green PR held."""
+    def run(argv, *a, **k):
+        if "pr" in argv and "view" in argv:
+            body = {"headRefOid": _HEAD} if "headRefOid" in argv else {"mergeable": "MERGEABLE"}
+            return subprocess.CompletedProcess(argv, 0, stdout=json.dumps(body), stderr="")
+        if "run" in argv and "view" in argv:
+            return subprocess.CompletedProcess(argv, 0, stdout=json.dumps({"jobs": [
+                {"name": "suite", "status": "completed", "conclusion": "success"}]}), stderr="")
+        return subprocess.CompletedProcess(argv, 0, stdout=json.dumps([
+            {"databaseId": 9, "name": "The Suite Workflow", "status": "completed", "conclusion": "success"}]), stderr="")
+    monkeypatch.setattr(act.subprocess, "run", run)
+    verdict, extra = act.ci_verdict("1", repo_root=repo)
+    assert verdict is CiVerdict.GREEN, f"{verdict} — the gate read the run's name, not the job's"
+
+
+def test_an_ABSENT_GATE_is_the_humans_not_a_loop_backs() -> None:
+    """A refine cannot make an absent check appear; two passes on #298 proved it."""
+    hold, notes = routing.ci_gate(CiVerdict.GATE_DID_NOT_RUN, ["suite"], pr="1", repo_target=None)
+    assert hold is Verdict.HOLD_NEEDS_ASSISTANCE
+    assert "NOT looped back" in notes[-1]
 
