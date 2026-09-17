@@ -87,3 +87,19 @@ def test_the_lifecycle_line_wins_over_a_legacy_marker(tmp_path):
         "**Status:** 🟠 PLANNED", "**Status:** ⚫ RETIRED 2026-08-21 — no sale"))
     assert component.retired is True
     assert _legacy(collector) == []
+
+
+def test_the_status_line_is_read_when_the_bold_closes_after_the_label(tmp_path):
+    """`**Status:** 🟡 …` — MDC's corpus, uniformly."""
+    component, _ = _read(tmp_path, LIFECYCLE_ROADMAP)
+    assert component.status_text is not None and component.status_text.startswith("🟠 PLANNED")
+
+
+def test_the_status_line_is_read_when_the_bold_closes_after_the_marker(tmp_path):
+    """`**Status: 🟡 IN PROGRESS.** …` — SkyyNet's corpus, uniformly. One
+    line in two spellings; a reader keyed to the first left every SkyyNet
+    component with no status text, and the check that a roadmap's marker
+    agrees with its sprint's was silently vacuous there."""
+    component, _ = _read(tmp_path, LIFECYCLE_ROADMAP.replace(
+        "**Status:** 🟠 PLANNED", "**Status: 🟡 IN PROGRESS.** Two of three phases are built"))
+    assert component.status_text is not None and component.status_text.startswith("🟡 IN PROGRESS")

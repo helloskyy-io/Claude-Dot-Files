@@ -87,7 +87,14 @@ from .fences import advance_fence, fenced_mask
 from .safe_paths import PathEscape, is_external, resolve_within_root, split_anchor
 from .sprints import HOURS_RE, LINK_RE
 
-STATUS_RE = re.compile(r"^\s*\*\*Status:\*\*\s*(?P<text>.+?)\s*$")
+#: Two spellings of one line, and the reader takes both: `**Status:** 🟡 …`
+#: (the bold closes after the label) and `**Status: 🟡 IN PROGRESS.** …` (the
+#: bold closes after the marker). No standard rules the placement, MDC's
+#: corpus is uniformly the first and SkyyNet's uniformly the second, and a
+#: reader keyed to one would leave the other corpus's status checks silently
+#: vacuous — every component with no status text, and nothing to disagree
+#: with the sprint marker.
+STATUS_RE = re.compile(r"^\s*\*\*Status:(?:\*\*\s*|\s+)(?P<text>.+?)\s*$")
 HEADING_RE = re.compile(r"^(?P<hashes>#{1,6})\s+(?P<text>.+?)\s*$")
 #: `**Lifecycle:** retired <YYYY-MM-DD> — <why, and what the documents are
 #: kept for>`, or `active`, or absent, which means active.
