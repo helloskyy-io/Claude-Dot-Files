@@ -1,4 +1,4 @@
-"""The viewer — Pages 2 and 3, served by ``python3 -m planning_ui serve``.
+"""The viewer — Pages 2 and 3, served by ``planning-ui.sh serve``.
 
 Everything here is served as-is: ``index.html`` is the one page,
 ``viewer/`` is the view written with ``React.createElement`` (no JSX, no

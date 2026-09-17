@@ -15,7 +15,7 @@ from .model import DecisionsPage, Table
 #: exists. The half that is still true stays: the page rules on nothing and
 #: writes no store.
 PROVENANCE_STATEMENT = (
-    "**Generated from this checkout by `python3 -m planning_ui` and committed at "
+    "**Generated from this checkout by the tooling's `planning-ui.sh` and committed at "
     "`development/derived/`; `--check` fails when it drifts from the corpus. No "
     "network call. This page reports what owes a ruling; it rules on nothing "
     "and writes no store.**"

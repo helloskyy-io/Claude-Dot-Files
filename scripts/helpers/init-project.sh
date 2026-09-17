@@ -238,6 +238,36 @@ GITIGNORE
 fi
 
 # ---------------------------------------------------------------------------
+# Step 2b: .gitattributes — the planning viewer's derived artifacts are never
+# text-merged
+#
+# WRITTEN INTO EVERY REPO, planning or not, because this scaffold cannot know
+# which one it is making and an attribute on a path that never exists costs
+# nothing. In a planning repo `planning-ui.sh` derives development/derived/
+# from the corpus; two lanes that both regenerated cannot three-way merge a
+# whole-file JSON, and a hunk-merged artifact is a page that agrees with
+# neither side's corpus. `merge=binary` leaves the conflict WHOLE for a
+# regeneration to overwrite. Registering the hook that regenerates instead is
+# per clone — the header of the tooling's
+# scripts/services/planning_ui/githooks/regenerate-on-merge has the three
+# lines, and `sync-project` will run them.
+# ---------------------------------------------------------------------------
+if [[ -f ".gitattributes" ]]; then
+    echo "✓ .gitattributes already exists — skipping"
+else
+    cat > .gitattributes <<'GITATTRIBUTES'
+# The planning viewer's derived artifacts are never text-merged: a hunk-merged
+# artifact agrees with neither side's corpus. The conflict is left whole for
+# `planning-ui.sh` (in the tooling, scripts/services/) to regenerate over —
+# REGENERATE, NEVER PICK HUNKS. A clone that registers the tooling's
+# regenerate-on-merge hook (three lines, in that script's header) gets the
+# merge to resolve itself.
+development/derived/* merge=binary
+GITATTRIBUTES
+    echo "✓ .gitattributes created (development/derived/* merge=binary)"
+fi
+
+# ---------------------------------------------------------------------------
 # Step 3: Documentation scaffolding (four-bucket layout)
 # ---------------------------------------------------------------------------
 DOCS_CREATED=false
@@ -298,6 +328,7 @@ ${PROJECT_NAME}/
 │
 ├── .github/workflows/             # checks.yml — the repo-general checks on the merge path
 │
+├── .gitattributes                 # development/derived/* merge=binary — regenerate, never pick hunks
 ├── .gitignore                     # Git ignore rules
 ├── CLAUDE.md                      # Project instructions for Claude
 └── README.md                      # Repo documentation
@@ -484,7 +515,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # FULL HISTORY, not the default depth of 1. The planning viewer's
+      # decisions page reads `git log` for item ages; on a shallow clone every
+      # age derives wrong and `--check` reports drift that is not there.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # PUBLIC, so no token. Pinned to a ref rather than floating on main: a
       # tooling change should not turn this repo red without anyone touching it.
@@ -517,6 +553,19 @@ jobs:
             python3 .tooling/scripts/helpers/file_structure_check.py --repo-root . --check
           else
             echo "no docs/file_structure.txt — nothing to check, and nothing asserted"
+          fi
+
+      # A planning repo commits what the viewer derives from its corpus, and
+      # the check is the viewer's own: derive again, compare, name each
+      # artifact that drifted. The predicate is the corpus contract's —
+      # `development/sprints.md` is what makes a repo a planning repo — so a
+      # product repo reports that it is not one rather than a refusal.
+      - name: The planning views committed under development/derived are current
+        run: |
+          if [[ -f development/sprints.md ]]; then
+            .tooling/scripts/services/planning-ui.sh --repo-root . --check
+          else
+            echo "not a planning repository — no derived views, and nothing asserted"
           fi
 
       - name: This repo's own suite

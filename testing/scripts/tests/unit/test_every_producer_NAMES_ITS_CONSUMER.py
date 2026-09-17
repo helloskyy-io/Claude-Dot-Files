@@ -670,6 +670,16 @@ SURFACES = [
         unread={
             "gh-monitor.service": "install.sh generates its own unit under "
                                   "$SYSTEMD_DIR and never reads this copy",
+            # Baselined 2026-09-17, the day it landed. This service is installed
+            # PER PLANNING REPOSITORY — its hook symlinked into that clone, its
+            # section written into that repo's config — which is `sync-project`'s
+            # job (SkyyNet's Project Scaffold and Sync), not install.sh's. On
+            # disk today its runners are the merge hook beside it and the CI step
+            # init-project.sh scaffolds; neither is the consumer this surface's
+            # predicate names. The ratchet forces this line out the day
+            # sync-project reads it from $SERVICES_DIR.
+            "planning-ui.sh": "installed per planning repo by sync-project, "
+                              "which does not exist yet; install.sh never reads it",
         },
     ),
     Surface(

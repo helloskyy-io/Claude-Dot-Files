@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 from datetime import date, datetime, timezone
@@ -81,6 +82,116 @@ def default_config_yaml() -> str:
         f"  bind: {d['bind']}       # loopback by default — a developer's process, reachable only to them\n"
         f"  port: {d['port']}             # this repo's port; override here only on a collision with another repo\n"
     )
+
+#: The environment overrides, one per key, named as the Services Standard's
+#: exemplar names gh-monitor's: `<SERVICE>_<KEY>`. Precedence is flag > env
+#: > config.yaml > the defaults above.
+ENV_PREFIX = "PLANNING_UI_"
+
+
+class ConfigError(RuntimeError):
+    """`config.yaml` exists and cannot be read as this service's settings."""
+
+
+def load_service_config(root: Path) -> dict[str, object]:
+    """The `planning-ui:` section of ``<root>/config.yaml``, or ``{}``.
+
+    ABSENT IS THE DESIGNED PATH AND MALFORMED IS A REFUSAL. The file is
+    deployment-scoped and gitignored: a fresh clone has the template and no
+    file, and the installer writes one — so no file means "the defaults",
+    never a fault. A file that exists and does not parse, or parses to
+    something other than a mapping, means the operator's intent is
+    unreadable, and serving on the defaults past it would put the viewer on a
+    port they did not choose.
+
+    PyYAML is imported HERE, not at module top. `serve` is the only verb with
+    settings, and it runs on a developer host where the fleet already needs
+    PyYAML; `--check` runs on every planning repository's CI runner, where
+    nothing installs it and nothing needs it. An import at the top would make
+    the merge gate depend on a parser the gate never uses.
+    """
+    path = root / "config.yaml"
+    if not path.is_file():
+        return {}
+    try:
+        import yaml
+    except ImportError as exc:
+        raise ConfigError(
+            f"{path} exists, and reading it needs PyYAML, which this python3 does not have "
+            "(the fleet's own dependency: `pip install pyyaml`)."
+        ) from exc
+    try:
+        document = yaml.safe_load(path.read_text())
+    except yaml.YAMLError as exc:
+        raise ConfigError(f"{path} is not valid YAML: {exc}") from exc
+    if document is None:
+        return {}
+    if not isinstance(document, dict):
+        raise ConfigError(f"{path} must be a mapping of sections, not {type(document).__name__}")
+    section = document.get(CONFIG_SECTION)
+    if section is None:
+        return {}
+    if not isinstance(section, dict):
+        raise ConfigError(
+            f"{path}: `{CONFIG_SECTION}:` must be a mapping, not {type(section).__name__}"
+        )
+    return dict(section)
+
+
+def resolve_serve_settings(
+    root: Path,
+    *,
+    bind: str | None = None,
+    port: int | None = None,
+    environ: dict[str, str] | None = None,
+) -> dict[str, object]:
+    """`enabled`, `bind` and `port` for ``serve``, resolved flag > env > file > default.
+
+    A flag is the operator's explicit word on this one run, so it outranks
+    the file; the environment outranks the file for the same reason the
+    standard gives — a machine-specific override without editing it.
+    """
+    env = os.environ if environ is None else environ
+    file = load_service_config(root)
+    settings: dict[str, object] = {}
+    for key, default in DEFAULT_CONFIG.items():
+        value: object = file.get(key, default)
+        override = env.get(ENV_PREFIX + key.upper())
+        if override is not None:
+            value = override
+        settings[key] = value
+    if bind is not None:
+        settings["bind"] = bind
+    if port is not None:
+        settings["port"] = port
+    settings["enabled"] = _as_bool(settings["enabled"], "enabled")
+    settings["port"] = _as_port(settings["port"])
+    settings["bind"] = str(settings["bind"])
+    return settings
+
+
+def _as_bool(value: object, key: str) -> bool:
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    if text in ("true", "yes", "on", "1"):
+        return True
+    if text in ("false", "no", "off", "0"):
+        return False
+    raise ConfigError(f"`{CONFIG_SECTION}.{key}` must be true or false, not {value!r}")
+
+
+def _as_port(value: object) -> int:
+    if isinstance(value, bool):  # `port: true` would otherwise read as port 1
+        raise ConfigError(f"`{CONFIG_SECTION}.port` must be an integer, not {value!r}")
+    try:
+        port = int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        raise ConfigError(f"`{CONFIG_SECTION}.port` must be an integer, not {value!r}") from None
+    if not 1 <= port <= 65535:
+        raise ConfigError(f"`{CONFIG_SECTION}.port` must be 1–65535, not {port}")
+    return port
+
 
 #: DERIVED output, committed deliberately — hence not `build/` or `dist/`,
 #: which read as throwaway and are conventionally git-ignored, and not
@@ -258,17 +369,19 @@ def _rel(path: Path, root: Path) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
-        prog="python -m planning_ui",
+        prog="planning-ui.sh",
         description="Derive the planning-corpus views from this checkout.")
     ap.add_argument("verb", nargs="?", choices=["serve"],
                     help="`serve`: start the process that serves the two diagram "
                          "pages from this checkout, deriving afresh on every "
                          "request. With no verb, generate the committed artifacts.")
-    ap.add_argument("--bind", default="127.0.0.1", metavar="ADDR",
-                    help="(serve) address to listen on; the loopback by default — "
-                         "this is a developer's process, not a service")
-    ap.add_argument("--port", type=int, default=8765,
-                    help="(serve) port to listen on (default: 8765)")
+    ap.add_argument("--bind", metavar="ADDR",
+                    help="(serve) address to listen on, overriding config.yaml; the "
+                         f"loopback by default ({DEFAULT_CONFIG['bind']}) — this is a "
+                         "developer's process, reachable only to them")
+    ap.add_argument("--port", type=int,
+                    help="(serve) port to listen on, overriding config.yaml "
+                         f"(default: {DEFAULT_CONFIG['port']})")
     ap.add_argument("--check", action="store_true",
                     help="derive and compare against the committed artifacts; "
                          "exit 1 on drift, naming each artifact that drifted, "
@@ -304,9 +417,20 @@ def main(argv: list[str] | None = None) -> int:
     if args.verb == "serve":
         if args.check:
             ap.error("`serve` derives per request and checks nothing; drop --check")
+        try:
+            settings = resolve_serve_settings(root, bind=args.bind, port=args.port)
+        except ConfigError as exc:
+            print(f"REFUSED {exc}")
+            return 2
+        if not settings["enabled"]:
+            # The master kill switch, read before anything is bound. Exit 0:
+            # a deliberately disabled service is a configuration state, not a
+            # failure (Services Standard § Master kill switch).
+            print(f"{CONFIG_SECTION} is disabled in {root / 'config.yaml'} (`enabled: false`); nothing to serve.")
+            return 0
         from planning_ui.serve import serve
 
-        return serve(args.bind, args.port, root)
+        return serve(settings["bind"], settings["port"], root)
 
     where = artifacts(root)
     decisions = where["decisions.md"]
@@ -337,7 +461,7 @@ def main(argv: list[str] | None = None) -> int:
             print(
                 f"NOTE {_rel(decisions, root)} reads git history, and these inputs have "
                 f"uncommitted changes the history cannot see yet: {', '.join(pending)}. "
-                "Commit them, then run `python -m planning_ui` again before committing the "
+                "Commit them, then run `planning-ui.sh` again before committing the "
                 "artifacts, or `--check` will report the page stale."
             )
         return 0
@@ -345,12 +469,12 @@ def main(argv: list[str] | None = None) -> int:
     drifted = 0
     for path, payload in rendered.items():
         if not path.exists():
-            print(f"MISSING {_rel(path, root)} — run `python -m planning_ui`")
+            print(f"MISSING {_rel(path, root)} — run `planning-ui.sh`")
             drifted += 1
             continue
         if comparable(path, path.read_text()) != comparable(path, payload):
             print(f"STALE {_rel(path, root)} — the corpus has moved since it was generated. "
-                  f"Run `python -m planning_ui` and commit.")
+                  f"Run `planning-ui.sh` and commit.")
             drifted += 1
             continue
         print(f"current {_rel(path, root)}")

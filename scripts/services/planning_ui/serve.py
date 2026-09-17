@@ -1,4 +1,4 @@
-"""``python3 -m planning_ui serve`` — the process a developer starts to look at
+"""``planning-ui.sh serve`` — the process a developer starts to look at
 the two diagram pages.
 
 **What it is, and what it is not.** A stdlib HTTP server on the loopback,

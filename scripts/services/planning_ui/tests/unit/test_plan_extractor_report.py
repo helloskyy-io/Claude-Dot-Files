@@ -156,7 +156,7 @@ def test_the_report_describes_the_mechanism_it_actually_has():
     text = render_markdown(_result())
     assert "per request" not in text
     assert "read-only mount" not in text
-    assert "python3 -m planning_ui --check" in text
+    assert "planning-ui.sh --check" in text
 
 
 def test_the_host_absolute_section_states_its_method_beside_its_count():

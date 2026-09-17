@@ -28,13 +28,28 @@
 # the commit. The same path serves a merge that stopped on a conflict elsewhere
 # and was resolved by hand: that commit is also `git commit`.
 #
-# Registration is per clone — see .gitattributes at the repository root. A
-# clone without it gets a whole-file conflict on the artifacts instead, and the
-# rule is the same: regenerate, never pick hunks.
+# Registration is per clone, three lines, run from the planning repository:
+#
+#   git config merge.binary.driver true
+#   ln -sf <tooling>/scripts/services/planning_ui/githooks/regenerate-on-merge "$(git rev-parse --git-path hooks)/pre-merge-commit"
+#   ln -sf <tooling>/scripts/services/planning_ui/githooks/regenerate-on-merge "$(git rev-parse --git-path hooks)/pre-commit"
+#
+# A clone without them gets a whole-file conflict on the artifacts instead
+# (.gitattributes marks them merge=binary), and the rule is the same:
+# regenerate, never pick hunks.
+#
+# THE HOOK FINDS THE SERVICE THROUGH ITS OWN REAL PATH. `$0` is the symlink
+# under the clone's hooks directory — its basename is which hook we are — and
+# `readlink -f` is where this file actually lives, in the tooling checkout,
+# beside the launcher. So a registration carries no PYTHONPATH and no
+# knowledge of where the tooling is on this machine: the symlink is the whole
+# of it.
 set -eu
-cd "$(git rev-parse --show-toplevel)"
 
 hook=$(basename "$0")
+planning_ui="$(dirname "$(dirname "$(dirname "$(readlink -f "$0")")")")/planning-ui.sh"
+
+cd "$(git rev-parse --show-toplevel)"
 
 # Only a merge commit has a merged tree to regenerate from.
 if [ "$hook" = "pre-commit" ] && ! git rev-parse -q --verify MERGE_HEAD >/dev/null; then
@@ -60,7 +75,7 @@ fi
 # The output is kept and shown on a veto so the operator sees WHICH artifact
 # drifted — or the traceback, if the generator itself failed, which vetoes
 # too: a generator that cannot run cannot vouch for the artifacts.
-if verdict=$(python3 -m planning_ui --check 2>&1); then
+if verdict=$("$planning_ui" --check 2>&1); then
     exit 0
 fi
 
@@ -74,6 +89,6 @@ if [ "$hook" = "pre-merge-commit" ]; then
     exit 1
 fi
 
-python3 -m planning_ui
+"$planning_ui"
 git add development/derived
 echo "planning_ui: regenerated development/derived/ from the merged tree and staged it with this commit." >&2

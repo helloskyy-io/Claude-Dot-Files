@@ -21,8 +21,8 @@ from .sprints import WORK_ITEM_DEFINITION
 #: says so; a page that describes a mechanism it does not have is the copy
 #: disagreeing with the carrier.
 PROVENANCE_STATEMENT = (
-    "**Generated from this checkout by `python3 -m planning_ui` and committed at "
-    "`development/derived/`. `python3 -m planning_ui --check` fails when it drifts from "
+    "**Generated from this checkout by the tooling's `planning-ui.sh` and committed at "
+    "`development/derived/`. `planning-ui.sh --check` fails when it drifts from "
     "the corpus; the pull-request workflow runs that check.**"
 )
 

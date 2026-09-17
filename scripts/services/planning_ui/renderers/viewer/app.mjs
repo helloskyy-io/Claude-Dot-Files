@@ -2,7 +2,7 @@
 // the two diagram pages. Written with React.createElement: JSX needs a
 // compiler and this repository has none (phase doc § The decision).
 //
-// Start it:   python3 -m planning_ui serve          (from a checkout of this repo)
+// Start it:   <tooling>/scripts/services/planning-ui.sh serve   (from a checkout of a planning repo)
 // Reach it:   http://127.0.0.1:8765/
 // Refresh:    re-derives from the checkout — there is nothing to regenerate.
 
@@ -73,9 +73,9 @@ function Footer({ manifest }) {
 function HowTo() {
   return h("div", { className: "howto" },
     h("h2", null, "how this viewer is started and reached"),
-    h("pre", null, "cd <a checkout of a planning repo>\npython3 -m planning_ui serve            # http://127.0.0.1:8765/  — ^C stops it\npython3 -m planning_ui serve --repo-root <path>   # from anywhere; refused by name if the path is not a planning repo\npython3 -m planning_ui serve --port 9000 --bind 0.0.0.0   # reachable from another machine — read the caution below"),
+    h("pre", null, "cd <a checkout of a planning repo>\n<tooling>/scripts/services/planning-ui.sh serve            # http://127.0.0.1:8765/  — ^C stops it\nplanning-ui.sh serve --repo-root <path>   # from anywhere; refused by name if the path is not a planning repo\nplanning-ui.sh serve --port 9000 --bind 0.0.0.0   # reachable from another machine — read the caution below\n\n# bind and port come from this repo's config.yaml (`planning-ui:` section) when it has one; flags override it"),
     h("p", null, "There is no authentication: bound to 0.0.0.0, anyone who can reach the port reads this checkout's planning corpus and, when a derivation raises, its full traceback. Keep the loopback default unless the network is one you trust."),
-    h("p", null, "Every refresh re-runs the extractor over the checkout it sits in. Nothing is regenerated, cached or written; edit a roadmap, refresh, and the change is in the picture. The committed artifacts under development/derived/ are unaffected — regenerate those with python3 -m planning_ui as before."),
+    h("p", null, "Every refresh re-runs the extractor over the checkout it sits in. Nothing is regenerated, cached or written; edit a roadmap, refresh, and the change is in the picture. The committed artifacts under development/derived/ are unaffected — regenerate those with planning-ui.sh as before."),
     h("p", null, "The graph is the artifact; the drawing is a reading of it. No picture is committed."),
   );
 }

@@ -1,8 +1,10 @@
 """Two lanes that each regenerated the artifacts merge by regeneration, not by hand.
 
-Phase 6 requirement 6. The scratch repository below carries a copy of this
-package and a two-component corpus; two branches each edit a different
-roadmap and regenerate, then merge. Three things are asserted, each against a
+Phase 6 requirement 6. The scratch repository below is a two-component
+corpus and NOTHING ELSE — the package stays where it is hosted, in the
+tooling, and the scratch clone reaches it the way a real clone does: the
+launcher by path, and the hook by a symlink into the tooling checkout. Two
+branches each edit a different roadmap and regenerate, then merge. Three things are asserted, each against a
 real ``git merge`` rather than a model of one:
 
 * **Unregistered, the conflict is left WHOLE.** ``.gitattributes`` marks the
@@ -39,9 +41,7 @@ the test pass or fail for a reason the test does not state.
 from __future__ import annotations
 
 import os
-import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -49,6 +49,12 @@ import pytest
 from planning_ui import cli
 
 PACKAGE = Path(__file__).resolve().parent.parent.parent
+#: The service's one entry point, and the hook it registers. Both are run FROM
+#: THE TOOLING, never copied: a copy would pass while the hosted shape — the
+#: hook finding the launcher through its own real path, the launcher finding
+#: the package through its own — silently broke.
+LAUNCHER = PACKAGE.parent / "planning-ui.sh"
+HOOK = PACKAGE / "githooks" / "regenerate-on-merge"
 #: Taken from the module's own constants rather than typed here: an artifact
 #: added without the merge rule covering it would otherwise pass this suite
 #: silently — and an artifact outside the rule is one two lanes hunk-merge
@@ -75,7 +81,10 @@ SPRINTS = """# Sprints
 
 
 def _env() -> dict[str, str]:
-    env = dict(os.environ)
+    """The user's git config masked, and NO PYTHONPATH: the launcher and the
+    hook must find the package on their own, because a registered clone's
+    `git merge` runs the hook with whatever environment the shell has."""
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
     env.update(
         GIT_CONFIG_GLOBAL=os.devnull,
         GIT_CONFIG_SYSTEM=os.devnull,
@@ -96,14 +105,14 @@ def _git(repo: Path, *args: str, check: bool = True) -> subprocess.CompletedProc
 
 def _generate(repo: Path) -> None:
     subprocess.run(
-        [sys.executable, "-m", "planning_ui"], cwd=repo, env=_env(),
+        [str(LAUNCHER)], cwd=repo, env=_env(),
         capture_output=True, text=True, check=True, timeout=120,
     )
 
 
 def _check(repo: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, "-m", "planning_ui", "--check"], cwd=repo, env=_env(),
+        [str(LAUNCHER), "--check"], cwd=repo, env=_env(),
         capture_output=True, text=True, check=False, timeout=120,
     )
 
@@ -175,12 +184,7 @@ def scratch(tmp_path: Path) -> Path:
     branches that each edited one roadmap and regenerated."""
     repo = tmp_path / "scratch"
     repo.mkdir()
-    shutil.copytree(
-        PACKAGE, repo / "planning_ui",
-        ignore=shutil.ignore_patterns("tests", "__pycache__", ".pytest_cache", "generated"),
-    )
-    # The one line `init-project` writes into every planning repo. Written
-    # here, not copied: this package sits beside no repository now.
+    # The one line `init-project` writes into every repository it scaffolds.
     (repo / ".gitattributes").write_text("development/derived/* merge=binary\n")
     _write_roadmap(repo, "alpha", "base")
     _write_roadmap(repo, "beta", "base")
@@ -210,15 +214,15 @@ def scratch(tmp_path: Path) -> Path:
 
 
 def _register(repo: Path) -> None:
-    """The three per-clone lines `.gitattributes` records."""
+    """The three per-clone lines the hook's header records — the symlinks
+    pointing INTO THE TOOLING, which is the whole of a registration."""
     _git(repo, "config", "merge.binary.driver", "true")
     hooks = Path(_git(repo, "rev-parse", "--git-path", "hooks").stdout.strip())
     if not hooks.is_absolute():
         hooks = repo / hooks
     hooks.mkdir(parents=True, exist_ok=True)
-    script = repo / "planning_ui" / "githooks" / "regenerate-on-merge"
     for name in ("pre-merge-commit", "pre-commit"):
-        (hooks / name).symlink_to(os.path.relpath(script, hooks))
+        (hooks / name).symlink_to(HOOK)
 
 
 def test_unregistered_the_merge_stops_on_a_whole_file_conflict(scratch: Path):

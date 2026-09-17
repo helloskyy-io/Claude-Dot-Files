@@ -1,4 +1,4 @@
-"""``python -m planning_ui`` — generate the views, or check they are current.
+"""``python -m planning_ui`` — what ``planning-ui.sh`` execs: generate the views, or check they are current.
 
 The entry point is a module rather than a console script because this package
 is never installed: it is read out of the checkout it describes.
