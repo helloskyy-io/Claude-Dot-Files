@@ -214,27 +214,54 @@ def test_a_world_writable_copy_is_re_placed_and_a_world_writable_directory_is_re
     assert "re-placed (was stale)" in run.stdout, run.stdout
     assert not target.stat().st_mode & (stat.S_IWGRP | stat.S_IWOTH), oct(target.stat().st_mode)
 
-    dropin_dir = target.parent
-    dropin_dir.chmod(dropin_dir.stat().st_mode | stat.S_IWOTH)
+    # The directory takes the GROUP bit where the file took the OTHER bit, so
+    # each of the two write bits the check masks is exercised by one shape —
+    # a mask that dropped either would pass the other shape's test.
+    floor_dir = target.parent  # the first entry's directory; which one is immaterial
+    floor_dir.chmod(floor_dir.stat().st_mode | stat.S_IWGRP)
     try:
         run = _run(sandbox, managed)
     finally:
-        dropin_dir.chmod(dropin_dir.stat().st_mode & ~stat.S_IWOTH)
+        floor_dir.chmod(floor_dir.stat().st_mode & ~stat.S_IWGRP)
     out = run.stdout + run.stderr
-    assert run.returncode == 1, f"exit {run.returncode}: a world-writable managed directory earned the banner\n{out}"
+    assert run.returncode == 1, f"exit {run.returncode}: a group-writable managed directory earned the banner\n{out}"
     assert "Managed floor verified" not in out
-    assert f"{dropin_dir} — directory REWRITABLE FROM BELOW" in out, out
+    assert f"{floor_dir} — directory REWRITABLE FROM BELOW" in out, out
     assert "group- or world-writable" in out, out
 
 
-def test_the_owner_seam_is_REFUSED_on_the_live_path_before_anything_is_written(sandbox: Path) -> None:
+def test_a_managed_path_with_a_space_is_swept_whole(sandbox: Path) -> None:
+    """The directory sweep walks every ancestor of every placed file; an
+    override path with a space (a checkout under `My Repos/`) must be one
+    directory to it, not two fragments that each fail as 'not a directory'."""
+    managed = sandbox / "et c"
+    run = _run(sandbox, managed)
+    out = run.stdout + run.stderr
+    assert run.returncode == 0, out
+    assert "not a directory" not in out, out
+    assert f"Managed floor verified at {managed}." in out, out
+
+
+@pytest.mark.parametrize("spelling", [
+    "/etc/claude-code",
+    # Every one of these is the live directory to the kernel and a different
+    # string to a naive comparison; the seam is honoured only on an override,
+    # so an unrecognised spelling would relax the required owner on the real
+    # floor. Refused because the installer canonicalises before it compares.
+    "/etc//claude-code",
+    "/etc/claude-code/.",
+    "/etc/claude-code/../claude-code",
+])
+def test_the_owner_seam_is_REFUSED_on_the_live_path_before_anything_is_written(sandbox: Path, spelling: str) -> None:
     """The seam must not be a way to weaken a live install: against the real
-    managed directory it is refused outright — before sudo, before any write."""
-    run = _run(sandbox, "/etc/claude-code", owner_uid=os.getuid())
+    managed directory, however it is spelled, it is refused outright — before
+    sudo, before any write."""
+    run = _run(sandbox, spelling, owner_uid=os.getuid())
     out = run.stdout + run.stderr
     assert run.returncode == 1, out
     assert "MANAGED FLOOR NOT PLACED" in out and "not configurable" in out, out
     assert "CDF_MANAGED_OWNER_UID" in out and "/etc/claude-code" in out, out
+    assert "CDF_MANAGED_DIR overrides" not in out, f"{spelling!r} was taken for a test override\n{out}"
     assert "sudo: a password is required" not in out, "the refusal came AFTER an escalation attempt"
     assert not (sandbox / "sudo.log").exists()
     assert "Managed floor verified" not in out

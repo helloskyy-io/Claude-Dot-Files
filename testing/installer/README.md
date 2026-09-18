@@ -44,9 +44,11 @@ root. So under `CDF_MANAGED_DIR` the installer also reads
 `CDF_MANAGED_OWNER_UID` — the owner the test can produce — and the tests set
 it to their own uid for the green path. The installer's default stays root:
 unconditionally on `/etc/claude-code` (setting the variable there is refused
-before any write), and under the override when the variable is unset — which
-is what the ownership control runs against. The same placement that earns the
-banner with the seam is refused without it.
+before any write — and the path is canonicalised before it is compared, so
+`/etc//claude-code` or `/etc/claude-code/../claude-code` is the live directory,
+not an override the seam would be honoured on), and under the override when
+the variable is unset — which is what the ownership control runs against. The
+same placement that earns the banner with the seam is refused without it.
 
 ## What is NOT covered here, and where it is
 

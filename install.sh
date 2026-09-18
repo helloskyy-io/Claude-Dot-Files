@@ -82,11 +82,17 @@ MANAGED_FLOOR=(
 # will never read, and the installer says so.
 MANAGED_DIR="${CDF_MANAGED_DIR:-/etc/claude-code}"
 MANAGED_DIR_REAL="/etc/claude-code"
-# Trailing slashes are stripped so `/etc/claude-code/` is recognised as the
-# live directory rather than warned about as a test override.
-while [ "${MANAGED_DIR%/}" != "$MANAGED_DIR" ] && [ "$MANAGED_DIR" != "/" ]; do
-    MANAGED_DIR="${MANAGED_DIR%/}"
-done
+# Both sides are CANONICALISED before they are ever compared — trailing and
+# doubled slashes, `.`/`..` segments and symlinks all collapse (`readlink -m`
+# does not need the path to exist). A string comparison would read
+# `/etc//claude-code` as a test override while every syscall reads it as the
+# live directory, and the owner seam below is honoured only on an override —
+# so the spelling of the path would have been a way to relax the live floor.
+# The one decision "live or override?" is made here, once, and reused.
+MANAGED_DIR="$(readlink -m -- "$MANAGED_DIR")"
+MANAGED_DIR_REAL="$(readlink -m -- "$MANAGED_DIR_REAL")"
+MANAGED_DIR_IS_OVERRIDE=false
+[ "$MANAGED_DIR" = "$MANAGED_DIR_REAL" ] || MANAGED_DIR_IS_OVERRIDE=true
 # The uid the floor must be OWNED BY. On the live directory it is root and it
 # is not configurable — a floor the invoking user owns is one that user can
 # rewrite, and the installer would be certifying the property it exists to
@@ -94,7 +100,7 @@ done
 # without root, so they name the owner they can produce; the default stays
 # root there too, so a test that forgets is refused rather than passed.
 MANAGED_OWNER_UID=0
-if [ "$MANAGED_DIR" != "$MANAGED_DIR_REAL" ] && [ -n "${CDF_MANAGED_OWNER_UID:-}" ]; then
+if [ "$MANAGED_DIR_IS_OVERRIDE" = true ] && [ -n "${CDF_MANAGED_OWNER_UID:-}" ]; then
     MANAGED_OWNER_UID="$CDF_MANAGED_OWNER_UID"
 fi
 
@@ -405,7 +411,7 @@ if [ "$PLACE_MANAGED_FLOOR" = false ]; then
     warn "MANAGED FLOOR NOT PLACED — by --without-managed-floor"
     warn "  $MANAGED_DIR carries no floor from this repo; only the user tier guards this machine"
 else
-    if [ "$MANAGED_DIR" != "$MANAGED_DIR_REAL" ]; then
+    if [ "$MANAGED_DIR_IS_OVERRIDE" = true ]; then
         warn "CDF_MANAGED_DIR overrides the managed directory: $MANAGED_DIR"
         warn "  Claude Code reads the managed tier ONLY from $MANAGED_DIR_REAL —"
         warn "  a floor placed here is for testing the installer, not for a live machine"
@@ -414,7 +420,7 @@ else
         fi
     fi
 
-    if [ "$MANAGED_DIR" = "$MANAGED_DIR_REAL" ] && [ -n "${CDF_MANAGED_OWNER_UID:-}" ]; then
+    if [ "$MANAGED_DIR_IS_OVERRIDE" = false ] && [ -n "${CDF_MANAGED_OWNER_UID:-}" ]; then
         echo ""
         error "MANAGED FLOOR NOT PLACED"
         error "  CDF_MANAGED_OWNER_UID=$CDF_MANAGED_OWNER_UID is set, but the owner of $MANAGED_DIR_REAL is root and is not configurable"
@@ -496,19 +502,25 @@ else
     done
 
     # Every directory from the managed directory down to each placed file,
-    # once each. `install -D` creates the missing ones as the placing user
-    # with the umask's mode; a pre-existing one is whatever the host had.
-    floor_dirs=""
+    # once each. `install -D` creates the missing ones as the placing user at
+    # 0755 regardless of umask; a pre-existing one is whatever the host had.
+    # An array, not a delimited string: under the override the path is
+    # operator-supplied and may carry a space or a glob character.
+    floor_dirs=()
     for entry in "${MANAGED_FLOOR[@]}"; do
         IFS=: read -r _ rel_target _ <<< "$entry"
         dir_path="$(dirname "$MANAGED_DIR/$rel_target")"
         while :; do
-            case " $floor_dirs " in *" $dir_path "*) ;; *) floor_dirs="$floor_dirs $dir_path" ;; esac
+            seen=false
+            for known in "${floor_dirs[@]}"; do
+                [ "$known" != "$dir_path" ] || { seen=true; break; }
+            done
+            [ "$seen" = true ] || floor_dirs+=("$dir_path")
             [ "$dir_path" != "$MANAGED_DIR" ] || break
             dir_path="$(dirname "$dir_path")"
         done
     done
-    for dir_path in $floor_dirs; do
+    for dir_path in "${floor_dirs[@]}"; do
         if [ ! -d "$dir_path" ]; then
             error "$dir_path — verification failed (not a directory)"
             floor_all_good=false

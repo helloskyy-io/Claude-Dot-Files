@@ -21,10 +21,14 @@ PROBE_DIR = REPO_ROOT / "scripts" / "helpers" / "managed-tier-probe"
 PROBE = PROBE_DIR / "probe.sh"
 DOCKERFILE = PROBE_DIR / "Dockerfile"
 
-# Any `-u <uid>[:<gid>]` handed to `docker run` whose uid is a bare number.
-_LITERAL_RUN_UID = re.compile(r"docker run\b[^\n]*\s-u\s+['\"]?\d+")
-# Any `useradd ... -u <number>` in the image.
-_LITERAL_USERADD_UID = re.compile(r"useradd\b[^\n]*\s-u\s+['\"]?\d+")
+# Any user flag whose value is a bare number, anywhere in the probe: `-u 1001`,
+# `-u1001`, `--user 1001`, `--user=1001`. Deliberately NOT anchored to the
+# `docker run` line — the probe already splits that command across
+# continuation lines, so a `-u` moved to its own line must still be seen.
+_LITERAL_RUN_UID = re.compile(r"(?<![\w-])(?:-u|--user)[ =]*['\"]?\d+")
+# Any uid flag whose value is a bare number, anywhere in the image: `-u 1001`,
+# `-u1001`, `--uid 1001`, `--uid=1001`.
+_LITERAL_USERADD_UID = re.compile(r"(?<![\w-])(?:-u|--uid)[ =]*['\"]?\d+")
 
 
 def _literal_uid_sites(probe_text: str, dockerfile_text: str) -> list[str]:
@@ -71,10 +75,17 @@ def test_the_control_fires_on_the_shipped_hardcoding() -> None:
     what a later edit could put back, are what the patterns must catch."""
     shipped_run = '  docker run --rm -u 1001:1001 -e HOME=/home/probe \\\n'
     shipped_useradd = "RUN useradd -m -u 1001 probe\n"
-    assert _literal_uid_sites(shipped_run, "") == ["docker run --rm -u 1001"]
-    assert _literal_uid_sites("", shipped_useradd) == ["useradd -m -u 1001"]
+    assert _literal_uid_sites(shipped_run, "") == ["-u 1001"]
+    assert _literal_uid_sites("", shipped_useradd) == ["-u 1001"]
     assert _literal_uid_sites('  docker run --rm -u "1000:1000" x\n', "RUN useradd -u '1000' p\n") == [
-        'docker run --rm -u "1000', "useradd -u '1000"]
-    # And the derived form is not a false positive.
-    assert _literal_uid_sites('  docker run --rm -u "$PROBE_UID:$PROBE_GID" x\n',
+        '-u "1000', "-u '1000"]
+    # The forms a later edit could reach for: the flag on its own continuation
+    # line, the long flag, the attached short form, the `=` form.
+    assert _literal_uid_sites('  docker run --rm \\\n    -u 1001:1001 \\\n    x\n', "") == ["-u 1001"]
+    assert _literal_uid_sites('  docker run --rm --user 1001 x\n', "RUN useradd --uid 1001 p\n") == [
+        "--user 1001", "--uid 1001"]
+    assert _literal_uid_sites('  docker run --rm -u1001 x\n', "RUN useradd --uid=1001 p\n") == [
+        "-u1001", "--uid=1001"]
+    # And the derived form is not a false positive — nor is `id -u` itself.
+    assert _literal_uid_sites('PROBE_UID="$(id -u)"\n  docker run --rm -u "$PROBE_UID:$PROBE_GID" x\n',
                               'RUN useradd -m -u "$PROBE_UID" probe\n') == []

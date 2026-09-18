@@ -80,6 +80,16 @@ pip install "pytest>=7,<9" "pyyaml>=6,<7" "ruff>=0.6,<1"
 `pyyaml` is a runtime dependency, not just a test one — `preflight` refuses to
 start without it.
 
+Two more things a **fresh worktree** needs before its first `run-all.sh` is
+green, both of which CI does for itself and nothing else does:
+
+- **`config.yaml`** — the suite reads it (every `MODEL_KEY` must resolve there)
+  and it is the instance's file, not committed. `cp config.template.yaml
+  config.yaml` is what `.github/workflows/tests.yml` runs; do the same.
+- **Node ≥ 18** — `js/unit` refuses an older `node` on PATH rather than
+  pretending. Point it at one with `NODE_BIN=/path/to/node ./testing/run-all.sh`
+  (on the VMs, `/opt/skyy-net/.node/bin/node`).
+
 ## Running
 
 ```bash
