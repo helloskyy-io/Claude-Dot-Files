@@ -43,11 +43,15 @@ population includes the text making the claim can be satisfied by its own row,
 which is a claim about nothing. Same treatment as `measure/run_log.py`, for the
 same reason, and asserted by name in the gate.
 
-**`measure/` and `tests/` are not rows.** `measure/` is its own producer surface
-with its own table and its own `Read by` column; `tests/` holds the tools' tests,
-which the runner reads rather than the system. Both are excluded **by name** in
-the gate — an exclusion that is not named is a hole — and the gate fails if a
-third subdirectory appears that is neither ruled in nor excluded.
+**`measure/`, `tests/` and `managed-tier-probe/` are not rows.** `measure/` is
+its own producer surface with its own table and its own `Read by` column;
+`tests/` holds the tools' tests, which the runner reads rather than the system;
+`managed-tier-probe/` is a host-run verification harness a PERSON invokes — it
+spends tokens against a container and is off every merge path, so its
+"invoker" is the operator and its result lives in its README. All three are
+excluded **by name** in the gate — an exclusion that is not named is a hole —
+and the gate fails if a fourth subdirectory appears that is neither ruled in nor
+excluded.
 
 ## The two tools nothing invokes — a baseline that can only shrink
 

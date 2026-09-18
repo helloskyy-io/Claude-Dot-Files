@@ -784,6 +784,13 @@ RULED_OUT = {
                        "human-only exclusion, for the reason `tracked/"
                        "operations/` is: no check can assert a person did "
                        "something",
+    "config/managed-settings.d": "the managed floor (WD Phase 7) — placed "
+        "ROOT-OWNED under /etc/claude-code/ by install.sh (`MANAGED_FLOOR`, "
+        "copied, never symlinked) and read by the harness above every other "
+        "tier. Not a symlink target, so `config`'s container reason does not "
+        "reach it. HELD BY ANOTHER GATE: `test_the_managed_floor_is_wired.py` "
+        "asserts its hook is declared, resolves to a placed executable, and "
+        "sets no key that silences or halts",
     "config/rules": "loaded WHOLESALE by the harness into every session; there "
                     "is no per-member consumer to name and none can go unread",
     "config/skills": "loaded wholesale by the harness — every skill is listed "
@@ -805,9 +812,19 @@ RULED_OUT = {
         "`test_every_POOL_fragment_is_render_checked_by_some_consumer` and "
         "`test_prompt_completeness.py` require every shared fragment to be "
         "loaded by a consumer or excluded with a reason",
+    "scripts/helpers/managed-tier-probe": "a HOST-RUN verification harness, "
+        "invoked by a PERSON: `probe.sh` spends the operator's tokens against a "
+        "container to observe the OS-level managed tier and is off every merge "
+        "path — the human-only exclusion, for the reason `config/commands` is. "
+        "`Dockerfile` and `marker-hook.sh` are read only by `probe.sh`; its "
+        "README carries the measured result. Excluded from `scripts/helpers/`'s "
+        "own table by name, beside `measure/` and `tests/`",
     "testing/config-hooks": "tests for `config/hooks/`, read by the runner — "
                             "placed here rather than beside the hooks for the "
                             "reason its README records",
+    "testing/installer": "tests for `install.sh`, read by the runner — placed "
+                         "here rather than at the repo root for the reason its "
+                         "README records",
     "testing/scripts": "the mutation harness and the repo-wide guards no code "
                        "unit owns, this file among them — read by the runner "
                        "and the operator",
@@ -896,6 +913,9 @@ HELD_BY: dict[str, tuple[str, str]] = {
     "planning-ui's vendored JavaScript — every file declared, every declaration's bytes match": (
         "scripts/services/planning_ui/tests/unit/test_vendor_manifest.py",
         "test_the_committed_set_matches_its_manifest_and_is_under_budget"),
+    "the managed floor's hook is declared, resolves to a placed executable, and the floor sets no silencing key": (
+        "testing/config-hooks/tests/unit/test_the_managed_floor_is_wired.py",
+        "test_every_floor_hook_RESOLVES_to_a_shipped_executable_under_the_managed_dir"),
     "the repo map, docs/file_structure.txt — population off git ls-files": (
         "testing/scripts/tests/unit/test_file_structure_map_covers_the_tree.py",
         "test_a_directory_the_map_ENUMERATES_is_enumerated_COMPLETELY"),
