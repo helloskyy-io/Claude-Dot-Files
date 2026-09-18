@@ -43,7 +43,7 @@ from planning_ui.decisions import assemble
 from planning_ui.decisions.history import merge_heads
 from planning_ui.decisions import render_markdown as render_decisions
 from planning_ui.plan_extractor import ExtractionResult, extract
-from planning_ui.plan_extractor.contract import unmet_condition
+from planning_ui.plan_extractor.contract import CORPUS_FILE, unmet_condition
 from planning_ui.plan_extractor import render_markdown as render_report
 from planning_ui.views import assemble_views
 from planning_ui.views.stores import assemble_stores
@@ -363,6 +363,38 @@ def _uncommitted_history_inputs(root: Path) -> list[str] | None:
     return pending
 
 
+#: Everything the derivation reads, for the working-tree note above. Not
+#: `development/derived/` — that is the output, and it is always pending
+#: right after a generate.
+CORPUS_INPUTS = ("development/", "standards/", "tracked/", CORPUS_FILE)
+
+
+def _uncommitted_corpus_edits(root: Path) -> list[str]:
+    """Corpus inputs whose working-tree state differs from the commit.
+
+    MEASURED, ON THE DAY THE VIEWER WAS ADOPTED IN A SHARED CHECKOUT: another
+    session's uncommitted phase-doc edit was read into the artifacts, the
+    artifacts were committed, and `--check` on a fresh clone of that very
+    commit named all five STALE. The generator cannot refuse — a working tree
+    is a legitimate thing to look at — but it can say what it read. ``[]``
+    when git cannot answer: the history note above already covers that case.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "status", "--porcelain", "--", *CORPUS_INPUTS],
+            capture_output=True, text=True, timeout=15, check=False,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return []
+    if result.returncode != 0:
+        return []
+    derived = _rel(derived_dir(root), root) + "/"
+    return [
+        line[3:] for line in result.stdout.splitlines()
+        if line.strip() and not line[3:].startswith(derived)
+    ]
+
+
 def _rel(path: Path, root: Path) -> str:
     return path.relative_to(root).as_posix()
 
@@ -463,6 +495,15 @@ def main(argv: list[str] | None = None) -> int:
                 f"uncommitted changes the history cannot see yet: {', '.join(pending)}. "
                 "Commit them, then run `planning-ui.sh` again before committing the "
                 "artifacts, or `--check` will report the page stale."
+            )
+        edited = _uncommitted_corpus_edits(root)
+        if edited:
+            print(
+                f"NOTE the artifacts describe this WORKING TREE, and it differs from the commit: "
+                f"{', '.join(edited[:5])}{' …' if len(edited) > 5 else ''} carr"
+                f"{'ies' if len(edited) == 1 else 'y'} uncommitted changes. Committed as they "
+                "are, `--check` on the committed tree — a fresh clone, the CI runner — reads "
+                "every artifact STALE. Commit those edits first, or generate from a clean tree."
             )
         return 0
 

@@ -260,3 +260,28 @@ def test_the_root_is_a_parameter_and_artifacts_land_in_the_repo_they_describe(
         assert (redirected / "development" / "derived" / name).exists()
     assert not (Path(cli.__file__).parent / "generated").exists()
     assert cli.main(["--repo-root", str(redirected), "--check"]) == 0
+
+
+def test_generating_over_an_uncommitted_corpus_edit_says_so(redirected: Path, capsys):
+    """Measured adopting the viewer in a shared checkout: another session's
+    uncommitted phase-doc edit was read into the artifacts, committed, and a
+    fresh clone of that commit read all five STALE. The generator says what it
+    read; it does not refuse a working tree."""
+    import subprocess
+
+    root = redirected
+    subprocess.run(["git", "-C", str(root), "init", "-q"], check=True)
+    env = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t",
+           "GIT_COMMITTER_EMAIL": "t@t", "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_SYSTEM": "/dev/null"}
+    import os
+    env = {**os.environ, **env}
+    subprocess.run(["git", "-C", str(root), "add", "-A"], check=True, env=env)
+    subprocess.run(["git", "-C", str(root), "commit", "-qm", "corpus"], check=True, env=env)
+    assert cli.main(["--repo-root", str(root)]) == 0
+    assert "WORKING TREE" not in capsys.readouterr().out, "positive control: a clean tree says nothing"
+
+    roadmap = next((root / "development").rglob("roadmap.md"))
+    roadmap.write_text(roadmap.read_text() + "\nan uncommitted line\n")
+    assert cli.main(["--repo-root", str(root)]) == 0
+    out = capsys.readouterr().out
+    assert "WORKING TREE" in out and "roadmap.md" in out and "STALE" in out
