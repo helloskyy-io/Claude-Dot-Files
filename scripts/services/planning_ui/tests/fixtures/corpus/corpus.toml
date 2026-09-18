@@ -1,0 +1,4 @@
+# The fixture corpus's own shape — MDC's, deliberately: its sprint items
+# carry a layer and a missing one is a finding the tests assert on.
+[corpus]
+sprint_layer_required = true

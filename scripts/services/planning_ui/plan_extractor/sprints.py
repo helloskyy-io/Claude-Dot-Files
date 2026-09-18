@@ -25,6 +25,7 @@ from .model import (
     Collector,
     Provenance,
 )
+from . import contract as contract_module
 from . import corpus_io
 from .fences import fenced_mask
 from .safe_paths import PathEscape, is_external, resolve_within_root, split_anchor
@@ -137,6 +138,7 @@ def _parse_item(
     match: re.Match[str],
     collector: Collector,
     unplaced_section: str = "",
+    layer_required: bool = False,
 ) -> SprintItem:
     body = match.group("body")
     checked = match.group("mark").lower() == "x"
@@ -193,12 +195,17 @@ def _parse_item(
         unplaced_section=unplaced_section,
     )
 
-    _report_shape_misses(item, collector)
+    _report_shape_misses(item, collector, layer_required)
     return item
 
 
-def _report_shape_misses(item: SprintItem, collector: Collector) -> None:
+def _report_shape_misses(item: SprintItem, collector: Collector, layer_required: bool) -> None:
     """Every §6 shape miss is a named finding — none shrinks the graph.
+
+    The layer is required only where the corpus says so (`sprint_layer_required`
+    in its contract): MDC's §6 asks for one from its Deployment Layer Model,
+    the Documentation Standard's item shape does not, and a corpus with no
+    layers would otherwise read every item as unparsed.
 
     The close-out gate is deliberately exempt from the ``L<n>`` and link
     requirements: §6 describes a work item, and the close-out is a recurring
@@ -212,7 +219,7 @@ def _report_shape_misses(item: SprintItem, collector: Collector) -> None:
 
     before = len(collector.findings)
 
-    if item.layer is None:
+    if item.layer is None and layer_required:
         if item.cross_cutting:
             collector.add_finding(
                 UNPARSED_LINE,
@@ -292,8 +299,16 @@ def _parse_exclusions(lines: list[str], start: int, fenced: list[bool]) -> list[
     return out
 
 
-def parse_sprints(root: Path, collector: Collector) -> SprintsDocument:
-    """Parse ``development/sprints.md`` into sprints, items and counts."""
+def parse_sprints(
+    root: Path, collector: Collector, corpus_contract: contract_module.Contract | None = None
+) -> SprintsDocument:
+    """Parse ``development/sprints.md`` into sprints, items and counts.
+
+    The item shape has one corpus-declared part — whether a `· L<n> ·` layer
+    is required — read from the corpus contract; a caller may pass one, and
+    otherwise it is the repository's own.
+    """
+    corpus_contract = corpus_contract or contract_module.load(root)
     path = root / SPRINTS_REL
     if not path.is_file():
         collector.add_finding(
@@ -389,7 +404,8 @@ def parse_sprints(root: Path, collector: Collector) -> SprintsDocument:
             continue
 
         item = _parse_item(
-            root, current, lineno, checkbox, collector, unplaced_section=subsection
+            root, current, lineno, checkbox, collector, unplaced_section=subsection,
+            layer_required=corpus_contract.sprint_layer_required,
         )
         current.items.append(item)
         linked_paths.update(item.link_paths)

@@ -29,7 +29,7 @@ from pathlib import Path
 
 from . import corpus_io
 from .fences import fenced_mask
-from .contract import Contract
+from .contract import COMPONENT_RECORD_PATTERN, Contract
 from .model import (
     COMPONENT_SHAPED_NO_ROADMAP,
     SECTION_UNCLASSIFIED,
@@ -61,6 +61,8 @@ REVIEW_RESOLUTIONS = "review_resolutions"
 SURFACED_STANDARDS = "surfaced_standards_changes"
 REPO_INSTRUCTIONS = "repo_instructions"
 UNCLASSIFIED = "unclassified"
+#: `<name>/<name>.md` — a component's decision record, where a corpus declares one.
+COMPONENT_RECORD = "component_record"
 
 #: Classes that are recognised and are deliberately not graph nodes. Naming them
 #: is what keeps the unclassified tail meaningful.
@@ -72,10 +74,15 @@ def not_a_node_classes(contract: Contract | None = None) -> frozenset[str]:
     one does not still gets a named class rather than an unclassified tail.
     """
     names = (contract or Contract()).not_a_node
-    return frozenset(
-        {SPRINTS_ARCHIVE, RESEARCH, REPO_INSTRUCTIONS}
-        | {n.removesuffix(".md").replace("-", "_") for n in names}
-    )
+    return frozenset({SPRINTS_ARCHIVE, RESEARCH, REPO_INSTRUCTIONS} | {_class_for(n) for n in names})
+
+
+def _class_for(entry: str) -> str:
+    """The class name a `not_a_node` entry classifies as. The one pattern
+    entry, `{component}.md`, is one class for every match."""
+    if entry == COMPONENT_RECORD_PATTERN:
+        return COMPONENT_RECORD
+    return entry.removesuffix(".md").replace("-", "_")
 
 
 NOT_A_NODE_CLASSES = frozenset(
@@ -102,15 +109,25 @@ class DiscoveredFile:
 
 
 def enumerate_markdown(
-    root: Path, subdir: str = "development", collector: Collector | None = None
+    root: Path,
+    subdir: str = "development",
+    collector: Collector | None = None,
+    contract: Contract | None = None,
 ) -> list[str]:
     """Every ``.md`` under ``<root>/<subdir>``, repo-relative, sorted.
 
     Thin wrapper over :func:`corpus_io.iter_markdown`, which owns the walk for
     the whole package — including the symlink-leaves-the-root check, which the
-    three hand-copied walks this replaced did not have.
+    three hand-copied walks this replaced did not have. A directory the
+    contract declares `not_corpus` is not walked: it holds no corpus, so
+    classifying what is in it would report findings about documents nobody
+    maintains as planning — measured on a repository whose past review
+    records sit under `development/common/reviews/`.
     """
-    return corpus_io.iter_markdown(root, subdir, collector=collector)
+    return corpus_io.iter_markdown(
+        root, subdir, collector=collector,
+        exclude_prefixes=(contract or Contract()).not_corpus,
+    )
 
 
 def classify(rel_path: str, contract: Contract | None = None) -> str:
@@ -138,13 +155,14 @@ def classify(rel_path: str, contract: Contract | None = None) -> str:
     # three ship in `contract`, and a repository adds its own in `corpus.toml`.
     # They are one class here — the census and the graph care that the document
     # is named, not what its name was.
-    if name in (contract or Contract()).not_a_node:
+    matched = (contract or Contract()).not_a_node_entry(rel_path)
+    if matched is not None:
         # The CLASS is the document's own stem, so the report keeps naming
         # `requirements` and `review-resolutions` separately rather than
         # flattening them into one bucket. What the contract decides is WHICH
         # names are recognised, not what they are then called.
-        return name.removesuffix(".md").replace("-", "_")
-    if PHASE_FILENAME_RE.match(name):
+        return _class_for(matched)
+    if PHASE_FILENAME_RE.match(name) or (contract or Contract()).is_phase_document(rel_path):
         return PHASE_DOC
     return UNCLASSIFIED
 
@@ -231,7 +249,7 @@ def run_discovery(
     parser owns that read — discovery must not become a second source of it.
     """
     discovered: list[DiscoveredFile] = []
-    for rel in enumerate_markdown(root, collector=collector):
+    for rel in enumerate_markdown(root, collector=collector, contract=contract):
         classification = classify(rel, contract)
         nearest = ""
         if classification == UNCLASSIFIED:
@@ -264,7 +282,13 @@ def run_discovery(
                 )
         discovered.append(DiscoveredFile(rel, classification, nearest))
 
-    for directory in component_shaped_directories(root, [d.path for d in discovered]):
+    unplanned = component_shaped_directories(root, [d.path for d in discovered])
+    if (contract or Contract()).unplanned_components_conformant:
+        # Counted by the extractor, never reported here: this corpus rules an
+        # unplanned component conformant, and a finding would say otherwise
+        # on every run.
+        unplanned = []
+    for directory in unplanned:
         collector.add_finding(
             COMPONENT_SHAPED_NO_ROADMAP,
             SECTION_UNCLASSIFIED,

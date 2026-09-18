@@ -82,6 +82,7 @@ from .model import (
     Provenance,
 )
 from . import corpus_io
+from .contract import contract_for
 from .discovery import PHASE_FILENAME_RE
 from .fences import advance_fence, fenced_mask
 from .safe_paths import PathEscape, is_external, resolve_within_root, split_anchor
@@ -374,7 +375,7 @@ class Component:
         return path.startswith(self.path + "/")
 
 
-def is_phase_link(rel: str) -> bool:
+def is_phase_link(rel: str, root: Path | None = None) -> bool:
     """Whether a resolved path names a phase document.
 
     **Public because a second module consumes it.** The Dependency Contract
@@ -383,7 +384,11 @@ def is_phase_link(rel: str) -> bool:
     second copy of the predicate is a second answer waiting to drift.
     """
     name = rel.rsplit("/", 1)[-1]
-    return bool(PHASE_FILENAME_RE.match(name)) or name.startswith("genesis-")
+    if PHASE_FILENAME_RE.match(name) or name.startswith("genesis-"):
+        return True
+    # A corpus may declare further phase-document names (`phase_documents` in
+    # its contract); asked per link, so the contract is read once per root.
+    return root is not None and contract_for(root).is_phase_document(rel)
 
 
 def parse_roadmap(root: Path, rel: str, collector: Collector) -> Component | None:
@@ -638,7 +643,7 @@ def _collect_phases(
                 detail="Reported and never opened.",
             )
             return None
-        return resolved if is_phase_link(resolved) else None
+        return resolved if is_phase_link(resolved, root) else None
 
     in_declaration_list = False
     for index, line in enumerate(lines):

@@ -79,6 +79,9 @@ def _write_corpus(tmp_path: Path, sprints_text: str) -> Path:
         "# Widget\n\n**Status:** 🟡 IN PROGRESS\n"
     )
     (root / "development" / "sprints.md").write_text(sprints_text)
+    # MDC's shape: the layer is required, so a missing one is the §6 miss
+    # these invariants are about.
+    (root / "corpus.toml").write_text("[corpus]\nsprint_layer_required = true\n")
     return root
 
 

@@ -326,7 +326,7 @@ class Accounting:
 # ---------------------------------------------------------------------------
 
 
-def _node_id_for(resolved: str, anchor: str, anchors: AnchorIndex) -> str:
+def _node_id_for(resolved: str, anchor: str, anchors: AnchorIndex, root: Path | None = None) -> str:
     """The graph node id a resolved link names, or ``""`` for a non-node target.
 
     Node-SHAPED, not node-EXISTS: an id naming no node is exactly the broken
@@ -349,7 +349,7 @@ def _node_id_for(resolved: str, anchor: str, anchors: AnchorIndex) -> str:
         if anchor:
             return anchors.get(resolved, {}).get(anchor, f"phase:{resolved}#{anchor}")
         return f"component:{resolved.rsplit('/', 1)[0]}"
-    if is_phase_link(resolved):
+    if is_phase_link(resolved, root):
         return f"phase:{resolved}"
     # A research paper, the sprint file, a guide page, a tracked item: rule 9's
     # *"other non-phase artifact"*, satisfied by resolving. Node-shaped, so a
@@ -420,7 +420,7 @@ def _links_in(
                 text=match.group("text"),
                 target=target,
                 resolved=resolved,
-                node_id=_node_id_for(resolved, anchor, anchors),
+                node_id=_node_id_for(resolved, anchor, anchors, root),
                 line=line_no,
                 anchor=anchor,
             )

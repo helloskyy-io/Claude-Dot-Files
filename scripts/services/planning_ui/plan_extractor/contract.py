@@ -53,6 +53,10 @@ CONVENTION_NOT_A_NODE: tuple[str, ...] = (
 #: and a ruling that widens or narrows it is a list change here.
 CONVENTION_CODIFIED_SCOPE: tuple[str, ...] = ("development/",)
 
+#: The one pattern entry a document list admits: a file named after the
+#: directory it sits in.
+COMPONENT_RECORD_PATTERN = "{component}.md"
+
 CORPUS_FILE = "corpus.toml"
 
 #: What a directory must have to be a planning repository this tool can read.
@@ -112,12 +116,61 @@ class Contract:
     #: such link is reported for its owner to rewrite. Empty means the corpus
     #: has no such convention, and an absolute link is simply a broken one.
     canonical_checkout: str = ""
+    #: Whether a sprint work item must carry a `· L<n> ·` layer. The
+    #: Documentation Standard's item shape does not ask for one; MDC's
+    #: `sprints.md` §6 does, from its Deployment Layer Model, so MDC declares
+    #: it. Read against a corpus that never had layers, the requirement
+    #: reported every item as unparsed — 72 findings about a rule that corpus
+    #: does not have.
+    sprint_layer_required: bool = False
+    #: Whether a component directory with planning documents and no
+    #: `roadmap.md` is a finding. SkyyNet's sprint plan rules the opposite —
+    #: *"a component with no plan yet is UNPLANNED, not non-conformant"* — so
+    #: there such a directory is counted, not reported.
+    unplanned_components_conformant: bool = False
+
+    #: Filenames that are PHASE DOCUMENTS beyond the conventional `phaseN_`
+    #: shape. SkyyNet's sprint plan rules *"`<name>/<name>.md` is its phase
+    #: doc"* — one per component, named after it, linked from sprint items as
+    #: the phase — so that corpus declares `{component}.md` here. Read as a
+    #: phase document it is a node, a sprint item linking it is phase-linked,
+    #: and a roadmap's `**Implementation:**` may name it.
+    phase_documents: tuple[str, ...] = ()
+
+    def not_a_node_entry(self, rel_path: str) -> str | None:
+        """The `not_a_node` entry a document matches by name, or ``None``."""
+        return _match_entry(self.not_a_node, rel_path)
+
+    def is_phase_document(self, rel_path: str) -> bool:
+        """Whether a corpus-declared phase-document name matches."""
+        return _match_entry(self.phase_documents, rel_path) is not None
 
     def excluded_from_census(self, rel: str) -> bool:
         return any(
             rel == prefix or rel.startswith(prefix)
             for prefix in self.census_exclusions + self.not_corpus
         )
+
+
+def _match_entry(entries: tuple[str, ...], rel_path: str) -> str | None:
+    """The entry a document matches by name, or ``None``. `{component}.md`
+    matches a file named after the directory it sits in."""
+    parts = rel_path.split("/")
+    name = parts[-1]
+    for entry in entries:
+        if entry == COMPONENT_RECORD_PATTERN:
+            if len(parts) >= 2 and name == parts[-2] + ".md":
+                return entry
+        elif entry == name:
+            return entry
+    return None
+
+
+@lru_cache(maxsize=None)
+def contract_for(root: Path) -> Contract:
+    """The corpus's contract, read once per root — for the readers that are
+    asked per link and hold a root but no contract."""
+    return load(root.resolve())
 
 
 def load(root: Path) -> Contract:
@@ -143,6 +196,9 @@ def load(root: Path) -> Contract:
         not_corpus=tuple(corpus.get("not_corpus", ())),
         codified_scope=tuple(corpus.get("codified_scope", CONVENTION_CODIFIED_SCOPE)),
         canonical_checkout=str(corpus.get("canonical_checkout", "")).rstrip("/"),
+        phase_documents=tuple(corpus.get("phase_documents", ())),
+        sprint_layer_required=bool(corpus.get("sprint_layer_required", False)),
+        unplanned_components_conformant=bool(corpus.get("unplanned_components_conformant", False)),
     )
 
 

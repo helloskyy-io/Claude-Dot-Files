@@ -491,6 +491,12 @@ def extract(corpus_root: str | Path) -> ExtractionResult:
 
     counts = {
         "components": len(components),
+        # Directories holding planning documents and no roadmap. A finding
+        # where the corpus treats it as one; a count where it rules an
+        # unplanned component conformant (contract).
+        "unplanned_components": len(
+            discovery.component_shaped_directories(root, [d.path for d in discovered])
+        ),
         "phases": len(phase_paths),
         "sprints": len(sprint_doc.sprints),
         "sprint_items": sum(len(s.items) for s in sprint_doc.sprints),
