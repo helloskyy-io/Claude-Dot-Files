@@ -23,7 +23,7 @@ fuller argument). **Nothing in the runner was changed to accommodate this** —
 
 | File | Covers |
 |---|---|
-| `tests/unit/test_install_places_the_managed_floor.py` | Workflow Decomposition Phase 7 requirement 4 — the managed floor is placed byte-for-byte, a stale or x-bit-stripped copy is re-placed, and the installer **refuses loudly** (exit 1; names the resolved path, the privilege lacked, and sudo's own reason) when it cannot write the managed directory |
+| `tests/unit/test_install_places_the_managed_floor.py` | Workflow Decomposition Phase 7 requirement 4 — the managed floor is placed byte-for-byte, a stale or x-bit-stripped copy is re-placed, and the installer **refuses loudly** (exit 1; names the resolved path, the privilege lacked, and sudo's own reason) when it cannot write the managed directory. Also: the hook script is placed **before** the drop-in that declares it, a missing source writes **nothing** (never a partial floor), and a trailing slash on the managed directory is normalised |
 
 The user-tier symlink step has no dedicated tests here; its wiring is held
 from the other side by `testing/config-hooks/tests/unit/test_the_safety_hook_is_wired.py`,

@@ -26,8 +26,12 @@
 # WHAT IT COSTS AND TOUCHES. Each trial is one short `claude -p` call on the
 # operator's subscription. The OAuth access token is copied into each trial's
 # private home WITHOUT its refresh token, so a container can never rotate the
-# operator's credentials; the copies live under a mktemp dir that is removed at
-# exit. Requires: docker (group membership), jq, a logged-in `claude`.
+# operator's credentials; the copies are removed on every exit path, including
+# KEEP=1 and failure. A COPY rather than a read-only mount of the real file, on
+# purpose: a read-only mount still hands the container the refresh token, and
+# a rotation from inside it invalidates the operator's stored one — the mount
+# protects the file, not the credential. Requires: docker (group membership),
+# jq, a logged-in `claude`.
 #
 # Usage:
 #   scripts/helpers/managed-tier-probe/probe.sh              all trials
@@ -70,7 +74,14 @@ if ! docker info >/dev/null 2>&1; then
 fi
 
 WORK="$(mktemp -d /tmp/claude-managed-tier-probe.XXXXXX)"
-cleanup() { [[ "${KEEP:-0}" = 1 ]] && { echo "workdir kept: $WORK"; return; }; rm -rf "$WORK"; }
+# The token copies are removed on EVERY exit path — KEEP=1 retains the trial
+# outputs for inspection, never the credentials, and a failed run (which sets
+# KEEP=1 itself) must not be the one that leaves an access token on disk.
+cleanup() {
+  find "$WORK" -name .credentials.json -type f -exec rm -f {} + 2>/dev/null || true
+  [[ "${KEEP:-0}" = 1 ]] && { echo "workdir kept (credential copies removed): $WORK"; return; }
+  rm -rf "$WORK"
+}
 trap cleanup EXIT
 
 echo "==> building $IMAGE (ubuntu:24.04 + jq, non-root user)"

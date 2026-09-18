@@ -10,13 +10,14 @@ the OS-level tier had to be observed, not read off the docs.
 ```bash
 scripts/helpers/managed-tier-probe/probe.sh          # all eleven trials
 scripts/helpers/managed-tier-probe/probe.sh T1 T2    # a subset
-KEEP=1 scripts/helpers/managed-tier-probe/probe.sh   # keep the workdir for inspection
+KEEP=1 scripts/helpers/managed-tier-probe/probe.sh   # keep the workdir for inspection (token copies are still removed)
 ```
 
 Needs docker (group membership), `jq`, and a logged-in `claude`. Each trial is
 one short `claude -p` on the operator's subscription; the OAuth access token is
 copied into each trial's private home **without its refresh token**, so a
-container can never rotate the operator's credentials. Not on any merge path —
+container can never rotate the operator's credentials, and every copy is
+removed on exit — on failure and under `KEEP=1` too. Not on any merge path —
 it spends tokens and needs a container runtime.
 
 ## How the tier is reached without root

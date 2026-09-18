@@ -63,10 +63,17 @@ SYMLINK_TARGETS=(
 # THIN floor carrying the non-negotiable few — the safety hook and the deny set
 # (empty since 2026-08-15; see the drop-in and README § Safety).
 #
+# ORDER MATTERS: the hook script BEFORE the drop-in that declares it. Entries
+# are placed in array order and a failure on entry N stops the run with the
+# earlier entries already on disk, root-owned. Placed in this order, a partial
+# run can leave a hook nothing declares (harmless); in the other order it could
+# leave a root-owned declaration of a script that is not there. Every source is
+# checked for existence before ANY entry is written, for the same reason.
+#
 # Format: "<source relative to config/>:<destination relative to MANAGED_DIR>:<mode>"
 MANAGED_FLOOR=(
-    "managed-settings.d/claude-dot-files.json:managed-settings.d/claude-dot-files.json:0644"
     "hooks/block-dangerous.sh:hooks/block-dangerous.sh:0755"
+    "managed-settings.d/claude-dot-files.json:managed-settings.d/claude-dot-files.json:0644"
 )
 
 # /etc/claude-code is the ONLY directory Claude Code reads the managed tier
@@ -75,6 +82,11 @@ MANAGED_FLOOR=(
 # will never read, and the installer says so.
 MANAGED_DIR="${CDF_MANAGED_DIR:-/etc/claude-code}"
 MANAGED_DIR_REAL="/etc/claude-code"
+# Trailing slashes are stripped so `/etc/claude-code/` is recognised as the
+# live directory rather than warned about as a test override.
+while [ "${MANAGED_DIR%/}" != "$MANAGED_DIR" ] && [ "$MANAGED_DIR" != "/" ]; do
+    MANAGED_DIR="${MANAGED_DIR%/}"
+done
 
 # --- Helpers ------------------------------------------------------------------
 
@@ -324,6 +336,16 @@ as_root() {
     fi
 }
 
+# "Already placed" means identical bytes AND, for a hook, executable — a
+# byte-identical copy with its x-bit stripped is a hook that never runs. One
+# predicate, used both to decide whether to write and to verify afterwards,
+# so the two can never disagree about what "placed" means.
+floor_entry_placed() {
+    local source="$1" target="$2" mode="$3"
+    [ -f "$target" ] && cmp -s "$source" "$target" \
+        && { [ "$mode" != "0755" ] || [ -x "$target" ]; }
+}
+
 # The refusal. Names the resolved path and the privilege it lacked, states
 # what IS placed, and exits non-zero — the floor must never be believed placed
 # because the installer stayed quiet about not placing it.
@@ -357,23 +379,29 @@ else
         refuse_managed_floor "$MANAGED_DIR" "sudo is not installed"
     fi
 
+    # Every source must exist BEFORE anything is written: a floor placed from
+    # a list with a hole in it is a partial floor, and the drop-in must never
+    # be written when the script it declares cannot be.
     floor_all_good=true
+    for entry in "${MANAGED_FLOOR[@]}"; do
+        IFS=: read -r rel_source rel_target mode <<< "$entry"
+        if [ ! -f "$CONFIG_DIR/$rel_source" ]; then
+            error "$rel_target — source missing from config/: $CONFIG_DIR/$rel_source"
+            floor_all_good=false
+        fi
+    done
+    if [ "$floor_all_good" != true ]; then
+        echo ""
+        echo -e "${RED}Managed floor NOT placed: a source is missing from config/. Nothing was written.${NC}"
+        exit 1
+    fi
+
     for entry in "${MANAGED_FLOOR[@]}"; do
         IFS=: read -r rel_source rel_target mode <<< "$entry"
         source_path="$CONFIG_DIR/$rel_source"
         target_path="$MANAGED_DIR/$rel_target"
 
-        if [ ! -f "$source_path" ]; then
-            error "$rel_target — source missing from config/: $source_path"
-            floor_all_good=false
-            continue
-        fi
-
-        # "Already placed" means identical bytes AND, for a hook, executable —
-        # a byte-identical copy with its x-bit stripped is a hook that never
-        # runs, and re-placing it is the fix rather than a report.
-        if [ -f "$target_path" ] && cmp -s "$source_path" "$target_path" \
-           && { [ "$mode" != "0755" ] || [ -x "$target_path" ]; }; then
+        if floor_entry_placed "$source_path" "$target_path" "$mode"; then
             info "$rel_target — already placed"
             continue
         fi
@@ -401,13 +429,11 @@ else
         IFS=: read -r rel_source rel_target mode <<< "$entry"
         source_path="$CONFIG_DIR/$rel_source"
         target_path="$MANAGED_DIR/$rel_target"
-        if [ -f "$target_path" ] && cmp -s "$source_path" "$target_path"; then
-            if [ "$mode" = "0755" ] && [ ! -x "$target_path" ]; then
-                error "$rel_target — placed but NOT executable; a hook that cannot run never fires"
-                floor_all_good=false
-            else
-                info "$rel_target ✓"
-            fi
+        if floor_entry_placed "$source_path" "$target_path" "$mode"; then
+            info "$rel_target ✓"
+        elif [ -f "$target_path" ] && cmp -s "$source_path" "$target_path"; then
+            error "$rel_target — placed but NOT executable; a hook that cannot run never fires"
+            floor_all_good=false
         else
             error "$rel_target — verification failed (missing or differs from config/)"
             floor_all_good=false

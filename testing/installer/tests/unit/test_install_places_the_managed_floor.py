@@ -93,7 +93,7 @@ def sandbox(tmp_path: Path):
     return tmp_path
 
 
-def _run(sandbox: Path, managed_dir: Path, *args: str, sudo: str = SUDO_REFUSES,
+def _run(sandbox: Path, managed_dir: Path | str, *args: str, sudo: str = SUDO_REFUSES,
          env_extra: dict | None = None) -> subprocess.CompletedProcess:
     (sandbox / "bin" / "sudo").write_text(sudo)
     (sandbox / "bin" / "sudo").chmod(0o755)
@@ -270,6 +270,63 @@ def test_the_declared_floor_is_thin_and_its_sources_exist() -> None:
     assert names == ["hooks/block-dangerous.sh", "managed-settings.d/claude-dot-files.json"], (
         f"the floor is {names}; the ruling put exactly the safety hook and the "
         f"drop-in there. Widening it is an operator ruling, not an edit.")
+
+
+def test_the_hook_script_is_placed_BEFORE_the_drop_in_that_declares_it() -> None:
+    """Entries are placed in array order and a failure on entry N leaves the
+    earlier ones on disk, root-owned. So every hook script must precede every
+    drop-in: a partial run may leave a script nothing declares (harmless), never
+    a declaration of a script that is not there — which Claude Code would read
+    from the managed tier on every Bash call on that host."""
+    entries = _floor_entries()
+    kinds = ["dropin" if dst.endswith(".json") else "hook" for _, dst, _ in entries]
+    assert "hook" in kinds and "dropin" in kinds, kinds
+    first_dropin = kinds.index("dropin")
+    assert "hook" not in kinds[first_dropin:], (
+        f"MANAGED_FLOOR order is {[dst for _, dst, _ in entries]}: a hook script is listed "
+        f"after a drop-in, so a partial placement can leave a root-owned declaration of a "
+        f"script that was never placed. Hooks first.")
+
+
+def test_a_missing_source_writes_NOTHING_not_a_partial_floor(sandbox: Path, tmp_path: Path) -> None:
+    """A copy of the installer whose MANAGED_FLOOR names a source that does not
+    exist: the run refuses before the first write, so no entry — in particular
+    no drop-in declaring a script — reaches the managed directory. The copy
+    sits in a scratch checkout whose `config/` is a symlink to the real one, so
+    the user-tier step still has something to link."""
+    scratch = tmp_path / "scratch-repo"
+    scratch.mkdir()
+    (scratch / "config").symlink_to(CONFIG)
+    text = INSTALL.read_text()
+    marker = "MANAGED_FLOOR=(\n"
+    assert text.count(marker) == 1, "install.sh no longer declares MANAGED_FLOOR=( on its own line"
+    mutated = text.replace(marker, marker + '    "hooks/does-not-exist.sh:hooks/does-not-exist.sh:0755"\n')
+    assert mutated != text
+    copy = scratch / "install.sh"
+    copy.write_text(mutated)
+    copy.chmod(0o755)
+    managed = sandbox / "etc"
+    (sandbox / "bin" / "sudo").write_text(SUDO_REFUSES)
+    (sandbox / "bin" / "sudo").chmod(0o755)
+    env = {**os.environ, "HOME": str(sandbox / "home"),
+           "PATH": f"{sandbox / 'bin'}:{os.environ['PATH']}", "CDF_MANAGED_DIR": str(managed)}
+    run = subprocess.run([str(copy), "--non-interactive"], capture_output=True, text=True,
+                         timeout=120, env=env)
+    out = run.stdout + run.stderr
+    assert run.returncode == 1, out
+    assert "source missing from config/" in out and "Nothing was written" in out, out
+    assert not managed.exists(), f"a partial floor was written despite a missing source:\n{out}"
+
+
+def test_a_trailing_slash_on_the_managed_dir_is_normalised(sandbox: Path) -> None:
+    """`/etc/claude-code/` must be recognised as `/etc/claude-code`, not warned
+    about as a test override — and no placed path may carry a `//`."""
+    managed = sandbox / "etc"
+    # A raw string: `Path` would strip the slash before the installer ever saw it.
+    run = _run(sandbox, str(managed) + "/")
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert "//" not in run.stdout.replace("://", ""), run.stdout
+    assert f"Managed floor verified at {managed}." in run.stdout, run.stdout
 
 
 def test_sudo_stub_shape_matches_what_this_host_has() -> None:

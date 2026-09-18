@@ -1412,8 +1412,9 @@ claude-dot-files/
 │   │   └── tests/unit/
 │   │       └── test_install_places_the_managed_floor.py # WD Phase 7 req 4 — runs install.sh against a fake HOME with CDF_MANAGED_DIR: places
 │   │                                                #   the floor byte-for-byte, re-places a stale or x-bit-stripped copy, REFUSES LOUDLY
-│   │                                                #   (exit 1, resolved path, privilege, sudo's own reason) when it cannot write, and
-│   │                                                #   never reads --without-managed-floor as success in silence
+│   │                                                #   (exit 1, resolved path, privilege, sudo's own reason) when it cannot write, never
+│   │                                                #   reads --without-managed-floor as success in silence, places the hook script
+│   │                                                #   BEFORE the drop-in that declares it, and writes NOTHING when a source is missing
 │   └── logs/                                        # Per-suite run output (gitignored — ephemeral)
 │
 ├── .github/

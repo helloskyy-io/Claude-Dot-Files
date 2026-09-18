@@ -151,6 +151,9 @@ def test_every_floor_hook_RESOLVES_to_a_shipped_executable_under_the_managed_dir
         if mode != "0755" or not os.access(source, os.X_OK):
             broken.append(f"{event}/{matcher}: {source.relative_to(REPO_ROOT)} is not shipped executable "
                           f"(mode {mode}); the floor's hook would never run")
+        # Declared, never left to the harness default, and bounded: a floor
+        # hook that hangs holds every Bash call on every host at once. 120 s
+        # is a ceiling, not a target — the shipped value is 10.
         if hook.get("timeout") is None or hook["timeout"] > 120:
             broken.append(f"{event}/{matcher}: timeout {hook.get('timeout')!r} — must be declared and bounded")
     assert not broken, "\n  ".join(["a floor hook that does not resolve never runs:"] + broken)
