@@ -130,7 +130,7 @@ claude-dot-files/
 │   │   │   │                                        #   Spends ~11 short -p calls; off every merge path. Results recorded in its README
 │   │   │   ├── README.md                            # The eleven trials, what each establishes, and the 2026-09-18 measurements on CLI 2.1.275
 │   │   │   ├── probe.sh                             # Builds the image, runs the trials, checks each against its expectation, prints the table
-│   │   │   ├── Dockerfile                           # ubuntu:24.04 + jq, non-root user — bypass mode refuses root and dispatches never run as it
+│   │   │   ├── Dockerfile                           # ubuntu:24.04 + jq, non-root user at the INVOKING uid (build-arg) — bypass mode refuses root
 │   │   │   └── marker-hook.sh                       # Fixture hook: writes a marker named for its tier, then denies — the observation is the file
 │   │   ├── measure/                                 # Replay tools over the fleet's OWN archived artifacts. Read-only, off every merge path
 │   │   │   │                                        #   Kept (not one-shots) because each answers a rate over a denominator that GROWS — see its README
@@ -166,6 +166,8 @@ claude-dot-files/
 │   │           │                                    #   tick, and a prompt block whose closing ')' is never found fails instead of vanishing
 │   │           ├── test_file_structure_check.py # The map check's two arms and its vacuity control, each driven by a mutation
 │   │           ├── test_sibling_checkouts.py   # The sibling sweep's off-branch arm, its exclusion, and its empty-population refusal
+│   │           ├── test_the_probe_runs_as_the_invoking_uid.py # managed-tier-probe hands docker the uid from `id -u`, never a literal — a
+│   │           │                                    #   hardcoded 1001 ran clean on the host that wrote it and hit Permission denied at uid 1000
 │   │           ├── test_standards_index_audit.py # The header audit's three distinctions, each
 │   │           ├── test_the_standards_index_is_ACTUALLY_CLEAN.py # Runs the audit against the REAL corpus — the tool had only fixture tests
 │   │           ├── test_a_scaffolded_repo_PASSES_ITS_OWN_CHECKS.py # A new repo must be green on the CI init-project ships it
@@ -1411,10 +1413,12 @@ claude-dot-files/
 │   │   ├── README.md                                # Placement rationale, and what the suite does and does not cover
 │   │   └── tests/unit/
 │   │       └── test_install_places_the_managed_floor.py # WD Phase 7 req 4 — runs install.sh against a fake HOME with CDF_MANAGED_DIR: places
-│   │                                                #   the floor byte-for-byte, re-places a stale or x-bit-stripped copy, REFUSES LOUDLY
-│   │                                                #   (exit 1, resolved path, privilege, sudo's own reason) when it cannot write, never
-│   │                                                #   reads --without-managed-floor as success in silence, places the hook script
-│   │                                                #   BEFORE the drop-in that declares it, and writes NOTHING when a source is missing
+│   │                                                #   the floor byte-for-byte, re-places a stale, x-bit-stripped or world-writable copy,
+│   │                                                #   REFUSES LOUDLY (exit 1, resolved path, privilege, sudo's own reason) when it cannot
+│   │                                                #   write, REFUSES a floor not root-owned or writable from below (CDF_MANAGED_OWNER_UID
+│   │                                                #   is the test seam; refused on the live path), never reads --without-managed-floor as
+│   │                                                #   success in silence, places the hook script BEFORE the drop-in that declares it, and
+│   │                                                #   writes NOTHING when a source is missing
 │   └── logs/                                        # Per-suite run output (gitignored — ephemeral)
 │
 ├── .github/

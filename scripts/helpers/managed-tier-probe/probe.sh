@@ -48,6 +48,15 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$HERE/../../.." && pwd)"
 IMAGE="cdf-managed-tier-probe"
 MODEL="${PROBE_MODEL:-claude-haiku-4-5-20251001}"
+# The container runs as THIS user's uid, derived and never written down: every
+# trial directory is bind-mounted from the host and owned by whoever runs the
+# probe, so any other uid is `Permission denied` on the 0700 `~/.claude` before
+# the first trial. A literal 1001 here ran clean on the host that wrote it and
+# failed on the first uid-1000 host. The image is built per uid (the tag
+# carries it) so two operators on one machine do not share a stale image.
+PROBE_UID="$(id -u)"
+PROBE_GID="$(id -g)"
+IMAGE="$IMAGE:uid$PROBE_UID"
 # T2 must run against the REAL safety hook with a command the hook classes as
 # destructive AND the model will actually attempt. `rm -rf /tmp` and a bare
 # force-push were both refused by the model before any tool call, which is a
@@ -64,6 +73,12 @@ need() {
 need docker "the OS-level tier is reached through a container"
 need jq "trial output is JSON"
 need claude "the trials run the operator's real binary"
+# The container user is built from this uid, so root here would have the image
+# build remove root — and no trial could run anyway: bypass mode refuses root.
+if [[ "$PROBE_UID" = 0 ]]; then
+  echo "FATAL: running as root — the trials run as the operator, and --dangerously-skip-permissions refuses uid 0" >&2
+  exit 2
+fi
 
 CLAUDE_BIN="$(readlink -f "$(command -v claude)")"
 CREDENTIALS="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.credentials.json"
@@ -84,8 +99,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "==> building $IMAGE (ubuntu:24.04 + jq, non-root user)"
-docker build -q -t "$IMAGE" "$HERE" >/dev/null
+echo "==> building $IMAGE (ubuntu:24.04 + jq, non-root user uid $PROBE_UID)"
+docker build -q -t "$IMAGE" --build-arg "PROBE_UID=$PROBE_UID" "$HERE" >/dev/null
 
 # --- One trial -------------------------------------------------------------
 #
@@ -120,7 +135,7 @@ run_trial() {
   # container's cwd so T4 measures the rules and not the trust gate.
   printf '%s\n' '{"projects":{"/home/probe":{"hasTrustDialogAccepted":true}}}' > "$dir/home/.claude.json"
 
-  docker run --rm -u 1001:1001 -e HOME=/home/probe \
+  docker run --rm -u "$PROBE_UID:$PROBE_GID" -e HOME=/home/probe \
     -v "$CLAUDE_BIN:/usr/local/bin/claude:ro" \
     -v "$HERE/marker-hook.sh:/opt/probe/marker-hook.sh:ro" \
     -v "$dir/etc:/etc/claude-code:ro" \

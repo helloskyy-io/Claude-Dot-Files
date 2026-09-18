@@ -19,7 +19,18 @@ tests point it at temp directories: a writable one to exercise placement, an
 unwritable one plus a stub `sudo` that refuses to exercise the refusal, and an
 unwritable one plus a stub `sudo` that grants to exercise the privileged path.
 The stubs stand in for `claude`, `yq` and `sudo` on PATH; the real `jq`,
-`install` and `cmp` are what the installer actually runs.
+`install`, `cmp` and `stat` are what the installer actually runs.
+
+AND HOW ROOT OWNERSHIP IS STILL VERIFIED. The installer refuses a floor that
+is not owned by root or that a non-root user can write (review-pr finding F4
+on PR #205: the byte check alone let a user-placed floor earn the banner). A
+test cannot make a file root-owned without root, so under `CDF_MANAGED_DIR`
+the installer also reads `CDF_MANAGED_OWNER_UID` — the owner the test can
+produce — and `_run` sets it to this process's uid by default. The default in
+the installer stays root, on the live path unconditionally and under the
+override when the variable is unset, which is what the ownership control here
+runs against: the same writable-directory placement that earns the banner
+with the seam is REFUSED without it, naming the path and the owner.
 
 WHAT THESE DO NOT LOOK AT, stated so the coverage is not read as more than it
 is:
@@ -94,7 +105,7 @@ def sandbox(tmp_path: Path):
 
 
 def _run(sandbox: Path, managed_dir: Path | str, *args: str, sudo: str = SUDO_REFUSES,
-         env_extra: dict | None = None) -> subprocess.CompletedProcess:
+         env_extra: dict | None = None, owner_uid: int | None = os.getuid()) -> subprocess.CompletedProcess:
     (sandbox / "bin" / "sudo").write_text(sudo)
     (sandbox / "bin" / "sudo").chmod(0o755)
     env = {
@@ -105,6 +116,9 @@ def _run(sandbox: Path, managed_dir: Path | str, *args: str, sudo: str = SUDO_RE
         "SUDO_LOG": str(sandbox / "sudo.log"),
         "LOCKED_DIR": str(managed_dir),
     }
+    env.pop("CDF_MANAGED_OWNER_UID", None)
+    if owner_uid is not None:
+        env["CDF_MANAGED_OWNER_UID"] = str(owner_uid)
     env.update(env_extra or {})
     return subprocess.run([str(INSTALL), "--non-interactive", *args],
                           capture_output=True, text=True, timeout=120, env=env)
@@ -166,6 +180,66 @@ def test_a_hook_copy_that_lost_its_x_bit_is_re_placed(sandbox: Path) -> None:
     assert os.access(hooks[0], os.X_OK)
 
 
+def test_a_floor_the_user_OWNS_is_refused_naming_path_and_owner(sandbox: Path) -> None:
+    """F4's scenario exactly: a non-root user with a writable managed directory
+    places the floor through the direct-write branch, the bytes match — and
+    without the owner seam the required owner is root, so the banner must not
+    appear. The refusal names the path and the failing property."""
+    managed = sandbox / "etc"
+    run = _run(sandbox, managed, owner_uid=None)
+    out = run.stdout + run.stderr
+    assert run.returncode == 1, f"exit {run.returncode}: a user-owned floor earned the banner\n{out}"
+    assert "Managed floor verified" not in out, out
+    assert "REWRITABLE FROM BELOW" in out, out
+    assert f"owned by uid {os.getuid()}, not uid 0" in out, out
+    for _, target, _ in _placed_paths(managed):
+        assert str(target) in out, f"the refusal does not name {target}\n{out}"
+    # The population control on the check itself: the same placement WITH the
+    # seam is the green path the other tests take, so ownership is what refused.
+    assert _run(sandbox, managed).returncode == 0
+
+
+def test_a_world_writable_copy_is_re_placed_and_a_world_writable_directory_is_refused(sandbox: Path) -> None:
+    """Writability from below, both shapes. A placed file that gains a write
+    bit for group or other is re-placed (install -m resets the mode, as it does
+    for a stale copy); a managed DIRECTORY that does is refused — a user who
+    can write the directory can rename their own copy over the floor, and the
+    installer does not silently chmod a directory it did not create."""
+    managed = sandbox / "etc"
+    assert _run(sandbox, managed).returncode == 0
+    _, target, _ = _placed_paths(managed)[0]
+    target.chmod(target.stat().st_mode | stat.S_IWOTH)
+    run = _run(sandbox, managed)
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert "re-placed (was stale)" in run.stdout, run.stdout
+    assert not target.stat().st_mode & (stat.S_IWGRP | stat.S_IWOTH), oct(target.stat().st_mode)
+
+    dropin_dir = target.parent
+    dropin_dir.chmod(dropin_dir.stat().st_mode | stat.S_IWOTH)
+    try:
+        run = _run(sandbox, managed)
+    finally:
+        dropin_dir.chmod(dropin_dir.stat().st_mode & ~stat.S_IWOTH)
+    out = run.stdout + run.stderr
+    assert run.returncode == 1, f"exit {run.returncode}: a world-writable managed directory earned the banner\n{out}"
+    assert "Managed floor verified" not in out
+    assert f"{dropin_dir} — directory REWRITABLE FROM BELOW" in out, out
+    assert "group- or world-writable" in out, out
+
+
+def test_the_owner_seam_is_REFUSED_on_the_live_path_before_anything_is_written(sandbox: Path) -> None:
+    """The seam must not be a way to weaken a live install: against the real
+    managed directory it is refused outright — before sudo, before any write."""
+    run = _run(sandbox, "/etc/claude-code", owner_uid=os.getuid())
+    out = run.stdout + run.stderr
+    assert run.returncode == 1, out
+    assert "MANAGED FLOOR NOT PLACED" in out and "not configurable" in out, out
+    assert "CDF_MANAGED_OWNER_UID" in out and "/etc/claude-code" in out, out
+    assert "sudo: a password is required" not in out, "the refusal came AFTER an escalation attempt"
+    assert not (sandbox / "sudo.log").exists()
+    assert "Managed floor verified" not in out
+
+
 def test_it_REFUSES_LOUDLY_naming_path_and_privilege_when_it_cannot_write(sandbox: Path) -> None:
     """THE REQUIREMENT. Unwritable directory, sudo refuses: non-zero exit and a
     message a human can act on — the resolved path and the privilege lacked."""
@@ -213,7 +287,7 @@ def test_it_uses_sudo_when_the_directory_is_not_writable(sandbox: Path) -> None:
 # Enumerated so the no-sudo test can build a PATH that has all of these and
 # NOT sudo; a missing name here shows up as a "command not found" in that test.
 _INSTALLER_TOOLS = ("bash", "dirname", "basename", "date", "mkdir", "readlink",
-                    "ln", "mv", "cmp", "install", "id", "which", "jq", "uname")
+                    "ln", "mv", "cmp", "install", "stat", "id", "which", "jq", "uname")
 
 
 def test_it_REFUSES_when_sudo_is_not_installed_at_all(sandbox: Path) -> None:

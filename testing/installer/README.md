@@ -23,7 +23,7 @@ fuller argument). **Nothing in the runner was changed to accommodate this** —
 
 | File | Covers |
 |---|---|
-| `tests/unit/test_install_places_the_managed_floor.py` | Workflow Decomposition Phase 7 requirement 4 — the managed floor is placed byte-for-byte, a stale or x-bit-stripped copy is re-placed, and the installer **refuses loudly** (exit 1; names the resolved path, the privilege lacked, and sudo's own reason) when it cannot write the managed directory. Also: the hook script is placed **before** the drop-in that declares it, a missing source writes **nothing** (never a partial floor), and a trailing slash on the managed directory is normalised |
+| `tests/unit/test_install_places_the_managed_floor.py` | Workflow Decomposition Phase 7 requirement 4 — the managed floor is placed byte-for-byte, a stale, x-bit-stripped or world-writable copy is re-placed, and the installer **refuses loudly** (exit 1; names the resolved path, the privilege lacked, and sudo's own reason) when it cannot write the managed directory. It also **refuses a floor that is not root-owned or that a non-root user can write** — file or directory — naming the path and the failing property, so a user-placed floor with matching bytes never earns the banner. Also: the hook script is placed **before** the drop-in that declares it, a missing source writes **nothing** (never a partial floor), and a trailing slash on the managed directory is normalised |
 
 The user-tier symlink step has no dedicated tests here; its wiring is held
 from the other side by `testing/config-hooks/tests/unit/test_the_safety_hook_is_wired.py`,
@@ -36,8 +36,17 @@ directory Claude Code reads the managed tier from). The tests point it at temp
 directories and put stub `claude`, `yq` and `sudo` executables first on PATH:
 a `sudo` that refuses exercises the refusal; a `sudo` that "grants" (unlocks the
 directory for one command) exercises the privileged branch. The real `install`,
-`cmp` and `jq` are what runs. Every run is `--non-interactive` — the path a
+`cmp`, `stat` and `jq` are what runs. Every run is `--non-interactive` — the path a
 dispatch or CI job takes, where a silent skip would go unnoticed longest.
+
+Ownership is verified too, and a test cannot make a file root-owned without
+root. So under `CDF_MANAGED_DIR` the installer also reads
+`CDF_MANAGED_OWNER_UID` — the owner the test can produce — and the tests set
+it to their own uid for the green path. The installer's default stays root:
+unconditionally on `/etc/claude-code` (setting the variable there is refused
+before any write), and under the override when the variable is unset — which
+is what the ownership control runs against. The same placement that earns the
+banner with the seam is refused without it.
 
 ## What is NOT covered here, and where it is
 

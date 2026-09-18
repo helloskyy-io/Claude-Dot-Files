@@ -87,6 +87,16 @@ MANAGED_DIR_REAL="/etc/claude-code"
 while [ "${MANAGED_DIR%/}" != "$MANAGED_DIR" ] && [ "$MANAGED_DIR" != "/" ]; do
     MANAGED_DIR="${MANAGED_DIR%/}"
 done
+# The uid the floor must be OWNED BY. On the live directory it is root and it
+# is not configurable — a floor the invoking user owns is one that user can
+# rewrite, and the installer would be certifying the property it exists to
+# provide. Under the test override the tests cannot produce a root-owned file
+# without root, so they name the owner they can produce; the default stays
+# root there too, so a test that forgets is refused rather than passed.
+MANAGED_OWNER_UID=0
+if [ "$MANAGED_DIR" != "$MANAGED_DIR_REAL" ] && [ -n "${CDF_MANAGED_OWNER_UID:-}" ]; then
+    MANAGED_OWNER_UID="$CDF_MANAGED_OWNER_UID"
+fi
 
 # --- Helpers ------------------------------------------------------------------
 
@@ -336,14 +346,40 @@ as_root() {
     fi
 }
 
-# "Already placed" means identical bytes AND, for a hook, executable — a
-# byte-identical copy with its x-bit stripped is a hook that never runs. One
-# predicate, used both to decide whether to write and to verify afterwards,
-# so the two can never disagree about what "placed" means.
+# Why a path in the floor can be rewritten from below, or nothing when it
+# cannot. Three properties, each named on failure so the refusal is
+# actionable: owned by the required uid; no group/other write bit (a
+# directory here matters as much as a file — a writable parent lets the user
+# rename their own copy over the root-owned one); and, when the invoking
+# user is not that owner, not writable by them at all, which is what catches
+# an ACL the mode bits do not show. Root skips the last test because root
+# can write anything, and ownership plus mode bits are the whole property
+# for root.
+floor_path_loosenable() {
+    local path="$1" owner mode
+    owner="$(stat -c %u "$path")"
+    mode="$(stat -c %a "$path")"
+    if [ "$owner" != "$MANAGED_OWNER_UID" ]; then
+        echo "owned by uid $owner, not uid $MANAGED_OWNER_UID"
+    elif [ $(( 8#$mode & 8#022 )) -ne 0 ]; then
+        echo "mode $mode is group- or world-writable"
+    elif [ "$(id -u)" != "$MANAGED_OWNER_UID" ] && [ -w "$path" ]; then
+        echo "writable by $(id -un) (uid $(id -u)), who does not own it"
+    fi
+}
+
+# "Already placed" means identical bytes AND, for a hook, executable AND not
+# rewritable from below — a byte-identical copy with its x-bit stripped is a
+# hook that never runs, and a byte-identical copy the user owns or can write
+# is a floor the user can lower. One predicate, used both to decide whether
+# to write and to verify afterwards, so the two can never disagree about
+# what "placed" means: a tampered copy is re-placed as root, the same way a
+# stale one is.
 floor_entry_placed() {
     local source="$1" target="$2" mode="$3"
     [ -f "$target" ] && cmp -s "$source" "$target" \
-        && { [ "$mode" != "0755" ] || [ -x "$target" ]; }
+        && { [ "$mode" != "0755" ] || [ -x "$target" ]; } \
+        && [ -z "$(floor_path_loosenable "$target")" ]
 }
 
 # The refusal. Names the resolved path and the privilege it lacked, states
@@ -373,6 +409,19 @@ else
         warn "CDF_MANAGED_DIR overrides the managed directory: $MANAGED_DIR"
         warn "  Claude Code reads the managed tier ONLY from $MANAGED_DIR_REAL —"
         warn "  a floor placed here is for testing the installer, not for a live machine"
+        if [ "$MANAGED_OWNER_UID" != 0 ]; then
+            warn "CDF_MANAGED_OWNER_UID overrides the required owner: uid $MANAGED_OWNER_UID, not root — a test-only relaxation"
+        fi
+    fi
+
+    if [ "$MANAGED_DIR" = "$MANAGED_DIR_REAL" ] && [ -n "${CDF_MANAGED_OWNER_UID:-}" ]; then
+        echo ""
+        error "MANAGED FLOOR NOT PLACED"
+        error "  CDF_MANAGED_OWNER_UID=$CDF_MANAGED_OWNER_UID is set, but the owner of $MANAGED_DIR_REAL is root and is not configurable"
+        error "  that variable exists for the CDF_MANAGED_DIR test override only. Unset it; nothing was written."
+        echo ""
+        echo -e "${RED}Installation INCOMPLETE: managed floor not placed.${NC}"
+        exit 1
     fi
 
     if ! command -v sudo >/dev/null 2>&1 && [ "$(id -u)" != 0 ] && ! managed_dir_writable; then
@@ -422,21 +471,54 @@ else
         info "$rel_target → $what"
     done
 
-    # Verify byte-for-byte, and that a hook copy is executable. A floor that
-    # was written but differs from config/ is a floor enforcing something
-    # other than what the repo says, and that is reported as a failure.
+    # Verify byte-for-byte, that a hook copy is executable, and that nothing
+    # in the floor can be rewritten from below. A floor that differs from
+    # config/ enforces something other than what the repo says; a floor the
+    # invoking user owns or can write is not a floor at all — the direct-write
+    # branch above is reachable by a non-root user on a misconfigured live
+    # directory, and the bytes would match. Both are refusals, never a banner.
     for entry in "${MANAGED_FLOOR[@]}"; do
         IFS=: read -r rel_source rel_target mode <<< "$entry"
         source_path="$CONFIG_DIR/$rel_source"
         target_path="$MANAGED_DIR/$rel_target"
         if floor_entry_placed "$source_path" "$target_path" "$mode"; then
             info "$rel_target ✓"
-        elif [ -f "$target_path" ] && cmp -s "$source_path" "$target_path"; then
+        elif [ ! -f "$target_path" ] || ! cmp -s "$source_path" "$target_path"; then
+            error "$rel_target — verification failed (missing or differs from config/)"
+            floor_all_good=false
+        elif [ "$mode" = "0755" ] && [ ! -x "$target_path" ]; then
             error "$rel_target — placed but NOT executable; a hook that cannot run never fires"
             floor_all_good=false
         else
-            error "$rel_target — verification failed (missing or differs from config/)"
+            error "$rel_target — placed but REWRITABLE FROM BELOW: $target_path is $(floor_path_loosenable "$target_path")"
             floor_all_good=false
+        fi
+    done
+
+    # Every directory from the managed directory down to each placed file,
+    # once each. `install -D` creates the missing ones as the placing user
+    # with the umask's mode; a pre-existing one is whatever the host had.
+    floor_dirs=""
+    for entry in "${MANAGED_FLOOR[@]}"; do
+        IFS=: read -r _ rel_target _ <<< "$entry"
+        dir_path="$(dirname "$MANAGED_DIR/$rel_target")"
+        while :; do
+            case " $floor_dirs " in *" $dir_path "*) ;; *) floor_dirs="$floor_dirs $dir_path" ;; esac
+            [ "$dir_path" != "$MANAGED_DIR" ] || break
+            dir_path="$(dirname "$dir_path")"
+        done
+    done
+    for dir_path in $floor_dirs; do
+        if [ ! -d "$dir_path" ]; then
+            error "$dir_path — verification failed (not a directory)"
+            floor_all_good=false
+        elif why="$(floor_path_loosenable "$dir_path")" && [ -n "$why" ]; then
+            error "$dir_path — directory REWRITABLE FROM BELOW: $why; a user who can write it can rename a copy over the floor"
+            floor_all_good=false
+        else
+            rel_dir="${dir_path#"$MANAGED_DIR"}"
+            rel_dir="${rel_dir#/}"
+            info "${rel_dir:-.}/ ✓ (directory, owned by uid $MANAGED_OWNER_UID, not writable from below)"
         fi
     done
 
@@ -445,7 +527,7 @@ else
         echo -e "${GREEN}Managed floor verified at $MANAGED_DIR.${NC}"
     else
         echo ""
-        echo -e "${RED}Managed floor verification failed. Check the output above.${NC}"
+        echo -e "${RED}Managed floor verification failed — a floor that differs from config/, or that a non-root user can rewrite, is not a floor. Check the output above.${NC}"
         exit 1
     fi
 fi

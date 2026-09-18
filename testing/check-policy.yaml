@@ -34,3 +34,10 @@ advisory:
     reason: CodeQL default setup, same reasoning as above.
   - name: Analyze (actions)
     reason: CodeQL default setup, same reasoning as above.
+  - name: Analyze (javascript-typescript)
+    reason: >-
+      CodeQL default setup, same reasoning as above. Appeared when the tree
+      grew JavaScript (`scripts/services/planning_ui/renderers/`); default
+      setup adds a language job the moment it detects the language, with no
+      commit here — which is exactly why an undeclared check is a finding
+      and not a surprise to wave through. First observed undeclared on PR #205.

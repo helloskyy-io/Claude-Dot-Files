@@ -24,8 +24,10 @@ it spends tokens and needs a container runtime.
 
 `/etc/claude-code/` needs root and a build sandbox has none. Every trial runs
 the operator's **real** `claude` binary inside a throwaway `ubuntu:24.04`
-container, as a non-root user, with a prepared directory bind-mounted over that
-exact absolute path. Nothing is simulated — the binary reads the same path it
+container, as the invoking user's own uid (derived from `id -u` — the trial
+directories are bind-mounted from the host and `~/.claude` among them is 0700,
+so any other uid is `Permission denied` before the first trial), with a
+prepared directory bind-mounted over that exact absolute path. Nothing is simulated — the binary reads the same path it
 reads on a real host, with the flags a dispatch passes. The only thing that
 differs from a real host is who owns the mount.
 
