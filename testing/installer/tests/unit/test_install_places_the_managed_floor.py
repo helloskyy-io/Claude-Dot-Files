@@ -37,6 +37,7 @@ is:
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -275,6 +276,8 @@ def test_sudo_stub_shape_matches_what_this_host_has() -> None:
     """The control on the control: the stubs replace tools by NAME on PATH, so
     if install.sh stopped calling `sudo` and called `doas`, every refusal test
     above would pass against a tool that was never consulted."""
-    text = INSTALL.read_text()
-    assert "sudo -n" in text and 'sudo "$@"' in text
+    # The NAME only. Whether it is invoked with `-n` is behaviour, and
+    # `test_it_uses_sudo_when_the_directory_is_not_writable` proves that by
+    # running it; a grep for the flag here would be a second copy of that claim.
+    assert re.search(r"\bsudo\b", INSTALL.read_text()), "install.sh no longer names sudo; the stubs guard nothing"
     assert shutil.which("cmp") and shutil.which("install"), "the installer's real tools are missing on this host"
