@@ -3,7 +3,11 @@ set -euo pipefail
 
 # =============================================================================
 # Claude Code Dotfiles — install.sh
-# Creates targeted symlinks from config/ into ~/.claude/
+# Places TWO tiers of Claude Code configuration:
+#   1. the USER tier — targeted symlinks from config/ into ~/.claude/
+#   2. the MANAGED FLOOR — root-owned copies under /etc/claude-code/, which
+#      Claude Code ranks above every user/project/CLI setting and which nothing
+#      in ~/.claude/ can loosen (Workflow Decomposition Phase 7)
 # Safe to re-run (idempotent). Never deletes without backing up first.
 # =============================================================================
 
@@ -11,10 +15,15 @@ set -euo pipefail
 
 INTERACTIVE=true
 INSTALL_SERVICES=false
+PLACE_MANAGED_FLOOR=true
 for arg in "$@"; do
     case "$arg" in
         --non-interactive|-n) INTERACTIVE=false ;;
         --with-services) INSTALL_SERVICES=true ;;
+        # An EXPLICIT opt-out, and the only way to end up without the floor and
+        # exit 0. Named in the output every time it is used, so a machine
+        # without the floor is one somebody chose, never one that fell through.
+        --without-managed-floor) PLACE_MANAGED_FLOOR=false ;;
         *) echo "Unknown option: $arg"; exit 1 ;;
     esac
 done
@@ -37,6 +46,35 @@ SYMLINK_TARGETS=(
     "rules"
     "skills"
 )
+
+# The managed floor: config/<item> → $MANAGED_DIR/<item>, as root-owned COPIES.
+#
+# COPIES, NOT SYMLINKS, AND NOT IN SYMLINK_TARGETS. A symlink from /etc into a
+# checkout the operator can edit is a floor the operator can lower from below,
+# which is the one property the managed tier exists to provide. So the hook is
+# copied to a path only root writes, and the drop-in names THAT copy — not
+# ~/.claude/hooks/. A stale copy is re-placed on every run (Step 4 compares
+# byte-for-byte), so editing config/hooks/block-dangerous.sh and re-running the
+# installer is how the floor is updated. SYMLINK_TARGETS is read by the config
+# digest and the hook-wiring tests as "what becomes the user tier"; the floor is
+# deliberately a separate list so neither reads it as a user-tier item.
+#
+# Two entries only, by the 2026-09-18 ruling: a permissive user tier over a
+# THIN floor carrying the non-negotiable few — the safety hook and the deny set
+# (empty since 2026-08-15; see the drop-in and README § Safety).
+#
+# Format: "<source relative to config/>:<destination relative to MANAGED_DIR>:<mode>"
+MANAGED_FLOOR=(
+    "managed-settings.d/claude-dot-files.json:managed-settings.d/claude-dot-files.json:0644"
+    "hooks/block-dangerous.sh:hooks/block-dangerous.sh:0755"
+)
+
+# /etc/claude-code is the ONLY directory Claude Code reads the managed tier
+# from on Linux. The override exists so the tests can exercise placement and
+# refusal without root; pointing it anywhere else places a floor Claude Code
+# will never read, and the installer says so.
+MANAGED_DIR="${CDF_MANAGED_DIR:-/etc/claude-code}"
+MANAGED_DIR_REAL="/etc/claude-code"
 
 # --- Helpers ------------------------------------------------------------------
 
@@ -249,11 +287,148 @@ if [ "$backup_needed" = true ]; then
     echo "  Backups saved to: $BACKUP_DIR"
 fi
 
-# --- Step 4: Services (opt-in) -----------------------------------------------
+# --- Step 4: Managed floor ----------------------------------------------------
+#
+# ORDER IS DELIBERATE: the user tier is placed and verified BEFORE this step, so
+# a refusal here leaves a machine with the user-tier guard already firing. The
+# user tier declares the same safety hook the floor does — a host that lacks
+# the floor is less un-loosenable, never unguarded.
+
+echo ""
+echo "Step 4: Managed floor ($MANAGED_DIR)"
+echo ""
+
+# Can this user write the managed directory without escalating? Asked of the
+# NEAREST EXISTING ANCESTOR, because `install -D` creates missing parents and
+# `-w` on a path that does not exist yet is simply false — which would send a
+# writable-but-absent test directory down the sudo path.
+managed_dir_writable() {
+    local probe="$MANAGED_DIR"
+    while [ ! -e "$probe" ]; do
+        probe="$(dirname "$probe")"
+    done
+    [ -w "$probe" ]
+}
+
+# Run a command with whatever privilege the managed directory needs. Direct
+# when already root or when the target is writable (the test override);
+# otherwise sudo — non-interactive with `-n` where no prompt can be answered,
+# so a missing password surfaces as a refusal rather than a hang.
+as_root() {
+    if [ "$(id -u)" = 0 ] || managed_dir_writable; then
+        "$@"
+    elif [ "$INTERACTIVE" = true ]; then
+        sudo "$@"
+    else
+        sudo -n "$@"
+    fi
+}
+
+# The refusal. Names the resolved path and the privilege it lacked, states
+# what IS placed, and exits non-zero — the floor must never be believed placed
+# because the installer stayed quiet about not placing it.
+refuse_managed_floor() {
+    local target="$1" why="$2"
+    echo ""
+    error "MANAGED FLOOR NOT PLACED"
+    error "  could not write: $target"
+    error "  needs: root (this user is $(id -un), uid $(id -u); $why)"
+    echo ""
+    echo "  The user tier IS placed and verified above, and its copy of the safety"
+    echo "  hook fires. What is missing is the root-owned floor that ~/.claude/"
+    echo "  cannot loosen. Re-run with sudo access, or run this installer with"
+    echo "  --without-managed-floor to state that this machine goes without it."
+    echo ""
+    echo -e "${RED}Installation INCOMPLETE: managed floor not placed.${NC}"
+    exit 1
+}
+
+if [ "$PLACE_MANAGED_FLOOR" = false ]; then
+    warn "MANAGED FLOOR NOT PLACED — by --without-managed-floor"
+    warn "  $MANAGED_DIR carries no floor from this repo; only the user tier guards this machine"
+else
+    if [ "$MANAGED_DIR" != "$MANAGED_DIR_REAL" ]; then
+        warn "CDF_MANAGED_DIR overrides the managed directory: $MANAGED_DIR"
+        warn "  Claude Code reads the managed tier ONLY from $MANAGED_DIR_REAL —"
+        warn "  a floor placed here is for testing the installer, not for a live machine"
+    fi
+
+    if ! command -v sudo >/dev/null 2>&1 && [ "$(id -u)" != 0 ] && ! managed_dir_writable; then
+        refuse_managed_floor "$MANAGED_DIR" "sudo is not installed"
+    fi
+
+    floor_all_good=true
+    for entry in "${MANAGED_FLOOR[@]}"; do
+        IFS=: read -r rel_source rel_target mode <<< "$entry"
+        source_path="$CONFIG_DIR/$rel_source"
+        target_path="$MANAGED_DIR/$rel_target"
+
+        if [ ! -f "$source_path" ]; then
+            error "$rel_target — source missing from config/: $source_path"
+            floor_all_good=false
+            continue
+        fi
+
+        # "Already placed" means identical bytes AND, for a hook, executable —
+        # a byte-identical copy with its x-bit stripped is a hook that never
+        # runs, and re-placing it is the fix rather than a report.
+        if [ -f "$target_path" ] && cmp -s "$source_path" "$target_path" \
+           && { [ "$mode" != "0755" ] || [ -x "$target_path" ]; }; then
+            info "$rel_target — already placed"
+            continue
+        fi
+
+        if [ -f "$target_path" ]; then
+            what="re-placed (was stale)"
+        else
+            what="placed"
+        fi
+
+        # `install -D` creates the parent directories, sets the mode, and
+        # writes atomically enough for a config file; run as root it leaves
+        # every path component root-owned, which is the property wanted.
+        # stderr is captured so the refusal can quote sudo's own reason.
+        if ! err_out="$(as_root install -D -m "$mode" "$source_path" "$target_path" 2>&1)"; then
+            refuse_managed_floor "$target_path" "${err_out:-privilege escalation failed}"
+        fi
+        info "$rel_target → $what"
+    done
+
+    # Verify byte-for-byte, and that a hook copy is executable. A floor that
+    # was written but differs from config/ is a floor enforcing something
+    # other than what the repo says, and that is reported as a failure.
+    for entry in "${MANAGED_FLOOR[@]}"; do
+        IFS=: read -r rel_source rel_target mode <<< "$entry"
+        source_path="$CONFIG_DIR/$rel_source"
+        target_path="$MANAGED_DIR/$rel_target"
+        if [ -f "$target_path" ] && cmp -s "$source_path" "$target_path"; then
+            if [ "$mode" = "0755" ] && [ ! -x "$target_path" ]; then
+                error "$rel_target — placed but NOT executable; a hook that cannot run never fires"
+                floor_all_good=false
+            else
+                info "$rel_target ✓"
+            fi
+        else
+            error "$rel_target — verification failed (missing or differs from config/)"
+            floor_all_good=false
+        fi
+    done
+
+    if [ "$floor_all_good" = true ]; then
+        echo ""
+        echo -e "${GREEN}Managed floor verified at $MANAGED_DIR.${NC}"
+    else
+        echo ""
+        echo -e "${RED}Managed floor verification failed. Check the output above.${NC}"
+        exit 1
+    fi
+fi
+
+# --- Step 5: Services (opt-in) -----------------------------------------------
 
 if [ "$INSTALL_SERVICES" = true ]; then
     echo ""
-    echo "Step 4: Services"
+    echo "Step 5: Services"
     echo ""
 
     SYSTEMD_DIR="$HOME/.config/systemd/user"
@@ -355,6 +530,8 @@ if [ "$all_good" = true ]; then
     echo "Next steps:"
     echo "  • Edit config/CLAUDE.md with your global instructions"
     echo "  • Edit config/settings.json with your global settings"
+    echo "  • The managed floor is root-owned: edit config/managed-settings.d/ or"
+    echo "    config/hooks/block-dangerous.sh, then re-run ./install.sh to update it"
     if [ "$INSTALL_SERVICES" = false ]; then
         echo "  • Run './install.sh --with-services' to set up the GitHub monitor"
     fi

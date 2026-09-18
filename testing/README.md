@@ -15,6 +15,7 @@ testing/
 ├── scripts/tests/unit/     TIER 3 · the harness's own tests, and the repo-wide
 │                                    test-tree and docs/prose gates no code unit owns
 ├── config-hooks/tests/     TIER 3 · tests for config/hooks/ — see its README
+├── installer/tests/        TIER 3 · tests for install.sh — see its README
 └── logs/                   per-suite output (gitignored)
 
 scripts/workflows/temporal/tests/
@@ -36,11 +37,13 @@ drive cannot satisfy that rule today. Know this while planning a framework,
 not mid-implementation: it is the structural reason a bats suite for
 `config/hooks/` was not viable when it was first considered (issue #52).
 
-`config-hooks/` is the one component whose tests do NOT sit beside the code
-they cover, because `install.sh` symlinks `config/hooks` wholesale into
+`config-hooks/` and `installer/` are the two components whose tests do NOT sit
+beside the code they cover: `install.sh` symlinks `config/hooks` wholesale into
 `~/.claude/hooks` and a `tests/` directory there would land in the operator's
-live config on every machine. The reasoning is in
-[`config-hooks/README.md`](config-hooks/README.md). It is discovered by the
+live config on every machine, and `install.sh` itself sits at the repo root,
+where a `tests/` directory would read as the repo's rather than the
+installer's. The reasoning is in [`config-hooks/README.md`](config-hooks/README.md)
+and [`installer/README.md`](installer/README.md). Both are discovered by the
 unmodified runner like any other component — that is the bar a placement has
 to clear.
 

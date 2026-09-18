@@ -3,9 +3,22 @@
 # Receives JSON on stdin from Claude Code, returns deny decision if dangerous
 #
 # This is the PRIMARY safety layer for autonomous (headless) mode, where
-# --dangerously-skip-permissions bypasses the allow/deny lists in settings.json.
-# Hooks still fire regardless, so this hook must catch everything that should
+# --dangerously-skip-permissions skips every permission prompt and ignores the
+# allow list. Deny rules and hooks BOTH survive that flag (measured 2026-09-18
+# on CLI 2.1.275, `scripts/helpers/managed-tier-probe/probe.sh` trials T6 and
+# T1 — an earlier version of this comment said deny rules were bypassed too,
+# and that was wrong), but the deny list has been empty since 2026-08-15, so
+# this hook is the control that operates. It must catch everything that should
 # NEVER run regardless of permission mode.
+#
+# WHERE IT RUNS FROM. Declared in TWO tiers, on purpose. `install.sh` symlinks
+# this file into `~/.claude/hooks/` (user tier, `config/settings.json`) AND
+# copies it root-owned to `/etc/claude-code/hooks/` (managed floor,
+# `config/managed-settings.d/claude-dot-files.json`). The managed copy is the
+# one `~/.claude/` cannot loosen; the user copy is what guards a host where the
+# installer could not place the floor. Both fire under
+# --dangerously-skip-permissions (probe trials T1, T2, T7) and the managed one
+# decides first. Edit here, re-run `./install.sh` to update the floor.
 #
 # ---------------------------------------------------------------------------
 # THREAT MODEL (scope of what this hook addresses)

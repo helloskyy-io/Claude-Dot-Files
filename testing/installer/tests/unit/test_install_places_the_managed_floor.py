@@ -1,0 +1,280 @@
+"""`install.sh` places the managed floor, and REFUSES LOUDLY when it cannot.
+
+WORKFLOW DECOMPOSITION PHASE 7, requirement 4: *"The installer ... is reworked
+to also place (or verify) the managed-tier floor, with a stated behaviour when
+it lacks the privilege to write the OS-level path (refuse loudly, name the path
+— never silently skip the floor)."*
+
+WHY THE REFUSAL IS THE TEST WORTH HAVING. The floor's whole value is that
+`~/.claude/` cannot loosen it, and that value is exactly zero on a machine
+where the installer reported success without placing it. A silent skip is the
+failure the phase names by name, and it is the natural shape for this code to
+decay into — one `|| true` on the sudo line. So the refusal is asserted on its
+CONTENT (the resolved path, the privilege lacked, sudo's own reason) and its
+EXIT CODE, not merely on the run being red.
+
+HOW ROOT IS AVOIDED. `install.sh` reads `CDF_MANAGED_DIR` as the managed
+directory (default `/etc/claude-code`, the only path Claude Code reads). These
+tests point it at temp directories: a writable one to exercise placement, an
+unwritable one plus a stub `sudo` that refuses to exercise the refusal, and an
+unwritable one plus a stub `sudo` that grants to exercise the privileged path.
+The stubs stand in for `claude`, `yq` and `sudo` on PATH; the real `jq`,
+`install` and `cmp` are what the installer actually runs.
+
+WHAT THESE DO NOT LOOK AT, stated so the coverage is not read as more than it
+is:
+
+  * Whether `/etc/claude-code/` on THIS machine carries the floor. That is a
+    property of a host, not of a commit; `test_the_managed_floor_is_wired.py`
+    asks it conditionally, where an installation exists.
+  * Whether Claude Code READS what was placed. That is
+    `scripts/helpers/managed-tier-probe/probe.sh`, a host-run verification
+    against the real binary, and it is not a unit test.
+  * The interactive `sudo` prompt path. Every run here is `--non-interactive`,
+    which is the path a dispatch or a CI job takes and the one where a silent
+    skip would go unnoticed longest.
+"""
+from __future__ import annotations
+
+import os
+import shutil
+import stat
+import subprocess
+from pathlib import Path
+
+import pytest
+
+REPO_ROOT = Path(__file__).resolve().parents[4]
+INSTALL = REPO_ROOT / "install.sh"
+CONFIG = REPO_ROOT / "config"
+
+SUDO_REFUSES = "#!/bin/sh\necho 'sudo: a password is required' >&2\nexit 1\n"
+# A `sudo` that "grants": logs its argv, makes the locked directory writable
+# for the duration of the command, and runs it. The only way to exercise the
+# privileged branch without being root.
+SUDO_GRANTS = """#!/bin/sh
+printf '%s\\n' "$*" >> "$SUDO_LOG"
+[ "$1" = "-n" ] && shift
+chmod u+w "$LOCKED_DIR"
+"$@"; rc=$?
+chmod u-w "$LOCKED_DIR"
+exit $rc
+"""
+STUB = "#!/bin/sh\necho stub\n"
+
+
+def _floor_entries() -> list[tuple[str, str, str]]:
+    """`MANAGED_FLOOR` as bash itself reads it, so the expectation is DERIVED
+    from the installer and not restated here."""
+    script = (
+        "set -euo pipefail\nMANAGED_FLOOR=()\n"
+        f'eval "$(sed -n "/^MANAGED_FLOOR=(/,/^)/p" {INSTALL})"\n'
+        'printf "%s\\n" "${MANAGED_FLOOR[@]}"\n'
+    )
+    out = subprocess.run(["bash", "-c", script], capture_output=True, text=True,
+                         timeout=30, check=True)
+    entries = [tuple(line.split(":")) for line in out.stdout.splitlines() if line]
+    assert entries, "install.sh declares no MANAGED_FLOOR entries — every test here would be vacuous"
+    assert all(len(e) == 3 for e in entries), entries
+    return entries  # type: ignore[return-value]
+
+
+@pytest.fixture
+def sandbox(tmp_path: Path):
+    """A fake HOME, a stub PATH, and a place for the managed dir to go."""
+    home = tmp_path / "home"
+    binp = tmp_path / "bin"
+    home.mkdir()
+    binp.mkdir()
+    for name in ("claude", "yq"):
+        (binp / name).write_text(STUB)
+        (binp / name).chmod(0o755)
+    return tmp_path
+
+
+def _run(sandbox: Path, managed_dir: Path, *args: str, sudo: str = SUDO_REFUSES,
+         env_extra: dict | None = None) -> subprocess.CompletedProcess:
+    (sandbox / "bin" / "sudo").write_text(sudo)
+    (sandbox / "bin" / "sudo").chmod(0o755)
+    env = {
+        **os.environ,
+        "HOME": str(sandbox / "home"),
+        "PATH": f"{sandbox / 'bin'}:{os.environ['PATH']}",
+        "CDF_MANAGED_DIR": str(managed_dir),
+        "SUDO_LOG": str(sandbox / "sudo.log"),
+        "LOCKED_DIR": str(managed_dir),
+    }
+    env.update(env_extra or {})
+    return subprocess.run([str(INSTALL), "--non-interactive", *args],
+                          capture_output=True, text=True, timeout=120, env=env)
+
+
+def _placed_paths(managed_dir: Path) -> list[tuple[Path, Path, str]]:
+    return [(CONFIG / src, managed_dir / dst, mode) for src, dst, mode in _floor_entries()]
+
+
+def test_the_floor_is_placed_byte_for_byte_when_the_directory_is_writable(sandbox: Path) -> None:
+    managed = sandbox / "etc"
+    run = _run(sandbox, managed)
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert "Managed floor verified" in run.stdout
+    placed = _placed_paths(managed)
+    for source, target, mode in placed:
+        assert target.is_file(), f"{target} was not placed\n{run.stdout}"
+        assert target.read_bytes() == source.read_bytes(), f"{target} differs from {source}"
+        if mode == "0755":
+            assert os.access(target, os.X_OK), f"{target} is a hook copy and is not executable"
+    # The population control: a floor with nothing in it verifies nothing.
+    assert len(placed) >= 2, placed
+    # The user tier was placed too — the floor is IN ADDITION, never instead.
+    assert (sandbox / "home" / ".claude" / "settings.json").is_symlink()
+
+
+def test_a_second_run_reports_already_placed_and_changes_nothing(sandbox: Path) -> None:
+    managed = sandbox / "etc"
+    assert _run(sandbox, managed).returncode == 0
+    before = {t: t.stat().st_mtime_ns for _, t, _ in _placed_paths(managed)}
+    run = _run(sandbox, managed)
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert run.stdout.count("already placed") == len(before), run.stdout
+    assert {t: t.stat().st_mtime_ns for t in before} == before, "an idempotent run rewrote the floor"
+
+
+def test_a_stale_copy_is_re_placed(sandbox: Path) -> None:
+    managed = sandbox / "etc"
+    assert _run(sandbox, managed).returncode == 0
+    _, target, _ = _placed_paths(managed)[0]
+    target.write_text("{}\n")  # a floor enforcing something other than the repo says
+    run = _run(sandbox, managed)
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert "re-placed (was stale)" in run.stdout
+    source = _placed_paths(managed)[0][0]
+    assert target.read_bytes() == source.read_bytes()
+
+
+def test_a_hook_copy_that_lost_its_x_bit_is_re_placed(sandbox: Path) -> None:
+    """Byte-identical and not executable is a hook that never runs — stale, not placed."""
+    managed = sandbox / "etc"
+    assert _run(sandbox, managed).returncode == 0
+    hooks = [t for _, t, mode in _placed_paths(managed) if mode == "0755"]
+    assert hooks, "no executable entry in MANAGED_FLOOR — the x-bit check has nothing to test"
+    hooks[0].chmod(hooks[0].stat().st_mode & ~(stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH))
+    run = _run(sandbox, managed)
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert "re-placed (was stale)" in run.stdout
+    assert os.access(hooks[0], os.X_OK)
+
+
+def test_it_REFUSES_LOUDLY_naming_path_and_privilege_when_it_cannot_write(sandbox: Path) -> None:
+    """THE REQUIREMENT. Unwritable directory, sudo refuses: non-zero exit and a
+    message a human can act on — the resolved path and the privilege lacked."""
+    locked = sandbox / "ro"
+    locked.mkdir()
+    locked.chmod(0o555)
+    try:
+        run = _run(sandbox, locked)
+    finally:
+        locked.chmod(0o755)
+    assert run.returncode == 1, f"exit {run.returncode}; a refusal must be non-zero\n{run.stdout}{run.stderr}"
+    out = run.stdout + run.stderr
+    assert "MANAGED FLOOR NOT PLACED" in out
+    first_target = _placed_paths(locked)[0][1]
+    assert str(first_target) in out, f"the refusal does not name the resolved path {first_target}\n{out}"
+    assert "needs: root" in out, out
+    assert "sudo: a password is required" in out, "sudo's own reason was dropped from the refusal"
+    assert not first_target.exists()
+    # The success banner must not appear alongside the refusal.
+    assert "Managed floor verified" not in out
+    # And the user tier — the guard that DOES fire on such a host — is in place.
+    assert (sandbox / "home" / ".claude" / "hooks").is_symlink()
+
+
+def test_it_uses_sudo_when_the_directory_is_not_writable(sandbox: Path) -> None:
+    """The privileged branch is actually reached, with `-n` in non-interactive
+    mode so a missing password cannot hang a dispatch."""
+    locked = sandbox / "ro"
+    locked.mkdir()
+    locked.chmod(0o555)
+    try:
+        run = _run(sandbox, locked, sudo=SUDO_GRANTS)
+        log = (sandbox / "sudo.log").read_text() if (sandbox / "sudo.log").exists() else ""
+    finally:
+        locked.chmod(0o755)
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert log, "sudo was never invoked, yet the directory was unwritable"
+    for line in log.splitlines():
+        assert line.startswith("-n install -D -m "), f"unexpected sudo invocation: {line}"
+    for source, target, _ in _placed_paths(locked):
+        assert target.read_bytes() == source.read_bytes()
+
+
+# Everything install.sh --non-interactive execs by name when placing the floor.
+# Enumerated so the no-sudo test can build a PATH that has all of these and
+# NOT sudo; a missing name here shows up as a "command not found" in that test.
+_INSTALLER_TOOLS = ("bash", "dirname", "basename", "date", "mkdir", "readlink",
+                    "ln", "mv", "cmp", "install", "id", "which", "jq", "uname")
+
+
+def test_it_REFUSES_when_sudo_is_not_installed_at_all(sandbox: Path) -> None:
+    """A minimal VM image with no sudo must not be read as 'nothing to escalate'."""
+    binp = sandbox / "bin"
+    for name in _INSTALLER_TOOLS:
+        real = shutil.which(name)
+        assert real, f"{name} is missing on this host; the installer cannot run here"
+        (binp / name).symlink_to(real)
+    locked = sandbox / "ro"
+    locked.mkdir()
+    locked.chmod(0o555)
+    env = {"HOME": str(sandbox / "home"), "PATH": str(binp), "CDF_MANAGED_DIR": str(locked)}
+    try:
+        run = subprocess.run([str(INSTALL), "--non-interactive"], capture_output=True,
+                             text=True, timeout=120, env=env)
+    finally:
+        locked.chmod(0o755)
+    out = run.stdout + run.stderr
+    assert "command not found" not in out, out
+    assert run.returncode == 1, out
+    assert "MANAGED FLOOR NOT PLACED" in out and "sudo is not installed" in out, out
+    assert str(locked) in out
+
+
+def test_the_explicit_opt_out_is_loud_and_places_nothing(sandbox: Path) -> None:
+    managed = sandbox / "etc"
+    run = _run(sandbox, managed, "--without-managed-floor")
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert "MANAGED FLOOR NOT PLACED — by --without-managed-floor" in run.stdout
+    assert not managed.exists()
+    assert "Managed floor verified" not in run.stdout
+
+
+def test_an_override_directory_is_named_as_one_claude_code_will_not_read(sandbox: Path) -> None:
+    """The test hook itself must not be mistakable for a live install."""
+    managed = sandbox / "etc"
+    run = _run(sandbox, managed)
+    assert run.returncode == 0
+    assert "CDF_MANAGED_DIR overrides the managed directory" in run.stdout
+    assert "/etc/claude-code" in run.stdout
+
+
+def test_the_declared_floor_is_thin_and_its_sources_exist() -> None:
+    """The 2026-09-18 ruling: a THIN floor. Every source must be a real file in
+    config/, and the list is the safety hook plus the drop-in — a third entry is
+    a scope change that needs the ruling re-read, not a silent widening."""
+    entries = _floor_entries()
+    for src, dst, mode in entries:
+        assert (CONFIG / src).is_file(), f"MANAGED_FLOOR names config/{src}, which does not exist"
+        assert mode in ("0644", "0755"), (src, mode)
+        assert not dst.startswith("/"), f"destination must be relative to the managed dir: {dst}"
+    names = sorted(src for src, _, _ in entries)
+    assert names == ["hooks/block-dangerous.sh", "managed-settings.d/claude-dot-files.json"], (
+        f"the floor is {names}; the ruling put exactly the safety hook and the "
+        f"drop-in there. Widening it is an operator ruling, not an edit.")
+
+
+def test_sudo_stub_shape_matches_what_this_host_has() -> None:
+    """The control on the control: the stubs replace tools by NAME on PATH, so
+    if install.sh stopped calling `sudo` and called `doas`, every refusal test
+    above would pass against a tool that was never consulted."""
+    text = INSTALL.read_text()
+    assert "sudo -n" in text and 'sudo "$@"' in text
+    assert shutil.which("cmp") and shutil.which("install"), "the installer's real tools are missing on this host"

@@ -7,10 +7,22 @@ the system says so out loud — the tool call simply succeeds.
 
 WHAT MAKES IT THE ONLY CONTROL. Autonomous dispatches run with
 `--dangerously-skip-permissions`, which is what lets them proceed without a human
-at the prompt. That flag disables the permission system; it does NOT disable
-hooks. On 2026-08-16 the 49-rule `permissions.deny` list was removed as a
-compensating control and the hook itself was narrowed from 59 patterns to 5. Both
-were the right calls, and together they mean there is no second control left.
+at the prompt. That flag skips every prompt and ignores allow rules; it does NOT
+disable hooks, and — measured 2026-09-18, `scripts/helpers/managed-tier-probe/`
+trial T6 — it does not disable deny rules either. On 2026-08-16 the 49-rule
+`permissions.deny` list was removed as a compensating control and the hook itself
+was narrowed from 59 patterns to 5. Both were the right calls, and together they
+mean there is no second control left.
+
+THE HOOK NOW HAS A SECOND SUPPLY ROUTE, AND THIS FILE STILL GUARDS THE FIRST.
+Since Workflow Decomposition Phase 7 the same script is also declared in the
+managed floor (`config/managed-settings.d/claude-dot-files.json`, placed root-
+owned under `/etc/claude-code/` by `install.sh`), which the user tier cannot
+loosen and which fires under the flag (probe trials T1, T2). That route is
+guarded by `test_the_managed_floor_is_wired.py`. The user-tier declaration is
+KEPT, and this file keeps guarding it, because a host where `install.sh` could
+not place the floor has only this route — the fleet is never left without a
+firing guard on the way to the un-loosenable one.
 
 THE THREE FAILURE MODES, none of which is loud:
 
@@ -357,9 +369,12 @@ def test_the_hook_is_declared_in_the_file_install_sh_puts_at_USER_scope() -> Non
     depends on.
 
     WHAT THIS DOES NOT LOOK AT. It cannot see a SECOND settings file taking
-    precedence at run time — there is exactly one settings file in this repo
-    today (`config/settings.json`; verified: no other `settings*.json` is
-    tracked), so a precedence question has nothing to be asked about yet. If a
+    precedence at run time. There IS one now — the managed floor at
+    `config/managed-settings.d/claude-dot-files.json`, which outranks this
+    file — and what it declares is held by `test_the_managed_floor_is_wired.py`
+    rather than here. The precedence question between the two was answered by
+    measurement, not by a test: both tiers' hooks run and the managed one
+    decides first (`scripts/helpers/managed-tier-probe/` trial T7). If a
     project-scope settings file is ever added, this test is the one that has to
     grow, and that is why the gap is written down rather than left to be
     rediscovered.
