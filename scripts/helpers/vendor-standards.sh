@@ -117,6 +117,11 @@ fi
 # out loud in the run's output rather than silently passed over.
 DEST_REPO="${TARGET:-$SN_SRC}"
 [[ -d "$DEST_REPO" ]] || { echo "Error: target not found: $DEST_REPO" >&2; exit 1; }
+# RESOLVED BEFORE IT IS CLASSIFIED. The repo class below is read off the target's
+# basename, so `--target .` classified a planning repo as "." — a non-planning repo —
+# and refused before checking anything. That is how MDC's re-mirror stalled a day
+# (MDC-PM1, 2026-09-18). A relative path is a caller's convenience, not a fact.
+DEST_REPO="$(cd "$DEST_REPO" && pwd -P)"
 
 # THE REPO CLASS DECIDES, AND THIS CHECKS RATHER THAN PROBES. Documentation Standard
 # § *A repo that CONSUMES standards* rule 1 settles it: a planning repo
