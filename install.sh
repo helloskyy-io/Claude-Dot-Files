@@ -363,7 +363,10 @@ as_root() {
 # for root.
 floor_path_loosenable() {
     local path="$1" owner mode
-    owner="$(stat -c %u "$path")"
+    if ! owner="$(stat -c %u "$path" 2>/dev/null)"; then
+        echo "not reachable by $(id -un) (uid $(id -u)): $(stat -c %u "$path" 2>&1 >/dev/null | sed 's/.*: //')"
+        return
+    fi
     mode="$(stat -c %a "$path")"
     if [ "$owner" != "$MANAGED_OWNER_UID" ]; then
         echo "owned by uid $owner, not uid $MANAGED_OWNER_UID"
@@ -382,18 +385,32 @@ floor_path_loosenable() {
 # test and holds a floor no non-root session ever loads: the guard silently
 # absent behind a green banner. Two tests, because they catch different
 # things. The other-read bit (plus other-execute on a directory, which is
-# what makes it traversable and its drop-ins discoverable) is the property
-# every user on the host needs, and the only one with teeth when the
-# installer runs as root, for whom `-r` is always true. `-r`/`-x` by the
-# invoking user then catches an ACL the mode bits do not show.
+# what makes it traversable and its drop-ins discoverable, and on a hook,
+# which is what makes it runnable — a 0754 hook is one the session can open
+# and never execute) is the property every user on the host needs, and the
+# only one with teeth when the installer runs as root, for whom `-r`/`-x`
+# are always true. `-r`/`-x` by the invoking user then catches an ACL the
+# mode bits do not show. The declared mode says which shape a file is.
+# A path `stat` cannot reach is named as such rather than read as a blank
+# mode: an ancestor the invoking user cannot traverse is the same property,
+# one level up, and the sweep below names that ancestor on its own line.
 floor_path_unreadable() {
-    local path="$1" mode
-    mode="$(stat -c %a "$path")"
+    local path="$1" declared="${2:-}" mode
+    if ! mode="$(stat -c %a "$path" 2>/dev/null)"; then
+        echo "not reachable by $(id -un) (uid $(id -u)): $(stat -c %a "$path" 2>&1 >/dev/null | sed 's/.*: //')"
+        return
+    fi
     if [ -d "$path" ]; then
         if [ $(( 8#$mode & 8#005 )) -ne $(( 8#005 )) ]; then
             echo "mode $mode is not readable and traversable by other users (needs o+rx)"
         elif [ ! -r "$path" ] || [ ! -x "$path" ]; then
             echo "not readable and traversable by $(id -un) (uid $(id -u))"
+        fi
+    elif [ "$declared" = "0755" ]; then
+        if [ $(( 8#$mode & 8#005 )) -ne $(( 8#005 )) ]; then
+            echo "mode $mode is not readable and executable by other users (needs o+rx)"
+        elif [ ! -r "$path" ] || [ ! -x "$path" ]; then
+            echo "not readable and executable by $(id -un) (uid $(id -u))"
         fi
     elif [ $(( 8#$mode & 8#004 )) -eq 0 ]; then
         echo "mode $mode is not readable by other users (needs o+r)"
@@ -415,7 +432,7 @@ floor_entry_placed() {
     [ -f "$target" ] && cmp -s "$source" "$target" \
         && { [ "$mode" != "0755" ] || [ -x "$target" ]; } \
         && [ -z "$(floor_path_loosenable "$target")" ] \
-        && [ -z "$(floor_path_unreadable "$target")" ]
+        && [ -z "$(floor_path_unreadable "$target" "$mode")" ]
 }
 
 # The refusal. Names the resolved path and the privilege it lacked, states
@@ -521,8 +538,14 @@ else
         target_path="$MANAGED_DIR/$rel_target"
         if floor_entry_placed "$source_path" "$target_path" "$mode"; then
             info "$rel_target ✓"
+        # `stat` failing is "missing" OR "an ancestor is not traversable by
+        # this user", and the two need different fixes — so the reason is
+        # the kernel's own, never a guess between them.
+        elif ! stat_err="$(stat -c %a "$target_path" 2>&1 >/dev/null)"; then
+            error "$rel_target — verification failed: cannot reach $target_path as $(id -un): ${stat_err##*: }"
+            floor_all_good=false
         elif [ ! -f "$target_path" ] || ! cmp -s "$source_path" "$target_path"; then
-            error "$rel_target — verification failed (missing or differs from config/)"
+            error "$rel_target — verification failed (not a regular file, or differs from config/)"
             floor_all_good=false
         elif [ "$mode" = "0755" ] && [ ! -x "$target_path" ]; then
             error "$rel_target — placed but NOT executable; a hook that cannot run never fires"
@@ -531,7 +554,7 @@ else
             error "$rel_target — placed but REWRITABLE FROM BELOW: $target_path is $why"
             floor_all_good=false
         else
-            error "$rel_target — placed but UNREADABLE FROM BELOW: $target_path is $(floor_path_unreadable "$target_path")"
+            error "$rel_target — placed but UNREADABLE FROM BELOW: $target_path is $(floor_path_unreadable "$target_path" "$mode")"
             floor_all_good=false
         fi
     done
@@ -556,7 +579,10 @@ else
         done
     done
     for dir_path in "${floor_dirs[@]}"; do
-        if [ ! -d "$dir_path" ]; then
+        if ! stat_err="$(stat -c %a "$dir_path" 2>&1 >/dev/null)"; then
+            error "$dir_path — verification failed: cannot reach it as $(id -un): ${stat_err##*: }"
+            floor_all_good=false
+        elif [ ! -d "$dir_path" ]; then
             error "$dir_path — verification failed (not a directory)"
             floor_all_good=false
         elif why="$(floor_path_loosenable "$dir_path")" && [ -n "$why" ]; then

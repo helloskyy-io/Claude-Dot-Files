@@ -165,13 +165,21 @@ run_trial() {
 FAILED=0
 ROWS=()
 
-# check NAME "markers expected" "what this trial establishes"
+# check NAME "markers expected" "what this trial establishes" [MIN_DENIALS]
+# MIN_DENIALS is for a trial whose expected marker set is EMPTY: no marker is
+# also what a run that never reached a tool call leaves (a refused flag, an
+# auth failure), so such a trial must additionally show the model made the
+# call and had it denied — `permission_denials` is machine-emitted and is
+# the observation that separates "the hook did not fire" from "nothing ran".
 check() {
-  local name="$1" expected="$2" claim="$3"
+  local name="$1" expected="$2" claim="$3" min_denials="${4:-0}"
   local got; got="$(cat "$WORK/$name/markers.txt")"
   local denials; denials="$(cat "$WORK/$name/denials.txt")"
   local verdict="PASS"
   [[ "$got" == "$expected" ]] || { verdict="FAIL"; FAILED=1; }
+  if [[ "$min_denials" -gt 0 ]] && ! { [[ "$denials" =~ ^[0-9]+$ ]] && [[ "$denials" -ge "$min_denials" ]]; }; then
+    verdict="FAIL"; FAILED=1; claim="$claim — BUT no tool call was denied (denials=$denials): the empty marker set is a run that made no call, not a lever that held"
+  fi
   ROWS+=("$(printf '%-5s %-4s markers=[%s] expected=[%s] denials=%s  %s' "$name" "$verdict" "$got" "$expected" "$denials" "$claim")")
 }
 
@@ -274,7 +282,7 @@ for t in "${SELECTED[@]}"; do
     T11) run_trial T11 "$MARKER_MANAGED" dropin '{}' "$ECHO_PROMPT" --restricted --model "$MODEL"
          check T11 "managed-tier" "--restricted --tools Bash still loads the managed hook" ;;
     T11c) run_trial T11c '' none "$MARKER_USER" "$ECHO_PROMPT" --restricted --model "$MODEL"
-         check T11c "" "control: --restricted DOES ignore the user settings file" ;;
+         check T11c "" "control: --restricted DOES ignore the user settings file (the call was made and denied; no user marker)" 1 ;;
     *) echo "unknown trial: $t" >&2; exit 2 ;;
   esac
 done

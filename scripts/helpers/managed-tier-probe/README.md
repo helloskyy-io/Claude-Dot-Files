@@ -64,7 +64,7 @@ deny text is the observation.
 | **T10** | drop-in: marker M | `{}` | bypass + `--safe-mode` | **`managed-tier` marker; tool denied — `--safe-mode` does not silence the floor** |
 | T10c *(control)* | – | marker U | bypass + `--safe-mode` | no marker; `ran` — the same flag DOES silence a user-tier hook |
 | **T11** | drop-in: marker M | `{}` | `--restricted` (refuses bypass; still `--tools Bash`) | **`managed-tier` marker; tool denied — the floor is loaded in restricted mode** |
-| T11c *(control)* | – | marker U | `--restricted` | no marker; every tool call denied (no bypass, nobody to approve) — `--restricted` DOES ignore the user settings file |
+| T11c *(control)* | – | marker U | `--restricted` | no marker; every tool call denied (no bypass, nobody to approve) — `--restricted` DOES ignore the user settings file. The only trial whose expected marker set is empty, so it also asserts `permission_denials ≥ 1`: the call was made, which is what separates a silenced hook from a run that never reached a tool |
 
 *bypass* = `--dangerously-skip-permissions`. Every trial passed `--tools Bash --max-turns 3`.
 `ran` as a marker is the echo's own file (`/probe/ran`): a hook that did not fire left the tool call to run.

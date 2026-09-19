@@ -242,6 +242,10 @@ def test_a_world_writable_copy_is_re_placed_and_a_world_writable_directory_is_re
     # `managed-settings.d/` unlistable: Claude Code discovers drop-ins by
     # reading the directory, and a floor it cannot enumerate never loads.
     ("managed-settings.d", 0o311),
+    # Listable but NOT traversable (o+r without o+x): the entries can be
+    # named and none of them opened. Holds the traversal bit in the mask —
+    # a check on o+r alone passes this one.
+    (".", 0o754),
 ])
 def test_a_floor_the_runtime_user_CANNOT_READ_is_refused(sandbox: Path, which: str, mode: int) -> None:
     """A floor that verifies root-owned and unwritable from below is still no
@@ -265,18 +269,59 @@ def test_a_floor_the_runtime_user_CANNOT_READ_is_refused(sandbox: Path, which: s
     assert f"mode {mode:o}" in out and "o+rx" in out, out
 
 
-def test_a_copy_that_lost_its_other_read_bit_is_re_placed(sandbox: Path) -> None:
-    """The file shape of the same property: a placed copy at 0640 is a copy
-    no other user can open. `install -m` resets the mode, so it is re-placed
-    like a stale one rather than refused."""
+@pytest.mark.parametrize("declared_mode, lost_bit, what", [
+    # Any copy at 0640 is a copy no other user can open.
+    ("0644", stat.S_IROTH, "other-read"),
+    # The hook at 0754 is one every other user can open and none can run —
+    # the installer's own `-x` test passes (it runs as the owner), so the
+    # other-execute bit is what has to be checked.
+    ("0755", stat.S_IXOTH, "other-execute"),
+])
+def test_a_copy_that_lost_an_other_bit_is_re_placed(sandbox: Path, declared_mode: str,
+                                                    lost_bit: int, what: str) -> None:
+    """The file shape of the same property. `install -m` resets the mode, so
+    the copy is re-placed like a stale one rather than refused."""
     managed = sandbox / "etc"
     assert _run(sandbox, managed).returncode == 0
-    _, target, _ = _placed_paths(managed)[0]
-    target.chmod(target.stat().st_mode & ~stat.S_IROTH)
+    targets = [t for _, t, mode in _placed_paths(managed) if mode == declared_mode]
+    assert targets, f"no floor entry is declared at {declared_mode}; the {what} case has nothing to bite"
+    target = targets[0]
+    target.chmod(target.stat().st_mode & ~lost_bit)
     run = _run(sandbox, managed)
     assert run.returncode == 0, run.stdout + run.stderr
     assert "re-placed (was stale)" in run.stdout, run.stdout
-    assert target.stat().st_mode & stat.S_IROTH, oct(target.stat().st_mode)
+    assert target.stat().st_mode & lost_bit, oct(target.stat().st_mode)
+
+
+def test_an_untraversable_managed_directory_is_refused_naming_the_cause(sandbox: Path) -> None:
+    """The live shape of F27 on a hardened host: root places the floor (the
+    `sudo` here can traverse), then verification runs as the invoking user,
+    who cannot. Every line of the refusal must say WHY — the kernel's own
+    `Permission denied` and the directory's failing mode — never "missing"
+    or "not a directory", which are the messages a missing file earns and
+    would send the operator looking for one."""
+    managed = sandbox / "etc"
+    managed.mkdir()
+    managed.chmod(0o400)
+    sudo_that_can_traverse = (
+        "#!/bin/sh\n"
+        '[ "$1" = "-n" ] && shift\n'
+        'chmod 0700 "$LOCKED_DIR"\n'
+        '"$@"; rc=$?\n'
+        'chmod 0400 "$LOCKED_DIR"\n'
+        "exit $rc\n"
+    )
+    try:
+        run = _run(sandbox, managed, sudo=sudo_that_can_traverse)
+    finally:
+        managed.chmod(0o755)
+    out = run.stdout + run.stderr
+    assert run.returncode == 1, f"exit {run.returncode}: an untraversable managed directory earned the banner\n{out}"
+    assert "Managed floor verified" not in out, out
+    assert f"{managed.resolve()} — directory UNREADABLE FROM BELOW" in out and "mode 400" in out, out
+    for _, target, _ in _placed_paths(managed):
+        assert f"cannot reach {target.resolve()} as" in out and "Permission denied" in out, out
+    assert "missing" not in out and "not a directory" not in out, out
 
 
 def test_a_managed_path_with_a_space_is_swept_whole(sandbox: Path) -> None:
