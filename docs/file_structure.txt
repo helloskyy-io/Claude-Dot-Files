@@ -127,8 +127,8 @@ claude-dot-files/
 │   │   ├── managed-tier-probe/                      # HOST-RUN verification (WD Phase 7): does a hook in the OS-level managed tier fire under
 │   │   │   │                                        #   --dangerously-skip-permissions? Runs the operator's REAL claude binary in a container with
 │   │   │   │                                        #   a prepared dir bind-mounted over /etc/claude-code/ — the tier root would otherwise gate.
-│   │   │   │                                        #   Spends ~11 short -p calls; off every merge path. Results recorded in its README
-│   │   │   ├── README.md                            # The eleven trials, what each establishes, and the 2026-09-18 measurements on CLI 2.1.275
+│   │   │   │                                        #   Spends ~21 short -p calls; off every merge path. Results recorded in its README
+│   │   │   ├── README.md                            # The twenty-one trials (T8–T11 pull four levers from below, each with controls), what each establishes, and the 2026-09-18/19 measurements on CLI 2.1.275
 │   │   │   ├── probe.sh                             # Builds the image, runs the trials, checks each against its expectation, prints the table
 │   │   │   ├── Dockerfile                           # ubuntu:24.04 + jq, non-root user at the INVOKING uid (build-arg) — bypass mode refuses root
 │   │   │   └── marker-hook.sh                       # Fixture hook: writes a marker named for its tier, then denies — the observation is the file

@@ -374,18 +374,48 @@ floor_path_loosenable() {
     fi
 }
 
+# Why a path in the floor cannot be LOADED from below, or nothing when it
+# can. The mirror of the check above: that one asks whether a user below
+# root can change the floor, this one asks whether they can read it at all.
+# A root-owned 0750 directory — what a CIS-hardened host's root umask of 027
+# leaves when `/etc/claude-code/` pre-exists — passes every loosenability
+# test and holds a floor no non-root session ever loads: the guard silently
+# absent behind a green banner. Two tests, because they catch different
+# things. The other-read bit (plus other-execute on a directory, which is
+# what makes it traversable and its drop-ins discoverable) is the property
+# every user on the host needs, and the only one with teeth when the
+# installer runs as root, for whom `-r` is always true. `-r`/`-x` by the
+# invoking user then catches an ACL the mode bits do not show.
+floor_path_unreadable() {
+    local path="$1" mode
+    mode="$(stat -c %a "$path")"
+    if [ -d "$path" ]; then
+        if [ $(( 8#$mode & 8#005 )) -ne $(( 8#005 )) ]; then
+            echo "mode $mode is not readable and traversable by other users (needs o+rx)"
+        elif [ ! -r "$path" ] || [ ! -x "$path" ]; then
+            echo "not readable and traversable by $(id -un) (uid $(id -u))"
+        fi
+    elif [ $(( 8#$mode & 8#004 )) -eq 0 ]; then
+        echo "mode $mode is not readable by other users (needs o+r)"
+    elif [ ! -r "$path" ]; then
+        echo "not readable by $(id -un) (uid $(id -u))"
+    fi
+}
+
 # "Already placed" means identical bytes AND, for a hook, executable AND not
-# rewritable from below — a byte-identical copy with its x-bit stripped is a
-# hook that never runs, and a byte-identical copy the user owns or can write
-# is a floor the user can lower. One predicate, used both to decide whether
-# to write and to verify afterwards, so the two can never disagree about
-# what "placed" means: a tampered copy is re-placed as root, the same way a
-# stale one is.
+# rewritable from below AND readable from below — a byte-identical copy with
+# its x-bit stripped is a hook that never runs, a byte-identical copy the
+# user owns or can write is a floor the user can lower, and a byte-identical
+# copy the user cannot read is a floor that never loads. One predicate, used
+# both to decide whether to write and to verify afterwards, so the two can
+# never disagree about what "placed" means: a tampered copy is re-placed as
+# root, the same way a stale one is.
 floor_entry_placed() {
     local source="$1" target="$2" mode="$3"
     [ -f "$target" ] && cmp -s "$source" "$target" \
         && { [ "$mode" != "0755" ] || [ -x "$target" ]; } \
-        && [ -z "$(floor_path_loosenable "$target")" ]
+        && [ -z "$(floor_path_loosenable "$target")" ] \
+        && [ -z "$(floor_path_unreadable "$target")" ]
 }
 
 # The refusal. Names the resolved path and the privilege it lacked, states
@@ -477,12 +507,14 @@ else
         info "$rel_target → $what"
     done
 
-    # Verify byte-for-byte, that a hook copy is executable, and that nothing
-    # in the floor can be rewritten from below. A floor that differs from
-    # config/ enforces something other than what the repo says; a floor the
-    # invoking user owns or can write is not a floor at all — the direct-write
-    # branch above is reachable by a non-root user on a misconfigured live
-    # directory, and the bytes would match. Both are refusals, never a banner.
+    # Verify byte-for-byte, that a hook copy is executable, that nothing in
+    # the floor can be rewritten from below, and that all of it can be read
+    # from below. A floor that differs from config/ enforces something other
+    # than what the repo says; a floor the invoking user owns or can write is
+    # not a floor at all — the direct-write branch above is reachable by a
+    # non-root user on a misconfigured live directory, and the bytes would
+    # match; a floor the runtime user cannot read is one Claude Code never
+    # loads. All are refusals, never a banner.
     for entry in "${MANAGED_FLOOR[@]}"; do
         IFS=: read -r rel_source rel_target mode <<< "$entry"
         source_path="$CONFIG_DIR/$rel_source"
@@ -495,8 +527,11 @@ else
         elif [ "$mode" = "0755" ] && [ ! -x "$target_path" ]; then
             error "$rel_target — placed but NOT executable; a hook that cannot run never fires"
             floor_all_good=false
+        elif why="$(floor_path_loosenable "$target_path")" && [ -n "$why" ]; then
+            error "$rel_target — placed but REWRITABLE FROM BELOW: $target_path is $why"
+            floor_all_good=false
         else
-            error "$rel_target — placed but REWRITABLE FROM BELOW: $target_path is $(floor_path_loosenable "$target_path")"
+            error "$rel_target — placed but UNREADABLE FROM BELOW: $target_path is $(floor_path_unreadable "$target_path")"
             floor_all_good=false
         fi
     done
@@ -527,10 +562,13 @@ else
         elif why="$(floor_path_loosenable "$dir_path")" && [ -n "$why" ]; then
             error "$dir_path — directory REWRITABLE FROM BELOW: $why; a user who can write it can rename a copy over the floor"
             floor_all_good=false
+        elif why="$(floor_path_unreadable "$dir_path")" && [ -n "$why" ]; then
+            error "$dir_path — directory UNREADABLE FROM BELOW: $why; a floor Claude Code cannot read from a user session never loads"
+            floor_all_good=false
         else
             rel_dir="${dir_path#"$MANAGED_DIR"}"
             rel_dir="${rel_dir#/}"
-            info "${rel_dir:-.}/ ✓ (directory, owned by uid $MANAGED_OWNER_UID, not writable from below)"
+            info "${rel_dir:-.}/ ✓ (directory, owned by uid $MANAGED_OWNER_UID, not writable from below, readable from below)"
         fi
     done
 
@@ -539,7 +577,7 @@ else
         echo -e "${GREEN}Managed floor verified at $MANAGED_DIR.${NC}"
     else
         echo ""
-        echo -e "${RED}Managed floor verification failed — a floor that differs from config/, or that a non-root user can rewrite, is not a floor. Check the output above.${NC}"
+        echo -e "${RED}Managed floor verification failed — a floor that differs from config/, that a non-root user can rewrite, or that a user session cannot read, is not a floor. Check the output above.${NC}"
         exit 1
     fi
 fi

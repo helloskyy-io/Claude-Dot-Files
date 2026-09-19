@@ -230,6 +230,55 @@ def test_a_world_writable_copy_is_re_placed_and_a_world_writable_directory_is_re
     assert "group- or world-writable" in out, out
 
 
+@pytest.mark.parametrize("which, mode", [
+    # The managed directory itself at 0311: traversable (o+x) but not
+    # listable (no o+r). `install -D` writes inside it, the bytes match, the
+    # owner and write bits pass — and the banner must still be withheld.
+    (".", 0o311),
+    # The CIS-hardened shape review-pr F27 names: `/etc/claude-code/`
+    # pre-exists at 0750 under a root umask of 027. Owner-readable, so `-r` by
+    # the installing owner is TRUE; only the other-bits test catches it.
+    (".", 0o750),
+    # `managed-settings.d/` unlistable: Claude Code discovers drop-ins by
+    # reading the directory, and a floor it cannot enumerate never loads.
+    ("managed-settings.d", 0o311),
+])
+def test_a_floor_the_runtime_user_CANNOT_READ_is_refused(sandbox: Path, which: str, mode: int) -> None:
+    """A floor that verifies root-owned and unwritable from below is still no
+    floor when the user Claude Code runs as cannot read or traverse it. The
+    refusal names the directory and the failing property; the banner does
+    not appear."""
+    managed = sandbox / "etc"
+    assert _run(sandbox, managed).returncode == 0
+    target_dir = managed / which
+    assert target_dir.is_dir(), f"{target_dir} is not a directory the floor placed"
+    before = target_dir.stat().st_mode
+    target_dir.chmod(mode)
+    try:
+        run = _run(sandbox, managed)
+    finally:
+        target_dir.chmod(before)
+    out = run.stdout + run.stderr
+    assert run.returncode == 1, f"exit {run.returncode}: a {oct(mode)} managed directory earned the banner\n{out}"
+    assert "Managed floor verified" not in out, out
+    assert f"{target_dir.resolve()} — directory UNREADABLE FROM BELOW" in out, out
+    assert f"mode {mode:o}" in out and "o+rx" in out, out
+
+
+def test_a_copy_that_lost_its_other_read_bit_is_re_placed(sandbox: Path) -> None:
+    """The file shape of the same property: a placed copy at 0640 is a copy
+    no other user can open. `install -m` resets the mode, so it is re-placed
+    like a stale one rather than refused."""
+    managed = sandbox / "etc"
+    assert _run(sandbox, managed).returncode == 0
+    _, target, _ = _placed_paths(managed)[0]
+    target.chmod(target.stat().st_mode & ~stat.S_IROTH)
+    run = _run(sandbox, managed)
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert "re-placed (was stale)" in run.stdout, run.stdout
+    assert target.stat().st_mode & stat.S_IROTH, oct(target.stat().st_mode)
+
+
 def test_a_managed_path_with_a_space_is_swept_whole(sandbox: Path) -> None:
     """The directory sweep walks every ancestor of every placed file; an
     override path with a space (a checkout under `My Repos/`) must be one

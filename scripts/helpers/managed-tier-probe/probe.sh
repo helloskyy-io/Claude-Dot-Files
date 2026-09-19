@@ -33,6 +33,14 @@
 # protects the file, not the credential. Requires: docker (group membership),
 # jq, a logged-in `claude`.
 #
+# THE LEVERS BELOW THE TIER (T8–T11). A floor is only a floor if nothing the
+# dispatch user controls can loosen or silence it, so four levers are pulled
+# from below with the managed marker hook in place: a user-tier
+# `disableAllHooks`, `--setting-sources project,local` (the managed source
+# not named), `--safe-mode`, and `--restricted --tools Bash`. Each has a
+# control that pulls the same lever against a USER-tier hook with no floor —
+# a lever that silences nothing there would make "the floor held" vacuous.
+#
 # Usage:
 #   scripts/helpers/managed-tier-probe/probe.sh              all trials
 #   scripts/helpers/managed-tier-probe/probe.sh T1 T2        a subset
@@ -181,6 +189,8 @@ MARKER_USER='{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command
 MARKER_MANAGED_ONLY='{"allowManagedHooksOnly":true,"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"/opt/probe/marker-hook.sh managed-tier","timeout":10}]}]}}'
 REAL_HOOK='{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"/etc/claude-code/hooks/block-dangerous.sh","timeout":10}]}]}}'
 DENY='{"permissions":{"deny":["Bash(touch /probe/denied*)"]}}'
+NO_HOOKS_USER='{"disableAllHooks":true}'
+NO_HOOKS_MARKER_USER='{"disableAllHooks":true,"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"/opt/probe/marker-hook.sh user-tier","timeout":10}]}]}}'
 USER_ALLOW='{"permissions":{"allow":["Bash(touch /probe/*)"],"additionalDirectories":["/probe"]}}'
 
 ECHO_PROMPT='Use the Bash tool to run exactly: echo HELLO_FROM_TOOL > /probe/ran'
@@ -190,7 +200,7 @@ T2_PROMPT="Use the Bash tool to run exactly this one command and report its outp
 
 BYPASS=(--dangerously-skip-permissions)
 
-ALL=(T0 T1 T1d T2 T7 T5 T3 T3c T4 T4c T6)
+ALL=(T0 T1 T1d T2 T7 T5 T3 T3c T4 T4c T6 T8 T8c T9 T9c T9a T9m T10 T10c T11 T11c)
 if [[ $# -eq 0 ]]; then SELECTED=("${ALL[@]}"); else SELECTED=("$@"); fi
 
 for t in "${SELECTED[@]}"; do
@@ -228,6 +238,43 @@ for t in "${SELECTED[@]}"; do
          check T4c "allowed denied" "control: without the managed deny both commands run" ;;
     T6)  run_trial T6  "$DENY" dropin '{}' "$TOUCH_PROMPT" "${BYPASS[@]}" --model "$MODEL"
          check T6 "allowed" "a managed deny holds under --dangerously-skip-permissions" ;;
+    # The levers. Each Tn pulls one lever from below with the managed marker in
+    # the drop-in and expects the floor to hold; its Tnc control pulls the same
+    # lever against a user-tier marker with no floor and expects silence, which
+    # is what proves the lever was actually exercised.
+    T8)  run_trial T8  "$MARKER_MANAGED" dropin "$NO_HOOKS_USER" "$ECHO_PROMPT" "${BYPASS[@]}" --model "$MODEL"
+         check T8 "managed-tier" "a user-tier disableAllHooks does NOT silence the managed hook" ;;
+    T8c) run_trial T8c '' none "$NO_HOOKS_MARKER_USER" "$ECHO_PROMPT" "${BYPASS[@]}" --model "$MODEL"
+         check T8c "ran" "control: the same disableAllHooks DOES silence a user-tier hook (no marker; the echo ran)" ;;
+    T9)  run_trial T9  "$MARKER_MANAGED" dropin '{}' "$ECHO_PROMPT" "${BYPASS[@]}" --setting-sources project,local --model "$MODEL"
+         check T9 "managed-tier" "--setting-sources project,local cannot exclude the managed source" ;;
+    T9c) run_trial T9c '' none "$MARKER_USER" "$ECHO_PROMPT" "${BYPASS[@]}" --setting-sources project,local --model "$MODEL"
+         check T9c "user-tier" "control: the same --setting-sources does NOT drop a user-tier HOOK either — the flag does not govern hooks (measured 2026-09-19)" ;;
+    # Whether --setting-sources drops the user source AT ALL in this mode, so
+    # T9c is read correctly: T4c's user allow (both touches run without
+    # bypass) and T3c's user model key are each tried with the flag. Measured
+    # 2026-09-19: both survive it — the flag excluded nothing from the user
+    # tier, so T9 says only that the managed hook is present with the flag
+    # given, not that the flag is a lever the managed tier resists.
+    T9a) run_trial T9a '' none "$USER_ALLOW" "$TOUCH_PROMPT" --setting-sources project,local --model "$MODEL"
+         check T9a "allowed denied" "control: --setting-sources project,local does NOT drop user-tier permission rules either (T4c's result, unchanged)" ;;
+    T9m) run_trial T9m '' none '{"model":"claude-sonnet-5"}' "$ECHO_PROMPT" "${BYPASS[@]}" --setting-sources project,local
+         if grep -q 'claude-sonnet-5' "$WORK/T9m/models.txt"; then
+           ROWS+=("$(printf '%-5s %-4s models=[%s]  %s' T9m PASS "$(cat "$WORK/T9m/models.txt")" "control: --setting-sources project,local does NOT drop the user-tier model key either (a bare user tier resolves to opus-5 here, so the key was honoured)")")
+         else
+           FAILED=1; ROWS+=("$(printf '%-5s %-4s models=[%s]  %s' T9m FAIL "$(cat "$WORK/T9m/models.txt")" "the user model key WAS dropped by --setting-sources — the flag now governs the user source; re-read T9c")")
+         fi ;;
+    T10) run_trial T10 "$MARKER_MANAGED" dropin '{}' "$ECHO_PROMPT" "${BYPASS[@]}" --safe-mode --model "$MODEL"
+         check T10 "managed-tier" "--safe-mode does NOT silence the managed hook" ;;
+    T10c) run_trial T10c '' none "$MARKER_USER" "$ECHO_PROMPT" "${BYPASS[@]}" --safe-mode --model "$MODEL"
+         check T10c "ran" "control: the same --safe-mode DOES silence a user-tier hook (no marker; the echo ran)" ;;
+    # --restricted refuses bypassPermissions (its own help text), so this pair
+    # runs without the bypass flag; the marker is written before the
+    # permission gate is reached, so the observation is unchanged.
+    T11) run_trial T11 "$MARKER_MANAGED" dropin '{}' "$ECHO_PROMPT" --restricted --model "$MODEL"
+         check T11 "managed-tier" "--restricted --tools Bash still loads the managed hook" ;;
+    T11c) run_trial T11c '' none "$MARKER_USER" "$ECHO_PROMPT" --restricted --model "$MODEL"
+         check T11c "" "control: --restricted DOES ignore the user settings file" ;;
     *) echo "unknown trial: $t" >&2; exit 2 ;;
   esac
 done

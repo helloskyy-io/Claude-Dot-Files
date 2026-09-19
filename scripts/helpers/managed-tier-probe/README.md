@@ -8,7 +8,7 @@ PR #18 measured that hooks in the SDK `--managed-settings` tier never fire, so
 the OS-level tier had to be observed, not read off the docs.
 
 ```bash
-scripts/helpers/managed-tier-probe/probe.sh          # all eleven trials
+scripts/helpers/managed-tier-probe/probe.sh          # all twenty-one trials
 scripts/helpers/managed-tier-probe/probe.sh T1 T2    # a subset
 KEEP=1 scripts/helpers/managed-tier-probe/probe.sh   # keep the workdir for inspection (token copies are still removed)
 ```
@@ -40,7 +40,7 @@ recorded a false positive from reading the model's prose; this instrument
 inherits its lesson. Trial T2 uses the real `block-dangerous.sh` and its own
 deny text is the observation.
 
-## Results — 2026-09-18, CLI 2.1.275
+## Results — T0–T7 2026-09-18, T8–T11 2026-09-19, CLI 2.1.275
 
 | Trial | Managed (`/etc/claude-code/`) | User (`~/.claude/settings.json`) | Flag | Observed |
 |---|---|---|---|---|
@@ -55,8 +55,19 @@ deny text is the observation.
 | T4 | `deny: [Bash(touch /probe/denied*)]` | `allow: [Bash(touch /probe/*)]` + `additionalDirectories` | none | `allowed` created, `denied` denied — a user allow merges on top and cannot loosen the managed deny |
 | T4c *(control)* | – | same | none | both created |
 | T6 | `deny: [Bash(touch /probe/denied*)]` | `{}` | bypass | `denied` denied — a managed deny holds under `--dangerously-skip-permissions` |
+| **T8** | drop-in: marker M | `disableAllHooks: true` | bypass | **`managed-tier` marker; tool denied — a user-tier `disableAllHooks` does not reach the floor** |
+| T8c *(control)* | – | `disableAllHooks: true` + marker U | bypass | no marker; `ran` (the echo went through) — the same key DOES silence a user-tier hook |
+| **T9** | drop-in: marker M | `{}` | bypass + `--setting-sources project,local` | **`managed-tier` marker; tool denied — the managed source is loaded with the flag given** |
+| T9c *(control)* | – | marker U | bypass + `--setting-sources project,local` | `user-tier` marker — the flag did NOT drop the user-tier hook |
+| T9a *(control)* | – | `allow: [Bash(touch /probe/*)]` + `additionalDirectories` | `--setting-sources project,local` (no bypass) | `allowed denied` — T4c's result unchanged; the flag did NOT drop user-tier permission rules |
+| T9m *(control)* | – | `model: claude-sonnet-5` | bypass + `--setting-sources project,local` | sonnet used (a bare user tier resolves to `claude-opus-5[1m]` here) — the flag did NOT drop the user-tier `model` key |
+| **T10** | drop-in: marker M | `{}` | bypass + `--safe-mode` | **`managed-tier` marker; tool denied — `--safe-mode` does not silence the floor** |
+| T10c *(control)* | – | marker U | bypass + `--safe-mode` | no marker; `ran` — the same flag DOES silence a user-tier hook |
+| **T11** | drop-in: marker M | `{}` | `--restricted` (refuses bypass; still `--tools Bash`) | **`managed-tier` marker; tool denied — the floor is loaded in restricted mode** |
+| T11c *(control)* | – | marker U | `--restricted` | no marker; every tool call denied (no bypass, nobody to approve) — `--restricted` DOES ignore the user settings file |
 
 *bypass* = `--dangerously-skip-permissions`. Every trial passed `--tools Bash --max-turns 3`.
+`ran` as a marker is the echo's own file (`/probe/ran`): a hook that did not fire left the tool call to run.
 
 **What these settle for the phase:**
 
@@ -72,6 +83,19 @@ deny text is the observation.
   managed hook the docs already say `~/.claude/` cannot disable.
 - **Deny rules survive bypass mode** (T6). `block-dangerous.sh`'s header used
   to say the opposite; corrected.
+- **The four levers below the tier do not loosen it** (T8–T11, measured
+  2026-09-19 for review-pr F2 on PR #205). A user-tier `disableAllHooks`,
+  `--safe-mode` and `--restricted` each demonstrably silence or ignore a
+  user-tier hook (T8c, T10c, T11c) and each leaves the managed hook firing
+  (T8, T10, T11). **`--setting-sources project,local` is not a lever at all
+  in `-p` mode on this CLI** — it was accepted without complaint and dropped
+  nothing from the user tier: not a hook (T9c), not a permission rule (T9a),
+  not the `model` key (T9m). T9 therefore establishes only that the managed
+  hook is present with the flag given, which is the property the floor needs;
+  it does not establish that the flag is something the managed tier resists,
+  because the flag resisted nothing. Recorded rather than smoothed over: a
+  future CLI in which the flag starts governing the user source will turn
+  T9a/T9c/T9m red, and that is the moment T9 becomes a real measurement.
 
 **What the model refused, recorded so the T2 command is not read as a weak
 choice:** `rm -rf /tmp` and a bare `git push --force` were both refused by the
