@@ -637,7 +637,7 @@ def test_the_strip_exemption_NAMES_the_instrument_and_nothing_else() -> None:
         f"{probe} is exempt as a container-run instrument and no longer runs docker")
     for flag in _HOOK_STRIPPING_FLAGS:
         if flag == "--bare":
-            continue  # named by the phase doc's hazard table; not yet a trial the probe pulls
+            continue  # unmeasurable on OAuth auth (exits 1 `Not logged in`, phase 5 doc); ruled against in roadmap.md
         assert any(_STRIPS_THE_HOOK.search(line) for line in argv_lines if flag in line), (
             f"{probe} is exempt for measuring {flag} and no longer passes it")
 
