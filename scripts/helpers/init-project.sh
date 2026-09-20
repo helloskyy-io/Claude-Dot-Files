@@ -502,10 +502,14 @@ else
 # that stays silent on an empty population reads as a pass it never earned.
 name: checks
 
+# Pull requests only, one run per branch — Testing Standard § A gate runs on the
+# pull request, and nowhere else. Actions minutes are metered and shared.
 on:
   pull_request:
-  push:
-    branches: [main]
+
+concurrency:
+  group: checks-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
