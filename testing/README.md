@@ -15,6 +15,7 @@ testing/
 ├── scripts/tests/unit/     TIER 3 · the harness's own tests, and the repo-wide
 │                                    test-tree and docs/prose gates no code unit owns
 ├── config-hooks/tests/     TIER 3 · tests for config/hooks/ — see its README
+├── installer/tests/        TIER 3 · tests for install.sh — see its README
 └── logs/                   per-suite output (gitignored)
 
 scripts/workflows/temporal/tests/
@@ -36,11 +37,13 @@ drive cannot satisfy that rule today. Know this while planning a framework,
 not mid-implementation: it is the structural reason a bats suite for
 `config/hooks/` was not viable when it was first considered (issue #52).
 
-`config-hooks/` is the one component whose tests do NOT sit beside the code
-they cover, because `install.sh` symlinks `config/hooks` wholesale into
+`config-hooks/` and `installer/` are the two components whose tests do NOT sit
+beside the code they cover: `install.sh` symlinks `config/hooks` wholesale into
 `~/.claude/hooks` and a `tests/` directory there would land in the operator's
-live config on every machine. The reasoning is in
-[`config-hooks/README.md`](config-hooks/README.md). It is discovered by the
+live config on every machine, and `install.sh` itself sits at the repo root,
+where a `tests/` directory would read as the repo's rather than the
+installer's. The reasoning is in [`config-hooks/README.md`](config-hooks/README.md)
+and [`installer/README.md`](installer/README.md). Both are discovered by the
 unmodified runner like any other component — that is the bar a placement has
 to clear.
 
@@ -76,6 +79,16 @@ pip install "pytest>=7,<9" "pyyaml>=6,<7" "ruff>=0.6,<1"
 
 `pyyaml` is a runtime dependency, not just a test one — `preflight` refuses to
 start without it.
+
+Two more things a **fresh worktree** needs before its first `run-all.sh` is
+green, both of which CI does for itself and nothing else does:
+
+- **`config.yaml`** — the suite reads it (every `MODEL_KEY` must resolve there)
+  and it is the instance's file, not committed. `cp config.template.yaml
+  config.yaml` is what `.github/workflows/tests.yml` runs; do the same.
+- **Node ≥ 18** — `js/unit` refuses an older `node` on PATH rather than
+  pretending. Point it at one with `NODE_BIN=/path/to/node ./testing/run-all.sh`
+  (on the VMs, `/opt/skyy-net/.node/bin/node`).
 
 ## Running
 

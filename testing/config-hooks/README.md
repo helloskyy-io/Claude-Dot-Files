@@ -39,6 +39,7 @@ discovered by the unmodified runner, the placement is wrong — not the runner.
 | `tests/unit/test_block_dangerous.py` | `config/hooks/block-dangerous.sh` — does the hook make the right DECISION? Issue #52 |
 | `tests/unit/test_hook_settings.py` | `config/settings.json`'s hook block as configuration — shape, and the `timeout` bounds |
 | `tests/unit/test_the_safety_hook_is_wired.py` | Is the hook ever CONSULTED? Holds all three breakage shapes named at `skyynet-master-planning/standards/workflows/workflow-scripts.md` |
+| `tests/unit/test_the_managed_floor_is_wired.py` | The MANAGED FLOOR (WD Phase 7): the same hook is declared in `config/managed-settings.d/claude-dot-files.json`, resolves to the root-owned copy `install.sh` places under `/etc/claude-code/`, and the floor sets no key that silences user-tier hooks or halts dispatches |
 
 `notify-done.sh` has no tests yet.
 

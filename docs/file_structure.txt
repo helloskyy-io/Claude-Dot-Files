@@ -61,13 +61,22 @@ claude-dot-files/
 │   │   ├── update-claude.md                         # /update-claude — sync CLAUDE.md standard references
 │   │   └── update-file-structure.md                 # /update-file-structure — update this file
 │   │
-│   └── hooks/                                       # Hook scripts referenced by settings.json
-│       ├── block-dangerous.sh                       # PreToolUse: deny destructive bash commands (threat model in header)
-│       ├── block-detached-dispatch.sh               # PreToolUse: deny `nohup` in COMMAND POSITION — it detaches a dispatch
-│       │                                            #   from the harness, so nothing tracks or reports it. SEPARATE from
-│       │                                            #   block-dangerous.sh: that hook's admission test is *is it
-│       │                                            #   UNRECOVERABLE*, and this is not. Fails OPEN, for the same reason
-│       └── notify-done.sh                           # Stop: desktop notification via notify-send
+│   ├── hooks/                                       # Hook scripts referenced by settings.json
+│   │   ├── block-dangerous.sh                       # PreToolUse: deny destructive bash commands (threat model in header). Declared in BOTH
+│   │   │                                            #   tiers: symlinked into ~/.claude/hooks/ (user) AND copied root-owned to
+│   │   │                                            #   /etc/claude-code/hooks/ (managed floor) by install.sh — WD Phase 7
+│   │   ├── block-detached-dispatch.sh               # PreToolUse: deny `nohup` in COMMAND POSITION — it detaches a dispatch
+│   │   │                                            #   from the harness, so nothing tracks or reports it. SEPARATE from
+│   │   │                                            #   block-dangerous.sh: that hook's admission test is *is it
+│   │   │                                            #   UNRECOVERABLE*, and this is not. Fails OPEN, for the same reason
+│   │   └── notify-done.sh                           # Stop: desktop notification via notify-send
+│   │
+│   └── managed-settings.d/                          # The MANAGED FLOOR (WD Phase 7) — NOT a symlink target. install.sh copies it root-owned
+│       │                                            #   to /etc/claude-code/managed-settings.d/, the tier Claude Code ranks above every
+│       │                                            #   user/project/CLI setting; nothing in ~/.claude/ can loosen it
+│       └── claude-dot-files.json                    # Declares the safety hook at /etc/claude-code/hooks/block-dangerous.sh + the deny set
+│                                                    #   (empty since the 2026-08-15 ruling). Deliberately sets NO allowManagedHooksOnly —
+│                                                    #   measured to silence every user-tier hook (probe trial T5)
 │
 ├── docs/                                            # The prose that describes THIS repo's own tree. Everything
 │                                                    #   else — standards, development plans, the operator guide
@@ -115,6 +124,14 @@ claude-dot-files/
 │   │   ├── check-settings.sh                        # Ship-gate: validates config/settings.json — malformed JSON, hook paths that don't resolve to an executable config/hooks/*.sh
 │   │   ├── check_settings.py                        # The importable validation logic check-settings.sh runs; also imported directly by its pytest suite
 │   │   ├── vendor-standards.sh                      # Re-copy vendored standards from MDC-Master-Planning with MIRROR provenance; --check fails on local drift
+│   │   ├── managed-tier-probe/                      # HOST-RUN verification (WD Phase 7): does a hook in the OS-level managed tier fire under
+│   │   │   │                                        #   --dangerously-skip-permissions? Runs the operator's REAL claude binary in a container with
+│   │   │   │                                        #   a prepared dir bind-mounted over /etc/claude-code/ — the tier root would otherwise gate.
+│   │   │   │                                        #   Spends ~21 short -p calls; off every merge path. Results recorded in its README
+│   │   │   ├── README.md                            # The twenty-one trials (T8–T11 pull four levers from below, each with controls), what each establishes, and the 2026-09-18/19 measurements on CLI 2.1.275
+│   │   │   ├── probe.sh                             # Builds the image, runs the trials, checks each against its expectation, prints the table
+│   │   │   ├── Dockerfile                           # ubuntu:24.04 + jq, non-root user at the INVOKING uid (build-arg) — bypass mode refuses root
+│   │   │   └── marker-hook.sh                       # Fixture hook: writes a marker named for its tier, then denies — the observation is the file
 │   │   ├── measure/                                 # Replay tools over the fleet's OWN archived artifacts. Read-only, off every merge path
 │   │   │   │                                        #   Kept (not one-shots) because each answers a rate over a denominator that GROWS — see its README
 │   │   │   ├── README.md                            # What each tool answers and which open decision reads it
@@ -149,6 +166,8 @@ claude-dot-files/
 │   │           │                                    #   tick, and a prompt block whose closing ')' is never found fails instead of vanishing
 │   │           ├── test_file_structure_check.py # The map check's two arms and its vacuity control, each driven by a mutation
 │   │           ├── test_sibling_checkouts.py   # The sibling sweep's off-branch arm, its exclusion, and its empty-population refusal
+│   │           ├── test_the_probe_runs_as_the_invoking_uid.py # managed-tier-probe hands docker the uid from `id -u`, never a literal — a
+│   │           │                                    #   hardcoded 1001 ran clean on the host that wrote it and hit Permission denied at uid 1000
 │   │           ├── test_standards_index_audit.py # The header audit's three distinctions, each
 │   │           ├── test_the_standards_index_is_ACTUALLY_CLEAN.py # Runs the audit against the REAL corpus — the tool had only fixture tests
 │   │           ├── test_a_scaffolded_repo_PASSES_ITS_OWN_CHECKS.py # A new repo must be green on the CI init-project ships it
@@ -1376,6 +1395,10 @@ claude-dot-files/
 │   │                                                #   hook got slower. Written after an unbounded PreToolUse hook ran 8m44s
 │   │                                                #   at 99.9% CPU on ONE tool call and had to be killed by hand, holding a
 │   │                                                #   live build (2026-08-14).
+│   │       ├── test_the_managed_floor_is_wired.py   # WD Phase 7 — the floor's hook is DECLARED on PreToolUse/Bash, RESOLVES to an absolute
+│   │       │                                        #   path install.sh's MANAGED_FLOOR places from a shipped executable, is the SAME script
+│   │       │                                        #   the user tier runs, and the floor sets neither allowManagedHooksOnly (silences user
+│   │       │                                        #   hooks — measured) nor disableBypassPermissionsMode (halts every dispatch)
 │   │       └── test_the_safety_hook_is_wired.py     # The hook is the ONLY control once the deny list and permissions are gone, so this
 │   │                                                #   asks whether it is ever CONSULTED — not whether it decides right, which is its
 │   │                                                #   sibling suite's question. Holds the THREE breakage shapes `workflow-scripts.md`
@@ -1386,6 +1409,16 @@ claude-dot-files/
 │   │                                                #   extension — an anchor test derives every claude dispatcher from `git ls-files`
 │   │                                                #   and asserts the sweep contains it, after a Python-only glob left the one shell
 │   │                                                #   runner it exists to watch unwatched (2026-08-16)
+│   ├── installer/                                   # TIER 3 for install.sh — the repo-root script, which owns no tests/ dir of its own
+│   │   ├── README.md                                # Placement rationale, and what the suite does and does not cover
+│   │   └── tests/unit/
+│   │       └── test_install_places_the_managed_floor.py # WD Phase 7 req 4 — runs install.sh against a fake HOME with CDF_MANAGED_DIR: places
+│   │                                                #   the floor byte-for-byte, re-places a stale, x-bit-stripped or world-writable copy,
+│   │                                                #   REFUSES LOUDLY (exit 1, resolved path, privilege, sudo's own reason) when it cannot
+│   │                                                #   write, REFUSES a floor not root-owned or writable from below (CDF_MANAGED_OWNER_UID
+│   │                                                #   is the test seam; refused on the live path however it is spelled), never reads --without-managed-floor as
+│   │                                                #   success in silence, places the hook script BEFORE the drop-in that declares it, and
+│   │                                                #   writes NOTHING when a source is missing
 │   └── logs/                                        # Per-suite run output (gitignored — ephemeral)
 │
 ├── .github/
@@ -1400,7 +1433,9 @@ claude-dot-files/
 ├── CLAUDE.md                                        # Project instructions (read by Claude Code when working in this repo)
 ├── config.template.yaml                             # The committed DEFAULTS for every service and workflow setting. install.sh writes config.yaml from it once; config.yaml is the instance's file, gitignored, edited per machine
 ├── conftest.py                                      # Repo-root pytest config — RLIMIT_AS memory guardrail (Testing Standard § Test Resource Safety, binding)
-├── install.sh                                       # Creates symlinks from config/* into ~/.claude/
+├── install.sh                                       # Places both tiers: symlinks config/* into ~/.claude/ (user), copies the managed floor
+│                                                    #   root-owned under /etc/claude-code/ via sudo — refusing loudly, naming path and
+│                                                    #   privilege, when it cannot (WD Phase 7)
 ├── LICENSE                                          # MIT license
 ├── pytest.ini                                       # Pins pytest rootdir here, which is what guarantees conftest.py loads on every invocation
 └── README.md                                        # Repo documentation
@@ -1416,6 +1451,11 @@ Symlink strategy (created by install.sh):
   config/hooks/         ──>  ~/.claude/hooks/
   config/rules/         ──>  ~/.claude/rules/
   config/skills/        ──>  ~/.claude/skills/
+
+Managed floor (COPIED root-owned by install.sh, never symlinked — WD Phase 7):
+
+  config/managed-settings.d/claude-dot-files.json  ──>  /etc/claude-code/managed-settings.d/claude-dot-files.json
+  config/hooks/block-dangerous.sh                  ──>  /etc/claude-code/hooks/block-dangerous.sh
 
 Machine-local (NOT synced):
   ~/.claude/.credentials.json    auth tokens

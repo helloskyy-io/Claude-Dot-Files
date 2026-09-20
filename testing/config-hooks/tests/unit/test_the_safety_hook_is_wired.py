@@ -7,10 +7,22 @@ the system says so out loud — the tool call simply succeeds.
 
 WHAT MAKES IT THE ONLY CONTROL. Autonomous dispatches run with
 `--dangerously-skip-permissions`, which is what lets them proceed without a human
-at the prompt. That flag disables the permission system; it does NOT disable
-hooks. On 2026-08-16 the 49-rule `permissions.deny` list was removed as a
-compensating control and the hook itself was narrowed from 59 patterns to 5. Both
-were the right calls, and together they mean there is no second control left.
+at the prompt. That flag skips every prompt and ignores allow rules; it does NOT
+disable hooks, and — measured 2026-09-18, `scripts/helpers/managed-tier-probe/`
+trial T6 — it does not disable deny rules either. On 2026-08-16 the 49-rule
+`permissions.deny` list was removed as a compensating control and the hook itself
+was narrowed from 59 patterns to 5. Both were the right calls, and together they
+mean there is no second control left.
+
+THE HOOK NOW HAS A SECOND SUPPLY ROUTE, AND THIS FILE STILL GUARDS THE FIRST.
+Since Workflow Decomposition Phase 7 the same script is also declared in the
+managed floor (`config/managed-settings.d/claude-dot-files.json`, placed root-
+owned under `/etc/claude-code/` by `install.sh`), which the user tier cannot
+loosen and which fires under the flag (probe trials T1, T2). That route is
+guarded by `test_the_managed_floor_is_wired.py`. The user-tier declaration is
+KEPT, and this file keeps guarding it, because a host where `install.sh` could
+not place the floor has only this route — the fleet is never left without a
+firing guard on the way to the un-loosenable one.
 
 THE THREE FAILURE MODES, none of which is loud:
 
@@ -357,9 +369,12 @@ def test_the_hook_is_declared_in_the_file_install_sh_puts_at_USER_scope() -> Non
     depends on.
 
     WHAT THIS DOES NOT LOOK AT. It cannot see a SECOND settings file taking
-    precedence at run time — there is exactly one settings file in this repo
-    today (`config/settings.json`; verified: no other `settings*.json` is
-    tracked), so a precedence question has nothing to be asked about yet. If a
+    precedence at run time. There IS one now — the managed floor at
+    `config/managed-settings.d/claude-dot-files.json`, which outranks this
+    file — and what it declares is held by `test_the_managed_floor_is_wired.py`
+    rather than here. The precedence question between the two was answered by
+    measurement, not by a test: both tiers' hooks run and the managed one
+    decides first (`scripts/helpers/managed-tier-probe/` trial T7). If a
     project-scope settings file is ever added, this test is the one that has to
     grow, and that is why the gap is written down rather than left to be
     rediscovered.
@@ -400,15 +415,39 @@ def _swept_sources() -> list[Path]:
     `scripts/**/*.md` prompt would trip this, because a prompt is not a comment
     and nothing here can tell prose from argv. That is the right way round for a
     safety tripwire: a false alarm costs one line to resolve, and silence costs
-    destructive-command blocking on every autonomous run. No file under
+    destructive-command blocking on every autonomous run. No runner under
     `scripts/` mentions the flag today.
+
+    TWO FILES ARE EXEMPT BY EXACT PATH: THE INSTRUMENT THAT MEASURES THESE
+    FLAGS, AND THE README THAT RECORDS THE MEASUREMENT.
+    `scripts/helpers/managed-tier-probe/probe.sh` passes every one of them, on
+    purpose, to the operator's real binary inside a throwaway container with
+    the MANAGED floor mounted, to observe whether that floor's hook still
+    fires (trials T8–T11, 2026-09-19: it does), and its README is the table
+    of what was observed. Neither is a runner — nothing in the fleet
+    dispatches through the probe, a person invokes it — and a tripwire that
+    fired on the measurement of its own hazard would have to be silenced by
+    deleting the measurement. `test_the_strip_exemption_NAMES_the_instrument_
+    and_nothing_else` holds the exemption to those two files and to the
+    property that earns it.
     """
     return [
         p for p in sorted((REPO_ROOT / "scripts").rglob("*"))
         if p.is_file()
         and "__pycache__" not in p.parts
         and "/tests/" not in p.as_posix()
+        and p.relative_to(REPO_ROOT).as_posix() not in _MEASURES_THE_FLAGS
     ]
+
+
+#: The instrument that passes the hook-stripping flags in order to MEASURE
+#: them, in a container, against the managed floor, and the README that
+#: records what it measured — exempt from the tripwire by exact path, never
+#: by glob. See `_swept_sources`.
+_MEASURES_THE_FLAGS = (
+    "scripts/helpers/managed-tier-probe/probe.sh",
+    "scripts/helpers/managed-tier-probe/README.md",
+)
 
 
 # A `claude` invocation as it appears in ARGV, rather than in prose about one.
@@ -567,7 +606,9 @@ def test_the_settings_source_sweep_SEES_every_file_that_DISPATCHES_claude() -> N
         "or `git ls-files` returned nothing from this worktree."
     )
     swept = {p.relative_to(REPO_ROOT).as_posix() for p in _swept_sources()}
-    missed = sorted(set(dispatchers) - swept)
+    # The instrument dispatches claude (into a container) and is exempt from
+    # the tripwire by name; it is held to its exemption by its own test below.
+    missed = sorted(set(dispatchers) - swept - set(_MEASURES_THE_FLAGS))
     assert not missed, (
         "a file DISPATCHES claude and the settings-source tripwire above does "
         "not read it, so `--setting-sources` could be added there and every "
@@ -575,6 +616,30 @@ def test_the_settings_source_sweep_SEES_every_file_that_DISPATCHES_claude() -> N
         "when the sweep was scoped to `*.py` and the only dispatcher was "
         "shell:\n  " + "\n  ".join(missed)
     )
+
+
+def test_the_strip_exemption_NAMES_the_instrument_and_nothing_else() -> None:
+    """The control on the exemption. The exempt set is exactly the probe and
+    its README (the only things that have earned it); both must exist; the
+    probe must run its trials in a container rather than on the host and must
+    actually pass the flags — an exemption for a file that stopped measuring
+    them is a hole waiting for a runner to be created at that path."""
+    probe = "scripts/helpers/managed-tier-probe/probe.sh"
+    assert _MEASURES_THE_FLAGS == (probe, "scripts/helpers/managed-tier-probe/README.md"), (
+        "the settings-source tripwire's exempt set changed; that is a ruling, "
+        "not an edit — the probe earned it by measuring the flags, in a "
+        f"container, against the managed floor: {_MEASURES_THE_FLAGS}")
+    for relative in _MEASURES_THE_FLAGS:
+        assert (REPO_ROOT / relative).is_file(), f"exempt path does not exist: {relative}"
+    argv_lines = [line for line in (REPO_ROOT / probe).read_text(errors="replace").splitlines()
+                  if not line.lstrip().startswith("#")]
+    assert any("docker run" in line for line in argv_lines), (
+        f"{probe} is exempt as a container-run instrument and no longer runs docker")
+    for flag in _HOOK_STRIPPING_FLAGS:
+        if flag == "--bare":
+            continue  # unmeasurable on OAuth auth (exits 1 `Not logged in`, phase 5 doc); ruled against in roadmap.md
+        assert any(_STRIPS_THE_HOOK.search(line) for line in argv_lines if flag in line), (
+            f"{probe} is exempt for measuring {flag} and no longer passes it")
 
 
 def test_the_shape_to_test_MAPPING_above_names_tests_that_exist() -> None:
