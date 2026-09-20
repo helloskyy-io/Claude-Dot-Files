@@ -125,7 +125,7 @@ DEST_REPO="$(cd "$DEST_REPO" && pwd -P)"
 
 # THE REPO CLASS DECIDES, AND THIS CHECKS RATHER THAN PROBES. Documentation Standard
 # § *A repo that CONSUMES standards* rule 1 settles it: a planning repo
-# (`<ecosystem>-master-planning`) keeps the four buckets at its ROOT, because its root IS
+# (`<ecosystem>-master-planning`) keeps its three buckets at its ROOT, because its root IS
 # the documentation tree; every other repo keeps them under `docs/`.
 #
 # THIS USED TO PROBE FOR WHICHEVER EXISTED, and said so — *"two are live in this ecosystem

@@ -999,6 +999,17 @@ def grants_that_vanished(before: dict[str, str], after: dict[str, str],
             and any(p.search(rel) for p in allow)]
 
 
+# WRITTEN BY THE PLANNING REPO'S COMMIT HOOK, NOT BY THE MODEL. The viewer's
+# `regenerate-on-merge` hook regenerates `development/derived/` and stages it
+# into EVERY commit whose corpus moved, and every run in this family commits in
+# a repo that registers it — so the after-snapshot of a correct run carries the
+# artifacts under `^development/`, a tree every FORBIDDEN_PATHS denies. Exempted
+# HERE rather than granted in four `permitted_paths`, because it is a property
+# of the repository the run commits into, not of any run's authorization; a
+# test holds this tuple to the hook's own `git add` line so the two cannot part.
+HOOK_STAGED_PATHS = (r"^development/derived/",)
+
+
 def boundary_crossings(before: dict[str, str], after: dict[str, str],
                        forbidden: tuple[str, ...],
                        permitted: tuple[str, ...] = ()) -> list[str]:
@@ -1011,8 +1022,12 @@ def boundary_crossings(before: dict[str, str], after: dict[str, str],
     `plan-sprint` may not edit a phase doc under `docs/development/` — except the
     sprint file, which lives there and which it alone is authorised to edit.
     Without the exception list a correct run fails on its own output.
+
+    `HOOK_STAGED_PATHS` is exempt for every caller: the commit hook's output is
+    not the model's edit, and a guard that failed a correct run on it would be
+    read as coverage of nothing.
     """
-    allow = [re.compile(p) for p in permitted]
+    allow = [re.compile(p) for p in permitted + HOOK_STAGED_PATHS]
     deny = [re.compile(p) for p in forbidden]
     return [rel for rel in sorted(before.keys() | after.keys())
             if before.get(rel, BASELINE) != after.get(rel, BASELINE)
