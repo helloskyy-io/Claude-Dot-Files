@@ -285,3 +285,9 @@ def test_generating_over_an_uncommitted_corpus_edit_says_so(redirected: Path, ca
     assert cli.main(["--repo-root", str(root)]) == 0
     out = capsys.readouterr().out
     assert "WORKING TREE" in out and "roadmap.md" in out and "STALE" in out
+
+    # Staged is IN the commit being made — the hook runs at pre-commit over
+    # exactly that state — so it is not the hazard and the note stays quiet.
+    subprocess.run(["git", "-C", str(root), "add", "-A"], check=True, env=env)
+    assert cli.main(["--repo-root", str(root)]) == 0
+    assert "WORKING TREE" not in capsys.readouterr().out

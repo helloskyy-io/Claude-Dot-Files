@@ -1099,6 +1099,7 @@ claude-dot-files/
 │                                                    #   RuntimeError carrying an operator remedy, and a guard watching only the older of
 │                                                    #   the two was measured blind to the newer one
 │                   ├── test_every_reach_into_the_content_store_CROSSES_THE_BOUNDARY.py
+│                   ├── test_the_hook_output_is_not_a_boundary_crossing.py # The viewer's commit hook stages development/derived/ into every commit whose corpus moved; a boundary reading that as the model's edit failed every correct plan run — the exemption is held to the hook's own `git add` line
 │                   │                                # PMP Phase 2 r8, the same shape as the r11 sweep above and for the same reason: the
 │                   │                                #   activities layer makes capture and resolve TIDY, not mandatory, so nothing stops a
 │                   │                                #   later module importing content_store.load_object and reading an object without the

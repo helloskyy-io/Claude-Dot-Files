@@ -389,9 +389,14 @@ def _uncommitted_corpus_edits(root: Path) -> list[str]:
     if result.returncode != 0:
         return []
     derived = _rel(derived_dir(root), root) + "/"
+    # A change that is STAGED and nothing else (index column set, work-tree
+    # column blank) is in the commit being made — the merge hook runs this at
+    # pre-commit, where every input the merge touched looks exactly so — and
+    # is not the hazard. Unstaged and untracked changes are.
     return [
         line[3:] for line in result.stdout.splitlines()
         if line.strip() and not line[3:].startswith(derived)
+        and not (line[0] in "MADRC" and line[1] == " ")
     ]
 
 

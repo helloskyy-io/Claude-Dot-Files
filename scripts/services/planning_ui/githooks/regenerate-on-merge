@@ -92,6 +92,29 @@ if [ "$hook" = "pre-merge-commit" ]; then
     exit 1
 fi
 
+# THE TREE IT DERIVES FROM MUST BE THE TREE THE COMMIT RECORDS. This hook
+# reads the WORKING TREE, and in a checkout two sessions share the working
+# tree carries the other session's uncommitted edits. Measured three times on
+# 2026-09-20: artifacts derived over another session's unstaged phase-doc
+# edits were staged into a commit that did not contain those edits, and a
+# fresh clone of that commit read all five STALE. So: an unstaged or untracked
+# change to a corpus input is a REFUSAL, naming the files. Stage them into
+# this commit, set them aside, or commit from a clean clone. `git status`
+# ignores nothing here on purpose — the derivation reads whether a link's
+# target EXISTS, so an untracked file is an input too.
+dirty=$(git status --porcelain --untracked-files=all -- development standards tracked corpus.toml \
+        | grep -v '^[MADRC]  ' | grep -v ' development/derived/' || true)
+if [ -n "$dirty" ]; then
+    echo >&2
+    printf '%s\n' "$dirty" >&2
+    echo >&2
+    echo "planning_ui: REFUSED — the working tree carries corpus changes this commit does not (above)." >&2
+    echo "planning_ui: Regenerating now would derive from them and stage artifacts that disagree with" >&2
+    echo "planning_ui: the commit; a fresh clone would read every artifact STALE. Stage them into this" >&2
+    echo "planning_ui: commit, set them aside, or commit from a clean clone." >&2
+    exit 1
+fi
+
 "$planning_ui"
 git add development/derived
-echo "planning_ui: regenerated development/derived/ from the merged tree and staged it with this commit." >&2
+echo "planning_ui: regenerated development/derived/ from the committed tree and staged it with this commit." >&2

@@ -267,7 +267,7 @@ def test_registered_the_merge_resolves_by_regeneration(scratch: Path):
     assert (scratch / ".git" / "MERGE_HEAD").exists(), "the merge is still in progress"
 
     commit = _git(scratch, "commit", "-qm", "merge lane A")
-    assert "regenerated development/derived/ from the merged tree" in commit.stderr, commit.stderr
+    assert "regenerated development/derived/" in commit.stderr, commit.stderr
 
     # Requirement 6's second half: the merge commit's artifacts ARE a fresh
     # regeneration from the merged inputs. `--check` is that comparison.
@@ -399,7 +399,7 @@ def test_registered_a_merge_that_stopped_on_a_conflict_elsewhere_regenerates_at_
     _write_roadmap(scratch, "beta", "resolved by hand")
     _git(scratch, "add", "development/common/beta/roadmap.md")
     commit = _git(scratch, "commit", "-qm", "merge lane C, resolved")
-    assert "regenerated development/derived/ from the merged tree" in commit.stderr, commit.stderr
+    assert "regenerated development/derived/" in commit.stderr, commit.stderr
 
     check = _check(scratch)
     assert check.returncode == 0, check.stdout
@@ -430,3 +430,35 @@ def test_unregistered_regenerating_over_the_conflict_reads_the_merged_history(sc
     age, parked = _history_columns(scratch)
     assert age.startswith("0d (last activity "), age
     assert parked.startswith("0d (set "), parked
+
+
+def test_registered_a_commit_over_another_sessions_unstaged_edit_is_refused(scratch: Path):
+    """THE SHARED-CHECKOUT HAZARD, measured three times on 2026-09-20. Two
+    sessions share a working tree; one commits a roadmap edit while the other
+    has an unstaged edit to a different roadmap. A hook that regenerated over
+    the working tree staged artifacts derived from BOTH edits into a commit
+    holding ONE, and a fresh clone of that commit read all five STALE. The
+    hook refuses instead, naming the unstaged file, and the commit does not
+    happen — so nothing lands that a clean clone would call stale."""
+    _register(scratch)
+    _write_roadmap(scratch, "alpha", "edited by this session")
+    _git(scratch, "add", "development/common/alpha/roadmap.md")
+    _write_roadmap(scratch, "beta", "another session's unstaged edit")
+    before = _git(scratch, "rev-parse", "HEAD").stdout.strip()
+
+    commit = _git(scratch, "commit", "-qm", "this session's edit", check=False)
+    assert commit.returncode != 0, commit.stdout + commit.stderr
+    assert "REFUSED" in commit.stderr and "development/common/beta/roadmap.md" in commit.stderr
+    assert _git(scratch, "rev-parse", "HEAD").stdout.strip() == before, "nothing landed"
+
+    # Stage the other edit too, and the same commit goes through with
+    # artifacts that a fresh checkout of it agrees with.
+    _git(scratch, "add", "-A")
+    _git(scratch, "commit", "-qm", "both edits")
+    assert _check(scratch).returncode == 0
+    clone = scratch.parent / "clone"
+    _git(scratch, "clone", "-q", str(scratch), str(clone))
+    assert subprocess.run(
+        [str(LAUNCHER), "--repo-root", str(clone), "--check"], capture_output=True, text=True,
+        env=_env(), timeout=120,
+    ).returncode == 0, "a fresh clone of the commit reads the artifacts current"
