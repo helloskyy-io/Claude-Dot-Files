@@ -51,10 +51,13 @@ planning_ui="$(dirname "$(dirname "$(dirname "$(readlink -f "$0")")")")/planning
 
 cd "$(git rev-parse --show-toplevel)"
 
-# Only a merge commit has a merged tree to regenerate from.
-if [ "$hook" = "pre-commit" ] && ! git rev-parse -q --verify MERGE_HEAD >/dev/null; then
-    exit 0
-fi
+# EVERY commit whose corpus moved regenerates, not only a merge commit. The
+# repo's CI gate holds the artifacts current on every pull request; a hook
+# that regenerated only under MERGE_HEAD left a plain commit that adds a
+# component — every plan dispatch, every store edit — stale, and the gate red
+# on arrival (skyynet-master-planning #47, 2026-09-20). A merge still has the
+# property the header describes: by pre-commit time MERGE_HEAD exists and the
+# history walk sees both sides. A plain commit has no MERGE_HEAD and needs none.
 
 # Nothing to do when the merged tree derives what is already committed. The
 # predicate is the generator's own answer, `--check`, because nothing else

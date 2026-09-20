@@ -328,21 +328,25 @@ def test_registered_a_merge_that_deletes_a_linked_directorys_last_file_regenerat
 
     _git(scratch, "checkout", "-qb", "lane-d")
     _git(scratch, "rm", "-q", "development/common/alpha/evidence/run.log")
-    _git(scratch, "commit", "-qm", "delete the evidence — no markdown touched")
+    # THE LANE'S OWN COMMIT REGENERATES — the hook runs on every commit whose
+    # corpus moved, not only under MERGE_HEAD, because the CI gate holds the
+    # artifacts current on every pull request and a lane's commit is what a
+    # pull request carries. The predicate keyed on file suffix would have
+    # called this "not an input"; the hook asks the generator instead.
+    commit = _git(scratch, "commit", "-qm", "delete the evidence — no markdown touched")
+    assert "regenerated development/derived/" in commit.stderr, commit.stderr
+    assert _check(scratch).returncode == 0
     _git(scratch, "checkout", "-q", "main")
     # main moves too, on something nothing links, so the merge is a real merge
-    # (a fast-forward runs no hook) and the only input-relevant change it
-    # carries is the deletion.
+    # (a fast-forward runs no hook).
     (scratch / "NOTES.txt").write_text("not linked by anything\n")
     _git(scratch, "add", "NOTES.txt")
     _git(scratch, "commit", "-qm", "a note on main")
 
+    # Both sides arrive current, so the merged tree derives identically and
+    # the merge commits itself; the veto is for a merge whose sides disagree.
     merge = _git(scratch, "merge", "lane-d", check=False)
-    assert merge.returncode != 0 and "Run `git commit`" in merge.stderr, (
-        merge.stdout + merge.stderr
-    )
-    commit = _git(scratch, "commit", "-qm", "merge lane D")
-    assert "regenerated development/derived/ from the merged tree" in commit.stderr, commit.stderr
+    assert merge.returncode == 0, merge.stdout + merge.stderr
 
     check = _check(scratch)
     assert check.returncode == 0, check.stdout
