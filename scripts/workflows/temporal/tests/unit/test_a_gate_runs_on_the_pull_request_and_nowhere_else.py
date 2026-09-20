@@ -20,6 +20,11 @@ import yaml
 from planning_corpus import PLANNING_ROOT
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
+#: The machine, derived from the repository's visibility at run time: the
+#: organisation's runner for a private repository, GitHub's image for a public
+#: one — a fork's pull request runs the fork's code, and a self-hosted machine
+#: must never execute that. One expression, so no repository types the choice.
+RUNS_ON = "${{ github.event.repository.private && 'self-hosted' || 'ubuntu-latest' }}"
 INIT_PROJECT = REPO_ROOT / "scripts" / "helpers" / "init-project.sh"
 
 
@@ -51,6 +56,22 @@ def test_the_trigger_is_pull_request_only_with_one_run_per_branch(name: str, tex
     assert conc.get("cancel-in-progress") is True and "head_ref" in str(conc.get("group", "")), (
         f"{name}: no `concurrency` block cancelling the previous run on the same "
         f"branch — a rapid push series bills every run")
+
+
+@pytest.mark.parametrize("name,text", _surfaces(), ids=[n for n, _ in _surfaces()])
+def test_the_machine_is_derived_from_visibility(name: str, text: str) -> None:
+    jobs = yaml.safe_load(text)["jobs"]
+    for job, spec in jobs.items():
+        assert spec.get("runs-on") == RUNS_ON, (
+            f"{name}: job {job!r} runs on {spec.get('runs-on')!r} — a typed machine "
+            f"goes stale the day the repository's visibility changes, and a private "
+            f"repository on GitHub's image spends metered minutes. Use {RUNS_ON!r}")
+
+
+def test_the_check_would_see_a_typed_machine() -> None:
+    bad = "name: x\non:\n  pull_request:\njobs:\n  a:\n    runs-on: ubuntu-latest\n"
+    with pytest.raises(AssertionError, match="typed machine"):
+        test_the_machine_is_derived_from_visibility("control", bad)
 
 
 def test_the_check_would_see_a_push_trigger() -> None:

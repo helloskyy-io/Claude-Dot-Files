@@ -196,6 +196,7 @@ claude-dot-files/
 │   │   ├── gh-monitor.sh                            # Polls GitHub for @claude PR comments, dispatches workflows
 │   │   ├── gh-monitor.service                       # systemd oneshot unit
 │   │   ├── gh-monitor.timer                         # systemd timer (5-min interval)
+│   │   ├── actions-runner.sh                        # The organisation's self-hosted Actions runner on this host — install once as root, idempotent, verified against the release's SHA256
 │   │   ├── planning-ui.sh                           # The planning-corpus viewer's launcher — generate, --check, serve, --print-default-config; locates the package itself
 │   │   └── planning_ui/                             # Its Python (stdlib only) and browser code; run from any planning repo by path, never installed
 │   │       ├── __init__.py                          # Package marker; re-exports nothing the launcher does not reach through cli
@@ -1099,6 +1100,7 @@ claude-dot-files/
 │                                                    #   RuntimeError carrying an operator remedy, and a guard watching only the older of
 │                                                    #   the two was measured blind to the newer one
 │                   ├── test_every_reach_into_the_content_store_CROSSES_THE_BOUNDARY.py
+│                   ├── test_a_gate_runs_on_the_pull_request_and_nowhere_else.py # Every gate triggers on pull_request only with cancel-in-progress and derives runs-on from visibility — this repo's workflows, the scaffold template, the sibling planning repo's
 │                   ├── test_the_hook_output_is_not_a_boundary_crossing.py # The viewer's commit hook stages development/derived/ into every commit whose corpus moved; a boundary reading that as the model's edit failed every correct plan run — the exemption is held to the hook's own `git add` line
 │                   │                                # PMP Phase 2 r8, the same shape as the r11 sweep above and for the same reason: the
 │                   │                                #   activities layer makes capture and resolve TIDY, not mandatory, so nothing stops a

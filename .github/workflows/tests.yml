@@ -36,7 +36,12 @@ permissions:
 
 jobs:
   suite:
-    runs-on: ubuntu-latest
+    # THE MACHINE IS DERIVED FROM THE REPOSITORY'S VISIBILITY. A private repository
+    # runs on the organisation's own runner (unmetered); a public one stays on
+    # GitHub's image, because a fork's pull request runs the fork's code and a
+    # self-hosted machine must never execute that. Testing Standard § A gate runs
+    # on the pull request, and nowhere else.
+    runs-on: ${{ github.event.repository.private && 'self-hosted' || 'ubuntu-latest' }}
     # The whole job is ~20s. A cap well above that turns a hung step into a
     # fast red instead of holding a reviewer for the 360-minute
     # GHA default — lint-prompts.sh executes constructed prompt blocks under

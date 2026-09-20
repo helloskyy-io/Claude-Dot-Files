@@ -516,7 +516,12 @@ permissions:
 
 jobs:
   repo-checks:
-    runs-on: ubuntu-latest
+    # THE MACHINE IS DERIVED FROM THE REPOSITORY'S VISIBILITY. A private repository
+    # runs on the organisation's own runner (unmetered); a public one stays on
+    # GitHub's image, because a fork's pull request runs the fork's code and a
+    # self-hosted machine must never execute that. Testing Standard § A gate runs
+    # on the pull request, and nowhere else.
+    runs-on: ${{ github.event.repository.private && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
       # FULL HISTORY, not the default depth of 1. The planning viewer's

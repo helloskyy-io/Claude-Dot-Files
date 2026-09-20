@@ -15,11 +15,15 @@ set -euo pipefail
 
 INTERACTIVE=true
 INSTALL_SERVICES=false
+INSTALL_RUNNER=false
+RUNNER_TOKEN=""
 PLACE_MANAGED_FLOOR=true
 for arg in "$@"; do
     case "$arg" in
         --non-interactive|-n) INTERACTIVE=false ;;
         --with-services) INSTALL_SERVICES=true ;;
+        --with-runner) INSTALL_RUNNER=true ;;
+        --runner-token) RUNNER_TOKEN="$2"; shift ;;
         # An EXPLICIT opt-out, and the only way to end up without the floor and
         # exit 0. Named in the output every time it is used, so a machine
         # without the floor is one somebody chose, never one that fell through.
@@ -707,6 +711,23 @@ SVCEOF
     echo "  Reboot verification:"
     echo "    loginctl show-user $USER | grep Linger       # should show Linger=yes"
     echo "    (After reboot, timer should be active without SSH login)"
+fi
+
+# --- Step 6: The organisation's self-hosted Actions runner (opt-in, one host) --
+# Delegated to the service script, which needs root for the user, the directory
+# and the system unit; install.sh itself stays a user-level install. The token
+# is used once, at registration, and never stored.
+
+if [ "$INSTALL_RUNNER" = true ]; then
+    echo ""
+    echo "Step 6: Actions runner"
+    echo ""
+    SERVICES_DIR="$REPO_DIR/scripts/services"
+    if [ -n "$RUNNER_TOKEN" ]; then
+        sudo "$SERVICES_DIR/actions-runner.sh" --token "$RUNNER_TOKEN"
+    else
+        sudo "$SERVICES_DIR/actions-runner.sh"
+    fi
 fi
 
 echo ""
