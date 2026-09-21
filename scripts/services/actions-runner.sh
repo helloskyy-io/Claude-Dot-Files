@@ -95,8 +95,16 @@ print(m.group(1) if m else "")')"
     chown -R "$RUNNER_USER:$RUNNER_USER" "$RUNNER_HOME"
     rm -rf "$tmp"
     info "runner $tag → installed, SHA256 verified against the release"
-    "$RUNNER_HOME/bin/installdependencies.sh" >/dev/null
-    info "runner dependencies → installed"
+    # The vendor's script probes libicu versions newest-first and prints
+    # "Unable to locate package" for each miss before the one this release of
+    # Ubuntu ships; only a non-zero exit is a failure, so the probing is kept
+    # out of the operator's terminal and shown when it matters.
+    if deps_log="$("$RUNNER_HOME/bin/installdependencies.sh" 2>&1)"; then
+        info "runner dependencies → installed"
+    else
+        printf '%s\n' "$deps_log" >&2
+        die "runner dependencies failed to install — see above"
+    fi
 fi
 
 # --- what the jobs find on the machine --------------------------------------
