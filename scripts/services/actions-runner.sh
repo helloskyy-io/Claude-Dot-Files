@@ -20,14 +20,19 @@
 # not match what the release states. The runner keeps itself current after
 # that, so a typed pin here would be stale by the next job.
 #
-# See /opt/skyy-net/skyynet-master-planning/standards/services/services.md for the conventions this script follows,
+# See /opt/skyy-net/skyynet-master-planning/standards/services/services.md for the conventions this script follows
+# (and MDC's Host Filesystem Standard for why the runner lives under /var/lib),
 # and development/common/continuous-integration/phase1_the_runner.md for why it exists.
 
 set -euo pipefail
 
 ORG_URL="https://github.com/helloskyy-io"
 RUNNER_USER="actions-runner"
-RUNNER_HOME="/opt/skyy-net/actions-runner"
+# /var/lib, NOT /opt/skyy-net: the runner is service-written state (its work
+# tree, its logs, its registration credential), which the Host Filesystem
+# Standard keeps out of the platform tree — and the tree's default ACL would
+# hand `.credentials` to every member of the skyy-net group.
+RUNNER_HOME="/var/lib/actions-runner"
 NODE_BIN_DEFAULT="/opt/skyy-net/.node/bin/node"
 RELEASES_API="https://api.github.com/repos/actions/runner/releases/latest"
 
@@ -71,6 +76,7 @@ fi
 mkdir -p "$RUNNER_HOME"
 chown "$RUNNER_USER:$RUNNER_USER" "$RUNNER_HOME"
 chmod 750 "$RUNNER_HOME"
+setfacl -b "$RUNNER_HOME" 2>/dev/null || true
 
 # --- the runner binary, verified against the release ------------------------
 if [ -x "$RUNNER_HOME/config.sh" ]; then
@@ -132,6 +138,11 @@ else
     sudo -u "$RUNNER_USER" -H bash -c "cd '$RUNNER_HOME' && ./config.sh --url '$ORG_URL' --token '$TOKEN' --name '$(hostname -s)' --unattended --replace"
     info "registration → $ORG_URL as $(hostname -s)"
 fi
+# The registration credential is owner-only whether it was just written or
+# already there — a re-run repairs a permission somebody widened.
+for f in .credentials .credentials_rsaparams .runner .env; do
+    if [ -e "$RUNNER_HOME/$f" ]; then chmod 600 "$RUNNER_HOME/$f"; fi
+done
 
 # --- the system unit --------------------------------------------------------
 unit="$(unit_name)"
