@@ -68,6 +68,27 @@ def test_the_machine_is_derived_from_visibility(name: str, text: str) -> None:
             f"repository on GitHub's image spends metered minutes. Use {RUNS_ON!r}")
 
 
+@pytest.mark.parametrize("name,text", _surfaces(), ids=[n for n, _ in _surfaces()])
+def test_the_job_token_is_declared_read_only(name: str, text: str) -> None:
+    """GitHub Credentials Standard: the job's GITHUB_TOKEN is the Actions holder's
+    credential, and a workflow with no `permissions:` block inherits the
+    repository default — `write` on every repo in this org today (measured
+    2026-09-21 via actions/permissions/workflow) — so an unpinned install on the
+    shared runner would hold a token that can push and approve."""
+    doc = yaml.safe_load(text)
+    perms = doc.get("permissions")
+    assert perms == {"contents": "read"}, (
+        f"{name}: workflow-level permissions are {perms!r} — declare "
+        f"`permissions: contents: read` at the top, or the job token inherits the "
+        f"repository default and a gate can push to the repository it gates")
+
+
+def test_the_check_would_see_a_missing_permissions_block() -> None:
+    bad = "name: x\non:\n  pull_request:\njobs:\n  a:\n    runs-on: x\n"
+    with pytest.raises(AssertionError, match="inherits the repository default"):
+        test_the_job_token_is_declared_read_only("control", bad)
+
+
 def test_the_check_would_see_a_typed_machine() -> None:
     bad = "name: x\non:\n  pull_request:\njobs:\n  a:\n    runs-on: ubuntu-latest\n"
     with pytest.raises(AssertionError, match="typed machine"):
