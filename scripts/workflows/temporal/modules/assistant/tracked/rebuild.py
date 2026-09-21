@@ -849,7 +849,7 @@ def rebuild(journal_root: Path, stores_root: Path, *,
                 f"no snapshot under {journal_root}, so there is no baseline to "
                 f"replay from — the stores predate the journal and a replay "
                 f"from nothing reproduces an empty store that never matches. "
-                f"Take one: rebuild.py snapshot --stores {stores_root}")
+                f"Take one: python3 -m modules.assistant.tracked.rebuild snapshot --stores {stores_root}")
     if snapshot.store_contract != ti.CONTRACT_VERSION:
         raise RebuildError(
             f"snapshot {snapshot.snapshot_id} was taken under Tracked Items §7 "
@@ -858,7 +858,7 @@ def rebuild(journal_root: Path, stores_root: Path, *,
             f"replay across the change would report every shape difference as "
             f"an ordinary mismatch — the unattributable diff requirement 1 "
             f"forbids. Write the upcast, or take a new snapshot under the "
-            f"current contract: rebuild.py snapshot --stores {stores_root}")
+            f"current contract: python3 -m modules.assistant.tracked.rebuild snapshot --stores {stores_root}")
 
     if scratch is not None:
         _refuse_scratch_under_uploaded_logs(scratch)
@@ -1116,3 +1116,30 @@ def render_restore(report: RestoreReport) -> str:
     for f in report.left_in_place:
         lines.append(f"  ? {f}  left in place — {NOT_THE_JOURNALS}")
     return "\n".join(lines)
+
+
+def main(argv: list[str] | None = None) -> int:
+    """`python3 -m modules.assistant.tracked.rebuild snapshot --stores <tracked/>`
+
+    The one operator verb: after a DELIBERATE out-of-run edit to a covered
+    store — a hand ruling on a candidate — take a new snapshot so replay starts
+    from the edited bytes. The rebuild test names this command in its failure
+    message; a message naming a command that does not exist sends the operator
+    to a `-m` invocation that exits 0 having done nothing.
+    """
+    import argparse
+    from ...journal.journal_activities import load_journal_config
+    from ...journal.root import resolve_journal_root
+    ap = argparse.ArgumentParser(prog="rebuild")
+    sub = ap.add_subparsers(dest="verb", required=True)
+    snap = sub.add_parser("snapshot", help="record the covered stores into the journal, once")
+    snap.add_argument("--stores", type=Path, required=True, help="the planning repo's tracked/ directory")
+    a = ap.parse_args(argv)
+    journal = resolve_journal_root(config=load_journal_config(), create=False)
+    path = take_snapshot(journal, a.stores.resolve())
+    print(f"snapshot → {path}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

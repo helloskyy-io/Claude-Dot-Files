@@ -330,7 +330,7 @@ def test_no_snapshot_is_a_refusal_that_NAMES_the_command(tmp_path: Path) -> None
     journal, stores = build(tmp_path / "f")
     for path in snap.snapshot_paths(journal):
         path.unlink()
-    with pytest.raises(rb.RebuildError, match=r"rebuild\.py snapshot --stores"):
+    with pytest.raises(rb.RebuildError, match=r"python3 -m modules\.assistant\.tracked\.rebuild snapshot --stores"):
         rb.rebuild(journal, stores)
 
 

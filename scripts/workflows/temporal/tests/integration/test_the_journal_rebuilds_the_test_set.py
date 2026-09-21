@@ -119,7 +119,7 @@ def test_the_journal_rebuilds_the_test_set(tmp_path: Path) -> None:
         f"[{ARM}] the rebuild does not reproduce the test set.\n{rendered}\n"
         f"  A MISSING or MISMATCH line is a fleet write that never emitted, OR "
         f"an out-of-run edit. Rule which. For a deliberate edit, take a new "
-        f"snapshot: rebuild.py snapshot --stores {stores}")
+        f"snapshot: python3 -m modules.assistant.tracked.rebuild snapshot --stores {stores}")
 
     # Green, and still two facts the summary must carry (module docstring).
     gapped_stores = sorted(n for n, v in report.stores.items() if v.verdict == "gapped")
