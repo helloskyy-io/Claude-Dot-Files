@@ -23,7 +23,7 @@ for arg in "$@"; do
         --non-interactive|-n) INTERACTIVE=false ;;
         --with-services) INSTALL_SERVICES=true ;;
         --with-runner) INSTALL_RUNNER=true ;;
-        --runner-token) RUNNER_TOKEN="$2"; shift ;;
+        --runner-token=*) RUNNER_TOKEN="${arg#--runner-token=}" ;;
         # An EXPLICIT opt-out, and the only way to end up without the floor and
         # exit 0. Named in the output every time it is used, so a machine
         # without the floor is one somebody chose, never one that fell through.
