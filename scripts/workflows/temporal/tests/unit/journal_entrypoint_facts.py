@@ -117,6 +117,10 @@ def entrypoints(directory: Path) -> list[Path]:
 # somebody made and can be checked; a file nobody classified is a claim nobody
 # made, which is the state this exists to end.
 NON_STARTING_FILES = {
+    "journal_completeness.py":
+        "an after-the-fact reader. It asks whether records ALREADY WRITTEN are "
+        "whole, against the profile the journal declares; it opens no bag "
+        "because it begins no run, and it writes nothing at all.",
     "preflight.py":
         "a helper, not an entrypoint. It computes paths and validates arguments "
         "and touches the filesystem only to LOOK — nothing it does can begin a "

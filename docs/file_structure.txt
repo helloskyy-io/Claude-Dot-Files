@@ -374,10 +374,12 @@ claude-dot-files/
 │           │                                        #   spelled alike compare UNEQUAL member-to-member while both still serialise to the
 │           │                                        #   same string, so a rebuild diffing them reports a difference that is not one
 │           ├── scripts/                             # Kickoff entrypoints, until an SDK path replaces them — plus preflight.py,
-│           │                                        #   validate_bag.py, verify_citations.py, compare_run_config.py, reconcile_harvest.py,
+│           │                                        #   validate_bag.py, journal_completeness.py, verify_citations.py, compare_run_config.py, reconcile_harvest.py,
 │           │                                        #   rebuild.py, dispatch_identity.py and dispatch_context.py,
 │           │                                        #   which are NOT kickoffs: they are what a run checks before, what an operator checks
-│           │                                        #   after (validate_bag asks whether a bag's bytes match its manifest; verify_citations
+│           │                                        #   after (validate_bag asks whether a bag's bytes match its manifest and journal_completeness
+│           │                                        #   whether the record is WHOLE, against the profile in modules/journal/profile.py — two
+│           │                                        #   questions the BagIt Profiles spec keeps apart and so do these; verify_citations
 │           │                                        #   asks whether the claims in it still stand against the sources they were made from;
 │           │                                        #   compare_run_config asks whether two runs absorbed the same configuration, from the
 │           │                                        #   two bags alone — no network, no live read of ~/.claude, and no cadence: it is run
@@ -1101,6 +1103,7 @@ claude-dot-files/
 │                                                    #   the two was measured blind to the newer one
 │                   ├── test_every_reach_into_the_content_store_CROSSES_THE_BOUNDARY.py
 │                   ├── test_a_gate_runs_on_the_pull_request_and_nowhere_else.py # Every gate triggers on pull_request only with cancel-in-progress and derives runs-on from visibility — this repo's workflows, the scaffold template, the sibling planning repo's
+│                   ├── test_the_bag_profile_ANSWERS_COMPLETENESS.py # The journal's completeness contract and every rule that makes it able to fail — the surfaces:[] population, the orphan-log witness, the cwd join, and that validate_bag stays integrity-only
 │                   ├── test_the_hook_output_is_not_a_boundary_crossing.py # The viewer's commit hook stages development/derived/ into every commit whose corpus moved; a boundary reading that as the model's edit failed every correct plan run — the exemption is held to the hook's own `git add` line
 │                   │                                # PMP Phase 2 r8, the same shape as the r11 sweep above and for the same reason: the
 │                   │                                #   activities layer makes capture and resolve TIDY, not mandatory, so nothing stops a
@@ -1140,9 +1143,9 @@ claude-dot-files/
 │                   │                                #   reaches PAST the boundary, never that anybody reaches it — a fleet capturing
 │                   │                                #   nothing passes every assertion, which is today's fleet. Its vacuity control
 │                   │                                #   asserts a floor PER swept directory after a mutation showed a single total floor
-│                   │                                #   of fifty stayed green with all 24 modules under scripts/ dropped from the
-│                   │                                #   population, modules/ alone holding 62 of the 86. EVERY FIGURE IN ITS OWN PROSE IS
-│                   │                                #   DERIVED and asserted — the ten shapes, the twenty-three call sites, 62/24/86 — and each
+│                   │                                #   of fifty stayed green with all 25 modules under scripts/ dropped from the
+│                   │                                #   population, modules/ alone holding 62 of the 87. EVERY FIGURE IN ITS OWN PROSE IS
+│                   │                                #   DERIVED and asserted — the ten shapes, the twenty-three call sites, 62/25/87 — and each
 │                   │                                #   enumerated shape must have a fixture that writes it, so a shape added to the prose
 │                   │                                #   without a control goes red rather than reading as covered
 │                   ├── test_content_store.py        # PMP Phase 2 r7(b)/r7(d) — the on-disk path is a function of the COMPUTED DIGEST and
