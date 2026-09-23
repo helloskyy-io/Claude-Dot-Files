@@ -229,13 +229,25 @@ jobs:
       - name: Bash syntax floor
         if: '!cancelled()'
         run: |
-          fail=0 count=0
+          fail=0 count=0 swept=""
           while IFS= read -r f; do
             count=$((count + 1))
+            swept+="$f"$'\n'
             bash -n "$f" || { echo "SYNTAX ERROR: $f"; fail=1; }
           done < <(find . -name '*.sh' -not -path './.git/*' -not -path './.claude/*')
-          [ "$count" -gt 0 ] || { echo "sweep matched no .sh files — this check verified nothing"; exit 1; }
-          echo "bash -n: checked $count files"
+          # A NAMED ARTIFACT, NOT A COUNT — Testing Standard § Tier Enforcement,
+          # amended 2026-09-23. `count > 0` cannot fire here: this sweep finds
+          # every `.sh` in the tree, so reaching zero would mean the repo has
+          # no shell scripts at all. It reported green while proving nothing.
+          # What actually breaks is discovery STOPPING EARLY — a renamed
+          # directory, a `find` predicate that stops matching, a flat checkout —
+          # and only naming files the repo cannot function without detects it.
+          for required in ./install.sh ./testing/run-all.sh; do
+            grep -qxF "$required" <<<"$swept" || {
+              echo "discovery did not reach $required — the sweep stopped early and whatever it did check proves nothing"
+              exit 1; }
+          done
+          echo "bash -n: checked $count files, including install.sh and testing/run-all.sh"
           exit $fail
 
       # CATCHES: the shellcheck ERROR class — constructs that are outright
