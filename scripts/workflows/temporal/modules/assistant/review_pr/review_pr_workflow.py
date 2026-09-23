@@ -722,7 +722,8 @@ def _convergence_notes(assessment: convergence.ConvergenceAssessment,
     """
     informative = (assessment.state is convergence.ConvergenceState.CONVERGED
                    or assessment.stalled or assessment.escalated_open
-                   or assessment.unknown_dispositions or agrees is False)
+                   or assessment.unknown_dispositions or assessment.reopened
+                   or agrees is False)
     if not informative:
         return []
 
@@ -739,6 +740,19 @@ def _convergence_notes(assessment: convergence.ConvergenceAssessment,
     if assessment.unknown_dispositions:
         line += ("; unrecognised disposition(s) counted OPEN: "
                  + ", ".join(assessment.unknown_dispositions))
+    if assessment.reopened:
+        # THE LOOP IS GOING BACKWARDS, AND THAT IS NOT THE SAME AS UNFINISHED.
+        # A finding that was closed and is open again means the fix did not
+        # hold — so another pass of the same shape is the thing that has
+        # already failed. Said loudly because a human reading a HOLD reaches
+        # for a redispatch by default, and this is the case where that is the
+        # wrong reflex. (#342: this fires at pass 6; the loop ran to 11.)
+        line += (f". NOT CONVERGING — {len(assessment.reopened)} finding(s) "
+                 f"CLOSED IN AN EARLIER PASS AND OPEN AGAIN: "
+                 + ", ".join(assessment.reopened)
+                 + ". A fix that did not hold is not progress; another pass of "
+                 "the same shape is what already failed. Read the named "
+                 "finding(s) in full before dispatching anything")
     if agrees is False:
         # NOT called a disagreement, because the two rules answer different
         # questions and a difference is a definitional one at least as often as

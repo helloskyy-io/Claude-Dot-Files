@@ -375,6 +375,8 @@ Not all HOLD means dispatch. A HOLD may be entirely needs-assistance (e.g. the r
 
 Then write the comment body to a temp file (e.g. /tmp/claude-review-pr-${PR_NUMBER}-<ts>.md — NOTE: never Edit it after writing; Write the full replacement if you must change it), and post via `gh pr comment ${PR_NUMBER} --body-file <file>`. The comment has TWO parts:
 
+**THE TABLE CARRIES WHAT IS OPEN.** A finding settled (`fixed`/`rejected`/`dissolved`/`deferred`/`noted`) in an EARLIER pass gets **no row** — its id stays in the yaml block, which is what recurrence and convergence key on, and one line above the table reads *"N settled in passes 1–K; ids in the block."* Findings settled in THIS pass do get rows; they are news. **Every pass re-reads every prior comment, so a re-tabled finding is paid again on every later pass.**
+
 **Part 1 — human-readable disposition table**, plus a one-line verdict rationale, plus (on HOLD) a short "WHAT HAPPENS NEXT" runway list a human can act on at a glance. For each needs-assistance next-step in that runway, show the `reframe:` and `bp:` lines above your recommendation so the operator audits the judgment at standup speed:
 | Item (id) | Category | Disposition | Reasoning / Pointer |
 

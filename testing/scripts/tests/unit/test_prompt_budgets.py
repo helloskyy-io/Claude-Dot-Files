@@ -278,7 +278,17 @@ BUDGETS: dict[str, int] = {
     # schema key and its FILING AUTHORITY sentence were funded by cutting the
     # `run_id:` comment's history (restated verbatim by the block-ordering rule
     # below it) and a `pass:` comment line that duplicated the line above it.
-    "review_pr/prompts/disposition.md": 94_504,
+    # RAISED 2026-09-24 by 472 bytes for the settled-findings-leave-the-table
+    # rule, and the arithmetic is deliberately recorded because this budget
+    # exists to force it. COST: 472 bytes re-sent per turn — call it ~25 KB on
+    # a 50-turn pass, paid by every review including the one-pass MERGE that
+    # gains nothing. SAVING: the human table stops carrying settled rows, and
+    # every later pass re-reads every prior comment, so the saving at pass N is
+    # (N-1) x the rows removed. Break-even is around pass 3; by pass 11 it is
+    # roughly eightfold. The trade is paying a little on the cheap reviews to
+    # cap the expensive ones — #342 reached eleven passes with 33 of 35 rows
+    # settled, and the cheap reviews it protects cost a fiftieth of that.
+    "review_pr/prompts/disposition.md": 94_976,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-f0lfdhmm's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the
     # residue is 19 bytes. Worth stating because this is the mechanism working

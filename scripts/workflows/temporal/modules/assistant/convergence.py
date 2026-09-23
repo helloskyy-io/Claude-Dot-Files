@@ -179,6 +179,12 @@ class ConvergenceAssessment:
     opened: tuple[str, ...] = ()
     closed: tuple[str, ...] = ()
     escalated_open: tuple[str, ...] = ()
+    #: Ids closed in some earlier pass and open again later — REPORTED ON EVERY
+    #: STATE, not only when the open set is empty. C5 below still owns the
+    #: *verdict* for the empty-set case; this field exists because the same
+    #: fact matters most while work is outstanding, and until 2026-09-24 it was
+    #: computed only where it could no longer help. See C4.
+    reopened: tuple[str, ...] = ()
     unknown_dispositions: tuple[str, ...] = ()
     # The all-ids delta. Emitted as TELEMETRY and as the window check's input,
     # never as the stopping condition: the `pr_review:` block is cumulative, so
@@ -432,12 +438,27 @@ def assess(history: Sequence[Iterable[tuple[str, str]]], *,
     # nothing moved in either direction. This rule sits BEFORE the oscillation
     # check because a non-empty open set is already a complete answer: churn
     # cannot make "there is outstanding work" wrong.
+    #
+    # BUT IT MUST STILL CARRY THE OSCILLATION FACT, AND UNTIL 2026-09-24 IT DID
+    # NOT — which made C5 unreachable in every case where it would have helped.
+    # C5 fires only on an empty open set; returning here first meant a PR that
+    # churned WHILE work was outstanding never reported it. C5's own comment
+    # read "this rule has never fired on real data", and it could not: the
+    # condition it tests is satisfiable only once the loop is already finishing.
+    #
+    # Measured on MDC-Master-Planning #342, eleven passes: finding
+    # `django-day2-doc-contradicts-5-2` went hold → hold → hold → DEFERRED →
+    # deferred → HOLD → hold → hold → fixed. Closed at pass 4, open again at
+    # pass 6 — exactly `_ever_reopened`'s definition — and `assess` returned
+    # NOT_CONVERGED at all eleven passes and named it at none. Four more ids did
+    # the same. The signal was correct, computed, and unreachable.
     if current_open:
         return ConvergenceAssessment(
             ConvergenceState.NOT_CONVERGED,
             **with_delta,
             opened=tuple(sorted(current_open - prior_open)),
             closed=tuple(sorted(prior_open - current_open)),
+            reopened=tuple(sorted(_ever_reopened(passes))),
         )
 
     # C5 — the open set is empty, but this PR has churned before. A finding
@@ -456,6 +477,7 @@ def assess(history: Sequence[Iterable[tuple[str, str]]], *,
             IndeterminateReason.OSCILLATING_FINDINGS,
             **with_delta,
             closed=tuple(sorted(prior_open)),
+            reopened=tuple(sorted(reopened)),
         )
 
     # C6 — the default, and the only path to CONVERGED. Nothing is open, the
