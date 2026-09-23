@@ -6,7 +6,7 @@ claude-dot-files/
 │   ├── rules/                                       # Always-loaded global rules (one file per topic)
 │   │   ├── claude-dot-files-governance.md           # Prevents uninstructed edits to this repo from project sessions
 │   │   ├── code-style.md                            # Readability, early returns, match-existing-style
-│   │   ├── communication.md                         # Don't add docstrings/comments to code you didn't change
+│   │   ├── communication.md                         # Asking the operator for a call: lenses first, plain words, recommendation last — plus the no-docstrings rule
 │   │   ├── dependencies.md                          # Check existing tools, prefer stdlib
 │   │   ├── engineering-quality.md                   # Senior-engineer quality bar, finding disposition, deferral placement, best-practices checkpoint
 │   │   ├── git.md                                   # Commit format, push/amend discipline
