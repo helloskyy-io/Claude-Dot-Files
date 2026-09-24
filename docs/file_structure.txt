@@ -140,6 +140,8 @@ claude-dot-files/
 │   │   │   │                                       #   IMPORTS the predicate (unlike its pinning sibling above) — a copy would validate a rule nobody runs.
 │   │   │   │                                       #   Re-sorts the shared dump by comment time: the predicate forbids the `pass:` label (issue #68)
 │   │   │   ├── judge_marginal_yield.py               # Disposition findings classified ECHOED by the producing run's own reflection vs NEW to the judge — the marginal-yield measure
+│   │   │   ├── journal_baseline.py                  # The reader (Self Improvement Phase 1): per-child baseline over the journal's bags, stdout only
+│   │   │   ├── journal_evidence.py                  # The read interface over the journal — the only module here that knows a bag is a directory
 │   │   │   ├── replay_pr_review_blocks.py           # Finding-set delta between review passes + stable-id conformance → MMF Phase 1 E7, Phase 5
 │   │   │   ├── run_log.py                           # NOT a replay tool — the ONE DECLARATION of the RUN LOG surface (MMF Phase 6): its member
 │   │   │   │                                        #   event types, join key, publish classification and per-figure cutovers. A test compares the
@@ -177,6 +179,7 @@ claude-dot-files/
 │   │               #   the owner's to fix and never this repo's worklist, and a retired OLD_ file is
 │   │               #   NOT filtered away — skipping it reports the corpus clean while a session can
 │   │               #   still read it. Exit 2 on a corpus it cannot find, never 0.
+│   │           ├── test_journal_baseline.py         # The reader's requirements, each asserted with the input that would break it
 │   │           ├── test_replay_completion_predicate.py  # Guards the anchoring and strict-vs-loose gap E5's zero depends on (3 mutation-proven)
 │   │           ├── test_replay_convergence_predicate.py  # Guards both early-fire counters — the OBSERVED one (a later pass reopened work)
 │   │           │                                    #   and the circular self-reported one — plus comment-order sequencing, the pass-1
@@ -907,6 +910,7 @@ claude-dot-files/
 │                   │                                #   SEALED bag is refused; a redaction replaces, tombstones AND reseals, because any one
 │                   │                                #   alone leaves the bag dishonest. The Oxum check came from RUNNING a redaction — the
 │                   │                                #   first seal looked correct and the third reseal had three of a single-valued label
+│                   ├── test_journal_bag_staging.py  # A crash inside open_bag leaves a staging dir that NO reader (journal_bags, replay, journal_completeness) counts as a run
 │                   ├── test_journal_validator.py    # r8's contract is the ALWAYS, not the fields: every report carries lifecycle AND redacted
 │                   │                                #   AND incomplete. The 2x2x2 is enumerated rather than sampled, including sealed+redacted+
 │                   │                                #   incomplete, because a validator checked at three of eight points looks exactly as green

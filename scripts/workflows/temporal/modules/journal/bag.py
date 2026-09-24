@@ -65,11 +65,12 @@ from pathlib import Path
 # reader and Phase 7's sync will both bind to.
 __all__ = ["JOURNAL_SCHEMA_VERSION", "BAGIT_VERSION", "TAG_FILE_ENCODING",
            "PAYLOAD_DIR", "MANIFEST_FILE", "BAGIT_FILE", "BAG_INFO_FILE",
+           "EVENTS_FILE", "journal_bags", "events_files",
            "DIR_MODE", "FILE_MODE", "REDACTION_MARKER", "BagError", "Bag",
            "open_bag", "read_tag_file", "utc_now", "payload_files",
            "payload_symlinks", "sha256_of", "contained_relpath",
            "RUN_ID_PERMITTED", "RUN_ID_PERMITTED_DESCRIPTION",
-           "safe_payload_segment",
+           "STAGING_MARK", "staging_prefix", "safe_payload_segment",
            "RUN_ID_MAX_LENGTH", "validated_run_id", "folds_a_tag_line",
            "LABEL_SCHEMA_VERSION", "LABEL_REDACTION", "LABEL_INCOMPLETE",
            "LABEL_GAP", "LABEL_SEALED_AT", "BagState", "bag_state",
@@ -94,6 +95,12 @@ PAYLOAD_DIR = "data"
 MANIFEST_FILE = "manifest-sha256.txt"
 BAGIT_FILE = "bagit.txt"
 BAG_INFO_FILE = "bag-info.txt"
+#: The file one writer appends its events to, inside its own payload subfolder.
+#: JSON Lines: one event per line, appended, never rewritten. A line-oriented
+#: format is what makes "append-only" a property of the WRITE rather than a
+#: promise about the writer — a re-serialised array would rewrite every prior
+#: event on every append, which is exactly what requirement 8 forbids.
+EVENTS_FILE = "events.jsonl"
 
 DIR_MODE = 0o700
 FILE_MODE = 0o600
@@ -319,6 +326,22 @@ RUN_ID_PERMITTED = frozenset(
 # `test_journal_tag_lines.py` expands this string and asserts it is exactly
 # `RUN_ID_PERMITTED`, so the prose cannot drift from the set it describes.
 RUN_ID_PERMITTED_DESCRIPTION = "A-Z a-z 0-9 . _ -"
+
+# THE CHARACTER THAT KEEPS A STAGING DIRECTORY OUT OF THE RUN-ID NAMESPACE.
+# `open_bag` builds a bag under `.{run_id}~<random>` and renames it into place;
+# `bagit.txt` is written before the rename, so a crash leaves a directory that
+# looks like a bag. It must never be counted as a run, and `journal_bags`
+# excludes it only because `validated_run_id`'s `_RUN_ID_RE` refuses this
+# character — so it must stay OUTSIDE `RUN_ID_PERMITTED`, which that regex
+# spells. `test_journal_bag_staging.py` asserts both, and that a crash-left
+# staging directory is enumerated by no reader; `test_journal_tag_lines.py`
+# asserts the regex admits nothing the set does not declare.
+STAGING_MARK = "~"
+
+
+def staging_prefix(run_id: str) -> str:
+    """The `mkdtemp` prefix `open_bag` stages `run_id`'s bag under — never a valid run id."""
+    return f".{run_id}{STAGING_MARK}"
 
 # 128 is a bound, not a measurement, and it is stated as one. Today's ids are 32
 # hex characters; the ceiling exists so a pathological name cannot become a path
@@ -916,6 +939,69 @@ def payload_files(bag_path: Path) -> list[Path]:
     return sorted(p.relative_to(bag_path) for p in found)
 
 
+def journal_bags(root: Path) -> list[Path]:
+    """Every bag directly under a journal root, in run-id order — THE rule for
+    which directories a READER counts as runs.
+
+    A bag is a real directory (a symlinked one is not followed: a bag may have
+    arrived from another machine, PMP Phase 7) carrying `bagit.txt`, whose name
+    `validated_run_id` accepts — a directory `open_bag` could not have opened
+    is not a run. Files beside the bags (`edge-id`, snapshots) are not bags.
+
+    A CRASH-LEFT STAGING DIRECTORY IS EXCLUDED BY ITS NAME, NOT BY A SECOND
+    RULE. `open_bag` writes `bagit.txt` into its staging directory before the
+    rename, so the `bagit.txt` test alone would count one a crash left behind.
+    It is named `.{run_id}~*` (`STAGING_MARK`), and `~` is outside
+    `RUN_ID_PERMITTED`, so `validated_run_id` (`_RUN_ID_RE`) refuses it here. The earlier
+    `.{run_id}.*` name passed, and a crash-left one was enumerated as a run.
+
+    ONE OWNER, BECAUSE THE READERS MUST AGREE. Replay (`rebuild.read_bags`),
+    the Self Improvement reader (`journal_evidence.units`) and
+    `journal_completeness.py` over a root all count runs, and the reader's
+    gapped figure IS replay's (Self Improvement Phase 1 r4). A copy of this
+    rule in any of them is how their denominators drift apart with every test
+    still green. The INTEGRITY tools `validate`/`verify` deliberately do NOT
+    use it: they report every directory, a broken non-bag or a crash-left
+    staging directory included, and that is where a malformed one surfaces.
+    """
+    found: list[Path] = []
+    for child in sorted(root.iterdir()):
+        if child.is_symlink() or not child.is_dir():
+            continue
+        if not (child / BAGIT_FILE).is_file():
+            continue
+        try:
+            validated_run_id(child.name)
+        except BagError:
+            continue
+        found.append(child)
+    return found
+
+
+def events_files(bag_path: Path) -> list[Path]:
+    """Every writer's regular `events.jsonl` under the bag's payload, sorted.
+
+    A parent writes `data/events.jsonl`, each member `data/<writer>/events.jsonl`
+    (`Bag.writer_dir`), the harvest `data/harvest/events.jsonl` — so a reader
+    that opened fixed names would miss a member's stream. `os.walk(followlinks=
+    False)` never descends a symlinked directory, stated in the call rather
+    than left to `Path.rglob`, whose symlink behaviour changed at 3.13; a
+    symlinked payload or events file is not read. One owner for
+    `journal_bags`' reason: replay and the reader must read the same streams.
+    """
+    found: list[Path] = []
+    payload = bag_path / PAYLOAD_DIR
+    if not payload.is_dir() or payload.is_symlink():
+        return found
+    for dirpath, dirnames, filenames in os.walk(payload, followlinks=False):
+        dirnames.sort()
+        if EVENTS_FILE in filenames:
+            candidate = Path(dirpath) / EVENTS_FILE
+            if not candidate.is_symlink() and candidate.is_file():
+                found.append(candidate)
+    return sorted(found)
+
+
 @dataclass(frozen=True)
 class Bag:
     """One run's folder. Frozen: the path is the identity, and it does not move."""
@@ -1424,17 +1510,20 @@ def open_bag(root: Path, run_id: str, *, info: dict[str, str] | None = None) -> 
     # one. `writer_dir` and `root._create_with_mode` win-or-lose an `os.mkdir` for
     # the same reason one layer down.
     #
-    # A crash between here and the rename leaves a hidden `.{run_id}.*` staging
-    # directory under the root. It is harmless — never a valid bag and never
-    # adopted (adoption keys on `<root>/<run_id>`) — and it is ACCEPTED litter,
-    # not a reclaimed resource: no retention pass exists yet to sweep it (that is
+    # A crash between here and the rename leaves a hidden `.{run_id}~*` staging
+    # directory under the root, already holding `bagit.txt`. It is never adopted
+    # (adoption keys on `<root>/<run_id>`) and never COUNTED: `STAGING_MARK` is
+    # outside `RUN_ID_PERMITTED`, so `journal_bags` refuses the name through
+    # `validated_run_id`. The earlier `.{run_id}.` prefix was a valid run id, and
+    # a crash-left staging folder was enumerated as a phantom run. It is
+    # ACCEPTED litter, not a reclaimed resource: no retention pass exists yet to sweep it (that is
     # unbuilt Phase 5 work), and the `rmtree` below is best-effort, so a hard
     # crash or a failed cleanup can persist one. That is a deliberate trade
     # against the mkdir-then-write sequence this replaces, which littered a
     # HALF-BUILT bag AT the run id — one the `exists()` fast path then adopted
     # forever after. A hidden temp dir cannot be mistaken for the run; a
     # half-built one poisons it.
-    staging = Path(tempfile.mkdtemp(prefix=f".{run_id}.", dir=str(root)))
+    staging = Path(tempfile.mkdtemp(prefix=staging_prefix(run_id), dir=str(root)))
     try:
         os.mkdir(str(staging / PAYLOAD_DIR), DIR_MODE)
         # EXACTLY TWO LINES. RFC 8493 §2.1.1 requires it, and requirement 6 turns

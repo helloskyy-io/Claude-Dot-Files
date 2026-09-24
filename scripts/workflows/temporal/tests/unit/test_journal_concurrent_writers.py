@@ -39,7 +39,7 @@ from pathlib import Path
 
 import pytest
 
-from modules.journal.bag import Bag, open_bag
+from modules.journal.bag import Bag, open_bag, staging_prefix
 from modules.journal.validate import validate_bag
 
 WRITERS = 16
@@ -178,5 +178,5 @@ def test_racing_openers_of_ONE_run_id_all_adopt_ONE_COMPLETE_bag(root: Path) -> 
     assert len(opened) == WRITERS
     assert all(bag.path == root / "raced-open" for bag in opened)
     assert (root / "raced-open" / "bag-info.txt").is_file()
-    leftovers = [p.name for p in root.iterdir() if p.name.startswith(".raced-open.")]
+    leftovers = [p.name for p in root.iterdir() if p.name.startswith(staging_prefix("raced-open"))]
     assert not leftovers, f"a losing opener left staging directories behind: {leftovers}"

@@ -21,7 +21,7 @@ from pathlib import Path
 import pytest
 
 from modules.assistant.tracked import rebuild as rb
-from modules.journal.bag import open_bag
+from modules.journal.bag import BAG_INFO_FILE, BAGIT_FILE, open_bag, staging_prefix
 from modules.journal.emit import Emitter, gap_flag_label
 from modules.journal.events import Destination, GapClass, gap_event
 from modules.journal.snapshot import latest_snapshot
@@ -193,6 +193,12 @@ def test_an_UNDECODABLE_event_line_fails_the_rebuild_and_is_named(fixture) -> No
 def test_a_bag_still_being_STAGED_or_a_non_bag_directory_is_not_a_bag(fixture) -> None:
     journal, stores = fixture
     (journal / "not-a-bag").mkdir()
-    (journal / ".staging-something").mkdir()
+    # open_bag's REAL staging shape: named by `staging_prefix` and already holding
+    # the tag files, as a crash before the rename leaves it. A bare empty directory
+    # would pass whatever the enumeration did with staging.
+    staged = journal / f"{staging_prefix(RUN_PREFIX + 'crashed')}k3j9x2ab"
+    staged.mkdir()
+    (staged / BAGIT_FILE).write_text("BagIt-Version: 1.0\n")
+    (staged / BAG_INFO_FILE).write_text("")
     report = rb.rebuild(journal, stores)
     assert report.bags_seen == 4
