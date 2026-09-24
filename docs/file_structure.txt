@@ -286,7 +286,7 @@ claude-dot-files/
 │           │                                        #   rigor is untouched and research-critic still gates every paper
 │           ├── common/__init__.py                   # The package marker for the shared LIBRARY code beside modules/ (workflow-scripts.md
 │           │                                        #   § Location: common/ is library, modules/ is workflows) — exports nothing
-│           ├── common/journal/                    # PMP Phase 1 — WHERE a run's record goes and WHAT SHAPE it takes. One BagIt bag per
+│           ├── common/journal/                      # PMP Phase 1 — WHERE a run's record goes and WHAT SHAPE it takes. One BagIt bag per
 │           │                                        #   run under a configurable root, keyed by run_id and never by path (Claude Code keys
 │           │                                        #   by mangled path, which makes every worktree its own project — the one place this
 │           │                                        #   design deliberately does not copy it). root.py resolves and REFUSES; bag.py holds

@@ -60,7 +60,8 @@ TEMPORAL = Path(__file__).resolve().parents[2]
 
 #: Where a cut can happen: the entrypoints and the workflow modules.
 _SOURCES = sorted(set(TEMPORAL.glob("scripts/*.py"))
-                  | set((TEMPORAL / "modules").rglob("*.py")))
+                  | set((TEMPORAL / "modules").rglob("*.py"))
+                  | set((TEMPORAL / "common").rglob("*.py")))
 
 #: Reads that GATE the run and take no worktree. See the docstring: hand-written
 #: because "does this depend on the worktree" is a property of the callee, and

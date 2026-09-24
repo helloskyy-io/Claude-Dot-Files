@@ -44,12 +44,13 @@ from pathlib import Path
 import pytest
 
 MODULES = Path(__file__).resolve().parents[2] / "modules"
+COMMON = MODULES.parent / "common"
 
 
 def _python_files() -> list[Path]:
-    found = sorted(MODULES.rglob("*.py"))
+    found = sorted([*MODULES.rglob("*.py"), *COMMON.rglob("*.py")])
     assert len(found) > 20, (
-        f"only {len(found)} modules found under {MODULES} — the walk is wrong, "
+        f"only {len(found)} modules found under {MODULES} and {COMMON} — the walk is wrong, "
         f"and a guard that reads nothing passes silently"
     )
     return found

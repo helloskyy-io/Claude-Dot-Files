@@ -67,6 +67,7 @@ _TEMPORAL = pathlib.Path(__file__).resolve().parents[2]      # …/temporal
 _REPO_ROOT = pathlib.Path(__file__).resolve().parents[5]     # the repository
 _ASSISTANT = _TEMPORAL / "modules" / "assistant"
 _MODULES = _TEMPORAL / "modules"
+_COMMON = _TEMPORAL / "common"
 
 
 def _envelope(record: dict | None = ..., denials: list | None = None) -> dict:
@@ -2061,10 +2062,9 @@ def test_every_production_caller_of_route_states_its_expected_ref() -> None:
     """
     import ast as _ast
 
-    tree_root = _MODULES
     callers: list[str] = []
     scanned = 0
-    for path in sorted(tree_root.rglob("*.py")):
+    for path in sorted([*_MODULES.rglob("*.py"), *_COMMON.rglob("*.py")]):
         scanned += 1
         parsed = _ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in _ast.walk(parsed):
@@ -2166,7 +2166,7 @@ def test_every_production_caller_of_route_states_its_terminal_state() -> None:
 
     callers: list[str] = []
     names: list[str] = []
-    for path in sorted(_MODULES.rglob("*.py")):
+    for path in sorted([*_MODULES.rglob("*.py"), *_COMMON.rglob("*.py")]):
         parsed = _ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in _ast.walk(parsed):
             if not (isinstance(node, _ast.Call)

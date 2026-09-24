@@ -235,9 +235,9 @@ def test_python_fleet_does_not_read_the_bash_fleet() -> None:
     puts that back. Invoking shared infra (`run-claude.sh`, `format-stream.sh`)
     is a different thing and is not what this looks for.
     """
-    component = Path(__file__).resolve().parents[2] / "modules"
+    component = Path(__file__).resolve().parents[2]
     offenders = []
-    for p in component.rglob("*.py"):
+    for p in [*(component / "modules").rglob("*.py"), *(component / "common").rglob("*.py")]:
         for line in p.read_text().splitlines():
             if line.lstrip().startswith("#"):
                 continue
@@ -263,7 +263,7 @@ def test_python_fleet_does_not_read_the_bash_fleet() -> None:
 COMPONENT_ROOT = Path(__file__).resolve().parents[2]
 
 # Everything this component ships that Python has to be able to resolve.
-SWEEP_TARGETS = [COMPONENT_ROOT / name for name in ("modules", "scripts", "tests")]
+SWEEP_TARGETS = [COMPONENT_ROOT / name for name in ("modules", "common", "scripts", "tests")]
 
 
 # Wall-clock backstop. The sweep takes well under a second on this tree, so any

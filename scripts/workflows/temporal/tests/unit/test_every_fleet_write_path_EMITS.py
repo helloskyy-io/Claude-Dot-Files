@@ -113,11 +113,14 @@ def test_no_UNINVENTORIED_module_reaches_a_store_write_shape() -> None:
     """
     examined = 0
     offenders: list[str] = []
-    for path in sorted(MODULES.rglob("*.py")):
-        if "journal" in path.parts:
+    for path in sorted([*MODULES.rglob("*.py"), *COMMON.rglob("*.py")]):
+        if COMMON / "journal" in path.parents:
             continue                    # the journal writes ITSELF; see below
         examined += 1
-        relpath = str(path.relative_to(MODULES))
+        # Inventory keys are relative to `modules/`; a `common/` file keeps its
+        # `common/` prefix so it can never collide with one.
+        relpath = str(path.relative_to(MODULES) if MODULES in path.parents
+                      else path.relative_to(MODULES.parent))
         source = path.read_text(encoding="utf-8")
         tree = ast.parse(source)
         for node in ast.walk(tree):

@@ -70,7 +70,7 @@ _TREE = Path(__file__).resolve().parents[2]
 # The production tree. `tests/` is excluded because a test that hangs fails the
 # suite loudly and in front of whoever ran it — the harm this guard exists to
 # prevent is a DISPATCH that hangs, unattended, with nobody reading a terminal.
-_ROOTS = (_TREE / "modules", _TREE / "scripts")
+_ROOTS = (_TREE / "modules", _TREE / "common", _TREE / "scripts")
 
 # (path relative to the temporal tree, enclosing function). Each entry is a
 # STREAMING child launch: the parent blocks on `for line in proc.stdout`, the
