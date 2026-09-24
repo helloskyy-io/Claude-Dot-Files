@@ -20,8 +20,8 @@ from pathlib import Path
 
 import pytest
 
-from modules.journal.bag import PAYLOAD_DIR, open_bag
-from modules.journal.content_store import (CONTENT_STORE_DIR, DIGEST_ALGORITHM,
+from common.journal.bag import PAYLOAD_DIR, open_bag
+from common.journal.content_store import (CONTENT_STORE_DIR, DIGEST_ALGORITHM,
                                            ContentStoreError, digest_of_bytes,
                                            has_object, load_object,
                                            object_path, object_relpath,
@@ -67,7 +67,7 @@ def test_the_digest_is_the_only_input_to_the_path() -> None:
     # was `re.compile(r"^…$")` and returned for this value — composing it onto
     # a path in the function whose docstring says such a value is refused
     # rather than composed. `test_journal_regex_anchors.py` holds the CLASS
-    # (no `^`/`$` anywhere in `modules/journal/`); this row is the instance,
+    # (no `^`/`$` anywhere in `common/journal/`); this row is the instance,
     # here in the battery a reader extending "what is not a digest" will open.
     SAMPLE_DIGEST + "\n",
     "\n" + SAMPLE_DIGEST,
@@ -233,7 +233,7 @@ def test_two_captures_of_ONE_source_on_two_threads_both_land(tmp_path, monkeypat
     """
     import threading
     import time
-    from modules.journal import content_store as store_mod
+    from common.journal import content_store as store_mod
 
     bag_path = tmp_path / "bag"
     (bag_path / "data").mkdir(parents=True)
@@ -282,7 +282,7 @@ def test_the_three_read_failures_are_three_TYPES_not_three_sentences(tmp_path) -
     message being reworded — and the message embeds the store path, which embeds
     the run id, which `RUN_ID_PERMITTED` lets contain the word `TAMPERED`.
     """
-    from modules.journal.content_store import (ObjectCorrupt, ObjectMissing,
+    from common.journal.content_store import (ObjectCorrupt, ObjectMissing,
                                                ObjectUnreadable)
     bag_path = tmp_path / "bag"
     (bag_path / "data").mkdir(parents=True)

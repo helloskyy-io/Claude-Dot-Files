@@ -39,8 +39,8 @@ from pathlib import Path
 
 import pytest
 
-from modules.journal.bag import Bag, open_bag, staging_prefix
-from modules.journal.validate import validate_bag
+from common.journal.bag import Bag, open_bag, staging_prefix
+from common.journal.validate import validate_bag
 
 WRITERS = 16
 _BARRIER_TIMEOUT_S = 30

@@ -24,9 +24,9 @@ from pathlib import Path
 
 from . import resource_telemetry
 from . import routing
-from ..journal import emit as journal_emit
-from ..journal.capture_filter import filter_capture
-from ..journal.events import Destination, Provenance
+from common.journal import emit as journal_emit
+from common.journal.capture_filter import filter_capture
+from common.journal.events import Destination, Provenance
 
 _WORKFLOWS = Path(__file__).resolve().parents[3]          # scripts/workflows
 _SHARED_PROMPTS = Path(__file__).resolve().parent / "prompts"

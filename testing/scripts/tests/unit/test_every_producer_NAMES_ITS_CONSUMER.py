@@ -554,7 +554,7 @@ def _imported_stems(p: Path) -> frozenset[str]:
 
 def _imported_by_stem(lib: str) -> list[str]:
     """A library beside the entrypoints is consumed by another fleet module
-    IMPORTING it by stem. `modules/journal/config_digest.py` names
+    IMPORTING it by stem. `common/journal/config_digest.py` names
     `compare_run_config` twice, both in bug-history comments; under this
     predicate that is not a consumer, and it must not be."""
     stem = lib[:-3] if lib.endswith(".py") else lib
@@ -812,6 +812,9 @@ RULED_OUT = {
         "`test_every_POOL_fragment_is_render_checked_by_some_consumer` and "
         "`test_prompt_completeness.py` require every shared fragment to be "
         "loaded by a consumer or excluded with a reason",
+    "scripts/workflows/temporal/common": "code consumed by IMPORT — the shared "
+        "library package beside `modules/` (the journal), held by the import "
+        "graph, the suite and `code-reviewer`'s structure lens",
     "scripts/helpers/managed-tier-probe": "a HOST-RUN verification harness, "
         "invoked by a PERSON: `probe.sh` spends the operator's tokens against a "
         "container to observe the OS-level managed tier and is off every merge "
@@ -1059,7 +1062,7 @@ class RuntimeRecord:
     via: tuple[str, ...] = ()
 
 
-_JOURNAL = "scripts/workflows/temporal/modules/journal"
+_JOURNAL = "scripts/workflows/temporal/common/journal"
 _TOOLS = "scripts/workflows/temporal/scripts"
 _RUN_LOG = "scripts/helpers/measure/run_log.py"
 
@@ -2254,7 +2257,7 @@ def test_the_FLEET_PYTHON_corpus_is_the_fleet_and_not_the_tests() -> None:
     # The finding this predicate was written around: two comment mentions
     # in `config_digest.py`, and no import anywhere.
     assert "compare_run_config" in _text(
-        _REPO / "scripts" / "workflows" / "temporal" / "modules" / "journal" / "config_digest.py"
+        _REPO / "scripts" / "workflows" / "temporal" / "common" / "journal" / "config_digest.py"
     ), "the fixture assumption — config_digest.py mentions the tool in a comment — no longer holds"
     assert _imported_by_stem("compare_run_config.py") == [], \
         "a comment mention in config_digest.py counted as an import"

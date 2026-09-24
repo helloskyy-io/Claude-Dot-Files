@@ -1,6 +1,6 @@
 """One declaration per shared concept — PMP Phase 3 requirement 3, as a test.
 
-⚠ THIS FILE EXISTS BECAUSE `modules/vocabulary.py` CITED IT AND IT DID NOT EXIST.
+⚠ THIS FILE EXISTS BECAUSE `common/vocabulary.py` CITED IT AND IT DID NOT EXIST.
 Its docstring said *"The test that holds this is
 `test_shared_vocabulary_is_declared_once.py`, which asserts the spelling
 agreement in both directions"* — and the module's whole argument, stated three
@@ -30,12 +30,12 @@ from pathlib import Path
 
 import pytest
 
-from modules import vocabulary
+from common import vocabulary
 from modules.assistant import convergence
 from modules.assistant.review_pr import exit_record
-from modules.journal import events
+from common.journal import events
 
-MODULES = Path(__file__).resolve().parents[2] / "modules"
+TEMPORAL = Path(__file__).resolve().parents[2]
 
 
 def test_SHARED_CONCEPTS_enumerates_every_enum_the_module_declares() -> None:
@@ -75,7 +75,7 @@ def redeclares(tree: ast.Module, concept: str) -> bool:
 
 @pytest.mark.parametrize("source,expected", [
     ("from ..vocabulary import Outcome\n", False),
-    ("from modules.vocabulary import Outcome as Outcome\n", False),
+    ("from common.vocabulary import Outcome as Outcome\n", False),
     ("Outcome = 1\n", False),
     ('"""A docstring mentioning class Outcome(str, Enum)."""\n', False),
     ("class Outcome(str, Enum):\n    MERGE = 'merge'\n", True),
@@ -102,10 +102,11 @@ def test_no_shared_concept_is_RE_DECLARED_in_either_contract(concept: str) -> No
     same name as a declaration, so `hasattr` cannot tell "imported from the one
     declaration" from "declared again here". A `ClassDef` can only be the second.
     """
-    for relpath in ("assistant/review_pr/exit_record.py", "journal/events.py"):
-        tree = ast.parse((MODULES / relpath).read_text(encoding="utf-8"))
+    for relpath in ("modules/assistant/review_pr/exit_record.py",
+                    "common/journal/events.py"):
+        tree = ast.parse((TEMPORAL / relpath).read_text(encoding="utf-8"))
         assert not redeclares(tree, concept), (
-            f"modules/{relpath} declares `{concept}` again. Two enums spelled alike "
+            f"{relpath} declares `{concept}` again. Two enums spelled alike "
             f"compare unequal member-to-member while both still serialise to "
             f"the same string, so a rebuild diffing them reports a difference "
             f"that is not one — and every string test keeps passing.")

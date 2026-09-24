@@ -421,11 +421,11 @@ def test_the_sweep_FAILS_on_a_deliberately_non_conforming_parent(tmp_path: Path)
     scripts = tmp_path / "scripts"
     scripts.mkdir()
     (scripts / "run_good.py").write_text(
-        "from modules.journal import journal_activities as journal\n"
+        "from common.journal import journal_activities as journal\n"
         "def main():\n"
         "    journal.open_run_bag(run_id='x', repo_root='.', workflow_key='good')\n")
     (scripts / "run_also_good.py").write_text(
-        "from modules.journal.journal_activities import open_run_bag\n"
+        "from common.journal.journal_activities import open_run_bag\n"
         "def main():\n"
         "    open_run_bag(run_id='x', repo_root='.', workflow_key='also-good')\n")
     (scripts / "run_forgot.py").write_text(
@@ -734,7 +734,7 @@ def test_the_reachability_check_FAILS_on_a_module_only_MENTIONED(tmp_path: Path)
 #: depends on was unasserted for nine files, including the four least-reviewed
 #: ones, while the guard still read as covering the package.
 _JOURNAL_PACKAGE = (REPO_ROOT / "scripts" / "workflows" / "temporal" /
-                    "modules" / "journal")
+                    "common" / "journal")
 
 #: ONE expression, read by the parametrize AND by its denominator below. Written
 #: twice, the denominator re-derived the population instead of measuring the one
@@ -742,6 +742,55 @@ _JOURNAL_PACKAGE = (REPO_ROOT / "scripts" / "workflows" / "temporal" /
 #: to zero cases while the denominator kept passing on its own second glob.
 #: Found by mutating the parametrize and watching NOTHING go red.
 _JOURNAL_MODULES = sorted(p.stem for p in _JOURNAL_PACKAGE.glob("*.py"))
+
+
+def _workflow_imports(tree: ast.Module) -> list[str]:
+    """Every import in `tree` that reaches the WORKFLOW tree, `modules/`.
+
+    KEYED ON THE PACKAGE, NOT ON `assistant`. The first version flagged names
+    starting `modules.assistant` or `..assistant`, and the move to `common/`
+    broke both halves at once: `from modules import assistant` spells the
+    package in `node.module` and the subpackage in the ALIAS, so it matched
+    neither prefix, and `..assistant` stopped being reachable at all — a
+    relative import cannot climb out of `common/` into `modules/`. Asking
+    whether the import's ROOT is `modules` covers every spelling, including
+    `import modules` and a future `from modules.<other> import …`, and it is
+    what `workflow-scripts.md` § Location asks of `common/`: library code does
+    not import workflows. Relative imports are not examined because, from
+    inside `common/journal/`, none can resolve into `modules/`.
+    """
+    found: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            if node.level == 0 and (node.module or "").split(".")[0] == "modules":
+                found += [f"{node.module}.{alias.name}" for alias in node.names]
+        elif isinstance(node, ast.Import):
+            found += [alias.name for alias in node.names
+                      if alias.name.split(".")[0] == "modules"]
+    return found
+
+
+@pytest.mark.parametrize("source,flagged", [
+    ("from modules import assistant\n", True),
+    ("from modules.assistant import routing\n", True),
+    ("import modules.assistant\n", True),
+    ("import modules\n", True),
+    ("from modules.vocabulary import Outcome\n", True),
+    ("from common.vocabulary import Outcome\n", False),
+    ("from ..vocabulary import Outcome\n", False),
+    ("from . import content_store\n", False),
+    ('"""Prose naming modules.assistant is not an import."""\n', False),
+])
+def test_the_workflow_import_predicate_answers_a_LITERAL_both_ways(
+        source: str, flagged: bool) -> None:
+    """The negative control for the isolation walk below, driven by literals.
+
+    The production walk runs over a package that imports nothing from
+    `modules/`, so it passes whether or not the predicate recognises anything.
+    These rows are what make it able to fail — the first is the spelling the
+    `assistant`-prefix version missed.
+    """
+    assert bool(_workflow_imports(ast.parse(source))) is flagged
 
 
 @pytest.mark.parametrize("module", _JOURNAL_MODULES)
@@ -766,16 +815,8 @@ def test_the_journal_package_imports_no_workflow_module(module: str) -> None:
     as the violation it describes. The widened walk found it immediately; the
     fixed list never reached the file.
     """
-    tree = ast.parse((_JOURNAL_PACKAGE / f"{module}.py").read_text())
-    imported: list[str] = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom):
-            imported.append(f"{'.' * node.level}{node.module or ''}")
-        elif isinstance(node, ast.Import):
-            imported += [alias.name for alias in node.names]
-    offenders = [name for name in imported
-                 if name.startswith("modules.assistant")
-                 or name.startswith("..assistant")]
+    offenders = _workflow_imports(
+        ast.parse((_JOURNAL_PACKAGE / f"{module}.py").read_text()))
     assert not offenders, (
         f"`journal/{module}.py` imports {offenders}, which drags "
         f"`temporalio` into every measurement helper and CPI sweep that loads "

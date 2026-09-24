@@ -29,7 +29,7 @@ three hand-written copies and one hole. It is now one named function
 
 ⚠ WHAT THIS DOES NOT COVER, because a sweep is only as good as its predicate:
 
-  * IT SWEEPS `modules/journal/*.py` AND NOTHING ELSE. A join written in a
+  * IT SWEEPS `common/journal/*.py` AND NOTHING ELSE. A join written in a
     different package that addresses a bag is invisible here. The scope is named
     in the failure message so a reader hitting it learns the boundary.
   * IT SEES `Path / str` COMPOSITION, not `os.path.join`, not `f"{base}/{x}"`,
@@ -51,13 +51,13 @@ import sys
 import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[5]
-PACKAGE = REPO_ROOT / "scripts" / "workflows" / "temporal" / "modules" / "journal"
+PACKAGE = REPO_ROOT / "scripts" / "workflows" / "temporal" / "common" / "journal"
 
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "workflows" / "temporal"))
 
-from modules.journal.bag import (BagError, PAYLOAD_DIR, contained_relpath,   # noqa: E402
+from common.journal.bag import (BagError, PAYLOAD_DIR, contained_relpath,   # noqa: E402
                                  open_bag)
-from modules.journal.validate import validate_bag   # noqa: E402
+from common.journal.validate import validate_bag   # noqa: E402
 
 # Every `base / x` in this package whose right operand is neither a constant nor
 # a `contained_relpath(...)` call, keyed by the SOURCE TEXT of that operand so the

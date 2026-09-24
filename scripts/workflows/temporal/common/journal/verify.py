@@ -225,7 +225,7 @@ def git_blob(repo_root: Path, sha: str, path: str | None) -> bytes:
     target = f"{sha}:{path}" if path else sha
     try:
         # `timeout=` directly rather than `assistant_activities.run_bounded`:
-        # `modules/journal/` does not import upward into the workflow modules,
+        # `common/journal/` does not import upward into the workflow modules,
         # which is the dependency rule this package's `__init__` states. The
         # bound is the property the fleet-wide guard checks, and it is here.
         probe = subprocess.run(["git", "cat-file", "-p", target],

@@ -58,8 +58,8 @@ import warnings
 from pathlib import Path
 
 from modules.assistant.tracked import rebuild as rb
-from modules.journal.journal_activities import load_journal_config
-from modules.journal.root import JournalRootError, resolve_journal_root
+from common.journal.journal_activities import load_journal_config
+from common.journal.root import JournalRootError, resolve_journal_root
 from planning_corpus import PLANNING_ROOT
 from rebuild_fixture import COMMITTED
 

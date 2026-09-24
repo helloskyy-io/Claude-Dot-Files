@@ -70,7 +70,7 @@ _TREE = Path(__file__).resolve().parents[2]
 # The production tree. `tests/` is excluded because a test that hangs fails the
 # suite loudly and in front of whoever ran it — the harm this guard exists to
 # prevent is a DISPATCH that hangs, unattended, with nobody reading a terminal.
-_ROOTS = (_TREE / "modules", _TREE / "scripts")
+_ROOTS = (_TREE / "modules", _TREE / "common", _TREE / "scripts")
 
 # (path relative to the temporal tree, enclosing function). Each entry is a
 # STREAMING child launch: the parent blocks on `for line in proc.stdout`, the
@@ -257,7 +257,7 @@ def test_every_blocking_launch_carries_a_timeout() -> None:
     the ceiling and returns a `TimedOutProcess` — a non-zero reply, so the
     `returncode != 0` branch the call site already has is already correct.
     Passing `timeout=` directly is right only for a module that must not import
-    the assistant tree (`modules/journal/`, `scripts/preflight.py`), and both of
+    the assistant tree (`common/journal/`, `scripts/preflight.py`), and both of
     those say so at the call.
     """
     runs, _p, _o = _census()

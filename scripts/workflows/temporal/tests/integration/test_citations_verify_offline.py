@@ -29,12 +29,12 @@ from pathlib import Path
 
 import pytest
 
-from modules.journal.bag import BAGIT_FILE, open_bag
-from modules.journal.content_activities import capture_fetched_source
-from modules.journal.content_store import object_path
-from modules.journal.journal_activities import load_journal_config
-from modules.journal.root import JournalRootError, resolve_journal_root
-from modules.journal.verify import (EXIT_MISSING, EXIT_OK, EXIT_SPAN_MISSING,
+from common.journal.bag import BAGIT_FILE, open_bag
+from common.journal.content_activities import capture_fetched_source
+from common.journal.content_store import object_path
+from common.journal.journal_activities import load_journal_config
+from common.journal.root import JournalRootError, resolve_journal_root
+from common.journal.verify import (EXIT_MISSING, EXIT_OK, EXIT_SPAN_MISSING,
                                     EXIT_TAMPERED, MISSING, SPAN_MISSING,
                                     TAMPERED, VERIFIED, verify_bag)
 
@@ -244,7 +244,7 @@ def test_verify_runs_with_THE_NETWORK_ACTUALLY_DENIED(tmp_path: Path,
 
 def test_the_exit_code_tracks_the_worst_outcome_present(tmp_path: Path) -> None:
     """Each class on its own, so the mixed-run test above cannot pass by accident."""
-    from modules.journal.bag import DIR_MODE  # one root PER outcome, not the fixture's one
+    from common.journal.bag import DIR_MODE  # one root PER outcome, not the fixture's one
 
     def bag_with(mutate) -> int:
         root = tmp_path / f"journal-{mutate.__name__}"
@@ -275,7 +275,7 @@ def test_the_exit_code_tracks_the_worst_outcome_present(tmp_path: Path) -> None:
             b"intact bytes that simply do not contain the quote")
         # Re-file under the new digest so the object is INTACT and only the span
         # is gone — otherwise this reproduces `flipped` and proves nothing new.
-        from modules.journal.content_store import store_bytes
+        from common.journal.content_store import store_bytes
         digest = store_bytes(bag.path, b"intact bytes without the quote")
         writer = bag.payload_dir / "draft"
         rows = (writer / "citations.jsonl").read_text()

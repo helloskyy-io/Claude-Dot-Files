@@ -284,7 +284,9 @@ claude-dot-files/
 │           │                                        #   child were deleted 2026-08-28: the split asked the operator to size the work
 │           │                                        #   before reading it, which the child does better from the pool itself. Per-paper
 │           │                                        #   rigor is untouched and research-critic still gates every paper
-│           ├── modules/journal/                    # PMP Phase 1 — WHERE a run's record goes and WHAT SHAPE it takes. One BagIt bag per
+│           ├── common/__init__.py                   # The package marker for the shared LIBRARY code beside modules/ (workflow-scripts.md
+│           │                                        #   § Location: common/ is library, modules/ is workflows) — exports nothing
+│           ├── common/journal/                      # PMP Phase 1 — WHERE a run's record goes and WHAT SHAPE it takes. One BagIt bag per
 │           │                                        #   run under a configurable root, keyed by run_id and never by path (Claude Code keys
 │           │                                        #   by mangled path, which makes every worktree its own project — the one place this
 │           │                                        #   design deliberately does not copy it). root.py resolves and REFUSES; bag.py holds
@@ -315,7 +317,7 @@ claude-dot-files/
 │           │                                        #   PHASE 3 ADDS THE EMIT RULE — every write to any store also emits to the journal — as four
 │           │                                        #   more files here, for the reason Phase 2's five are here: they write into a bag's payload.
 │           │                                        #   events.py is the event contract, SEPARATE from the typed exit record's and sharing one
-│           │                                        #   vocabulary with it (modules/vocabulary.py) — exit-protocol.md §2 forbids a field added for
+│           │                                        #   vocabulary with it (common/vocabulary.py) — exit-protocol.md §2 forbids a field added for
 │           │                                        #   a consumer that does not exist and §2.5 bounds that record at 4096 bytes, and an event adds
 │           │                                        #   six such fields and carries content verbatim, so an extension is not available. Five event
 │           │                                        #   kinds, four admission fields (identity, edge_id, key_epoch, provenance), and two replay
@@ -365,23 +367,24 @@ claude-dot-files/
 │           │                                        #   a store write — plus the stores it does NOT cover, named with their reason. It takes
 │           │                                        #   the store contents as DATA so the one-way import rule holds; the replay that knows
 │           │                                        #   what a tracked store is lives beside the store writers (modules/assistant/tracked/)
-│           ├── modules/__init__.py                  # The package marker, and nothing else — every module under modules/ is
-│           │                                        #   imported by its own path, so this file exports nothing and re-exports nothing
-│           ├── modules/vocabulary.py                # ONE DECLARATION per concept the typed exit record and the journal event share
+│           ├── common/vocabulary.py                 # ONE DECLARATION per concept the typed exit record and the journal event share
 │           │                                        #   (PMP Phase 3 r3) — Outcome, HoldKind, Disposition, TerminalState, plus
 │           │                                        #   SHARED_CONCEPTS, which a conformance test walks rather than re-typing. A LEAF AT
-│           │                                        #   modules/ belonging to NEITHER package, and that is the whole placement argument:
-│           │                                        #   modules/journal/ may import no workflow module (Phase 6's reader would otherwise
+│           │                                        #   common/ belonging to NEITHER package, and that is the whole placement argument:
+│           │                                        #   common/journal/ may import no workflow module (Phase 6's reader would otherwise
 │           │                                        #   drag in temporalio) and exit_record.py is dependency-free by design, so beside
 │           │                                        #   either one it would break the other. Two contracts, one spelling — two enums
 │           │                                        #   spelled alike compare UNEQUAL member-to-member while both still serialise to the
 │           │                                        #   same string, so a rebuild diffing them reports a difference that is not one
+│           │                                        #   — and common/, not modules/, because a shared type is library code (workflow-scripts.md § Location)
+│           ├── modules/__init__.py                  # The package marker, and nothing else — every module under modules/ is
+│           │                                        #   imported by its own path, so this file exports nothing and re-exports nothing
 │           ├── scripts/                             # Kickoff entrypoints, until an SDK path replaces them — plus preflight.py,
 │           │                                        #   validate_bag.py, journal_completeness.py, verify_citations.py, compare_run_config.py, reconcile_harvest.py,
 │           │                                        #   rebuild.py, dispatch_identity.py and dispatch_context.py,
 │           │                                        #   which are NOT kickoffs: they are what a run checks before, what an operator checks
 │           │                                        #   after (validate_bag asks whether a bag's bytes match its manifest and journal_completeness
-│           │                                        #   whether the record is WHOLE, against the profile in modules/journal/profile.py — two
+│           │                                        #   whether the record is WHOLE, against the profile in common/journal/profile.py — two
 │           │                                        #   questions the BagIt Profiles spec keeps apart and so do these; verify_citations
 │           │                                        #   asks whether the claims in it still stand against the sources they were made from;
 │           │                                        #   compare_run_config asks whether two runs absorbed the same configuration, from the
@@ -1106,20 +1109,17 @@ claude-dot-files/
 │                                                    #   RuntimeError carrying an operator remedy, and a guard watching only the older of
 │                                                    #   the two was measured blind to the newer one
 │                   ├── test_every_reach_into_the_content_store_CROSSES_THE_BOUNDARY.py
-│                   ├── test_a_gate_runs_on_the_pull_request_and_nowhere_else.py # Every gate triggers on pull_request only with cancel-in-progress and derives runs-on from visibility — this repo's workflows, the scaffold template, the sibling planning repo's
-│                   ├── test_the_bag_profile_ANSWERS_COMPLETENESS.py # The journal's completeness contract and every rule that makes it able to fail — the surfaces:[] population, the orphan-log witness, the cwd join, and that validate_bag stays integrity-only
-│                   ├── test_the_hook_output_is_not_a_boundary_crossing.py # The viewer's commit hook stages development/derived/ into every commit whose corpus moved; a boundary reading that as the model's edit failed every correct plan run — the exemption is held to the hook's own `git add` line
 │                   │                                # PMP Phase 2 r8, the same shape as the r11 sweep above and for the same reason: the
 │                   │                                #   activities layer makes capture and resolve TIDY, not mandatory, so nothing stops a
 │                   │                                #   later module importing content_store.load_object and reading an object without the
-│                   │                                #   re-hash r7(d) requires. Walks every fleet module by AST — modules/ and scripts/,
+│                   │                                #   re-hash r7(d) requires. Walks every fleet module by AST — modules/, scripts/, common/,
 │                   │                                #   the journal package itself exempt — and flags TEN reaches in three families, plus
 │                   │                                #   the path composition no import check can see. FAMILY 1, where the import statement
 │                   │                                #   itself binds a store name: the store modules by dotted path, the re-exported
 │                   │                                #   function, the submodule bound as a name, a star import. FAMILY 2, where the import
-│                   │                                #   binds the PACKAGE and the reach is an ATTRIBUTE — import modules.journal, …as j,
-│                   │                                #   from modules import journal, from .. import journal. FAMILY 3, where it binds an
-│                   │                                #   ANCESTOR of the package — import modules, …as m, import modules.assistant — since a
+│                   │                                #   binds the PACKAGE and the reach is an ATTRIBUTE — import common.journal, …as j,
+│                   │                                #   from common import journal, from .. import journal. FAMILY 3, where it binds an
+│                   │                                #   ANCESTOR of the package — import common, …as m, import common.sibling — since a
 │                   │                                #   plain import binds its ROOT segment, so the store is reachable through the parent
 │                   │                                #   and the family-2 fix, which asked whether the dotted path ENDED at the package,
 │                   │                                #   shipped blind to all three. In families 2 and 3 the statement names no store module
@@ -1130,10 +1130,11 @@ claude-dot-files/
 │                   │                                #   validate in two operator tools (reconcile_harvest imports its readers by name),
 │                   │                                #   emit in the four PMP-Phase-3 write paths and its parent branch — twenty-three call
 │                   │                                #   sites, and content_store is not among them) and from .. import journal, the workflow
-│                   │                                #   tree's dominant relative import. The package matcher binds by import SEMANTICS,
+│                   │                                #   tree's dominant relative import, which since the move reaches the journal only from a
+│                   │                                #   sub-package of common/, so common/ is swept. The package matcher binds by import SEMANTICS,
 │                   │                                #   never by the identifier text `journal`: `alias.name` is matched and never the asname,
 │                   │                                #   BOUNDARY_PARENT rejects a `journal` imported from a sibling, and an asname binds
-│                   │                                #   exactly the module named, so import modules.assistant as ma reaches nothing. The
+│                   │                                #   exactly the module named, so import common.sibling as ma reaches nothing. The
 │                   │                                #   the twenty-three call sites trip the first two at once, so neither can be observed through
 │                   │                                #   them and neither costs a false positive — measured, deleting either flags nothing on
 │                   │                                #   a clean tree, because those call sites reach only open_run_bag and the emit
@@ -1148,10 +1149,13 @@ claude-dot-files/
 │                   │                                #   nothing passes every assertion, which is today's fleet. Its vacuity control
 │                   │                                #   asserts a floor PER swept directory after a mutation showed a single total floor
 │                   │                                #   of fifty stayed green with all 25 modules under scripts/ dropped from the
-│                   │                                #   population, modules/ alone holding 62 of the 87. EVERY FIGURE IN ITS OWN PROSE IS
-│                   │                                #   DERIVED and asserted — the ten shapes, the twenty-three call sites, 62/25/87 — and each
+│                   │                                #   population, modules/ alone holding 61 of the 88, with 2 under common/ outside the journal. EVERY FIGURE IN ITS OWN PROSE IS
+│                   │                                #   DERIVED and asserted — the ten shapes, the twenty-three call sites, 61/25/2/88 — and each
 │                   │                                #   enumerated shape must have a fixture that writes it, so a shape added to the prose
 │                   │                                #   without a control goes red rather than reading as covered
+│                   ├── test_a_gate_runs_on_the_pull_request_and_nowhere_else.py # Every gate triggers on pull_request only with cancel-in-progress and derives runs-on from visibility — this repo's workflows, the scaffold template, the sibling planning repo's
+│                   ├── test_the_bag_profile_ANSWERS_COMPLETENESS.py # The journal's completeness contract and every rule that makes it able to fail — the surfaces:[] population, the orphan-log witness, the cwd join, and that validate_bag stays integrity-only
+│                   ├── test_the_hook_output_is_not_a_boundary_crossing.py # The viewer's commit hook stages development/derived/ into every commit whose corpus moved; a boundary reading that as the model's edit failed every correct plan run — the exemption is held to the hook's own `git add` line
 │                   ├── test_content_store.py        # PMP Phase 2 r7(b)/r7(d) — the on-disk path is a function of the COMPUTED DIGEST and
 │                   │                                #   of nothing else (asserted on the signature, not only the output: a URL, a filename
 │                   │                                #   or a Content-Disposition header has nowhere to enter), and every read re-hashes and

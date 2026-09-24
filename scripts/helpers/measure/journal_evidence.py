@@ -18,7 +18,7 @@ a second shape (PMP Phase 7's shared bucket), exactly one module learns it.
 
 WHAT THIS IMPORTS AND DOES NOT RE-DERIVE — each is producer-owned:
 
-  * completeness — `modules/journal/profile.py`'s `assess_completeness`. The
+  * completeness — `common/journal/profile.py`'s `assess_completeness`. The
     reader carries NO copy of that predicate (phase doc r4). The verdict and
     reasons are handed up verbatim.
   * a bag's lifecycle flags — `bag.bag_state`, the one place `bag-info.txt`
@@ -54,16 +54,16 @@ _TEMPORAL = _HERE.parents[1] / "workflows" / "temporal"
 if str(_TEMPORAL) not in sys.path:
     sys.path.insert(0, str(_TEMPORAL))
 
-from modules.journal.bag import (BAG_INFO_FILE, MANIFEST_FILE, BagError,  # noqa: E402
+from common.journal.bag import (BAG_INFO_FILE, MANIFEST_FILE, BagError,  # noqa: E402
                                  bag_state, events_files, journal_bags, read_tag_file)
-from modules.journal.events import (EventError, EventKind,  # noqa: E402
+from common.journal.events import (EventError, EventKind,  # noqa: E402
                                     decode_event, dedupe_on_identity)
-from modules.journal.journal_activities import load_journal_config  # noqa: E402
-from modules.journal.profile import (EVENTS, HARVEST_EVENTS,  # noqa: E402
+from common.journal.journal_activities import load_journal_config  # noqa: E402
+from common.journal.profile import (EVENTS, HARVEST_EVENTS,  # noqa: E402
                                      assess_completeness)
-from modules.journal.root import resolve_journal_root  # noqa: E402
-from modules.journal.snapshot import SnapshotError, latest_snapshot  # noqa: E402
-from modules.vocabulary import Disposition, HoldKind  # noqa: E402
+from common.journal.root import resolve_journal_root  # noqa: E402
+from common.journal.snapshot import SnapshotError, latest_snapshot  # noqa: E402
+from common.vocabulary import Disposition, HoldKind  # noqa: E402
 
 
 def _load_run_log():

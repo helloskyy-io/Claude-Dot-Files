@@ -310,7 +310,7 @@ def capture_cited_sources(*, pool_dir: Path, bag, stage: str,
     report.skipped = len(rows) - len(capturable)
 
     if capture_fn is None:                       # pragma: no cover - thin binding
-        from ...journal import capture_source as capture_fn      # noqa: PLC0415
+        from common.journal import capture_source as capture_fn      # noqa: PLC0415
 
     for row in capturable:
         url = str(row.get("url")).strip()
@@ -353,7 +353,7 @@ def record_capture_gap(report: CaptureReport, *, emitter, pool_dir: Path) -> boo
     """
     if not report.store_is_empty_for_a_cited_paper:
         return False
-    from ...journal.events import Destination, GapClass       # noqa: PLC0415
+    from common.journal.events import Destination, GapClass       # noqa: PLC0415
     emitter.record_gap(write_path=GAP_WRITE_PATH,
                        gap_class=GapClass.SOURCES_UNCAPTURED,
                        destination=Destination(store=CONTENT_STORE,
@@ -438,7 +438,7 @@ def capture_into_the_run_bag(*, research_dir: Path, repo_root: Path, worktree: P
 
     try:
         if emitter is None:
-            from ...journal.emit import current_emitter          # noqa: PLC0415
+            from common.journal.emit import current_emitter          # noqa: PLC0415
             emitter = current_emitter()
         if emitter is None:
             raise RuntimeError("no emitter is registered for this run — open_run_bag "

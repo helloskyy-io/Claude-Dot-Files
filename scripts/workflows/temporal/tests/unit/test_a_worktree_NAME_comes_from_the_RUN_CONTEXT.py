@@ -56,7 +56,7 @@ import ast
 from pathlib import Path
 
 FLEET = Path(__file__).resolve().parents[2]
-SEARCH = [FLEET / "scripts", FLEET / "modules"]
+SEARCH = [FLEET / "scripts", FLEET / "modules", FLEET / "common"]
 
 #: The name the run context carries the value under. A call site must reference
 #: it — as `<anything>.worktree_name`, or as a PARAMETER of the enclosing

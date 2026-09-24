@@ -6,7 +6,7 @@ bags, and stops a deletion at it; this package is what knows the root's layout.
 What it does NOT know is what a `tracked/` store is — the materialisation
 arrives here as DATA (`{store: {filename: text}}`) from
 `modules.assistant.tracked.rebuild`, which owns the store contract, so the
-one-way import rule (`modules/journal/` imports no workflow module) holds.
+one-way import rule (`common/journal/` imports no workflow module) holds.
 
 WHY A FILE AT THE ROOT AND NOT A DIRECTORY. `validate.main`, `verify.main` and
 the integration tier each treat EVERY DIRECTORY under the root as a bag —

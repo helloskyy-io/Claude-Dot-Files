@@ -42,7 +42,7 @@ import pytest
 
 from modules.assistant import assistant_activities as act
 from modules.assistant.review_pr import exit_record as er
-from modules.vocabulary import TerminalState
+from common.vocabulary import TerminalState
 
 _TESTS = Path(__file__).resolve().parents[1]
 _WORKFLOWS = Path(__file__).resolve().parents[3]      # …/scripts/workflows

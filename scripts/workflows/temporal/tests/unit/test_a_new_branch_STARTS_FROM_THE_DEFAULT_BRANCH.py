@@ -44,7 +44,7 @@ from pathlib import Path
 import pytest
 
 FLEET = Path(__file__).resolve().parents[2]
-SEARCH = [FLEET / "scripts", FLEET / "modules"]
+SEARCH = [FLEET / "scripts", FLEET / "modules", FLEET / "common"]
 
 
 def _fleet_sources() -> list[Path]:

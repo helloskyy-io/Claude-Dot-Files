@@ -55,10 +55,10 @@ from pathlib import Path
 
 from modules.assistant.tracked import rebuild as rb
 from modules.assistant.tracked import tracked_items as ti
-from modules.journal.bag import DIR_MODE, open_bag
-from modules.journal.edge_id import adopt_edge_id
-from modules.journal.emit import Emitter, emitting_into
-from modules.journal.events import Destination, GapClass
+from common.journal.bag import DIR_MODE, open_bag
+from common.journal.edge_id import adopt_edge_id
+from common.journal.emit import Emitter, emitting_into
+from common.journal.events import Destination, GapClass
 
 FIXTURE_EDGE = "fixture-edge"
 RUN_PREFIX = "fixture-run-"

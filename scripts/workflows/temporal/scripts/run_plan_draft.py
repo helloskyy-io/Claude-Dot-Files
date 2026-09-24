@@ -13,8 +13,8 @@ from preflight import RepoPathParser, refuse  # noqa: E402
 from dispatch_identity import add_identity_arguments, resolve_identity  # noqa: E402
 from dispatch_context import RunContext  # noqa: E402
 from modules.assistant import assistant_activities as act_shared  # noqa: E402
-from modules.journal import journal_activities as journal  # noqa: E402
-from modules.journal import harvest_activities as harvest  # noqa: E402
+from common.journal import journal_activities as journal  # noqa: E402
+from common.journal import harvest_activities as harvest  # noqa: E402
 from modules.assistant.plan import plan_activities as act  # noqa: E402
 from modules.assistant.plan.plan_draft import plan_draft_activities as own  # noqa: E402
 from modules.assistant.plan.plan_draft import plan_draft_workflow as wf  # noqa: E402

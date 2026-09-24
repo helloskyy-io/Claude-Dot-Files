@@ -45,7 +45,7 @@ written against the property so the NEXT `gh` launch fails here rather than in
 production. A guard listing `ci_verdict` and `wait_for_ci` would have been green
 on the third.
 
-WHAT THIS CHECKS: every `gh` dispatch under `modules/` names a tree.
+WHAT THIS CHECKS: every `gh` dispatch under `modules/` and `common/` names a tree.
 
   * `gh_attempt(args, tree)` — the second argument must not be a literal `None`.
   * `run_bounded(argv, ...)` / `subprocess.run(argv, ...)` where `argv` is a `gh`
@@ -91,6 +91,7 @@ import ast
 from pathlib import Path
 
 MODULES = Path(__file__).resolve().parents[2] / "modules"
+COMMON = MODULES.parent / "common"
 
 # The census below found FIVE dispatch points. The floor is deliberately lower
 # than that: it exists to catch a WALK THAT STOPPED MATCHING, not to pin the
@@ -175,9 +176,9 @@ def _unanchored(source: str) -> list[str]:
 
 
 def _module_files() -> list[Path]:
-    found = sorted(MODULES.rglob("*.py"))
+    found = sorted([*MODULES.rglob("*.py"), *COMMON.rglob("*.py")])
     assert len(found) > 20, (
-        f"only {len(found)} modules found under {MODULES} — the walk is wrong, "
+        f"only {len(found)} modules found under {MODULES} and {COMMON} — the walk is wrong, "
         f"and a guard that reads nothing passes silently"
     )
     return found
@@ -200,10 +201,10 @@ def test_no_gh_dispatch_in_the_fleet_runs_in_the_process_cwd() -> None:
                     and _is_gh_argv(node.args[0], gh_names)):
                 dispatches += 1
         for hit in _unanchored(source):
-            offenders.append(f"{path.relative_to(MODULES)} {hit}")
+            offenders.append(f"{path.relative_to(MODULES.parent)} {hit}")
 
     assert dispatches >= _MINIMUM_DISPATCHES, (
-        f"the census found only {dispatches} `gh` dispatches under {MODULES}, "
+        f"the census found only {dispatches} `gh` dispatches under {MODULES} and {COMMON}, "
         f"below the floor of {_MINIMUM_DISPATCHES}. The walk has stopped matching "
         f"— fix the matcher rather than the floor, because a guard whose "
         f"population has collapsed to nothing reports GREEN forever."

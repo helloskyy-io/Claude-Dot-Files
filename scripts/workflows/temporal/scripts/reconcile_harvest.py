@@ -43,12 +43,12 @@ from preflight import refuse  # noqa: E402
 # THE READER IS IMPORTED BY NAME, which is what makes this tool a member of
 # `test_journal_operator_tools_separate_typo_from_finding.py`'s population —
 # that sweep keys membership on a bag reader imported by name, never on a
-# module, so `from modules.journal import harvest` would have left the fourth
+# module, so `from common.journal import harvest` would have left the fourth
 # operator tool outside the check that holds its usage/finding split.
-from modules.journal.harvest import (SurfaceRef, SurfaceUnreadable,  # noqa: E402
+from common.journal.harvest import (SurfaceRef, SurfaceUnreadable,  # noqa: E402
                                      fetch_surface, read_harvest_indexes,
                                      reconcile_surface, render_reconciliation)
-from modules.journal.bag import BAGIT_FILE  # noqa: E402
+from common.journal.bag import BAGIT_FILE  # noqa: E402
 
 _FLEET_ROOT = Path(__file__).resolve().parents[4]
 

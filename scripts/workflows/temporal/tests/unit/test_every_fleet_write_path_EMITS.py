@@ -30,11 +30,12 @@ from pathlib import Path
 
 import pytest
 
-from modules.journal.bag import open_bag
-from modules.journal.emit import Emitter, emitting_into
-from modules.journal.events import EVENTS_FILE, EventKind, decode_event
+from common.journal.bag import open_bag
+from common.journal.emit import Emitter, emitting_into
+from common.journal.events import EVENTS_FILE, EventKind, decode_event
 
 MODULES = Path(__file__).resolve().parents[2] / "modules"
+COMMON = Path(__file__).resolve().parents[2] / "common"
 
 #: Requirement 9's fleet-code half, as `(module path, the write it performs)`.
 #: ENUMERATED HERE AND NOWHERE ELSE in the test tree, so the phase doc's table
@@ -112,11 +113,14 @@ def test_no_UNINVENTORIED_module_reaches_a_store_write_shape() -> None:
     """
     examined = 0
     offenders: list[str] = []
-    for path in sorted(MODULES.rglob("*.py")):
-        if "journal" in path.parts:
+    for path in sorted([*MODULES.rglob("*.py"), *COMMON.rglob("*.py")]):
+        if COMMON / "journal" in path.parents:
             continue                    # the journal writes ITSELF; see below
         examined += 1
-        relpath = str(path.relative_to(MODULES))
+        # Inventory keys are relative to `modules/`; a `common/` file keeps its
+        # `common/` prefix so it can never collide with one.
+        relpath = str(path.relative_to(MODULES) if MODULES in path.parents
+                      else path.relative_to(MODULES.parent))
         source = path.read_text(encoding="utf-8")
         tree = ast.parse(source)
         for node in ast.walk(tree):
@@ -174,13 +178,13 @@ def test_the_journal_package_is_EXCLUDED_from_the_census_deliberately() -> None:
     composes `["api", "user", …]` in a file that never spells `"gh"` — so a
     scan of the launcher alone would have missed exactly the argv a sibling
     module writes through the launcher's runner. Every `["api", …]` literal
-    under `modules/journal/` is checked; the first cut scanned one file.
+    under `common/journal/` is checked; the first cut scanned one file.
 
     WHAT THIS DOES NOT LOOK AT: an argv assembled from a variable rather than a
     list literal, and a flag arriving inside an f-string element. Both are the
     shape somebody writes deliberately; the accidental shape is a literal.
     """
-    journal_files = sorted((MODULES / "journal").rglob("*.py"))
+    journal_files = sorted((COMMON / "journal").rglob("*.py"))
     spellers = sorted(p.name for p in journal_files
                       if '"gh"' in p.read_text(encoding="utf-8"))
     assert spellers == [_JOURNAL_GH_READER], (
@@ -194,7 +198,7 @@ def test_the_journal_package_is_EXCLUDED_from_the_census_deliberately() -> None:
                   and isinstance(node.elts[0], ast.Constant)
                   and node.elts[0].value in ("gh", "api")]
     assert len(argv_lists) >= 4, (
-        f"found {len(argv_lists)} `gh`/`api` argv literals under modules/journal; "
+        f"found {len(argv_lists)} `gh`/`api` argv literals under common/journal; "
         f"a shape check over fewer than the launch, the two surface reads and "
         f"the login probe has scoped itself wrongly")
     assert {name for name, _ in argv_lists} >= {_JOURNAL_GH_READER, "harvest_activities.py"}, (
@@ -359,7 +363,7 @@ def test_the_case_d_REPORT_is_the_one_write_that_does_not_emit(tmp_path: Path,
     control that fails if the content ever gates it again.
     """
     from modules.assistant import assistant_activities as act
-    from modules.journal.emit import (UNWRITABLE_JOURNAL_MARKER,
+    from common.journal.emit import (UNWRITABLE_JOURNAL_MARKER,
                                       JournalUnwritable,
                                       unwritable_journal_report)
 
@@ -393,7 +397,7 @@ def test_the_durable_REPORTER_posts_one_marker_led_comment_and_never_emits(
     because this runs while the failure it reports is in flight.
     """
     from modules.assistant import assistant_activities as act
-    from modules.journal.emit import (JournalUnwritable,
+    from common.journal.emit import (JournalUnwritable,
                                       unwritable_journal_in_text)
 
     launched: list[list[str]] = []
@@ -442,8 +446,8 @@ def test_the_durable_REPORT_passes_through_the_capture_filter(
     detail must land as the filter's placeholder, not as itself.
     """
     from modules.assistant import assistant_activities as act
-    from modules.journal.capture_filter import placeholder_for
-    from modules.journal.emit import JournalUnwritable
+    from common.journal.capture_filter import placeholder_for
+    from common.journal.emit import JournalUnwritable
 
     launched: list[list[str]] = []
 
@@ -476,7 +480,7 @@ def test_a_comment_that_QUOTES_the_marker_still_emits(tmp_path: Path,
     sets, so this write emits like every other one.
     """
     from modules.assistant import assistant_activities as act
-    from modules.journal.emit import UNWRITABLE_JOURNAL_MARKER
+    from common.journal.emit import UNWRITABLE_JOURNAL_MARKER
 
     class _Done:
         returncode, stdout, stderr = 0, "https://github.com/o/r/pull/1#c9\n", ""
@@ -576,7 +580,7 @@ def test_the_CLI_TRANSCRIPT_emits_verbatim_and_a_failed_emit_STOPS_the_run(
     """
     import os
     from modules.assistant import assistant_activities as act
-    from modules.journal.emit import EmitFailed
+    from common.journal.emit import EmitFailed
 
     log = tmp_path / "review-pr-1-abc.jsonl"
     log.write_text('{"type":"assistant","text":"hello"}\n', encoding="utf-8")
@@ -713,7 +717,7 @@ def test_a_RUN_LOG_event_emits_and_the_run_CONTINUES_past_a_failed_emit(
 _PROBE_THE_CASE_D_SLOT = (
     "import importlib, sys; sys.path.insert(0, sys.argv[1]); "
     "importlib.import_module(sys.argv[2]); "
-    "from modules.journal import emit; "
+    "from common.journal import emit; "
     "sys.exit(0 if emit.current_case_d_reporter() is not None else 3)")
 
 

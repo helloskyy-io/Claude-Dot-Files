@@ -105,7 +105,7 @@ def _journal_root_is_never_the_operators(tmp_path_factory):
     was corrected the same way. Both depend on this fixture's scope; stating it
     at the fixture reaches the next such file, which neither of them can.
     """
-    from modules.journal import journal_activities
+    from common.journal import journal_activities
 
     sandbox = tmp_path_factory.mktemp("journal-sandbox")
     config = sandbox / "config.yaml"
@@ -144,7 +144,7 @@ import pytest as _pytest
 
 @_pytest.fixture(autouse=True)
 def _no_emitter_leaks_between_tests():
-    from modules.journal import emit as _emit
+    from common.journal import emit as _emit
 
     _emit.register_emitter(None)
     try:

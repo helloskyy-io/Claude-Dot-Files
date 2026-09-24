@@ -26,7 +26,7 @@ enumerating test is only as good as its discovery predicate:
     walk. This closes the reach somebody writes by accident, not the one somebody
     writes deliberately — which is the correct ambition for a guard whose whole
     population is this repo's own modules.
-  * ANYTHING OUTSIDE `scripts/workflows/temporal/{modules,scripts}/**.py`. A
+  * ANYTHING OUTSIDE `scripts/workflows/temporal/{modules,scripts,common}/**.py`. A
     shell script that finds and cats an object, or a consumer in another repo,
     is outside the swept scope. Named in the failure text so a reader hitting
     this learns the boundary rather than assuming there is none.
@@ -62,24 +62,24 @@ enumerating test is only as good as its discovery predicate:
 TEN SHAPES REACH THE STORE WITHOUT A DOTTED PATH THAT NAMES IT, in three
 families, and every family was shipped blind to in turn — family 3 by the
 correction pass that closed family 2, which is why the count is asserted below
-rather than restated. `modules/journal/`'s `__init__.py` re-exports the raw store
+rather than restated. `common/journal/`'s `__init__.py` re-exports the raw store
 functions and the package is a package, so all ten work and none contains the
-string `modules.journal.content_store`.
+string `common.journal.content_store`.
 
 FAMILY 1 — THE IMPORT STATEMENT ITSELF BINDS A STORE NAME. Checking the imported
 NAMES rather than only the dotted module path is what closes these:
 
-    from modules.journal import load_object      # the re-exported FUNCTION
-    from modules.journal import content_store    # the SUBMODULE, bound as a name
-    from modules.journal import *                # both, and everything else
+    from common.journal import load_object      # the re-exported FUNCTION
+    from common.journal import content_store    # the SUBMODULE, bound as a name
+    from common.journal import *                # both, and everything else
 
 FAMILY 2 — THE IMPORT BINDS THE PACKAGE AND THE REACH IS AN ATTRIBUTE ACCESS.
 Nothing in the import statement names a store module or a store function at all,
 so a detector reading imports alone is blind to every one of them:
 
-    import modules.journal          →  modules.journal.content_store.load_object(…)
-    import modules.journal as j     →  j.load_object(…)
-    from modules import journal     →  journal.load_object(…)
+    import common.journal          →  common.journal.content_store.load_object(…)
+    import common.journal as j     →  j.load_object(…)
+    from common import journal      →  journal.load_object(…)
     from .. import journal          →  journal.content_store.load_object(…)
 
 FAMILY 3 — THE IMPORT BINDS AN ANCESTOR OF THE PACKAGE, and the statement names
@@ -88,15 +88,15 @@ whatever depth it names, so the journal is reachable through the parent it lives
 in — which the family-2 fix missed by asking whether the dotted path ENDED at
 the package:
 
-    import modules                  →  modules.journal.load_object(…)
-    import modules as m             →  m.journal.content_store.load_object(…)
-    import modules.assistant        →  modules.journal.load_object(…)
+    import common                   →  common.journal.load_object(…)
+    import common as m              →  m.journal.content_store.load_object(…)
+    import common.sibling           →  common.journal.load_object(…)
 
 ⚠ FAMILY 3 RESOLVES ONLY ONCE SOMETHING IN THE PROCESS HAS IMPORTED THE PACKAGE,
 and in this fleet the first line of every entrypoint is that something. Measured:
-in a fresh interpreter `import modules` then `modules.journal` raises
-AttributeError, and after any `from modules.journal import …` — which all sixteen
-entrypoints run — `modules.journal.content_store.load_object` resolves. So the
+in a fresh interpreter `import common` then `common.journal` raises
+AttributeError, and after any `from common.journal import …` — which all sixteen
+entrypoints run — `common.journal.content_store.load_object` resolves. So the
 condition is met by the fleet's own imports, and stating it is not the same as
 excusing it.
 
@@ -120,14 +120,17 @@ BRANCH that reads the boundary's terminal state off the failure that ended a
 child. `from .. import journal` is the
 dominant relative-import spelling across the workflow tree (`from .. import
 routing`, `from .. import plan_activities as act`, `from . import
-tracked_items as ti`). So both are what a real bypass looks like: a line copied
-from the one above it.
+tracked_items as ti`) — and since the journal moved to `common/`, it reaches the
+journal only from a module in a SUB-PACKAGE OF `common/`, because a relative
+import cannot climb out of its top-level package. That is why `common/` is
+swept. So both are what a real bypass looks like: a line copied from the one
+above it.
 
 ⚠ THE FIX FOR FAMILY 2 BINDS BY SEMANTICS, NEVER BY THE SPELLING `journal`, AND
 TWO SEPARATE MECHANISMS HOLD THAT — which is worth stating because a review
 attributed the whole job to one of them and MEASUREMENT SAID OTHERWISE:
 
-  * MATCHING `alias.name` AND NEVER THE ASNAME. `from modules import
+  * MATCHING `alias.name` AND NEVER THE ASNAME. `from common import
     journal_activities as journal` binds the identifier `journal` to a module
     that reaches no store; only the ORIGINAL name says which module that is.
   * `BOUNDARY_PARENT`, which rejects a name genuinely spelled `journal`
@@ -189,23 +192,23 @@ FLEET_ROOT = REPO_ROOT / "scripts" / "workflows" / "temporal"
 # bulk run of the resolver, and `citations` reaches only for an error type and a
 # digest-shape check. Exempting the package rather than listing four filenames
 # keeps this from failing the day a fifth module is added inside it.
-BOUNDARY_DIR = FLEET_ROOT / "modules" / "journal"
+BOUNDARY_DIR = FLEET_ROOT / "common" / "journal"
 
-# Its name alone, for the star-import case: `from modules.journal import *` names
+# Its name alone, for the star-import case: `from common.journal import *` names
 # no store module and no store function, and binds both. It is also the name a
 # package binding is recognised BY, in `_package_bindings`.
 BOUNDARY_PACKAGE = BOUNDARY_DIR.name
 
-# The package's PARENT directory name. `from modules import journal` is the one
+# The package's PARENT directory name. `from common import journal` is the one
 # package-binding shape whose `node.module` names something other than the
 # journal, so the parent has to be nameable to tell it from
-# `from modules.journal import journal_activities as journal` — which names the
+# `from common.journal import journal_activities as journal` — which names the
 # journal and binds a different module entirely. Derived from the same Path as
 # BOUNDARY_PACKAGE so the two cannot drift apart.
 BOUNDARY_PARENT = BOUNDARY_DIR.parent.name
 
 # Directories swept. `tests/` is excluded — see the docstring's scope list.
-SWEPT_DIRS = ("modules", "scripts")
+SWEPT_DIRS = ("modules", "scripts", "common")
 
 # The two modules that own the store's I/O. Importing either from outside the
 # package is a reach, whatever it is imported for.
@@ -246,7 +249,7 @@ STORE_PATH_SEGMENT = "content-store"
 def _swept_modules(root: Path) -> list[Path]:
     """Every fleet module under `root`, excluding the boundary package.
 
-    `tmp_path` trees in the controls below have no `modules/journal/`, so the
+    `tmp_path` trees in the controls below have no `common/journal/`, so the
     same predicate serves the real sweep and the synthetic ones — which is what
     makes a control's red mean the real sweep would have gone red too.
     """
@@ -290,33 +293,33 @@ def _package_bindings(tree: ast.AST) -> dict[str, int]:
 
     BOUND BY SEMANTICS, NEVER BY THE SPELLING `journal`, and that distinction is
     the whole difficulty. Eighteen fleet modules write
-    `from modules.journal import journal_activities as journal`, which binds the
+    `from common.journal import journal_activities as journal`, which binds the
     ACTIVITIES module to the name `journal` and reaches nothing — so a matcher
     reading the identifier text fails the unmodified tree nineteen times over.
     What is collected here is the prefix through which the package's attributes
     become reachable:
 
-        import modules.journal        -> "modules.journal"   (binds `modules`)
-        import modules.journal as j   -> "j"
-        from modules import journal   -> "journal"
+        import common.journal        -> "common.journal"   (binds `common`)
+        import common.journal as j   -> "j"
+        from common import journal   -> "journal"
         from .. import journal        -> "journal"
-        import modules                -> "modules.journal"
-        import modules as m           -> "m.journal"
-        import modules.assistant      -> "modules.journal"   (binds `modules`)
+        import common                -> "common.journal"
+        import common as m           -> "m.journal"
+        import common.sibling      -> "common.journal"   (binds `common`)
 
     THE LAST THREE ARE THE ANCESTOR SHAPES, AND THIS FUNCTION SHIPPED BLIND TO
     THEM. The first version asked whether the imported dotted path ENDED at the
     package, which is not the rule Python uses: an import without an asname
-    binds its ROOT, so any `import modules.<anything>` makes `modules.journal`
-    reachable, and `import modules as m` makes `m.journal` reachable. An asname
+    binds its ROOT, so any `import common.<anything>` makes `common.journal`
+    reachable, and `import common as m` makes `m.journal` reachable. An asname
     is the opposite — it binds exactly the module named, so `import
-    modules.assistant as ma` reaches nothing and must stay out. Both halves are
+    common.sibling as ma` reaches nothing and must stay out. Both halves are
     controlled below, in each direction.
 
     Two independent checks keep a non-package binding out, and the nineteen
     `journal_activities as journal` entrypoints happen to trip both — so neither
     can be observed through them. `alias.name` (never the asname) rejects
-    `from modules import journal_activities as journal`; `node.module` rejects
+    `from common import journal_activities as journal`; `node.module` rejects
     `from modules.assistant import journal`. Each shape isolates one check, and
     both are asserted directly on this function rather than through the sweep —
     see that control's docstring for why the sweep cannot see either.
@@ -328,10 +331,10 @@ def _package_bindings(tree: ast.AST) -> dict[str, int]:
                 parts = alias.name.split(".")
                 if alias.asname is None:
                     # NO ASNAME BINDS THE ROOT SEGMENT, whatever the depth —
-                    # which is why `import modules.assistant` reaches the store
+                    # which is why `import common.sibling` reaches the store
                     # and shipping this branch as "does the dotted path END at
                     # the package" left three shapes green. `import
-                    # modules.journal` is the same rule with the path already
+                    # common.journal` is the same rule with the path already
                     # ending there; anything else rooted at the package's parent
                     # reaches it through the parent's own attribute.
                     if parts[-1] == BOUNDARY_PACKAGE:
@@ -341,9 +344,9 @@ def _package_bindings(tree: ast.AST) -> dict[str, int]:
                             f"{BOUNDARY_PARENT}.{BOUNDARY_PACKAGE}", node.lineno)
                 # AN ASNAME BINDS EXACTLY THE MODULE NAMED, so only that
                 # module's identity matters and the root is irrelevant.
-                # `import modules.journal as j` binds the package; `import
-                # modules as m` binds its parent, one attribute away; and
-                # `import modules.assistant as ma` binds a SIBLING, through
+                # `import common.journal as j` binds the package; `import
+                # common as m` binds its parent, one attribute away; and
+                # `import common.sibling as ma` binds a SIBLING, through
                 # which the package is not reachable at all — treating that as
                 # a binding is the identifier-text bug in its other dress.
                 elif parts[-1] == BOUNDARY_PACKAGE:
@@ -504,7 +507,7 @@ def test_the_sweep_is_not_vacuous() -> None:
     """A sweep that examined nothing satisfies the assertion above exactly.
 
     THE FLOOR IS PER DIRECTORY, AND A SINGLE AGGREGATE FLOOR IS WHAT THIS FILE
-    SHIPPED FIRST. `modules/` alone holds 62 of the 87, so a total-only floor of
+    SHIPPED FIRST. `modules/` alone holds 61 of the 88, so a total-only floor of
     fifty stayed green with the 25 under `scripts/` dropped from the population
     entirely. That is the failure this control exists to catch,
     passing the control: a guard whose SCOPE has halved reports the same green
@@ -514,13 +517,14 @@ def test_the_sweep_is_not_vacuous() -> None:
     reason the next time a module is added, while a bare `assert swept` cannot
     tell one file from the whole fleet.
     """
-    for name, floor in (("modules", 40), ("scripts", 15)):
+    for name, floor in (("modules", 40), ("scripts", 15), ("common", 2)):
         found = [p for p in _swept_modules(FLEET_ROOT)
                  if (FLEET_ROOT / name) in p.parents]
         assert len(found) >= floor, (
             f"only {len(found)} modules discovered under {FLEET_ROOT / name}; "
-            f"this fleet has 62 under modules/ (outside the journal package) "
-            f"and 25 under scripts/. The predicate has drifted from the tree "
+            f"this fleet has 61 under modules/, 25 under scripts/ and "
+            f"2 under common/ (outside the journal package). The predicate has "
+            f"drifted from the tree "
             f"and the absence above proves nothing about this half of it.")
 
 
@@ -570,18 +574,18 @@ def test_the_sweep_FAILS_on_a_deliberately_non_conforming_module(tmp_path) -> No
     modules = tmp_path / "modules"
     modules.mkdir()
     (modules / "good_capture.py").write_text(
-        "from modules.journal.content_activities import capture_fetched_source\n"
+        "from common.journal.content_activities import capture_fetched_source\n"
         "def run(bag, data):\n"
         "    return capture_fetched_source(bag=bag, stage='draft', claim_id='c',\n"
         "                                  quote='q', source_ref='https://x/', data=data)\n",
         encoding="utf-8")
     (modules / "good_resolve.py").write_text(
-        "from modules.journal import verify_bag\n"
+        "from common.journal import verify_bag\n"
         "def run(path):\n"
         "    return verify_bag(path)\n",
         encoding="utf-8")
     (modules / "bad_direct.py").write_text(
-        "from modules.journal.content_store import store_bytes\n"
+        "from common.journal.content_store import store_bytes\n"
         "def run(bag, data):\n"
         "    return store_bytes(bag.path, data)\n",
         encoding="utf-8")
@@ -596,7 +600,7 @@ def test_the_sweep_FAILS_on_a_deliberately_non_conforming_module(tmp_path) -> No
 def test_the_PACKAGE_RE_EXPORT_bypass_is_caught(tmp_path) -> None:
     """The shortest bypass in the tree, and the one a module-path check misses.
 
-    `modules/journal/__init__.py` re-exports `load_object`, so a caller reaches
+    `common/journal/__init__.py` re-exports `load_object`, so a caller reaches
     the store while naming only the package. This is the reason the detector
     matches imported NAMES and not just module paths, and it is asserted here so
     that reason cannot be refactored away silently.
@@ -604,7 +608,7 @@ def test_the_PACKAGE_RE_EXPORT_bypass_is_caught(tmp_path) -> None:
     modules = tmp_path / "modules"
     modules.mkdir()
     (modules / "sneaky.py").write_text(
-        "from modules.journal import load_object\n"
+        "from common.journal import load_object\n"
         "def run(bag, digest):\n"
         "    return load_object(bag.path, digest)\n",
         encoding="utf-8")
@@ -616,7 +620,7 @@ def test_the_PACKAGE_RE_EXPORT_bypass_is_caught(tmp_path) -> None:
 def test_the_SUBMODULE_AS_A_NAME_bypass_is_caught(tmp_path) -> None:
     """THE SHAPE THIS FILE SHIPPED BLIND TO, kept as a control so it cannot return.
 
-    `from modules.journal import content_store` names the package, not the
+    `from common.journal import content_store` names the package, not the
     module, and binds the module anyway — so neither a dotted-path check nor a
     re-exported-function-name check sees it. It is also how nineteen fleet
     modules already import a journal submodule, which is what makes it the
@@ -625,7 +629,7 @@ def test_the_SUBMODULE_AS_A_NAME_bypass_is_caught(tmp_path) -> None:
     modules = tmp_path / "modules"
     modules.mkdir()
     (modules / "idiomatic.py").write_text(
-        "from modules.journal import content_store\n"
+        "from common.journal import content_store\n"
         "def run(bag, data):\n"
         "    return content_store.store_bytes(bag.path, data)\n",
         encoding="utf-8")
@@ -645,7 +649,7 @@ def test_a_STAR_IMPORT_of_the_journal_package_is_caught(tmp_path) -> None:
     modules = tmp_path / "modules"
     modules.mkdir()
     (modules / "star.py").write_text(
-        "from modules.journal import *\n"
+        "from common.journal import *\n"
         "def run(bag, digest):\n"
         "    return load_object(bag.path, digest)\n",
         encoding="utf-8")
@@ -665,23 +669,23 @@ def test_a_STAR_IMPORT_of_the_journal_package_is_caught(tmp_path) -> None:
 
 
 def test_the_DOTTED_PACKAGE_binding_bypass_is_caught(tmp_path) -> None:
-    """`import modules.journal` -> `modules.journal.content_store.load_object(…)`.
+    """`import common.journal` -> `common.journal.content_store.load_object(…)`.
 
-    The import names the package and binds `modules`; nothing in the statement
+    The import names the package and binds `common`; nothing in the statement
     names a store module or a store function, so every import-only check reads
     it as clean. The reach is three attributes off the dotted prefix.
     """
     modules = tmp_path / "modules"
     modules.mkdir()
     (modules / "dotted_bad.py").write_text(
-        "import modules.journal\n"
+        "import common.journal\n"
         "def run(bag, digest):\n"
-        "    return modules.journal.content_store.load_object(bag, digest)\n",
+        "    return common.journal.content_store.load_object(bag, digest)\n",
         encoding="utf-8")
     (modules / "dotted_good.py").write_text(
-        "import modules.journal\n"
+        "import common.journal\n"
         "def run(run_id, writer):\n"
-        "    return modules.journal.journal_activities.open_run_bag(run_id, writer)\n",
+        "    return common.journal.journal_activities.open_run_bag(run_id, writer)\n",
         encoding="utf-8")
 
     assert len(_swept_modules(tmp_path)) == 2, "the fixture itself must be discovered"
@@ -691,7 +695,7 @@ def test_the_DOTTED_PACKAGE_binding_bypass_is_caught(tmp_path) -> None:
 
 
 def test_the_ALIASED_PACKAGE_binding_bypass_is_caught(tmp_path) -> None:
-    """`import modules.journal as j` -> `j.load_object(…)`.
+    """`import common.journal as j` -> `j.load_object(…)`.
 
     THIS IS THE SHAPE THE SIBLING SWEEP ALREADY FIXED ONCE, for `import
     subprocess as sp` — see `test_every_subprocess_the_fleet_launches_is_bounded`'s
@@ -702,12 +706,12 @@ def test_the_ALIASED_PACKAGE_binding_bypass_is_caught(tmp_path) -> None:
     modules = tmp_path / "modules"
     modules.mkdir()
     (modules / "aliased_bad.py").write_text(
-        "import modules.journal as j\n"
+        "import common.journal as j\n"
         "def run(bag, digest):\n"
         "    return j.load_object(bag, digest)\n",
         encoding="utf-8")
     (modules / "aliased_good.py").write_text(
-        "import modules.journal as j\n"
+        "import common.journal as j\n"
         "def run(path):\n"
         "    return j.validate.validate_bag(path)\n",
         encoding="utf-8")
@@ -719,23 +723,23 @@ def test_the_ALIASED_PACKAGE_binding_bypass_is_caught(tmp_path) -> None:
 
 
 def test_the_FROM_PARENT_package_binding_bypass_is_caught(tmp_path) -> None:
-    """`from modules import journal` -> `journal.load_object(…)`.
+    """`from common import journal` -> `journal.load_object(…)`.
 
-    The statement names the package's PARENT, so `node.module` is `modules` and
+    The statement names the package's PARENT, so `node.module` is `common` and
     matches no store module — while the bound name is the package itself. This
     is the shape that forces `BOUNDARY_PARENT` to exist: without it there is no
-    way to tell this line from `from modules.journal import journal_activities
+    way to tell this line from `from common.journal import journal_activities
     as journal`, which binds the same identifier to something harmless.
     """
     modules = tmp_path / "modules"
     modules.mkdir()
     (modules / "from_parent_bad.py").write_text(
-        "from modules import journal\n"
+        "from common import journal\n"
         "def run(bag, digest):\n"
         "    return journal.load_object(bag, digest)\n",
         encoding="utf-8")
     (modules / "from_parent_good.py").write_text(
-        "from modules import journal\n"
+        "from common import journal\n"
         "def run(run_id, writer):\n"
         "    return journal.journal_activities.open_run_bag(run_id, writer)\n",
         encoding="utf-8")
@@ -749,25 +753,30 @@ def test_the_FROM_PARENT_package_binding_bypass_is_caught(tmp_path) -> None:
 def test_the_RELATIVE_package_binding_bypass_is_caught(tmp_path) -> None:
     """`from .. import journal` -> `journal.content_store.load_object(…)`.
 
-    THE LIKELIEST BYPASS IN THE TREE, because it is the fleet's dominant
-    relative-import spelling: `from .. import routing`, `from .. import
-    plan_activities as act`, `from . import tracked_items as ti` and twenty more.
-    A module under `modules/assistant/` that needs a stored object writes this
-    line without thinking about it. `node.module` is None, so the parent check
-    cannot apply and the binding is recognised by the imported name alone.
+    THE LIKELIEST BYPASS FROM A LIBRARY SIBLING OF THE JOURNAL, because it is
+    the fleet's dominant relative-import spelling: `from .. import routing`,
+    `from .. import plan_activities as act`, `from . import tracked_items as ti`
+    and twenty more. A relative import cannot climb out of its top-level
+    package, so since the journal moved to `common/` this line reaches it ONLY
+    from a module in a sub-package of `common/` — `common/<sub>/x.py` — and the
+    fixtures sit exactly there. Written under `modules/assistant/` it resolves
+    to a `journal` package under `modules/`, and there is none. This control is also what
+    proves `common/` is swept at all: drop it from `SWEPT_DIRS` and the fixture
+    count below is zero. `node.module` is None, so the parent check cannot
+    apply and the binding is recognised by the imported name alone.
 
     Two hops on purpose: this fixture is the one that reaches THROUGH the
     package to the submodule, which is what pins the `<bound>.content_store.…`
     resolution rather than only the one-hop re-export.
     """
-    modules = tmp_path / "modules"
-    modules.mkdir()
-    (modules / "relative_bad.py").write_text(
+    sibling = tmp_path / "common" / "sibling"
+    sibling.mkdir(parents=True)
+    (sibling / "relative_bad.py").write_text(
         "from .. import journal\n"
         "def run(bag, digest):\n"
         "    return journal.content_store.load_object(bag, digest)\n",
         encoding="utf-8")
-    (modules / "relative_good.py").write_text(
+    (sibling / "relative_good.py").write_text(
         "from .. import journal\n"
         "def run(run_id, writer):\n"
         "    return journal.journal_activities.open_run_bag(run_id, writer)\n",
@@ -775,58 +784,58 @@ def test_the_RELATIVE_package_binding_bypass_is_caught(tmp_path) -> None:
 
     assert len(_swept_modules(tmp_path)) == 2, "the fixture itself must be discovered"
     flagged = {reach.split(":")[0] for reach in _sweep(tmp_path)}
-    assert flagged == {"modules/relative_bad.py"}, (
+    assert flagged == {"common/sibling/relative_bad.py"}, (
         f"the sweep must name exactly the non-conforming module; it named {flagged}")
 
 
 def test_the_ANCESTOR_package_binding_bypass_is_caught(tmp_path) -> None:
-    """`import modules` -> `modules.journal.load_object(…)`, and its two siblings.
+    """`import common` -> `common.journal.load_object(…)`, and its two siblings.
 
     THE SHAPES THE FAMILY-2 FIX ITSELF SHIPPED BLIND TO, which is why they get a
     control rather than a line in the scope list. The first version asked whether
     an import's dotted path ENDED at the package — but a plain `import` binds its
-    ROOT, so `import modules`, `import modules as m` and `import
-    modules.assistant` all put the store one or two attributes away while naming
+    ROOT, so `import common`, `import common as m` and `import
+    common.sibling` all put the store one or two attributes away while naming
     it nowhere. Measured before the fix: all three returned `[]`.
 
     ⚠ THE REACH RESOLVES ONLY IF SOMETHING IN THE PROCESS HAS IMPORTED THE
     PACKAGE, and in this fleet something always has. Measured: with a fresh
-    interpreter, `import modules` then `modules.journal` raises AttributeError —
-    but after any module runs `from modules.journal import …`, which all sixteen
-    entrypoints do, `modules.journal.content_store.load_object` resolves. So the
+    interpreter, `import common` then `common.journal` raises AttributeError —
+    but after any module runs `from common.journal import …`, which all sixteen
+    entrypoints do, `common.journal.content_store.load_object` resolves. So the
     conditionality is satisfied by the fleet's own first line, not by an
     attacker.
 
     THREE FIXTURES, TWO CONFORMING, AND THE SECOND CONFORMER IS THE POINT.
-    `import modules.assistant as ma` binds `ma` to the SIBLING package, so
+    `import common.sibling as ma` binds `ma` to the SIBLING package, so
     `ma.journal` is not a path at all — flagging it would be the identifier-text
     bug wearing an asname, and it is the false positive a fix that keyed on
-    "does this statement mention `modules`" would produce.
+    "does this statement mention `common`" would produce.
     """
     modules = tmp_path / "modules"
     modules.mkdir()
     (modules / "ancestor_bad.py").write_text(
-        "import modules\n"
+        "import common\n"
         "def run(bag, digest):\n"
-        "    return modules.journal.load_object(bag, digest)\n",
+        "    return common.journal.load_object(bag, digest)\n",
         encoding="utf-8")
     (modules / "ancestor_aliased_bad.py").write_text(
-        "import modules as m\n"
+        "import common as m\n"
         "def run(bag, digest):\n"
         "    return m.journal.content_store.load_object(bag, digest)\n",
         encoding="utf-8")
     (modules / "ancestor_sibling_bad.py").write_text(
-        "import modules.assistant\n"
+        "import common.sibling\n"
         "def run(bag, digest):\n"
-        "    return modules.journal.load_object(bag, digest)\n",
+        "    return common.journal.load_object(bag, digest)\n",
         encoding="utf-8")
     (modules / "ancestor_good.py").write_text(
-        "import modules\n"
+        "import common\n"
         "def run(run_id, writer):\n"
-        "    return modules.journal.journal_activities.open_run_bag(run_id, writer)\n",
+        "    return common.journal.journal_activities.open_run_bag(run_id, writer)\n",
         encoding="utf-8")
     (modules / "ancestor_asname_good.py").write_text(
-        "import modules.assistant as ma\n"
+        "import common.sibling as ma\n"
         "def run(bag, digest):\n"
         "    return ma.journal.load_object(bag, digest)\n",
         encoding="utf-8")
@@ -862,7 +871,7 @@ def test_a_store_NAME_imported_from_SOMEWHERE_ELSE_is_not_flagged(tmp_path) -> N
         "    return store_dir(bag), fetch_source(url)\n",
         encoding="utf-8")
     (modules / "from_the_package_bad.py").write_text(
-        "from modules.journal import object_relpath\n"
+        "from common.journal import object_relpath\n"
         "def run(digest):\n"
         "    return object_relpath(digest)\n",
         encoding="utf-8")
@@ -888,7 +897,7 @@ def test_TWO_reaches_on_ONE_LINE_are_reported_as_TWO(tmp_path) -> None:
     modules = tmp_path / "modules"
     modules.mkdir()
     (modules / "two_on_one_line.py").write_text(
-        "import modules.journal as j\n"
+        "import common.journal as j\n"
         "from .. import journal\n"
         "def run(bag, digest):\n"
         "    return j.load_object(bag, digest), journal.load_object(bag, digest)\n",
@@ -906,8 +915,8 @@ def test_the_FLEET_IDIOM_binding_journal_to_the_activities_module_is_NOT_flagged
     """THE FALSE-POSITIVE TRAP THE FAMILY-2 FIX HAD TO AVOID — ASSERTED ON THE
     FUNCTION THAT MAKES THE CLAIM, BECAUSE THE SWEEP CANNOT SEE IT.
 
-    `from modules.journal import journal_activities as journal` binds the name
-    `journal` to the ACTIVITIES module, which reaches no store; `from modules
+    `from common.journal import journal_activities as journal` binds the name
+    `journal` to the ACTIVITIES module, which reaches no store; `from common
     import journal` and `from .. import journal` bind the PACKAGE, which does.
     All three spell the bound name `journal`, so only `node.module` tells them
     apart once the asname has been ruled out — and ruling the asname out is a
@@ -935,16 +944,16 @@ def test_the_FLEET_IDIOM_binding_journal_to_the_activities_module_is_NOT_flagged
     express it".
     """
     idiom = ast.parse(
-        "from modules.journal import journal_activities as journal\n"
+        "from common.journal import journal_activities as journal\n"
         "def run(run_id, writer):\n"
         "    return journal.open_run_bag(run_id=run_id, writer=writer)\n")
     assert _package_bindings(idiom) == {}, (
         "`journal_activities as journal` binds the ACTIVITIES module, not the "
         "package; treating it as a package binding is the identifier-text bug")
 
-    for binds_the_package in ("from modules import journal\n",
+    for binds_the_package in ("from common import journal\n",
                               "from .. import journal\n",
-                              "import modules.journal as journal\n"):
+                              "import common.journal as journal\n"):
         assert _package_bindings(ast.parse(binds_the_package)), (
             f"{binds_the_package.strip()!r} binds the package and must be "
             f"collected; a check that rejects it also rejects the bypass")
@@ -962,12 +971,12 @@ def test_the_FLEET_IDIOM_binding_journal_to_the_activities_module_is_NOT_flagged
         "false positive")
 
     # AND THE ONE `alias.name` ALONE HOLDS. This clears the parent check —
-    # `modules` IS the package's parent — so only matching the original name
+    # `common` IS the package's parent — so only matching the original name
     # rather than the asname keeps it out. It is the isolated form of the
     # nineteen entrypoints, which trip both checks at once and therefore
     # demonstrate neither.
     aliased_sibling = ast.parse(
-        "from modules import journal_activities as journal\n")
+        "from common import journal_activities as journal\n")
     assert _package_bindings(aliased_sibling) == {}, (
         "the ASNAME is not what says which module was imported; matching it "
         "binds `journal_activities` as if it were the package")
@@ -979,22 +988,22 @@ def test_the_FLEET_IDIOM_binding_journal_to_the_activities_module_is_NOT_flagged
     # FIXTURE can — an activities alias reaching a name that IS in the sets.
     #
     # ⚠ AND IT HAD TO CHANGE SPELLING TO BE WORTH ANYTHING, which is the trap in
-    # miniature: written `from modules.journal import journal_activities as
+    # miniature: written `from common.journal import journal_activities as
     # journal`, the fixture is REDUNDANTLY excluded — the parent check drops the
     # statement before the asname rule is consulted — so matching the asname
     # would not have flagged it and the control would have been green whatever
-    # the code did. `from modules import journal_activities as journal` clears
+    # the code did. `from common import journal_activities as journal` clears
     # the parent check and leaves only the asname rule holding it, so this
     # fixture goes red the moment that rule is matched on the wrong name.
     modules = tmp_path / "modules"
     modules.mkdir()
     (modules / "entrypoint_shaped.py").write_text(
-        "from modules.journal import journal_activities as journal\n"
+        "from common.journal import journal_activities as journal\n"
         "def run(run_id, writer):\n"
         "    return journal.open_run_bag(run_id=run_id, writer=writer)\n",
         encoding="utf-8")
     (modules / "aliased_sibling_reaching_a_store_name.py").write_text(
-        "from modules import journal_activities as journal\n"
+        "from common import journal_activities as journal\n"
         "def run(bag, digest):\n"
         "    return journal.load_object(bag, digest)\n",
         encoding="utf-8")
@@ -1129,7 +1138,7 @@ def _map_annotation() -> str:
 def _journal_submodule_call_sites() -> dict[str, set[str]]:
     """Swept modules importing a journal submodule AS A NAME, by submodule.
 
-    `from modules.journal import journal_activities as journal` and its two
+    `from common.journal import journal_activities as journal` and its two
     cousins. Derived rather than remembered: this file's prose rests on "the
     nineteen call sites" and "the sixteen entrypoints", and a count with nothing
     on the other end of it is what shipped wrong four times in this package.
@@ -1185,6 +1194,7 @@ def test_the_FIGURES_this_files_prose_rests_on_are_DERIVED() -> None:
             "the swept population, in the per-directory floor argument",
         f"{under['modules']} under modules/": "the same, in the failure text",
         f"{under['scripts']} under scripts/": "the same, for the other directory",
+        f"{under['common']} under common/": "the same, for the library directory",
     }
     missing = {sentence: why for sentence, why in expected.items()
                if sentence not in prose}
@@ -1215,8 +1225,9 @@ def test_the_FIGURES_this_files_prose_rests_on_are_DERIVED() -> None:
         f"the {_WORD_OF[len(all_sites)]} call sites trip the first two at once",
         f"holding {under['modules']} of the {len(swept)}",
         f"all {under['scripts']} modules under scripts/",
+        f"{under['common']} under common/ outside the journal",
         f"the {shape_word} shapes, the {_WORD_OF[len(all_sites)]} call sites, "
-        f"{under['modules']}/{under['scripts']}/{len(swept)}",
+        f"{under['modules']}/{under['scripts']}/{under['common']}/{len(swept)}",
     ) if sentence not in entry]
     assert not stale, (
         f"docs/file_structure.txt's annotation for this file no longer states "

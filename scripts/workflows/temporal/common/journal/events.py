@@ -9,7 +9,7 @@ lineage and `edge_id`. **No parent branches on any of the six**, so the first ru
 rejects every one of them — and an event carries authored content verbatim, which
 one measured `research_minor` cycle put at 39,772 bytes against a 4096-byte bound.
 An extension is therefore not available; two contracts sharing one vocabulary is.
-`modules/vocabulary.py` is that vocabulary and this module imports it rather than
+`common/vocabulary.py` is that vocabulary and this module imports it rather than
 respelling anything in it.
 
 THE DESTINATION IS A FIELD, NOT A FORMAT (requirement 2). git, SQLite, a GitHub
@@ -67,7 +67,7 @@ from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Any
 
-from ..vocabulary import Outcome, TerminalState
+from common.vocabulary import Outcome, TerminalState
 # `EVENTS_FILE` is the bag's layout and `bag.py` owns it (with `events_files`,
 # the one walk that finds every writer's copy); re-exported here, where every
 # caller has always imported it from.

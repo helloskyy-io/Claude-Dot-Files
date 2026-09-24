@@ -51,8 +51,8 @@ Phase 3's contract and nothing else:
                              (r7); derives root, slug and login once
 
 THE EVENT CONTRACT IS SEPARATE FROM THE TYPED EXIT RECORD'S AND SHARES ONE
-VOCABULARY WITH IT (r3). `modules/vocabulary.py` is that vocabulary — a leaf at
-`modules/` belonging to neither package, because this package may not import
+VOCABULARY WITH IT (r3). `common/vocabulary.py` is that vocabulary — a leaf at
+`common/` belonging to neither package, because this package may not import
 `modules.assistant` and `exit_record.py` is dependency-free by design. The full
 argument is in `vocabulary.py`'s own docstring.
 
@@ -75,7 +75,7 @@ DEPENDENCY-FREE ON THE WORKFLOW TREE, on purpose. Nothing here imports
 future CPI sweep without dragging in the workflow modules — the same discipline
 `convergence.py` and `run_log.py` already keep.
 
-WHY `modules/journal/` AND NOT `scripts/` BESIDE `preflight.py`, since that is
+WHY `common/journal/` AND NOT `scripts/` BESIDE `preflight.py`, since that is
 the closest existing "every entrypoint needs it" module and a reader will ask.
 `preflight.py` is a helper: it computes paths and validates arguments, and it
 touches the filesystem only to look. This package does I/O that has to be
@@ -133,10 +133,10 @@ from .citations import (CAPTURE_HARVEST, CAPTURE_READ_TIME, Citation,
 # the only public name in this package that is not. It shares its name with its
 # own submodule, and `from .config_digest import config_digest` REBINDS the
 # package attribute the import machinery just set to the module — so
-# `import modules.journal as j; j.config_digest.ConfigDigestError` would raise
+# `import common.journal as j; j.config_digest.ConfigDigestError` would raise
 # `AttributeError` on a function object, which is how every other submodule in
 # this package can be reached. Callers take it by its full path:
-# `from modules.journal.config_digest import config_digest`.
+# `from common.journal.config_digest import config_digest`.
 from .capture_filter import (RULES, FilterResult, Rule, filter_capture,
                              placeholder_for)
 from .config_digest import (LABEL_CONFIG_DIGEST, ConfigDigest,

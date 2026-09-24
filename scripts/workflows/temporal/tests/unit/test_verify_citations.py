@@ -24,14 +24,14 @@ from pathlib import Path
 
 import pytest
 
-from modules.journal import verify as verifymod
-from modules.journal.bag import open_bag
-from modules.journal.citations import (CAPTURE_HARVEST, CAPTURE_READ_TIME,
+from common.journal import verify as verifymod
+from common.journal.bag import open_bag
+from common.journal.citations import (CAPTURE_HARVEST, CAPTURE_READ_TIME,
                                        CITATIONS_FILE, Citation, new_citation,
                                        record_citation)
-from modules.journal.content_activities import capture_fetched_source
-from modules.journal.content_store import object_path, store_bytes
-from modules.journal.verify import (EXIT_MISSING, EXIT_OK, EXIT_SPAN_MISSING,
+from common.journal.content_activities import capture_fetched_source
+from common.journal.content_store import object_path, store_bytes
+from common.journal.verify import (EXIT_MISSING, EXIT_OK, EXIT_SPAN_MISSING,
                                     EXIT_TAMPERED, EXIT_USAGE, MISSING,
                                     SPAN_MISSING, TAMPERED, VERIFIED,
                                     exit_code_for, render_report, span_occurs_in,
@@ -280,7 +280,7 @@ def _intra_package_closure(start: str) -> set[str]:
     """Every module in this package `start` reaches, following relative imports.
 
     STATIC, AND THAT IS THE WHOLE POINT. A `sys.modules` check after importing
-    `modules.journal.verify` measures the PACKAGE's `__init__`, which eagerly
+    `common.journal.verify` measures the PACKAGE's `__init__`, which eagerly
     imports every submodule — so it reports the fetcher as reached no matter
     what `verify.py` itself does, and would keep reporting it after a genuine
     regression was fixed. Walking the import statements answers the question
@@ -315,11 +315,11 @@ def test_the_verifier_reaches_no_fetcher() -> None:
 
     ⚠ WHAT THIS DOES NOT LOOK AT, and it is the reason the first version of this
     test failed on a tree with no defect in it: the PACKAGE's `__init__` imports
-    every submodule eagerly, so `import modules.journal.verify` does pull
+    every submodule eagerly, so `import common.journal.verify` does pull
     `urllib.request` into the process. That is an import, not a fetch — nothing
     on the resolve path calls it — and the property worth guarding is the code
     path rather than the process's module table. A run that wants the stronger
-    property imports `modules.journal.verify` as a file rather than through the
+    property imports `common.journal.verify` as a file rather than through the
     package, and the network-off demonstration is what proves the whole thing
     end to end regardless.
     """
@@ -412,7 +412,7 @@ def test_a_run_id_containing_the_word_TAMPERED_still_reports_MISSING(tmp_path) -
     The remedy is that the outcome is a fact about WHAT FAILED and is carried by
     the exception type, so it cannot be undone by rewording a sentence.
     """
-    from modules.journal.bag import DIR_MODE
+    from common.journal.bag import DIR_MODE
     root = tmp_path / "journal"
     root.mkdir(mode=DIR_MODE)
     bag = open_bag(root, "TAMPERED-2026")
@@ -438,7 +438,7 @@ def test_an_object_that_is_PRESENT_and_UNREADABLE_is_not_reported_as_MISSING(tmp
     and re-capturing would overwrite a record rather than repair it. It belongs
     in the class that means "the store is not currently to be trusted".
     """
-    from modules.journal.bag import DIR_MODE
+    from common.journal.bag import DIR_MODE
     root = tmp_path / "journal"
     root.mkdir(mode=DIR_MODE)
     bag = open_bag(root, "unreadable")
@@ -467,7 +467,7 @@ def test_a_bag_that_cannot_be_READ_is_a_FINDING_not_a_raised_exception(tmp_path,
     This is verbatim the regression `validate.py` records against ITSELF — "one
     such bag killed the whole sweep" — and the fix there was not carried across.
     """
-    from modules.journal.bag import DIR_MODE
+    from common.journal.bag import DIR_MODE
     root = tmp_path / "journal"
     root.mkdir(mode=DIR_MODE)
     broken = open_bag(root, "broken")

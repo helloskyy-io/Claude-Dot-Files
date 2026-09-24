@@ -39,7 +39,7 @@ reproduces its failure.
 
 ⚠ WHAT THIS DOES NOT COVER, because a sweep is only as good as its predicate:
 
-  * IT SWEEPS `modules/journal/*.py` AND NOTHING ELSE, the same scope as the
+  * IT SWEEPS `common/journal/*.py` AND NOTHING ELSE, the same scope as the
     containment sweep. A tag line composed in another package is invisible here,
     and the scope is named in the failure message so a reader hitting it learns
     the boundary rather than assuming there is none.
@@ -62,11 +62,11 @@ import sys
 import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[5]
-PACKAGE = REPO_ROOT / "scripts" / "workflows" / "temporal" / "modules" / "journal"
+PACKAGE = REPO_ROOT / "scripts" / "workflows" / "temporal" / "common" / "journal"
 
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "workflows" / "temporal"))
 
-from modules.journal.bag import (BAG_INFO_FILE, BagError,  # noqa: E402
+from common.journal.bag import (BAG_INFO_FILE, BagError,  # noqa: E402
                                  LABEL_INCOMPLETE, RUN_ID_MAX_LENGTH,
                                  RUN_ID_PERMITTED,
                                  RUN_ID_PERMITTED_DESCRIPTION,

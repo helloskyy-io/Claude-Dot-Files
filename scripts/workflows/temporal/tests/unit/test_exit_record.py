@@ -32,8 +32,8 @@ import pytest
 from planning_corpus import PLANNING_ROOT  # noqa: E402
 
 from modules.assistant.review_pr import exit_record as er
-from modules.journal import emit as journal_emit
-from modules.vocabulary import TerminalState
+from common.journal import emit as journal_emit
+from common.vocabulary import TerminalState
 from modules.assistant import routing
 from modules.assistant.review_pr import review_pr_helper as helper
 
@@ -67,6 +67,7 @@ _TEMPORAL = pathlib.Path(__file__).resolve().parents[2]      # …/temporal
 _REPO_ROOT = pathlib.Path(__file__).resolve().parents[5]     # the repository
 _ASSISTANT = _TEMPORAL / "modules" / "assistant"
 _MODULES = _TEMPORAL / "modules"
+_COMMON = _TEMPORAL / "common"
 
 
 def _envelope(record: dict | None = ..., denials: list | None = None) -> dict:
@@ -1078,11 +1079,18 @@ def test_the_typed_vocabulary_is_declared_in_exactly_one_module() -> None:
     Not a list of the strings that are wrong today — a list like that retires
     itself the moment it passes, and would be blind to the NEXT member added.
     This enumerates the vocabulary FROM the enums and asserts that no other
-    module under `modules/` spells any member as a literal. A second copy passes
+    module under `modules/assistant/` spells any member as a literal. A second copy passes
     every test in both copies while diverging; that is how `parse_verdict` came
     to be typed twice, and the copy that decided merges had zero tests.
 
-    SCOPE, STATED: `modules/**/*.py`. Deliberately outside it — the prompt
+    SCOPE, STATED: `modules/assistant/**/*.py` — the walk is `_ASSISTANT`,
+    the tree that consumes the exit record. Deliberately outside it —
+    `common/vocabulary.py`, which DECLARES `HoldKind` and so spells its members
+    by construction (a walk including it could only pass by exempting it); the
+    rest of `common/`, which is library code that imports the vocabulary rather
+    than consuming the record (measured 2026-09-24: widening the walk to
+    `modules/` and `common/` finds `common/vocabulary.py` and nothing else);
+    the prompt
     files, where the emit instruction legitimately names members (§6 makes
     prompt-borne emission part of the conformance surface, and the render tests
     cover that a placeholder has a supplier), and the frozen V1 bash fleet,
@@ -2061,10 +2069,9 @@ def test_every_production_caller_of_route_states_its_expected_ref() -> None:
     """
     import ast as _ast
 
-    tree_root = _MODULES
     callers: list[str] = []
     scanned = 0
-    for path in sorted(tree_root.rglob("*.py")):
+    for path in sorted([*_MODULES.rglob("*.py"), *_COMMON.rglob("*.py")]):
         scanned += 1
         parsed = _ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in _ast.walk(parsed):
@@ -2166,7 +2173,7 @@ def test_every_production_caller_of_route_states_its_terminal_state() -> None:
 
     callers: list[str] = []
     names: list[str] = []
-    for path in sorted(_MODULES.rglob("*.py")):
+    for path in sorted([*_MODULES.rglob("*.py"), *_COMMON.rglob("*.py")]):
         parsed = _ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in _ast.walk(parsed):
             if not (isinstance(node, _ast.Call)

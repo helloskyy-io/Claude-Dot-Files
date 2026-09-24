@@ -45,7 +45,7 @@ sys.path.insert(0, str(_REPO / "scripts" / "workflows" / "temporal" / "tests"))
 
 from planning_corpus import PLANNING_ROOT  # noqa: E402
 
-from modules.journal.root import (DEPLOYMENT_SHAPES, JournalRootError,   # noqa: E402
+from common.journal.root import (DEPLOYMENT_SHAPES, JournalRootError,   # noqa: E402
                                   default_root_for)
 
 import sys as _cg_sys  # noqa: E402

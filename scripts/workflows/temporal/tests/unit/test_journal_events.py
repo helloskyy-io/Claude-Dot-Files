@@ -19,14 +19,14 @@ import json
 
 import pytest
 
-from modules.journal.bag import JOURNAL_SCHEMA_VERSION
-from modules.journal.events import (Destination, EventError, EventKind,
+from common.journal.bag import JOURNAL_SCHEMA_VERSION
+from common.journal.events import (Destination, EventError, EventKind,
                                     GapClass, JournalEvent, Lineage,
                                     Provenance, applied_intents, decode_event,
                                     dedupe_on_identity, encode_event,
                                     event_identity, gap_event,
                                     redaction_placeholder_event)
-from modules.vocabulary import Disposition, HoldKind, Outcome, TerminalState
+from common.vocabulary import Disposition, HoldKind, Outcome, TerminalState
 
 EDGE = "edge-test"
 EPOCH = "none"
@@ -373,15 +373,15 @@ def test_the_exit_records_disposition_enum_is_DERIVED_from_the_declaration() -> 
 def test_the_journal_package_does_not_import_the_exit_record() -> None:
     """The vocabulary is a LEAF both sides import; the edge runs neither way.
 
-    `modules/journal/` importing `modules.assistant` would drag `temporalio` in
+    `common/journal/` importing `modules.assistant` would drag `temporalio` in
     behind it and break Phase 6's reader; `exit_record.py` importing the journal
     package would execute its whole `__init__` from a module that is
-    dependency-free by design. A leaf at `modules/` is the only placement that
+    dependency-free by design. A leaf at `common/` is the only placement that
     leaves both properties intact, and this is what holds it.
     """
     import ast
     import pathlib
-    source = (pathlib.Path(__file__).resolve().parents[2] / "modules" /
+    source = (pathlib.Path(__file__).resolve().parents[2] / "common" /
               "journal" / "events.py").read_text(encoding="utf-8")
 
     # ⚠ ASKED OF THE IMPORT STATEMENTS, NEVER OF THE FILE'S TEXT. A substring
@@ -395,11 +395,20 @@ def test_the_journal_package_does_not_import_the_exit_record() -> None:
         if isinstance(node, ast.Import):
             imported += [a.name for a in node.names]
         elif isinstance(node, ast.ImportFrom):
-            imported.append(f"{'.' * node.level}{node.module or ''}")
+            # The ALIASES too, not only `node.module`: `from modules import
+            # assistant` names the workflow package only in its alias, and a
+            # check reading `node.module` alone saw just `modules`.
+            base = f"{'.' * node.level}{node.module or ''}"
+            imported.append(base)
+            imported += [f"{base}.{alias.name}" for alias in node.names]
     assert imported, "no imports parsed — this check would pass vacuously"
-    assert not [m for m in imported if "assistant" in m or "exit_record" in m], (
-        f"`modules/journal/` must import no workflow module; found {imported}")
-    assert "..vocabulary" in imported, (
+    # Matched on whole SEGMENTS, never substrings: with aliases collected, a
+    # substring test would flag any helper merely named `…assistant…`.
+    assert not [m for m in imported
+                if m.lstrip(".").split(".")[0] == "modules"
+                or {"assistant", "exit_record"} & set(m.lstrip(".").split("."))], (
+        f"`common/journal/` must import no workflow module; found {imported}")
+    assert "common.vocabulary" in imported, (
         "the shared vocabulary must be IMPORTED rather than respelled — this "
         "assertion is what stops the test above passing because both sides "
         f"happen to agree today. Imports: {imported}")

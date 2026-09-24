@@ -42,8 +42,8 @@ from pathlib import Path
 # it, the journal gets it*, and these three functions ARE the fleet's write path
 # to those stores. The journal package imports no workflow module, so the edge
 # runs one way and nothing circular is created.
-from ...journal import emit as journal_emit
-from ...journal.events import Destination, Provenance
+from common.journal import emit as journal_emit
+from common.journal.events import Destination, Provenance
 
 # §7. Bumped upstream when §2 or §3 change; a consumer that writes a different
 # shape than the standard declares is detectable at dispatch instead of at

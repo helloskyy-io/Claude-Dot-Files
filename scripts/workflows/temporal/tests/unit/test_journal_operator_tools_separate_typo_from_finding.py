@@ -62,27 +62,27 @@ from pathlib import Path
 
 import pytest
 
-from modules.journal.bag import open_bag
+from common.journal.bag import open_bag
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[5]
 TEMPORAL = REPO_ROOT / "scripts" / "workflows" / "temporal"
 ENTRYPOINTS_DIR = TEMPORAL / "scripts"
 
-_CHECKER_MODULES = ("modules.journal.validate", "modules.journal.verify")
+_CHECKER_MODULES = ("common.journal.validate", "common.journal.verify")
 
 #: The bag readers that are not checker MODULES. A tool can inspect a finished
 #: bag by reading a tag straight out of it, and `compare_run_config.py` does
 #: exactly that — so membership keys on importing a bag reader BY NAME rather
 #: than on importing the `bag` module, which every writer in the fleet does. That
-#: distinction is what keeps `from modules.journal import bag` decidable as a
+#: distinction is what keeps `from common.journal import bag` decidable as a
 #: non-member, and it is asserted as a literal below rather than left implied.
 _BAG_READERS: dict[str, tuple[str, ...]] = {
-    "modules.journal.bag": ("read_tag_file",),
+    "common.journal.bag": ("read_tag_file",),
     # PMP Phase 10: the harvest index is a bag artifact, and the tool that
     # reads it back (`reconcile_harvest.py`) is the fourth operator tool.
     # Added when review found it outside this sweep — the third instance of
     # the class this file's own docstring records twice.
-    "modules.journal.harvest": ("read_harvest_indexes",),
+    "common.journal.harvest": ("read_harvest_indexes",),
 }
 
 # The code every member of this population must return for a target that is not
@@ -113,7 +113,7 @@ def imports_a_bag_checker(tree: ast.Module) -> bool:
         if isinstance(node, ast.ImportFrom):
             if node.module in _CHECKER_MODULES:
                 return True
-            if node.module == "modules.journal":
+            if node.module == "common.journal":
                 if any(alias.name in ("validate", "verify") for alias in node.names):
                     return True
             readers = _BAG_READERS.get(node.module or "", ())
@@ -150,39 +150,39 @@ def test_the_predicate_answers_correctly_on_a_LITERAL() -> None:
     Both directions, because a predicate that answers `True` unconditionally
     passes the population check above and every case below it.
     """
-    assert imports_a_bag_checker(ast.parse("from modules.journal import validate"))
-    assert imports_a_bag_checker(ast.parse("from modules.journal import verify as v"))
-    assert imports_a_bag_checker(ast.parse("from modules.journal.verify import main"))
-    assert imports_a_bag_checker(ast.parse("import modules.journal.validate"))
+    assert imports_a_bag_checker(ast.parse("from common.journal import validate"))
+    assert imports_a_bag_checker(ast.parse("from common.journal import verify as v"))
+    assert imports_a_bag_checker(ast.parse("from common.journal.verify import main"))
+    assert imports_a_bag_checker(ast.parse("import common.journal.validate"))
 
     # The widened half: a tool that reads a finished bag directly is a member,
     # named function by named function.
     assert imports_a_bag_checker(
-        ast.parse("from modules.journal.bag import read_tag_file"))
+        ast.parse("from common.journal.bag import read_tag_file"))
     assert imports_a_bag_checker(
-        ast.parse("from modules.journal.bag import BAG_INFO_FILE, read_tag_file"))
+        ast.parse("from common.journal.bag import BAG_INFO_FILE, read_tag_file"))
     assert imports_a_bag_checker(
-        ast.parse("from modules.journal.harvest import fetch_surface, read_harvest_indexes"))
+        ast.parse("from common.journal.harvest import fetch_surface, read_harvest_indexes"))
     # The harvest MODULE is a writer too (`harvest_run`); importing it whole is
     # what every entrypoint's alias does and is not membership.
-    assert not imports_a_bag_checker(ast.parse("from modules.journal import harvest"))
+    assert not imports_a_bag_checker(ast.parse("from common.journal import harvest"))
 
     # A filename in prose or in a usage string is not an import, and a sibling
     # module of the checkers is not a checker.
     assert not imports_a_bag_checker(ast.parse('"""runs validate_bag.py"""'))
-    assert not imports_a_bag_checker(ast.parse('USAGE = "modules.journal.verify"'))
+    assert not imports_a_bag_checker(ast.parse('USAGE = "common.journal.verify"'))
     assert not imports_a_bag_checker(
-        ast.parse("from modules.journal.root import resolve_journal_root"))
+        ast.parse("from common.journal.root import resolve_journal_root"))
 
     # ⚠ THE CONTROL THE WIDENING HAD TO KEEP MEANINGFUL, AND IT IS DELIBERATELY
     # NOT DELETED. Membership keys on a bag reader imported BY NAME, never on the
     # `bag` module — which every writer in the fleet imports and none of them is
     # an operator tool. Widening to the module would have swept `open_bag`'s
     # callers in and made the population meaningless in the other direction.
-    assert not imports_a_bag_checker(ast.parse("from modules.journal import bag"))
-    assert not imports_a_bag_checker(ast.parse("import modules.journal.bag"))
+    assert not imports_a_bag_checker(ast.parse("from common.journal import bag"))
+    assert not imports_a_bag_checker(ast.parse("import common.journal.bag"))
     assert not imports_a_bag_checker(
-        ast.parse("from modules.journal.bag import open_bag"))
+        ast.parse("from common.journal.bag import open_bag"))
 
 
 def test_the_population_holds_ALL_FOUR_operator_tools() -> None:

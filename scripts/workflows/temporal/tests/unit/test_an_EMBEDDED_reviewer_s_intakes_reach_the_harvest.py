@@ -68,9 +68,9 @@ from modules.assistant.plan.plan import plan_workflow as plan
 from modules.assistant.plan.plan_project import plan_project_workflow as plan_project
 from modules.assistant.research.research import research_workflow as research
 from modules.assistant.review_pr.review_pr_helper import ReviewInput, ReviewResult, Verdict
-from modules.journal import harvest_activities
-from modules.journal.bag import LABEL_INCOMPLETE, read_tag_file
-from modules.journal.events import EVENTS_FILE, EventKind, GapClass, decode_event
+from common.journal import harvest_activities
+from common.journal.bag import LABEL_INCOMPLETE, read_tag_file
+from common.journal.events import EVENTS_FILE, EventKind, GapClass, decode_event
 from review_run_fakes import REPO_SLUG, _FakeWorkflow, _record
 
 # CROSS-REPO BY CONSTRUCTION: the dispatch's repo is `REPO_SLUG` (owner/repo),

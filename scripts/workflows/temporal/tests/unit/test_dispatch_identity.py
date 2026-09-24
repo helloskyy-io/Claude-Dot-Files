@@ -42,9 +42,9 @@ sys.path.insert(0, str(TEMPORAL / "scripts"))
 
 from dispatch_identity import (RunIdentity, add_identity_arguments,  # noqa: E402
                                resolve_identity)
-from modules.journal.bag import (BAG_INFO_FILE, BagError,  # noqa: E402
+from common.journal.bag import (BAG_INFO_FILE, BagError,  # noqa: E402
                                  PAYLOAD_DIR, open_bag, read_tag_file)
-from modules.journal.journal_activities import open_run_bag  # noqa: E402
+from common.journal.journal_activities import open_run_bag  # noqa: E402
 
 
 @pytest.fixture()
@@ -224,7 +224,7 @@ def test_a_SEQUENTIAL_RETRY_under_one_run_id_yields_ONE_BAG(
     run is a fact about the directory tree, and comparing the two return values
     would pass even if a second directory had appeared beside the first.
     """
-    monkeypatch.setattr("modules.journal.journal_activities.resolve_journal_root",
+    monkeypatch.setattr("common.journal.journal_activities.resolve_journal_root",
                         lambda **_: root)
 
     first = open_run_bag(run_id="retried-run", writer=None, repo_root=TEMPORAL,
@@ -254,7 +254,7 @@ def test_a_retry_carrying_DIFFERENT_metadata_still_adopts_rather_than_rewriting(
     describes the run, and letting the last attempt overwrite it would make a
     retried run indistinguishable from one that never retried.
     """
-    monkeypatch.setattr("modules.journal.journal_activities.resolve_journal_root",
+    monkeypatch.setattr("common.journal.journal_activities.resolve_journal_root",
                         lambda **_: root)
 
     open_run_bag(run_id="r", writer=None, repo_root=TEMPORAL,
@@ -278,7 +278,7 @@ def test_a_PARENT_AND_ITS_CHILDREN_produce_ONE_bag_with_ONE_SUBFOLDER_EACH(
     for one piece of work — which is the failure Phase 9 § *A standalone child*
     names, and which every individual bag would look healthy under.
     """
-    monkeypatch.setattr("modules.journal.journal_activities.resolve_journal_root",
+    monkeypatch.setattr("common.journal.journal_activities.resolve_journal_root",
                         lambda **_: root)
 
     parent = open_run_bag(run_id="one-run", writer=None, repo_root=TEMPORAL,
@@ -306,7 +306,7 @@ def test_a_STANDALONE_CHILD_produces_exactly_one_bag_and_NO_ORPHAN(
     — if any store gets it, the journal gets it — would be false for a whole
     invocation mode.
     """
-    monkeypatch.setattr("modules.journal.journal_activities.resolve_journal_root",
+    monkeypatch.setattr("common.journal.journal_activities.resolve_journal_root",
                         lambda **_: root)
 
     identity = resolve_identity([], announce=False)
@@ -333,7 +333,7 @@ def test_two_MEMBERS_asking_for_one_writer_name_do_not_share_a_directory(
     a subfolder per attempt, which is VISIBLE in the bag — the alternative is two
     writers sharing a file, which is not.
     """
-    monkeypatch.setattr("modules.journal.journal_activities.resolve_journal_root",
+    monkeypatch.setattr("common.journal.journal_activities.resolve_journal_root",
                         lambda **_: root)
 
     open_run_bag(run_id="r", writer=None, repo_root=TEMPORAL,
@@ -357,7 +357,7 @@ def test_a_MEMBER_of_a_run_whose_bag_does_not_exist_yet_CREATES_it(
     pins the sequential behaviour so the r7 work has a baseline to change
     against, and asserts nothing about concurrency.
     """
-    monkeypatch.setattr("modules.journal.journal_activities.resolve_journal_root",
+    monkeypatch.setattr("common.journal.journal_activities.resolve_journal_root",
                         lambda **_: root)
 
     first = open_run_bag(run_id="parentless", writer="child_a", repo_root=TEMPORAL,

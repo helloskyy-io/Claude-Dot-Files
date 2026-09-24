@@ -205,7 +205,7 @@ _HERE = Path(__file__).resolve().parent
 # with no demonstrated presence is the vacuity this file exists to refuse.
 # 36 -> 38 and 25 -> 27 when a `build-refine` correction pass added the two
 # class-checks this PR's findings were instances of:
-# `test_journal_regex_anchors.py` (a `^…$` anywhere in `modules/journal/`) and
+# `test_journal_regex_anchors.py` (a `^…$` anywhere in `common/journal/`) and
 # `test_journal_operator_tools_separate_typo_from_finding.py` (an operator-named
 # target that is not there must be USAGE on every bag-inspection tool). BOTH
 # numbers moved because each ships its own literal control rather than being
@@ -220,7 +220,7 @@ _HERE = Path(__file__).resolve().parent
 # corrected one, a function that never cuts, and a call that legitimately
 # needs the worktree.
 # 44 -> 45 and 34 -> 35 when a `build-refine` pass added
-# `test_shared_vocabulary_is_declared_once.py` — the test `modules/vocabulary.py`
+# `test_shared_vocabulary_is_declared_once.py` — the test `common/vocabulary.py`
 # had CITED while it did not exist, which is why the module's one invariant was
 # held by a paragraph. BOTH numbers moved because it arrived WITH its control:
 # six literal snippets drive its re-declaration predicate, and the two that

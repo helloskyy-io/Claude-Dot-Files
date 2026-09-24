@@ -51,8 +51,8 @@ UNIT_DIR = COMPONENT / "tests" / "unit"
 
 sys.path.insert(0, str(COMPONENT))
 
-from modules.journal import journal_activities        # noqa: E402
-from modules.journal.root import JournalRootError, resolve_journal_root  # noqa: E402
+from common.journal import journal_activities        # noqa: E402
+from common.journal.root import JournalRootError, resolve_journal_root  # noqa: E402
 
 
 def _entrypoint_driving_modules() -> list[Path]:

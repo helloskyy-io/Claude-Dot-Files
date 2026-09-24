@@ -24,16 +24,16 @@ from pathlib import Path
 
 import pytest
 
-from modules.journal.bag import open_bag
-from modules.journal.citations import (CAPTURE_HARVEST, CAPTURE_READ_TIME,
+from common.journal.bag import open_bag
+from common.journal.citations import (CAPTURE_HARVEST, CAPTURE_READ_TIME,
                                        CITATIONS_FILE, CitationError,
                                        read_citations)
-from modules.journal.content_activities import (capture_code_citation,
+from common.journal.content_activities import (capture_code_citation,
                                                 capture_fetched_source,
                                                 capture_source,
                                                 resolve_citation)
-from modules.journal.content_store import load_object, object_path
-from modules.journal.verify import MISSING, VERIFIED, verify_bag, verify_citation
+from common.journal.content_store import load_object, object_path
+from common.journal.verify import MISSING, VERIFIED, verify_bag, verify_citation
 
 PAGE = b"<p>a source the run read</p>"
 SHA = "0123456789abcdef0123456789abcdef01234567"
@@ -98,7 +98,7 @@ def test_a_harvested_row_carries_the_WEAKER_guarantee(bag, monkeypatch) -> None:
     whenever an assertion raises before the `finally` is reached by a later
     edit.
     """
-    import modules.journal.content_activities as mod
+    import common.journal.content_activities as mod
     captured = {}
 
     def fake_fetch(url, *, policy=None):

@@ -32,10 +32,10 @@ from pathlib import Path
 
 import pytest
 
-from modules.journal.bag import (BAGIT_FILE, BAG_INFO_FILE, MANIFEST_FILE,
+from common.journal.bag import (BAGIT_FILE, BAG_INFO_FILE, MANIFEST_FILE,
                                  PAYLOAD_DIR, open_bag)
-from modules.journal.validate import main as validate_main
-from modules.journal.validate import render_report, validate_bag
+from common.journal.validate import main as validate_main
+from common.journal.validate import render_report, validate_bag
 
 
 def _bag(root: Path, run_id: str, *, sealed: bool, redacted: bool, incomplete: bool):

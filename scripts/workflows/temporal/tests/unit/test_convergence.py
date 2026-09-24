@@ -809,7 +809,7 @@ def test_nothing_in_the_tree_routes_on_the_convergence_signal() -> None:
     # describes the consumer as "a driver that runs many parent workflows in
     # sequence", i.e. a different parent family entirely.
     component = _TEMPORAL
-    roots = [component / "modules", component / "scripts"]
+    roots = [component / "modules", component / "common", component / "scripts"]
     found: set[tuple[str, str]] = set()
     sites: list[str] = []
     outside_assistant = 0

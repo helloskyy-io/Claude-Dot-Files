@@ -47,8 +47,8 @@ import json
 from dataclasses import dataclass
 from enum import Enum
 
-from ... import vocabulary
-from ...vocabulary import HoldKind, Outcome
+from common import vocabulary
+from common.vocabulary import HoldKind, Outcome
 from .. import routing
 
 __all__ = [
@@ -78,7 +78,7 @@ SUPPORTED_SCHEMA_VERSIONS = frozenset({"1"})
 SCHEMA_BYTE_BOUND = 4096
 
 
-# `Outcome` AND `HoldKind` ARE DECLARED IN `modules/vocabulary.py` AND IMPORTED
+# `Outcome` AND `HoldKind` ARE DECLARED IN `common/vocabulary.py` AND IMPORTED
 # HERE, not re-declared. Persistent Memory Protocol Phase 3 r3: the journal event
 # is a SEPARATE contract from this record — `exit-protocol.md` §2 forbids a field
 # added for a consumer that does not exist and §2.5 bounds this record at 4096

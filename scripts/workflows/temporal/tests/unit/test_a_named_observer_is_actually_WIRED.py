@@ -390,7 +390,8 @@ def test_the_extractor_READS_BOTH_SPELLINGS() -> None:
 # is strictly worse than silence: it is written in the file a reader trusts, and
 # it stops them checking.
 
-_MODULES_ROOT = Path(__file__).resolve().parents[2] / "modules"
+_TEMPORAL = Path(__file__).resolve().parents[2]
+_SWEPT_ROOTS = (_TEMPORAL / "modules", _TEMPORAL / "common")
 
 # The disclosure token a docstring must carry when it names a dead comparator.
 # ONE WORD, MATCHED CASE-INSENSITIVELY, rather than a judgement about tone: the
@@ -416,8 +417,8 @@ UNCALLED_BY_DECISION: dict[str, str] = {
 }
 
 
-def _defined_and_called_under(root: Path) -> tuple[dict[str, Path], set[str]]:
-    """Every comparator DEFINED under `root`, and every name CALLED under it.
+def _defined_and_called_under(*roots: Path) -> tuple[dict[str, Path], set[str]]:
+    """Every comparator DEFINED under `roots`, and every name CALLED under them.
 
     Calls are collected by their final component — `act.sizes_...` and a bare
     `sizes_...` both count — because a comparator lives in one module and is
@@ -426,7 +427,7 @@ def _defined_and_called_under(root: Path) -> tuple[dict[str, Path], set[str]]:
     """
     defined: dict[str, Path] = {}
     called: set[str] = set()
-    for path in sorted(root.rglob("*.py")):
+    for path in sorted(p for root in roots for p in root.rglob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if (isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
@@ -441,8 +442,8 @@ def _defined_and_called_under(root: Path) -> tuple[dict[str, Path], set[str]]:
     return defined, called
 
 
-def _docstrings_under(root: Path) -> list[tuple[Path, str]]:
-    """Every docstring under `root`, module / class / function alike.
+def _docstrings_under(*roots: Path) -> list[tuple[Path, str]]:
+    """Every docstring under `roots`, module / class / function alike.
 
     DOCSTRINGS AND NOT COMMENTS, and not string literals either. A docstring is
     the module's own account of what its code does — it is what `help()` renders
@@ -452,7 +453,7 @@ def _docstrings_under(root: Path) -> list[tuple[Path, str]]:
     that do.
     """
     out: list[tuple[Path, str]] = []
-    for path in sorted(root.rglob("*.py")):
+    for path in sorted(p for root in roots for p in root.rglob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if not isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef,
@@ -480,10 +481,10 @@ def test_the_comparator_sweep_FINDS_THE_FAMILY_it_is_named_for() -> None:
     equality below satisfiable by deleting the waiver — three green assertions
     over an apparatus that stopped reading the tree.
     """
-    defined, called = _defined_and_called_under(_MODULES_ROOT)
+    defined, called = _defined_and_called_under(*_SWEPT_ROOTS)
     assert len(defined) >= 5 and len(called) > 50, (
         f"the sweep found {len(defined)} comparator definition(s) and "
-        f"{len(called)} call name(s) under {_MODULES_ROOT}. The comparators are "
+        f"{len(called)} call name(s) under {[str(r) for r in _SWEPT_ROOTS]}. The comparators are "
         f"matched by the `{_COMPARATOR}` suffix; if one was renamed or the root "
         f"moved, nothing below is reading this tree.")
 
@@ -497,10 +498,10 @@ def test_no_COMPARATOR_goes_DEAD_without_somebody_saying_so() -> None:
     silently — and it cannot: removing a dead comparator fails this once, which
     is where the operator confirms the escalated ruling was actually made.
     """
-    defined, called = _defined_and_called_under(_MODULES_ROOT)
+    defined, called = _defined_and_called_under(*_SWEPT_ROOTS)
     dead = {name for name in defined if name not in called}
     assert dead == set(UNCALLED_BY_DECISION), (
-        f"comparators defined under {_MODULES_ROOT} and called by nothing: "
+        f"comparators defined under {[str(r) for r in _SWEPT_ROOTS]} and called by nothing: "
         f"{sorted(dead)}; recorded as uncalled by decision: "
         f"{sorted(UNCALLED_BY_DECISION)}. A NEW one means a guard was written "
         f"and never wired, or a call site was dropped — wire it or delete it. "
@@ -518,9 +519,9 @@ def test_no_DOCSTRING_calls_an_UNCALLED_comparator_a_LIVE_RULE() -> None:
     is what the module says it does, and it is where the false sentence was
     found.
     """
-    defined, called = _defined_and_called_under(_MODULES_ROOT)
+    defined, called = _defined_and_called_under(*_SWEPT_ROOTS)
     dead = {name for name in defined if name not in called}
-    offenders = _undisclosed_docstrings(_docstrings_under(_MODULES_ROOT), dead)
+    offenders = _undisclosed_docstrings(_docstrings_under(*_SWEPT_ROOTS), dead)
     assert not offenders, (
         f"these docstrings name a comparator nothing calls, without saying so: "
         f"{offenders}. Say it is {_DISCLOSURE} in the same docstring, or drop "

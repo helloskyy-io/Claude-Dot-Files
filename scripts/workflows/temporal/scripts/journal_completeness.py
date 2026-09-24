@@ -12,7 +12,7 @@ The two are separate on purpose and the BagIt Profiles specification is why:
 structural validation and profile conformance are different questions, checked
 alongside each other rather than folded together.
 
-The contract it checks is `modules/journal/profile.py`, which the journal owns.
+The contract it checks is `common/journal/profile.py`, which the journal owns.
 A reader that needs the same answer imports `assess_completeness`; it does not re-derive it.
 """
 from __future__ import annotations
@@ -24,10 +24,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from modules.journal.profile import assess_completeness, COMPLETE            # noqa: E402
-from modules.journal.bag import BAG_INFO_FILE, journal_bags     # noqa: E402
-from modules.journal.journal_activities import load_journal_config  # noqa: E402
-from modules.journal.root import resolve_journal_root           # noqa: E402
+from common.journal.profile import assess_completeness, COMPLETE            # noqa: E402
+from common.journal.bag import BAG_INFO_FILE, journal_bags     # noqa: E402
+from common.journal.journal_activities import load_journal_config  # noqa: E402
+from common.journal.root import resolve_journal_root           # noqa: E402
 
 
 def _bags(target: Path) -> list[Path]:
