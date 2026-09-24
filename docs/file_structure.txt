@@ -184,7 +184,8 @@ claude-dot-files/
 │   │               #   still read it. Exit 2 on a corpus it cannot find, never 0.
 │   │           ├── test_journal_baseline.py         # The reader's requirements, each asserted with the input that would break it
 │   │           ├── test_self_report_measure.py      # Phase 2's three rates on fixtures: the cut at the pass's comment, the censoring horizon, criterion-vs-event
-│   │           │                                    #   markers, sweep hypotheses kept out of the computed rate, and no path semantics above the two interfaces
+│   │           │                                    #   markers, sweep hypotheses kept out of the computed rate, and no path semantics above the two interfaces;
+│   │           │                                    #   plus r5's live guard over this repo's prompts AND the planning repo's standards/guide (skips off-host)
 │   │           ├── test_replay_completion_predicate.py  # Guards the anchoring and strict-vs-loose gap E5's zero depends on (3 mutation-proven)
 │   │           ├── test_replay_convergence_predicate.py  # Guards both early-fire counters — the OBSERVED one (a later pass reopened work)
 │   │           │                                    #   and the circular self-reported one — plus comment-order sequencing, the pass-1

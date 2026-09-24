@@ -47,6 +47,11 @@ import journal_evidence as je  # noqa: E402
 import planning_evidence as pe  # noqa: E402
 import self_report_measure as srm  # noqa: E402
 
+_CORPUS_HELPER = Path(__file__).resolve().parents[3] / "workflows" / "temporal" / "tests"
+if str(_CORPUS_HELPER) not in sys.path:
+    sys.path.insert(0, str(_CORPUS_HELPER))
+import planning_corpus  # noqa: E402
+
 _REPO = Path(__file__).resolve().parents[4]
 TODAY = __import__("datetime").date(2026, 9, 24)
 DAY = "2026-09-20"
@@ -564,12 +569,17 @@ def test_emit_samples_carries_the_text_the_hand_check_NEEDS(world, capsys):
 
 #: The CLAIM SHAPE of ranking by assertion strength — a sort/rank/priority verb
 #: keyed on how strongly, how confidently or how emphatically something was
-#: said. WHAT IT DOES NOT LOOK AT: synonyms outside this list, test files,
-#: anything outside `config/` and `scripts/workflows/`, and SEVERITY
-#: labels (`Critical`, `High`), which are a judge's classification of the
-#: defect rather than a run's conviction about its own claim — deliberately
-#: out of scope, and named here so a reader can tell a boundary from an
-#: oversight.
+#: said. It is applied to BOTH repos that hold fleet rules: this one's
+#: `config/` and `scripts/workflows/`, and the planning repo's `standards/`
+#: and `guide/`, where the triage rules live. The planning half SKIPS, with
+#: a reason, on a host without that repo beside this one. WHAT IT DOES NOT
+#: LOOK AT: synonyms outside this list, test files, the rest of the planning
+#: repo (`development/` is plans — Phase 2's own doc states this requirement
+#: in the words the pattern matches — and `research/` is evidence, never
+#: binding), and SEVERITY labels (`Critical`, `High`), which are a judge's
+#: classification of the defect rather than a run's conviction about its own
+#: claim — deliberately out of scope, and named here so a reader can tell a
+#: boundary from an oversight.
 _ASSERTED_PRIORITY = re.compile(
     r"\b(?:rank|sort|order|priorit[iy]\w*|weight)\w*\b[^.\n]{0,40}\bby\b[^.\n]{0,20}"
     r"\b(?:how strongly|conviction|emphasis|confidence|strength of (?:the )?(?:assertion|claim)|"
@@ -586,12 +596,48 @@ def _prompt_files() -> list[Path]:
     return sorted(seen)
 
 
+_PLANNING_RULE_SURFACES = ("standards", "guide")
+
+
+def _planning_rule_files(root: Path) -> list[Path]:
+    # A dot-directory is tool state, not a rule: pytest leaves an untracked
+    # `standards/.pytest_cache/README.md` on any host that ran it there.
+    return sorted({p for surface in _PLANNING_RULE_SURFACES for p in (root / surface).rglob("*.md")
+                   if not any(part.startswith(".") for part in p.relative_to(root).parts)})
+
+
+def _asserted_priority_hits(files: list[Path], root: Path) -> list[str]:
+    return [f"{p.relative_to(root)}: {m.group(0)}" for p in files
+            for m in _ASSERTED_PRIORITY.finditer(p.read_text(errors="replace"))]
+
+
 def test_NOTHING_in_the_fleet_ranks_a_finding_by_how_strongly_it_was_ASSERTED():
     files = _prompt_files()
     assert len(files) > 200, f"vacuity floor: only {len(files)} prompt/rule/code files found"
-    hits = [f"{p.relative_to(_REPO)}: {m.group(0)}" for p in files
-            for m in _ASSERTED_PRIORITY.finditer(p.read_text(errors="replace"))]
+    hits = _asserted_priority_hits(files, _REPO)
     assert hits == [], "a prompt or triage rule weights model-asserted priority — Phase 2 r5:\n" + "\n".join(hits)
+
+
+def test_NOTHING_in_the_PLANNING_repo_s_rules_ranks_a_finding_by_how_strongly_it_was_ASSERTED():
+    planning_corpus.require_planning_corpus()
+    root = planning_corpus.planning_root()
+    files = _planning_rule_files(root)
+    assert len(files) >= 40, f"vacuity floor: only {len(files)} standards/guide files under {root}"
+    hits = _asserted_priority_hits(files, root)
+    assert hits == [], "a planning standard or guide weights model-asserted priority — Phase 2 r5:\n" + "\n".join(hits)
+
+
+def test_the_planning_half_REACHES_nested_standards_and_guides_and_skips_TOOL_STATE(tmp_path):
+    (tmp_path / "standards" / "findings").mkdir(parents=True)
+    (tmp_path / "guide").mkdir()
+    (tmp_path / "development").mkdir()
+    (tmp_path / "standards" / ".pytest_cache").mkdir()
+    (tmp_path / "standards" / ".pytest_cache" / "README.md").write_text("Rank findings by confidence.\n")
+    (tmp_path / "standards" / "findings" / "triage.md").write_text("Rank findings by confidence.\n")
+    (tmp_path / "guide" / "ops.md").write_text("Triage sorts candidates by how strongly the run asserted them.\n")
+    (tmp_path / "development" / "phase.md").write_text("Nothing ranks by asserted priority.\n")
+    hits = _asserted_priority_hits(_planning_rule_files(tmp_path), tmp_path)
+    assert [h.split(":")[0] for h in hits] == ["guide/ops.md", "standards/findings/triage.md"]
 
 
 @pytest.mark.parametrize("text", [
