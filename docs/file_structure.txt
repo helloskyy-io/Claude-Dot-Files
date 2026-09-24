@@ -910,6 +910,7 @@ claude-dot-files/
 │                   │                                #   SEALED bag is refused; a redaction replaces, tombstones AND reseals, because any one
 │                   │                                #   alone leaves the bag dishonest. The Oxum check came from RUNNING a redaction — the
 │                   │                                #   first seal looked correct and the third reseal had three of a single-valued label
+│                   ├── test_journal_bag_staging.py  # A crash inside open_bag leaves a staging dir that NO reader (journal_bags, replay, journal_completeness) counts as a run
 │                   ├── test_journal_validator.py    # r8's contract is the ALWAYS, not the fields: every report carries lifecycle AND redacted
 │                   │                                #   AND incomplete. The 2x2x2 is enumerated rather than sampled, including sealed+redacted+
 │                   │                                #   incomplete, because a validator checked at three of eight points looks exactly as green

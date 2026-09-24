@@ -70,7 +70,7 @@ __all__ = ["JOURNAL_SCHEMA_VERSION", "BAGIT_VERSION", "TAG_FILE_ENCODING",
            "open_bag", "read_tag_file", "utc_now", "payload_files",
            "payload_symlinks", "sha256_of", "contained_relpath",
            "RUN_ID_PERMITTED", "RUN_ID_PERMITTED_DESCRIPTION",
-           "safe_payload_segment",
+           "STAGING_MARK", "staging_prefix", "safe_payload_segment",
            "RUN_ID_MAX_LENGTH", "validated_run_id", "folds_a_tag_line",
            "LABEL_SCHEMA_VERSION", "LABEL_REDACTION", "LABEL_INCOMPLETE",
            "LABEL_GAP", "LABEL_SEALED_AT", "BagState", "bag_state",
@@ -326,6 +326,22 @@ RUN_ID_PERMITTED = frozenset(
 # `test_journal_tag_lines.py` expands this string and asserts it is exactly
 # `RUN_ID_PERMITTED`, so the prose cannot drift from the set it describes.
 RUN_ID_PERMITTED_DESCRIPTION = "A-Z a-z 0-9 . _ -"
+
+# THE CHARACTER THAT KEEPS A STAGING DIRECTORY OUT OF THE RUN-ID NAMESPACE.
+# `open_bag` builds a bag under `.{run_id}~<random>` and renames it into place;
+# `bagit.txt` is written before the rename, so a crash leaves a directory that
+# looks like a bag. It must never be counted as a run, and `journal_bags`
+# excludes it only because `validated_run_id`'s `_RUN_ID_RE` refuses this
+# character — so it must stay OUTSIDE `RUN_ID_PERMITTED`, which that regex
+# spells. `test_journal_bag_staging.py` asserts both, and that a crash-left
+# staging directory is enumerated by no reader; `test_journal_tag_lines.py`
+# asserts the regex admits nothing the set does not declare.
+STAGING_MARK = "~"
+
+
+def staging_prefix(run_id: str) -> str:
+    """The `mkdtemp` prefix `open_bag` stages `run_id`'s bag under — never a valid run id."""
+    return f".{run_id}{STAGING_MARK}"
 
 # 128 is a bound, not a measurement, and it is stated as one. Today's ids are 32
 # hex characters; the ceiling exists so a pathological name cannot become a path
@@ -932,18 +948,21 @@ def journal_bags(root: Path) -> list[Path]:
     `validated_run_id` accepts — a directory `open_bag` could not have opened
     is not a run. Files beside the bags (`edge-id`, snapshots) are not bags.
 
-    ⚠ A CRASH-LEFT STAGING DIRECTORY IS NOT EXCLUDED. `open_bag` writes
-    `bagit.txt` into a hidden `.{run_id}.*` directory before renaming it, and
-    that name passes `validated_run_id` (a leading `.` is permitted), so one
-    left by a crash between the two is enumerated as a run. None exists in the
-    live journal (2026-09-24); the rule this replaces claimed otherwise.
+    A CRASH-LEFT STAGING DIRECTORY IS EXCLUDED BY ITS NAME, NOT BY A SECOND
+    RULE. `open_bag` writes `bagit.txt` into its staging directory before the
+    rename, so the `bagit.txt` test alone would count one a crash left behind.
+    It is named `.{run_id}~*` (`STAGING_MARK`), and `~` is outside
+    `RUN_ID_PERMITTED`, so `validated_run_id` (`_RUN_ID_RE`) refuses it here. The earlier
+    `.{run_id}.*` name passed, and a crash-left one was enumerated as a run.
 
-    ONE OWNER, BECAUSE TWO READERS MUST AGREE. Replay (`rebuild.read_bags`) and
-    the Self Improvement reader (`journal_evidence.units`) both count bags, and
-    the reader's gapped figure IS replay's (Self Improvement Phase 1 r4). A
-    copy of this rule in either is how the two denominators drift apart with
-    every test still green. The operator tools `validate`/`verify` deliberately
-    do NOT use it: they report every directory, a broken non-bag included.
+    ONE OWNER, BECAUSE THE READERS MUST AGREE. Replay (`rebuild.read_bags`),
+    the Self Improvement reader (`journal_evidence.units`) and
+    `journal_completeness.py` over a root all count runs, and the reader's
+    gapped figure IS replay's (Self Improvement Phase 1 r4). A copy of this
+    rule in any of them is how their denominators drift apart with every test
+    still green. The INTEGRITY tools `validate`/`verify` deliberately do NOT
+    use it: they report every directory, a broken non-bag or a crash-left
+    staging directory included, and that is where a malformed one surfaces.
     """
     found: list[Path] = []
     for child in sorted(root.iterdir()):
@@ -1491,17 +1510,20 @@ def open_bag(root: Path, run_id: str, *, info: dict[str, str] | None = None) -> 
     # one. `writer_dir` and `root._create_with_mode` win-or-lose an `os.mkdir` for
     # the same reason one layer down.
     #
-    # A crash between here and the rename leaves a hidden `.{run_id}.*` staging
-    # directory under the root. It is harmless — never a valid bag and never
-    # adopted (adoption keys on `<root>/<run_id>`) — and it is ACCEPTED litter,
-    # not a reclaimed resource: no retention pass exists yet to sweep it (that is
+    # A crash between here and the rename leaves a hidden `.{run_id}~*` staging
+    # directory under the root, already holding `bagit.txt`. It is never adopted
+    # (adoption keys on `<root>/<run_id>`) and never COUNTED: `STAGING_MARK` is
+    # outside `RUN_ID_PERMITTED`, so `journal_bags` refuses the name through
+    # `validated_run_id`. The earlier `.{run_id}.` prefix was a valid run id, and
+    # a crash-left staging folder was enumerated as a phantom run. It is
+    # ACCEPTED litter, not a reclaimed resource: no retention pass exists yet to sweep it (that is
     # unbuilt Phase 5 work), and the `rmtree` below is best-effort, so a hard
     # crash or a failed cleanup can persist one. That is a deliberate trade
     # against the mkdir-then-write sequence this replaces, which littered a
     # HALF-BUILT bag AT the run id — one the `exists()` fast path then adopted
     # forever after. A hidden temp dir cannot be mistaken for the run; a
     # half-built one poisons it.
-    staging = Path(tempfile.mkdtemp(prefix=f".{run_id}.", dir=str(root)))
+    staging = Path(tempfile.mkdtemp(prefix=staging_prefix(run_id), dir=str(root)))
     try:
         os.mkdir(str(staging / PAYLOAD_DIR), DIR_MODE)
         # EXACTLY TWO LINES. RFC 8493 §2.1.1 requires it, and requirement 6 turns

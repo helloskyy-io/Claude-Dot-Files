@@ -25,7 +25,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from modules.journal.profile import assess_completeness, COMPLETE            # noqa: E402
-from modules.journal.bag import BAG_INFO_FILE                   # noqa: E402
+from modules.journal.bag import BAG_INFO_FILE, journal_bags     # noqa: E402
 from modules.journal.journal_activities import load_journal_config  # noqa: E402
 from modules.journal.root import resolve_journal_root           # noqa: E402
 
@@ -33,7 +33,10 @@ from modules.journal.root import resolve_journal_root           # noqa: E402
 def _bags(target: Path) -> list[Path]:
     if (target / BAG_INFO_FILE).is_file():
         return [target]
-    return sorted(d for d in target.iterdir() if d.is_dir() and (d / BAG_INFO_FILE).is_file())
+    # A root is enumerated by the journal's one rule for which directories are
+    # runs, so a crash-left `open_bag` staging directory — which carries
+    # `bag-info.txt` — is not assessed as a run.
+    return journal_bags(target)
 
 
 def main(argv: list[str] | None = None) -> int:

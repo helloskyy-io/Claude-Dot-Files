@@ -553,6 +553,30 @@ def test_EVERY_character_in_the_declared_set_is_ACCEPTED(char: str) -> None:
     assert validated_run_id(f"run{char}id") == f"run{char}id"
 
 
+def test_NO_character_outside_the_declared_set_is_ACCEPTED() -> None:
+    """The dual of the test above: narrowing is caught there, WIDENING here.
+
+    `validated_run_id` enforces through `_RUN_ID_RE`, a separate spelling of the
+    set, and the rows of the OUTSIDE test are hand-picked. `open_bag`'s staging
+    name relies on this direction — `STAGING_MARK` is kept out of the run-id
+    namespace only while the regex refuses it — so the sweep covers every code
+    point through Latin Extended and IPA rather than a chosen few.
+    """
+    admitted = []
+    for code in range(0x300):
+        char = chr(code)
+        if char in RUN_ID_PERMITTED:
+            continue
+        try:
+            validated_run_id(f"run{char}id")
+        except BagError:
+            continue
+        admitted.append(char)
+    assert not admitted, (
+        f"validated_run_id accepts {admitted!r}, which RUN_ID_PERMITTED does not "
+        f"declare — the regex and the set have drifted apart")
+
+
 def test_a_run_id_that_is_a_RELATIVE_SEGMENT_is_refused_AS_ONE() -> None:
     """A branch no character check could reach is a branch nothing is covering.
 
