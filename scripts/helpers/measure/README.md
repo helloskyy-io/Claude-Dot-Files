@@ -23,7 +23,11 @@ read-only over local artifacts.
 | `journal_evidence.py` | Not a question — the READ INTERFACE the journal readers go through: enumerate evidence units, read one, state what it lacks. The only module here that knows a bag is a directory | `journal_baseline.py`; Self Improvement [Phase 2](/opt/skyy-net/skyynet-master-planning/development/edge-assistant/self-improvement/phase2_the_self_report_and_recurrence_measured.md) r4, which reads every record through it |
 | `replay_parent_route.py` | How often the parent ABSTAINS and for which reason, and how often the prose shadow agrees with the typed record — with the denominator's own conditioning stated | [Phase 3](/opt/skyy-net/skyynet-master-planning/development/edge-assistant/memory-management-framework/phase3_typed_exit_record.md) step 4's computed arm; [Phase 4](/opt/skyy-net/skyynet-master-planning/development/edge-assistant/memory-management-framework/phase4_fleet_migration.md)'s shadow-removal box; candidate **C-45bhs5cm** |
 
-**The last three read the RUN LOG, which is a surface with a name as of Phase 6.**
+**`replay_run_resources.py`, `replay_convergence_events.py`, `replay_parent_route.py` and
+`journal_evidence.py` read the RUN LOG, which is a surface with a name as of Phase 6** —
+named here, not counted by table position, so an inserted row cannot re-point the sentence
+(`grep -l run_log *.py`, minus `run_log.py`, derives the set; `journal_baseline.py` reads it
+only through `journal_evidence.py`).
 `run_log.py` beside them is not a replay tool — it is the one declaration of what
 that surface holds (`MEMBER_EVENT_TYPES`), what joins it (`JOIN_KEY`), what may be
 published from it, and where each figure's denominator starts (`CUTOVERS`). A

@@ -69,13 +69,14 @@ def _journal_line(run_id: str, write_path: str, address: str, content: str = "",
 
 def _transcript(*, turns=10, cost=1.0, dur=60_000, api=50_000, result=True,
                 errors=0, rbe=0, reads=(), subagents=0, so=None, extra=()) -> str:
-    """A stream-json transcript. `reads` is [(context, path)] Read calls in order."""
+    """A stream-json transcript. `reads` is [(context, path[, offset, limit])] Read calls in order."""
     lines = [{"type": "system", "subtype": "init", "session_id": "s-1"}]
     n = 0
-    for context, path in reads:
+    for context, path, *page in reads:
         n += 1
+        arguments = {"file_path": path, **dict(zip(("offset", "limit"), page))}
         lines.append({"type": "assistant", "parent_tool_use_id": context, "message": {"content": [
-            {"type": "tool_use", "id": f"r{n}", "name": "Read", "input": {"file_path": path}}]}})
+            {"type": "tool_use", "id": f"r{n}", "name": "Read", "input": arguments}]}})
     for i in range(subagents):
         name = "Agent" if i % 2 == 0 else "Task"
         lines.append({"type": "assistant", "message": {"content": [
@@ -346,6 +347,45 @@ def test_gapped_is_the_PRODUCERS_predicate_in_parity_with_replay(root):
     assert [r for r, (g, _) in sorted(ours.items()) if g] == ["b" * 32, "c" * 32, "d" * 32]
 
 
+def test_the_reader_ENUMERATES_the_bags_replay_does(root):
+    """Which directories are runs is `bag.journal_bags`, shared with replay.
+    A name `validated_run_id` refuses, a symlinked bag and a directory with
+    no `bagit.txt` are units to neither."""
+    from modules.assistant.tracked import rebuild
+    _bag(root, "a" * 32, children=[_child("build-draft", 1)])
+    _bag(root, "has space", children=[_child("build-draft", 1)])       # refused name
+    (root / ("l" * 32)).symlink_to(root / ("a" * 32))                    # symlinked bag
+    (root / "not-a-bag").mkdir()                                         # no bagit.txt
+    journal = je.open_journal(str(root))
+    assert [r.run_id for r in journal.units()] == [b.run_id for b in rebuild.read_bags(root)] == ["a" * 32]
+
+
+@pytest.mark.parametrize("module", ["measure/journal_evidence.py",
+                                    "../workflows/temporal/modules/assistant/tracked/rebuild.py"])
+def test_neither_reader_RESTATES_the_bag_layout_rules(module):
+    """THE CLASS, not the instance: a module that names the file a bag is
+    recognised by, or the file its events live in, is re-deriving a rule
+    `bag.journal_bags` / `bag.events_files` own. Both readers once did."""
+    names = _code_names((_MEASURE.parent / module).read_text())
+    assert not {"BAGIT_FILE", "EVENTS_FILE", "validated_run_id"} & names, module
+    assert {"journal_bags", "events_files"} <= names, module
+
+
+def test_an_UNPARSEABLE_stamp_dates_nothing_and_is_COUNTED(root, capsys):
+    """Windows compare dates as strings; a stamp in any other spelling would
+    be windowed by string order. It dates nothing, and the run is counted."""
+    _bag(root, "a" * 32, children=[_child("build-draft", 1)])
+    bag = _bag(root, "b" * 32, children=[])
+    address = f"/logs/build-refine-20260920-000000-{'b' * 32}.jsonl"
+    (bag / "data" / "events.jsonl").write_text(_journal_line(
+        "b" * 32, "cli-transcript", address, _transcript(), recorded_at="20260920T000000Z") + "\n")
+    journal = je.open_journal(str(root))
+    unit = journal.read([r for r in journal.units() if r.run_id == "b" * 32][0])
+    assert unit.dated_by == "mtime" and unit.children[0].date == ""
+    _, out = _run(root, capsys=capsys)
+    assert "child runs with no dated event      : 1 (no window can hold them)  (build-refine 1)" in out
+
+
 def test_coverage_is_the_CONTRACT_verdict_not_a_copy_of_it(root, capsys):
     _bag(root, "a" * 32, children=[_child("build-draft", 1)])                  # surfaces: [] -> complete
     _bag(root, "b" * 32, children=[_child("build-draft", 1)], harvest_index=False)
@@ -432,6 +472,15 @@ def test_trajectory_counts_are_STRUCTURAL_and_keyed_on_context():
     assert t.tool_errors == 3 and t.read_before_edit == 1
 
 
+def test_paging_through_a_file_is_NOT_a_repeated_read():
+    """The prompts MANDATE paging a large file; keyed on path alone, every
+    live repeat was a distinct page. The range is part of the key."""
+    paged = je._Trajectory(_transcript(reads=[(None, "/big.md", 1, 200), (None, "/big.md", 201, 200)]))
+    assert paged.repeated_reads == 0
+    same = je._Trajectory(_transcript(reads=[(None, "/big.md", 1, 200), (None, "/big.md", 1, 200)]))
+    assert same.repeated_reads == 1
+
+
 def test_a_repeated_stream_message_is_not_counted_twice():
     doubled = _transcript(reads=[(None, "/a.py")], subagents=1)
     lines = doubled.splitlines()
@@ -487,6 +536,19 @@ def test_a_child_is_windowed_by_ITS_OWN_date(root):
     assert units[0].date == "2026-09-20"
     runs = jb.child_runs(units, jb.make_window("2026-09-21", "2026-09-24", TODAY))
     assert [(c.child, c.date) for c in runs] == [("build-refine", "2026-09-21")]
+
+
+@pytest.mark.parametrize("flag", ["--since", "--until"])
+@pytest.mark.parametrize("spelling", ["20260917", "2026-W39-3", "2026-9-17", "2026-09-17T00:00"])
+def test_a_NON_CANONICAL_date_is_REFUSED(flag, spelling, root, capsys):
+    """`fromisoformat` accepts compact and week dates; the window compares
+    strings, where `20260917` sorts ABOVE every hyphenated date — a compact
+    `--until` admitted every later run under a label saying it had not."""
+    args = {"--since": (spelling, "2026-09-24"), "--until": ("2026-09-16", spelling)}[flag]
+    with pytest.raises(ValueError, match=f"{flag} '{spelling}' is not a YYYY-MM-DD date"):
+        jb.make_window(*args, TODAY)
+    _bag(root, "a" * 32, children=[_child("build-draft", 1)])
+    assert jb.main(["--root", str(root), flag, spelling], today=TODAY) == 2
 
 
 def test_the_default_window_is_the_TRAILING_30_DAYS():

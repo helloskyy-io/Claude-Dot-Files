@@ -23,6 +23,9 @@ WHAT THIS IMPORTS AND DOES NOT RE-DERIVE — each is producer-owned:
     reasons are handed up verbatim.
   * a bag's lifecycle flags — `bag.bag_state`, the one place `bag-info.txt`
     labels become `incomplete` and `gaps`.
+  * which directories are bags and which files are their events —
+    `bag.journal_bags` and `bag.events_files`, the rules replay reads by, so
+    the gapped figure r4 says IS replay's cannot drift from it.
   * an event's shape — `events.decode_event`, which refuses a schema version it
     has no upcaster for. A refused line is COUNTED on the unit, never skipped.
   * the sub-agent tool names and the run-log member set — `run_log.py`.
@@ -51,9 +54,9 @@ _TEMPORAL = _HERE.parents[1] / "workflows" / "temporal"
 if str(_TEMPORAL) not in sys.path:
     sys.path.insert(0, str(_TEMPORAL))
 
-from modules.journal.bag import (BAG_INFO_FILE, BAGIT_FILE, MANIFEST_FILE,  # noqa: E402
-                                 PAYLOAD_DIR, BagError, bag_state, read_tag_file)
-from modules.journal.events import (EVENTS_FILE, EventError, EventKind,  # noqa: E402
+from modules.journal.bag import (BAG_INFO_FILE, MANIFEST_FILE, BagError,  # noqa: E402
+                                 bag_state, events_files, journal_bags, read_tag_file)
+from modules.journal.events import (EventError, EventKind,  # noqa: E402
                                     decode_event, dedupe_on_identity)
 from modules.journal.journal_activities import load_journal_config  # noqa: E402
 from modules.journal.profile import (EVENTS, HARVEST_EVENTS,  # noqa: E402
@@ -134,7 +137,7 @@ class ChildRun:
     """
 
     child: str                       # workflow key, or "unrecognised"
-    date: str                        # YYYY-MM-DD of this run's own earliest event
+    date: str                        # YYYY-MM-DD of this run's own earliest event; "" if none is dated
     has_transcript: bool
     has_result: bool
     num_turns: int | None
@@ -143,7 +146,7 @@ class ChildRun:
     duration_api_ms: int | None
     tool_errors: int
     read_before_edit: int            # read-before-edit refusals (V1's figure)
-    repeated_reads: int              # Read calls on a path already Read in the same context
+    repeated_reads: int              # Read calls of a (path, range) already Read in the same context
     subagents: int
     # review-pr's typed record and the parent's two computed shadows
     asserted_outcome: str | None     # structured_output outcome, in OUTCOMES or UNRECOGNISED
@@ -237,19 +240,12 @@ class JournalEvidence:
     def units(self) -> list[UnitRef]:
         """Every bag directly under the root, in run-id order.
 
-        A BAG IS A DIRECTORY CARRYING `bagit.txt` — the same rule
-        `rebuild.read_bags` applies. Files beside the bags (`edge-id`,
-        snapshots) are not units, and a symlinked directory is not followed:
-        a bag may have arrived from another machine (PMP Phase 7).
+        WHICH DIRECTORIES ARE BAGS is `bag.journal_bags` — imported, not
+        restated, because `rebuild.read_bags` enumerates by the same function
+        and r4's gapped figure IS replay's. A copy here drifted once already:
+        it omitted the `validated_run_id` filter replay applies.
         """
-        refs = []
-        for child in sorted(self._root.iterdir()):
-            if child.is_symlink() or not child.is_dir():
-                continue
-            if not (child / BAGIT_FILE).is_file():
-                continue
-            refs.append(UnitRef(child.name, child))
-        return refs
+        return [UnitRef(bag.name, bag) for bag in journal_bags(self._root)]
 
     def read(self, ref: UnitRef) -> Unit:
         bag: Path = ref._location  # type: ignore[assignment]
@@ -278,13 +274,13 @@ class JournalEvidence:
         if not has_events:
             missing.append(f"no {EVENTS}")
         harvest_path = bag / HARVEST_EVENTS
-        streams = _events_files(bag)
+        streams = events_files(bag)
         parent, bad_parent = _decode_all([p for p in streams if p != harvest_path])
         harvested, bad_harvest = _decode_all([p for p in streams if p == harvest_path])
 
-        stamps = [e.recorded_at for e in parent + harvested if e.recorded_at]
-        if stamps:
-            date, dated_by = min(stamps)[:10], "event"
+        days = [d for d in map(_day, (e.recorded_at for e in parent + harvested)) if d]
+        if days:
+            date, dated_by = min(days), "event"
         else:
             # A bag with no events carries no clock of its own. The directory's
             # mtime is the one `journal_completeness.py --since` uses, so the
@@ -395,21 +391,6 @@ def _decode_all(paths: list[Path]):
     return dedupe_on_identity(found), refused
 
 
-def _events_files(bag: Path) -> list[Path]:
-    """Every regular `events.jsonl` under the payload, never through a link —
-    `rebuild._events_files`' rule, which a parity test holds this to."""
-    found: list[Path] = []
-    payload = bag / PAYLOAD_DIR
-    if not payload.is_dir() or payload.is_symlink():
-        return found
-    for dirpath, dirnames, filenames in os.walk(payload, followlinks=False):
-        dirnames.sort()
-        candidate = Path(dirpath) / EVENTS_FILE
-        if EVENTS_FILE in filenames and not candidate.is_symlink() and candidate.is_file():
-            found.append(candidate)
-    return sorted(found)
-
-
 def _bytes(bag: Path) -> int:
     total = 0
     for dirpath, _dirs, files in os.walk(bag, followlinks=False):
@@ -427,8 +408,8 @@ def _children(events) -> list[ChildRun]:
         if e.kind is not EventKind.COMPLETION:
             continue
         slot = by_address.setdefault(e.destination.address, {"members": {}, "stamps": []})
-        if e.recorded_at:
-            slot["stamps"].append(e.recorded_at)
+        if _day(e.recorded_at):
+            slot["stamps"].append(_day(e.recorded_at))
         if e.write_path == TRANSCRIPT_WRITE_PATH:
             slot["transcript"] = e.content
         elif e.write_path.startswith(RUN_LOG_PREFIX):
@@ -444,9 +425,28 @@ def _children(events) -> list[ChildRun]:
     # A CHILD IS DATED BY ITS OWN EVENTS, not by its bag's first one: a parent
     # that runs past midnight has children on two dates, and windowing them by
     # the bag's start would drop or admit a run on a day it did not happen.
-    return [_child(address, slot, min(slot["stamps"])[:10] if slot["stamps"] else "")
+    return [_child(address, slot, min(slot["stamps"]) if slot["stamps"] else "")
             for address, slot in sorted(by_address.items())
             if "transcript" in slot or slot["members"]]
+
+
+def _day(stamp) -> str | None:
+    """The `YYYY-MM-DD` a `recorded_at` stamp falls on, or None if it is not one.
+
+    EVERY DATE THE WINDOW COMPARES IS THIS ONE SPELLING, because `Window.holds`
+    compares strings. `decode_event` does not check the stamp's shape, and a
+    bag may have come from another machine, so `stamp[:10]` of a stamp in any
+    other spelling would be windowed by string order — silently. A stamp that
+    is not `utc_now`'s spelling dates nothing; a child left with no date is
+    COUNTED as undated by the report, never dropped unseen.
+    """
+    if not isinstance(stamp, str) or len(stamp) < 10:
+        return None
+    day = stamp[:10]
+    try:
+        return day if _dt.date.fromisoformat(day).isoformat() == day else None
+    except ValueError:
+        return None
 
 
 def _json_object(text: str) -> dict | None:
@@ -536,9 +536,14 @@ class _Trajectory:
     quote a tool name, and a quotation is not a call. Blocks are deduped on
     their ids because the stream can repeat a message.
 
-    REPEATED READS ARE KEYED ON (context, path). A sub-agent reading a file its
-    parent already read is a separate context doing its own work, not a re-read;
-    the context is the event's `parent_tool_use_id` (None for the main loop).
+    REPEATED READS ARE KEYED ON (context, path, offset, limit). A sub-agent
+    reading a file its parent already read is a separate context doing its own
+    work, not a re-read; the context is the event's `parent_tool_use_id` (None
+    for the main loop). THE RANGE IS IN THE KEY because the fleet's prompts
+    MANDATE paging a large file (`limit:200` on the first Read, `offset`+`limit`
+    after): keyed on path alone, 265 of 265 in-window repeats on 2026-09-24
+    were distinct pages, and the figure measured compliance with that rule
+    rather than waste. The SAME range read twice in one context is a re-read.
 
     EVERY OTHER COUNT IS RUN-WIDE, sub-agent contexts included, and that is a
     choice. F4 is the phase doc's `tool_result.is_error == true` over the run's
@@ -553,7 +558,7 @@ class _Trajectory:
             return
         seen_use: set[str] = set()
         seen_result: set[str] = set()
-        read_paths: set[tuple[object, str]] = set()
+        read_paths: set[tuple[object, str, str, str]] = set()  # offset/limit by repr: may be unhashable
         for line in text.splitlines():
             if not line.startswith("{"):
                 continue
@@ -580,9 +585,11 @@ class _Trajectory:
                     if name in _run_log.SUBAGENT_TOOL_NAMES:
                         self.subagents += 1
                     elif name == "Read":
-                        target = (block.get("input") or {}).get("file_path")
+                        arguments = block.get("input") or {}
+                        target = arguments.get("file_path")
                         if isinstance(target, str):
-                            key = (event.get("parent_tool_use_id"), target)
+                            key = (event.get("parent_tool_use_id"), target,
+                                   repr(arguments.get("offset")), repr(arguments.get("limit")))
                             if key in read_paths:
                                 self.repeated_reads += 1
                             read_paths.add(key)

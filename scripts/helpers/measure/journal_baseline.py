@@ -93,18 +93,32 @@ class Window:
 
 
 def make_window(since: str | None, until: str | None, today: _dt.date) -> Window:
-    end = until or today.isoformat()
-    requested = since or (_dt.date.fromisoformat(end) - _dt.timedelta(days=DEFAULT_WINDOW_DAYS)).isoformat()
-    for label, value in (("--since", requested), ("--until", end)):
-        try:
-            _dt.date.fromisoformat(value)
-        except ValueError:
-            raise ValueError(f"{label} {value!r} is not a YYYY-MM-DD date") from None
+    end = _date_arg("--until", until or today.isoformat())
+    requested = _date_arg("--since", since or (
+        _dt.date.fromisoformat(end) - _dt.timedelta(days=DEFAULT_WINDOW_DAYS)).isoformat())
     start = max(requested, RELIABILITY_FLOOR)
     if start > end:
         raise ValueError(f"window {start}..{end} is empty — --until precedes the "
                          f"reliability floor {RELIABILITY_FLOOR} or --since")
     return Window(start, end, requested)
+
+
+def _date_arg(label: str, value: str) -> str:
+    """`value` if it is EXACTLY `YYYY-MM-DD`, else a ValueError naming the flag.
+
+    Not "anything `fromisoformat` parses": the window compares dates AS
+    STRINGS (`Window.holds`, the floor clamp), which is only sound within one
+    spelling. Since 3.11 `fromisoformat` also accepts `20260917` and
+    `2026-W39-3`, and `'-'` sorts below every digit — so a compact
+    `--until 20260917` admitted every later run under a label saying it had
+    not. The round trip refuses every spelling but the canonical one.
+    """
+    try:
+        if _dt.date.fromisoformat(value).isoformat() == value:
+            return value
+    except ValueError:
+        pass  # not a date at all — refused below with the same message as a non-canonical one
+    raise ValueError(f"{label} {value!r} is not a YYYY-MM-DD date")
 
 
 def _require(figure: str, **parts) -> None:
@@ -282,11 +296,14 @@ def _coverage(in_window) -> list[str]:
 def _incomplete(in_window, runs) -> list[str]:
     no_result = [c for c in runs if c.has_transcript and not c.has_result]
     no_transcript = [c for c in runs if not c.has_transcript]
+    undated = [c for u in in_window for c in u.children if not c.date]
     out = ["## Incomplete records in the window — counted, never a silently smaller denominator",
            f"  child runs                          : {len(runs)}",
            f"  ... transcript with no result event : {len(no_result)}"
            + _by_child(no_result),
            f"  ... run-log events, no transcript   : {len(no_transcript)}" + _by_child(no_transcript),
+           f"  child runs with no dated event      : {len(undated)} (no window can hold them)"
+           + _by_child(undated),
            f"  bags with no events.jsonl           : {sum(not u.has_events for u in in_window)}",
            f"  gap events                          : {sum(u.gap_events for u in in_window)}"
            f" in {sum(u.gap_events > 0 for u in in_window)} bags",

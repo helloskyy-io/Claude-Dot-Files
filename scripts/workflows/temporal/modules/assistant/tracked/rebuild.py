@@ -150,10 +150,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
 
-from ...journal.bag import (BAGIT_FILE, BAG_INFO_FILE, MANIFEST_FILE,
-                            PAYLOAD_DIR, FILE_MODE, DIR_MODE, BagError,
-                            bag_state, read_tag_file, utc_now, validated_run_id)
-from ...journal.events import (EVENTS_FILE, EventError, EventKind,
+from ...journal.bag import (BAG_INFO_FILE, MANIFEST_FILE,
+                            FILE_MODE, DIR_MODE, bag_state, events_files, journal_bags,
+                            read_tag_file, utc_now)
+from ...journal.events import (EventError, EventKind,
                                JournalEvent, applied_intents, decode_event,
                                dedupe_on_identity)
 from ...journal.snapshot import (Snapshot, SnapshotError, latest_snapshot,
@@ -462,18 +462,6 @@ def _read_events_file(path: Path) -> tuple[list[JournalEvent], list[str]]:
     return events, undecodable
 
 
-def _events_files(payload: Path) -> list[Path]:
-    """Every regular `events.jsonl` under the payload, without following a link."""
-    found: list[Path] = []
-    for dirpath, dirnames, filenames in os.walk(payload, followlinks=False):
-        dirnames.sort()
-        if EVENTS_FILE in filenames:
-            candidate = Path(dirpath) / EVENTS_FILE
-            if not candidate.is_symlink() and candidate.is_file():
-                found.append(candidate)
-    return sorted(found)
-
-
 def read_bags(journal_root: Path) -> list[BagRead]:
     """Every bag directly under the root, once each, in run-id order.
 
@@ -493,15 +481,11 @@ def read_bags(journal_root: Path) -> list[BagRead]:
     (Phase 7: a bag may have arrived from another machine).
     """
     bags: dict[str, BagRead] = {}
-    for child in sorted(journal_root.iterdir()):
-        if child.is_symlink() or not child.is_dir():
-            continue
-        if not (child / BAGIT_FILE).is_file():
-            continue
-        try:
-            run_id = validated_run_id(child.name)
-        except BagError:
-            continue
+    # WHICH DIRECTORIES ARE BAGS, AND WHICH FILES ARE THEIR EVENTS, are
+    # `bag.journal_bags` and `bag.events_files` — shared with the Self
+    # Improvement reader, whose gapped figure is this one.
+    for child in journal_bags(journal_root):
+        run_id = child.name
         if run_id in bags:               # dedupe on run_id (§ Measurement)
             continue
         entries = read_tag_file(child / BAG_INFO_FILE) if (child / BAG_INFO_FILE).is_file() else []
@@ -510,13 +494,11 @@ def read_bags(journal_root: Path) -> list[BagRead]:
         events: list[JournalEvent] = []
         undecodable: list[str] = []
         total = 0
-        payload = child / PAYLOAD_DIR
-        if payload.is_dir() and not payload.is_symlink():
-            for events_file in _events_files(payload):
-                total += events_file.stat().st_size
-                found, refused = _read_events_file(events_file)
-                events.extend(found)
-                undecodable.extend(refused)
+        for events_file in events_files(child):
+            total += events_file.stat().st_size
+            found, refused = _read_events_file(events_file)
+            events.extend(found)
+            undecodable.extend(refused)
         bags[run_id] = BagRead(run_id=run_id, path=child,
                                incomplete=state.incomplete,
                                gap_labels=state.gaps,

@@ -65,6 +65,7 @@ from pathlib import Path
 # reader and Phase 7's sync will both bind to.
 __all__ = ["JOURNAL_SCHEMA_VERSION", "BAGIT_VERSION", "TAG_FILE_ENCODING",
            "PAYLOAD_DIR", "MANIFEST_FILE", "BAGIT_FILE", "BAG_INFO_FILE",
+           "EVENTS_FILE", "journal_bags", "events_files",
            "DIR_MODE", "FILE_MODE", "REDACTION_MARKER", "BagError", "Bag",
            "open_bag", "read_tag_file", "utc_now", "payload_files",
            "payload_symlinks", "sha256_of", "contained_relpath",
@@ -94,6 +95,12 @@ PAYLOAD_DIR = "data"
 MANIFEST_FILE = "manifest-sha256.txt"
 BAGIT_FILE = "bagit.txt"
 BAG_INFO_FILE = "bag-info.txt"
+#: The file one writer appends its events to, inside its own payload subfolder.
+#: JSON Lines: one event per line, appended, never rewritten. A line-oriented
+#: format is what makes "append-only" a property of the WRITE rather than a
+#: promise about the writer — a re-serialised array would rewrite every prior
+#: event on every append, which is exactly what requirement 8 forbids.
+EVENTS_FILE = "events.jsonl"
 
 DIR_MODE = 0o700
 FILE_MODE = 0o600
@@ -914,6 +921,60 @@ def payload_files(bag_path: Path) -> list[Path]:
     payload = bag_path / PAYLOAD_DIR
     found = [p for p in payload.rglob("*") if p.is_file() and not p.is_symlink()]
     return sorted(p.relative_to(bag_path) for p in found)
+
+
+def journal_bags(root: Path) -> list[Path]:
+    """Every bag directly under a journal root, in run-id order — THE rule for
+    which directories a READER counts as runs.
+
+    A bag is a real directory (a symlinked one is not followed: a bag may have
+    arrived from another machine, PMP Phase 7) carrying `bagit.txt`, whose name
+    `validated_run_id` accepts — a directory `open_bag` could not have opened
+    is not a run. Files beside the bags (`edge-id`, snapshots) are not bags.
+
+    ONE OWNER, BECAUSE TWO READERS MUST AGREE. Replay (`rebuild.read_bags`) and
+    the Self Improvement reader (`journal_evidence.units`) both count bags, and
+    the reader's gapped figure IS replay's (Self Improvement Phase 1 r4). A
+    copy of this rule in either is how the two denominators drift apart with
+    every test still green. The operator tools `validate`/`verify` deliberately
+    do NOT use it: they report every directory, a broken non-bag included.
+    """
+    found: list[Path] = []
+    for child in sorted(root.iterdir()):
+        if child.is_symlink() or not child.is_dir():
+            continue
+        if not (child / BAGIT_FILE).is_file():
+            continue
+        try:
+            validated_run_id(child.name)
+        except BagError:
+            continue
+        found.append(child)
+    return found
+
+
+def events_files(bag_path: Path) -> list[Path]:
+    """Every writer's regular `events.jsonl` under the bag's payload, sorted.
+
+    A parent writes `data/events.jsonl`, each member `data/<writer>/events.jsonl`
+    (`Bag.writer_dir`), the harvest `data/harvest/events.jsonl` — so a reader
+    that opened fixed names would miss a member's stream. `os.walk(followlinks=
+    False)` never descends a symlinked directory, stated in the call rather
+    than left to `Path.rglob`, whose symlink behaviour changed at 3.13; a
+    symlinked payload or events file is not read. One owner for
+    `journal_bags`' reason: replay and the reader must read the same streams.
+    """
+    found: list[Path] = []
+    payload = bag_path / PAYLOAD_DIR
+    if not payload.is_dir() or payload.is_symlink():
+        return found
+    for dirpath, dirnames, filenames in os.walk(payload, followlinks=False):
+        dirnames.sort()
+        if EVENTS_FILE in filenames:
+            candidate = Path(dirpath) / EVENTS_FILE
+            if not candidate.is_symlink() and candidate.is_file():
+                found.append(candidate)
+    return sorted(found)
 
 
 @dataclass(frozen=True)

@@ -68,7 +68,10 @@ from enum import Enum
 from typing import Any
 
 from ..vocabulary import Outcome, TerminalState
-from .bag import JOURNAL_SCHEMA_VERSION, utc_now
+# `EVENTS_FILE` is the bag's layout and `bag.py` owns it (with `events_files`,
+# the one walk that finds every writer's copy); re-exported here, where every
+# caller has always imported it from.
+from .bag import EVENTS_FILE, JOURNAL_SCHEMA_VERSION, utc_now
 
 __all__ = ["EventKind", "Provenance", "Destination", "Lineage", "JournalEvent",
            "EventError", "event_identity", "dedupe_on_identity",
@@ -76,12 +79,6 @@ __all__ = ["EventKind", "Provenance", "Destination", "Lineage", "JournalEvent",
            "EVENTS_FILE", "encode_event", "decode_event", "GapClass"]
 
 
-#: The file one writer appends its events to, inside its own payload subfolder.
-#: JSON Lines: one event per line, appended, never rewritten. A line-oriented
-#: format is what makes "append-only" a property of the WRITE rather than a
-#: promise about the writer — a re-serialised array would rewrite every prior
-#: event on every append, which is exactly what requirement 8 forbids.
-EVENTS_FILE = "events.jsonl"
 
 
 class EventError(RuntimeError):
