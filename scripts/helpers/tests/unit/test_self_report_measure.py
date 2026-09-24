@@ -271,6 +271,35 @@ def test_a_FORGE_refusal_is_counted_never_a_crash(world, capsys):
     assert "forge refused 1" in out
 
 
+def test_the_report_NAMES_the_source_of_each_PR(world, capsys):
+    _standard_journal(world[0])
+    code, out = _run(world, "--no-forge", capsys=capsys)
+    assert "    harvest: o/r#7" in out
+
+
+def test_a_QUOTED_id_in_an_earlier_block_still_marks_the_finding_CARRIED(world, capsys):
+    quoted = "```yaml\npr_review:\n  pr: 7\n  run_id: " + R1 + "\n  findings:\n    - id: 'alpha-bug'\n```"
+    _bag(world[0], "a" * 32,
+         reviews=[(R1, PR_URL, [("alpha-bug", "fixed")]), (R2, PR_URL, [("alpha-bug", "fixed")])],
+         threads=[("o/r", 7, "body", [(100, REFLECT), (200, quoted), (300, _block(R2, TITLES[:1]))])])
+    code, out = _run(world, "--no-forge", capsys=capsys)
+    assert "new, carried from an earlier pass: 0/1" in out
+
+
+def test_same_day_harvests_merge_in_HARVEST_order_not_run_id_order(world, capsys):
+    """Two bags on one day both harvest o/r#7; the one whose run id sorts FIRST
+    harvested LATER, after the comment was edited to add a recurrence claim."""
+    early, late = "f" * 32, "0" * 32
+    _bag(world[0], early, threads=[("o/r", 7, "b", [(100, "## Post-Run Reflection\n- nothing to add here.\n")])])
+    bag = _bag(world[0], late, reviews=[(R1, PR_URL, [("alpha-bug", "fixed")])],
+               threads=[("o/r", 7, "b", [(100, "## Post-Run Reflection\n- the gate went red again today.\n"),
+                                         (200, _block(R1, TITLES[:1]))])])
+    harvest = bag / "data" / "harvest" / "events.jsonl"
+    harvest.write_text(harvest.read_text().replace(f"{DAY}T01:00:00Z", f"{DAY}T05:00:00Z"))
+    code, out = _run(world, "--no-forge", "--repo", "o/r", capsys=capsys)
+    assert "claims corroborated (computed): 0/1" in out
+
+
 def test_a_finding_an_earlier_pass_carried_is_split_out(world, capsys):
     _bag(world[0], "a" * 32,
          reviews=[(R1, PR_URL, [("alpha-bug", "fixed")]),
@@ -331,6 +360,19 @@ def test_a_reflection_section_ENDS_at_the_next_heading_of_its_level():
     assert "outside" not in section and "after" not in section
 
 
+def test_a_recurring_id_is_SCOPED_to_the_repo_under_check(world, capsys):
+    """alpha-bug is carried by two passes — one on o/r, one on another repo.
+    Counted across repos it would corroborate the o/r claim naming it; scoped,
+    one pass is not a recurrence."""
+    claim = ("## Post-Run Reflection\n- **Friction:** the alpha-bug came back again after the "
+             "merge and cost a whole pass.\n")
+    _bag(world[0], "a" * 32, reviews=[(R1, PR_URL, [("alpha-bug", "fixed")]),
+                                      (R2, "https://github.com/x/y/pull/9", [("alpha-bug", "fixed")])],
+         threads=[("o/r", 7, "b", [(100, claim), (200, _block(R1, TITLES[:1]))])])
+    code, out = _run(world, "--no-forge", "--repo", "o/r", capsys=capsys)
+    assert "claims corroborated (computed): 0/1" in out
+
+
 def test_r2_reads_the_repo_with_the_most_harvested_threads_and_says_so(world, capsys):
     _standard_journal(world[0])
     code, out = _run(world, "--no-forge", capsys=capsys)
@@ -347,7 +389,7 @@ def test_the_three_groups_SUM_to_the_DEFERRED_count(world, capsys):
     _standard_journal(world[0])
     code, out = _run(world, "--no-forge", capsys=capsys)
     assert ("CPI DEFERRED entries     recurred    2 : never-recurred    2  -> ratio 1.00;"
-            "  unclassified    2; total 6 (= 2 + 2 + 2)") in out
+            "  unclassified    2; total 6 (= 2 + 2 + 2)   <- THE RATE") in out
     assert "tracked items            recurred    1 : never-recurred    1" in out
     assert "total 4 (= 1 + 1 + 2)" in _line(out, "tracked items            recurred")
 
@@ -371,7 +413,7 @@ def test_a_deferral_a_phase_BUILT_is_unclassified_not_recurred(world):
 
 @pytest.mark.parametrize("filed, group", [("2026-06-26", "never"), ("2026-06-27", "unclassified")])
 def test_the_censoring_horizon_is_90_days_AT_THE_BOUNDARY(filed, group):
-    [g] = srm.tracked_groups([pe.TrackedItem("C-x", "candidates", "open", 1, filed)], [], TODAY)
+    [g] = srm.tracked_groups([pe.TrackedItem("C-x", "candidates", 1, filed)], [], TODAY)
     assert g.group == group
 
 
@@ -379,6 +421,48 @@ def test_an_unparseable_tracked_item_is_LISTED_not_dropped(world, capsys):
     _standard_journal(world[0])
     code, out = _run(world, "--no-forge", capsys=capsys)
     assert "the item would not parse" in out and "I-dddddddd" in out
+
+
+def test_OPERATIONS_is_not_a_deferral_store_and_is_excluded_not_counted(world, capsys):
+    """A human's note-to-self (Tracked Items §1.2) was never deferred: an old
+    count-1 operations item would otherwise read as NEVER-recurred."""
+    (world[1] / "tracked" / "operations" / "O-eeeeeeee.md").write_text(_item("O-eeeeeeee", 1, "2026-01-01"))
+    _standard_journal(world[0])
+    code, out = _run(world, "--no-forge", capsys=capsys)
+    assert "total 4 (= 1 + 1 + 2)" in _line(out, "tracked items            recurred")
+    assert "O-eeeeeeee" not in out
+    assert "excluded, not deferral stores: operations" in out
+
+
+def test_the_POOLED_ratio_says_it_is_not_a_rate_while_no_tracked_item_is_NEVER():
+    cpi = [srm.Deferral("cpi:1", "cpi", "x", "never", ""), srm.Deferral("cpi:2", "cpi", "y", "recurred", "")]
+    young = [srm.Deferral("C-y", "candidates", "C-y", "recurred", "count 2")]
+    old = young + [srm.Deferral("C-z", "candidates", "C-z", "never", "")]
+    tag = "NOT a rate"
+    assert tag in _line("\n".join(srm.report_calibration(cpi + young, TODAY, None, [], None, "")), "both, pooled")
+    assert tag not in _line("\n".join(srm.report_calibration(cpi + old, TODAY, None, [], None, "")), "both, pooled")
+
+
+@pytest.mark.parametrize("line, recurred", [
+    ("- **TS-1** has not recurred since.", False),
+    ("- **TS-1** no recurrence this cycle.", False),
+    ("- **TS-1** hasn't recurred.", False),
+    ("- **TS-1** recurred in both repos.", True),
+])
+def test_a_NEGATED_marker_is_not_a_recurrence(line, recurred):
+    assert srm.is_recurrence(line) is recurred
+
+
+def test_an_amendment_that_DENIES_recurrence_is_not_one():
+    assert not srm.is_amended("- **TS-4 — x**\n  > checked 2026-09-01: not recurred")
+    assert srm.is_amended("- **TS-4 — x**\n  > 🔁 recurred 2026-09-01")
+
+
+def test_a_malformed_CPI_heading_date_is_UNDATED_not_a_crash():
+    [d] = pe._deferrals(["## 2026-13-45 — typo", "### DEFERRED — a thing deferred under a bad date"])
+    assert d.section_date == ""
+    [g] = srm.cpi_groups(pe._sections(["## 2026-13-45 — typo"]), [d], TODAY)
+    assert g.group == "unclassified" and "no date" in g.reason
 
 
 def test_the_cpi_parser_reads_every_ENTRY_SHAPE_the_log_writes():
@@ -420,6 +504,25 @@ def test_a_sweep_claim_must_be_VERBATIM_and_is_corroborated_by_the_SAME_rule(wor
     assert "the computed rate has no denominator" in out               # the computed population is empty
 
 
+@pytest.mark.parametrize("doc", [[], "x", {"hypotheses": []}, {"hand": {"e1b": ["new"]}},
+                                 {"hand": {"e1b": {"k": ["new"]}}}, {"hypotheses": {"e1b": {"a": 1}}}])
+def test_a_misshapen_stdin_document_is_REFUSED_not_a_crash(world, capsys, doc):
+    _standard_journal(world[0])
+    code, out = _run(world, "--no-forge", "--stdin", capsys=capsys, stdin=_stdin(doc))
+    assert code == 2 and "self_report_measure: --stdin" in out
+
+
+def test_a_misshapen_HYPOTHESIS_is_refused_and_counted_not_a_crash(world, capsys):
+    _standard_journal(world[0])
+    bad = [{"entry_line": [1, 2], "evidence_line": 3}, "not an object", {"pr": ["o/r#7"], "comment_id": 100,
+                                                                         "sentence": "s"}]
+    code, out = _run(world, "--no-forge", "--stdin", capsys=capsys, stdin=_stdin({"hypotheses": {
+        "calibration": bad[:2], "recurrence": bad[1:], "e1b": [{"pr": {"x": 1}, "finding_id": "a"}]}}))
+    assert code == 0, out
+    for needle in ("WITH THE SWEEP'S DEFERRALS", "WITH THE SWEEP'S CLAIMS", "sweep hypotheses (finding ids"):
+        assert "malformed hypothesis" in _line(out, needle)
+
+
 def test_a_calibration_link_is_checked_for_POSITION_and_MARKER(world, capsys):
     _standard_journal(world[0])
     cpi = CPI.splitlines()
@@ -437,7 +540,7 @@ def test_a_calibration_link_is_checked_for_POSITION_and_MARKER(world, capsys):
         assert part in tally
     # the COMPUTED figure is untouched; the sweep's is printed beside it
     assert "CPI DEFERRED entries     recurred    2 : never-recurred    2" in out
-    assert "both, with the sweep     recurred    4 : never-recurred    2" in out
+    assert "CPI, with the sweep      recurred    3 : never-recurred    1" in out
 
 
 def test_the_hand_check_prints_disagreements_AND_their_direction(world, capsys):

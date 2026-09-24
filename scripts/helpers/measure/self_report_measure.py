@@ -71,7 +71,7 @@ import json
 import random
 import re
 import sys
-from collections import Counter, defaultdict
+from collections import Counter
 from dataclasses import dataclass, field
 
 import journal_baseline as jb
@@ -98,6 +98,10 @@ RECURRENCE_MARKER = re.compile(r"🔁|\brecurr(?:ed|ing|ence|ences)\b|\b(?:secon
 #: second occurrence", "defer until recurrence". Measured: without it WI-1's
 #: criterion line counted as Pattern C recurring.
 _CRITERION = re.compile(r"\b(?:on|until|upon|at)\s+(?:the\s+|a\s+)?\Z", re.I)
+#: A marker NEGATED within two words is not an event either: "has not
+#: recurred", "no recurrence since", "never recurred". Without it the bare word
+#: is read as the thing it denies — both in a later line and in an amendment.
+_NEGATED = re.compile(r"(?:\b(?:not|never|no)|n't)\s+(?:\w+\s+){0,2}\Z", re.I)
 #: r3's in-place amendment that states a recurrence. `→ SHIPPED` is NOT one:
 #: it records that the item was built, and a planned phase can build a
 #: deferral that never came back (cpi-decisions.md line 974 is exactly that).
@@ -121,7 +125,6 @@ class Corpus:
     records: list                 # je.ReviewRecord in window
     bag_threads: dict             # run_id -> {(repo, pr): Thread}
     repo_threads: dict            # (repo, pr) -> Thread, every harvest merged
-    thread_dates: dict            # (repo, pr) -> [bag date]
     forge: dict = field(default_factory=dict)   # (repo, pr) -> Thread | None
     forge_errors: list = field(default_factory=list)
     use_forge: bool = True
@@ -147,9 +150,21 @@ class Corpus:
         return (self.forge[key], "forge") if self.forge[key] is not None else (None, "unreached (forge refused)")
 
 
+def _harvest_order(journal: je.JournalEvidence, ref, unit) -> tuple[str, str]:
+    """(day, latest harvest stamp) — the order in which a PR's harvests are merged.
+
+    THE DAY ALONE DOES NOT ORDER TWO BAGS HARVESTED ON THE SAME DATE: `units()`
+    yields bags in run-id order, and run ids are random, so a same-day tie
+    would let an EARLIER harvest's text of an edited comment overwrite a later
+    one. The harvest's own `recorded_at` breaks the tie.
+    """
+    return unit.date, max((h.recorded_at for h in journal.harvest(ref)), default="")
+
+
 def load(journal: je.JournalEvidence, window: jb.Window, *, use_forge: bool, runner) -> Corpus:
-    records, bag_threads, merged, dates = [], {}, {}, defaultdict(list)
-    units = sorted(((ref, journal.read(ref)) for ref in journal.units()), key=lambda p: p[1].date)
+    records, bag_threads, merged = [], {}, {}
+    units = sorted(((ref, journal.read(ref)) for ref in journal.units()),
+                   key=lambda p: _harvest_order(journal, *p))
     for ref, unit in units:
         if unit.date < jb.RELIABILITY_FLOOR:
             continue
@@ -159,13 +174,12 @@ def load(journal: je.JournalEvidence, window: jb.Window, *, use_forge: bool, run
         if not window.holds(unit.date):
             continue
         for key, t in threads.items():
-            dates[key].append(unit.date)
             base = merged.get(key)
             comments = dict(base.comments) if base else {}
-            comments.update(dict(t.comments))      # later bag wins: units are date-sorted
+            comments.update(dict(t.comments))      # later harvest wins: see `_harvest_order`
             merged[key] = je.Thread(t.repo, t.pr, "harvest", t.body or (base.body if base else ""),
                                     tuple(sorted(comments.items())))
-    return Corpus(window, records, bag_threads, merged, dict(dates), use_forge=use_forge, runner=runner)
+    return Corpus(window, records, bag_threads, merged, use_forge=use_forge, runner=runner)
 
 
 # --- reading a thread -------------------------------------------------------------
@@ -287,7 +301,7 @@ def e1b(corpus: Corpus) -> list[Classified]:
         earlier = set()
         for text in before:
             for m in PR_REVIEW_BLOCK.finditer(text):
-                earlier |= set(titles_in_block(m.group(1))) | set(_ITEM_START.findall(findings_section(m.group(1))))
+                earlier |= {i.strip("'\"") for i in _ITEM_START.findall(findings_section(m.group(1)))}
         for k, (fid, disposition) in enumerate(r.findings):
             title = titles.get(fid)
             title_source = "block" if title else "slug"
@@ -399,7 +413,12 @@ def _lines(section: pe.CpiSection):
 
 
 def is_recurrence(line: str) -> bool:
-    return any(not _CRITERION.search(line[:m.start()]) for m in RECURRENCE_MARKER.finditer(line))
+    return any(not _CRITERION.search(line[:m.start()]) and not _NEGATED.search(line[:m.start()])
+               for m in RECURRENCE_MARKER.finditer(line))
+
+
+def is_amended(text: str) -> bool:
+    return any(not _NEGATED.search(text[:m.start()]) for m in AMENDED.finditer(text))
 
 
 def _cites(entry: pe.CpiDeferral, text: str) -> bool:
@@ -418,7 +437,7 @@ def cpi_groups(sections, deferrals, today: _dt.date) -> list[Deferral]:
         label = d.title[:80]
         if evidence is not None:
             out.append(Deferral(f"cpi:{d.line}", "cpi", label, "recurred", "a later line cites it with a recurrence marker", f"line {evidence}"))
-        elif AMENDED.search(d.text):
+        elif is_amended(d.text):
             out.append(Deferral(f"cpi:{d.line}", "cpi", label, "recurred", "amended in place with a recurrence", f"line {d.line}"))
         elif SHIPPED.search(d.text):
             out.append(Deferral(f"cpi:{d.line}", "cpi", label, "unclassified",
@@ -428,9 +447,19 @@ def cpi_groups(sections, deferrals, today: _dt.date) -> list[Deferral]:
     return out
 
 
+#: Stores whose items are NOT deferrals and so are not in r3's population.
+#: `operations/` is a human's note-to-self with no done-state (Tracked Items
+#: Standard §1, §1.2) — nothing was deferred into it, so it can neither recur
+#: as a deferral nor fail to. Excluded and COUNTED, never silently dropped.
+NOT_DEFERRALS = frozenset({"operations"})
+
+
 def tracked_groups(items, unreadable, today: _dt.date) -> list[Deferral]:
-    out = [Deferral(f"file:{u}", "tracked", u, "unclassified", "the item would not parse") for u in unreadable]
+    out = [Deferral(f"file:{u}", "tracked", u, "unclassified", "the item would not parse")
+           for u in unreadable if u.split("/", 1)[0] not in NOT_DEFERRALS]
     for it in items:
+        if it.store in NOT_DEFERRALS:
+            continue
         if it.count is None:
             out.append(Deferral(it.id, it.store, it.id, "unclassified", "`count` is not an integer"))
         elif it.count >= 2:
@@ -452,9 +481,24 @@ def _censor(key, origin, label, date, today) -> Deferral:
 
 # --- hypotheses (r6) --------------------------------------------------------------------
 
+#: A hypothesis is a MODEL'S OUTPUT: every field is checked for shape before it
+#: is used as a key, so a malformed one is refused and counted like any other
+#: refusal rather than crashing the report (a list is unhashable).
+MALFORMED = "refused — malformed hypothesis"
+
+
+def _field(h, name: str):
+    """`h[name]` when `h` is an object and the value is a string or an integer, else None."""
+    v = h.get(name) if isinstance(h, dict) else None
+    return v if isinstance(v, (str, int)) and not isinstance(v, bool) else None
+
+
 def apply_e1b_hypotheses(found: list[Classified], hyps: list) -> dict:
     tally = Counter()
     for h in hyps:
+        if _field(h, "pr") is None or _field(h, "finding_id") is None:
+            tally[MALFORMED] += 1
+            continue
         matches = [c for c in found if c.pr == h.get("pr") and c.finding_id == h.get("finding_id")
                    and c.status in ("stated", "new")]
         if not matches:
@@ -471,8 +515,11 @@ def apply_claim_hypotheses(threads, claims, hyps, counts, recurring) -> tuple[li
     have = {(c.key.rsplit(":", 1)[0], _norm(c.sentence)) for c in claims}
     added, tally = [], Counter()
     for k, h in enumerate(hyps):
-        text = by_comment.get((h.get("pr"), h.get("comment_id")))
-        sentence = _norm(str(h.get("sentence", "")))
+        if _field(h, "pr") is None or _field(h, "comment_id") is None or not isinstance(h.get("sentence"), str):
+            tally[MALFORMED] += 1
+            continue
+        text = by_comment.get((h["pr"], h["comment_id"]))
+        sentence = _norm(h["sentence"])
         if text is None:
             tally["refused — comment not in the repo's threads"] += 1
             continue
@@ -494,8 +541,11 @@ def apply_calibration_hypotheses(groups, sections, deferrals, hyps) -> tuple[lis
     lines = {n: (s, line) for s in sections for n, line in _lines(s)}
     out, tally = {g.key: g for g in groups}, Counter()
     for h in hyps:
-        entry = by_line.get(h.get("entry_line"))
-        hit = lines.get(h.get("evidence_line"))
+        if _field(h, "entry_line") is None or _field(h, "evidence_line") is None:
+            tally[MALFORMED] += 1
+            continue
+        entry = by_line.get(h["entry_line"])
+        hit = lines.get(h["evidence_line"])
         if entry is None:
             tally["refused — entry_line is not a DEFERRED entry"] += 1
         elif hit is None or hit[0].line <= entry.section_line:
@@ -556,6 +606,11 @@ def report_e1b(found: list[Classified], corpus: Corpus, hand, hyps) -> list[str]
     sources = Counter(c.pr for c in found if c.source == "harvest"), Counter(c.pr for c in found if c.source == "forge")
     out.append(f"  thread source, per PR : harvest {len(sources[0])}, forge {len(sources[1])}"
                f"{'; forge refused ' + str(len(corpus.forge_errors)) if corpus.forge_errors else ''}")
+    # r4: "the report says which source each PR came from" — each PR by name.
+    # PR numbers are publishable; a PR read from both appears under both.
+    for label, prs in (("harvest", sources[0]), ("forge", sources[1])):
+        if prs:
+            out.append(f"    {label}: {', '.join(sorted(prs))}")
     if rated:
         new = sum(c.status == "new" for c in rated)
         dates = sorted(c.date for c in rated)
@@ -614,7 +669,9 @@ def report_claims(repo, claims, reach, added, tally, hand) -> list[str]:
     out += ["  METHOD : a Post-Run Reflection sentence matching the claim pattern is CORROBORATED when it",
             "           names a tracked item with count >= 2, or a finding id >= 2 typed records carried.",
             "  BIAS   : a real recurrence described without an id is UNCORROBORATED, and a sentence that",
-            "           describes the recurrence RULE is in the population — the rate is a LOWER bound."]
+            "           describes the recurrence RULE is in the population — both push the rate DOWN. Against",
+            "           that, a generic slug two passes on different PRs of this repo happened to share",
+            "           corroborates by spelling (ids are scoped to the repo, not the PR) — which pushes UP."]
     if hand is not None:
         out += ["  " + line for line in hand_agreement({c.key: c.status for c in claims}, hand)]
     out.append("  UNCORROBORATED — model-authored text, for the reader of this output; never publish it:")
@@ -630,20 +687,27 @@ def report_calibration(groups, today, tally, base, hand, sources) -> list[str]:
     out = [f"## r3 — the V1 calibration ratio, as of {today.isoformat()} ({CENSOR_DAYS}-day censoring horizon)",
            f"  reads : {sources}"]
 
-    def block(label, gs):
+    def block(label, gs, tag=""):
         c = Counter(g.group for g in gs)
         ratio = f"{c['recurred'] / c['never']:.2f}" if c["never"] else "undefined (no never-recurred entry)"
         return [f"  {label:<24} recurred {c['recurred']:>4} : never-recurred {c['never']:>4}  -> ratio {ratio};"
-                f"  unclassified {c['unclassified']:>4}; total {len(gs)} (= {c['recurred']} + {c['never']} + {c['unclassified']})"]
+                f"  unclassified {c['unclassified']:>4}; total {len(gs)} (= {c['recurred']} + {c['never']} + {c['unclassified']}){tag}"]
     cpi = [g for g in groups if g.origin == "cpi"]
     tracked = [g for g in groups if g.origin != "cpi"]
-    out += block("CPI DEFERRED entries", cpi) + block("tracked items", tracked) + block("both", groups)
+    # THE CPI LOG IS THE RATE: it is the population the ratio was defined over
+    # (`cpi-decisions.md`), and the only one old enough to hold a NEVER. Pooled,
+    # a store that cannot yet produce a NEVER adds recurrences to one side only.
+    pooled_tag = ("   <- NOT a rate: the tracked stores hold no NEVER yet, so pooling inflates the ratio"
+                  if not any(g.group == "never" for g in tracked) else "")
+    out += (block("CPI DEFERRED entries", cpi, "   <- THE RATE") + block("tracked items", tracked)
+            + block("both, pooled", groups, pooled_tag))
+    out.append(f"    excluded, not deferral stores: {', '.join(sorted(NOT_DEFERRALS))} (Tracked Items Standard §1)")
     for store in sorted({g.origin for g in tracked}):
         c = Counter(g.group for g in tracked if g.origin == store)
         out.append(f"    {store:<12} recurred {c['recurred']}, never {c['never']}, unclassified {c['unclassified']}")
     if tally is not None:
         out.append(f"  WITH THE SWEEP'S DEFERRALS TO RE-CHECK: {tally or 'none supplied'}")
-        out += ["  " + line.strip() for line in block("both, with the sweep", base)]
+        out += ["  " + line.strip() for line in block("CPI, with the sweep", [g for g in base if g.origin == "cpi"])]
         changed = Counter(g.group for g in base) != Counter(g.group for g in groups)
         out.append(f"    changed the computed result: {'YES' if changed else 'no'}")
     out += ["  METHOD : a CPI entry RECURRED when a LINE in a later section cites its key (`TS-1`, `Pattern A`)",
@@ -652,7 +716,9 @@ def report_calibration(groups, today, tally, base, hand, sources) -> list[str]:
             "           a tracked item when count >= 2. Neither seen: NEVER once watched for the horizon.",
             "  BIAS   : a recurrence logged without citing the entry is missed — NEVER is an upper bound and",
             "           the ratio a LOWER bound. Censoring only ever removes would-be NEVERs, so the ratio",
-            "           over young entries is not comparable with the ratio over old ones."]
+            "           over young entries is not comparable with the ratio over old ones. The tracked stores",
+            "           hold SURVIVORS: a terminal item is pruned (Tracked Items Standard §4.2) and leaves",
+            "           the population, whichever group it would have joined."]
     if hand is not None:
         # PER ORIGIN, because pooled they hide each other: a tracked item's
         # group is an integer read, and a censored entry agrees by construction.
@@ -714,6 +780,25 @@ def emit_reflections(corpus: Corpus) -> list[str]:
 
 # --- main ---------------------------------------------------------------------------------
 
+def _input_shape_error(inputs) -> str:
+    """Why `--stdin`'s document is not `{"hand": {check: {key: label}}, "hypotheses":
+    {check: [object]}}`, or "" when it is. Refused whole, like malformed JSON."""
+    if not isinstance(inputs, dict):
+        return f"must be a JSON object, not {type(inputs).__name__}"
+    for name, inner in (("hand", dict), ("hypotheses", list)):
+        part = inputs.get(name)
+        if part is None:
+            continue
+        if not isinstance(part, dict):
+            return f"`{name}` must be an object, not {type(part).__name__}"
+        for check, value in part.items():
+            if value is not None and not isinstance(value, inner):
+                return f"`{name}.{check}` must be {'an object' if inner is dict else 'a list'}, not {type(value).__name__}"
+            if inner is dict and value and not all(isinstance(v, str) for v in value.values()):
+                return f"`{name}.{check}` labels must be strings"
+    return ""
+
+
 def main(argv: list[str] | None = None, *, today: _dt.date | None = None, runner=None, stdin=None) -> int:
     ap = argparse.ArgumentParser(prog="self_report_measure", description=__doc__.split("\n")[0])
     ap.add_argument("--root", help="a journal root; default is the configured one")
@@ -741,6 +826,10 @@ def main(argv: list[str] | None = None, *, today: _dt.date | None = None, runner
         except ValueError as exc:
             print(f"self_report_measure: --stdin is not JSON — {exc}", file=sys.stderr)
             return 2
+    shape = _input_shape_error(inputs)
+    if shape:
+        print(f"self_report_measure: --stdin {shape}", file=sys.stderr)
+        return 2
     hand, hyps = inputs.get("hand") or {}, inputs.get("hypotheses")
     try:
         journal = je.open_journal(a.root)
@@ -764,8 +853,11 @@ def main(argv: list[str] | None = None, *, today: _dt.date | None = None, runner
     # r2 LOOKS UP an id in every store it can read — a repo's reflections name
     # that repo's items — while r3's POPULATION stays the planning corpus's.
     counts = {it.id: it.count for it in elsewhere + items}
-    recurring = recurring_finding_ids(corpus.records)
     repo = pick_repo(corpus, a.repo)
+    # SCOPED TO THE REPO UNDER CHECK: an id is a model-authored slug, and a
+    # generic one carried once on another repo's PR would otherwise corroborate
+    # a claim by coincidence of spelling rather than by recurrence.
+    recurring = recurring_finding_ids([r for r in corpus.records if r.repo == repo])
     threads = repo_threads(corpus, repo) if repo else []
     claims, reach = recurrence_claims(threads, counts, recurring)
     groups = cpi_groups(sections, deferrals, now) + tracked_groups(items, unreadable, now)

@@ -73,7 +73,6 @@ class PlanningEvidenceError(RuntimeError):
 class TrackedItem:
     id: str
     store: str
-    status: str
     count: int | None       # None when the frontmatter's `count` is not an integer
     filed: str              # YYYY-MM-DD, or "" when absent or malformed
 
@@ -163,8 +162,7 @@ def _read_stores(tracked: Path) -> tuple[list[TrackedItem], list[str]]:
                 unreadable.append(f"{store.name}/{path.name}: {type(exc).__name__}")
                 continue
             items.append(TrackedItem(
-                id=fields.get("id", path.stem), store=store.name,
-                status=fields.get("status", ""), count=_int(fields.get("count")),
+                id=fields.get("id", path.stem), store=store.name, count=_int(fields.get("count")),
                 filed=_iso(fields.get("filed"))))
     return items, unreadable
 
@@ -192,13 +190,20 @@ def _iso(value) -> str:
     return day.isoformat()
 
 
+def _heading_date(line: str) -> str:
+    """A heading's first date, or "" when it has none OR it is not a calendar
+    date — `_DATE` checks shape only, and a `2026-13-45` typo must read as
+    undated (unclassified, with that reason) rather than crash the censoring."""
+    m = _DATE.search(line)
+    return _iso(m.group(1)) if m else ""
+
+
 def _sections(lines: list[str]) -> list[CpiSection]:
     heads = [i for i, line in enumerate(lines) if line.startswith("## ")]
     out = []
     for k, i in enumerate(heads):
         end = heads[k + 1] if k + 1 < len(heads) else len(lines)
-        m = _DATE.search(lines[i])
-        out.append(CpiSection(m.group(1) if m else "", i + 1, "\n".join(lines[i:end])))
+        out.append(CpiSection(_heading_date(lines[i]), i + 1, "\n".join(lines[i:end])))
     return out
 
 
@@ -230,8 +235,7 @@ def _deferrals(lines: list[str]) -> list[CpiDeferral]:
     for i, line in enumerate(lines):
         if line.startswith("## "):
             close(i)
-            m = _DATE.search(line)
-            section_line, section_date, mode = i + 1, (m.group(1) if m else ""), None
+            section_line, section_date, mode = i + 1, _heading_date(line), None
             continue
         if line.startswith("### "):
             close(i)
