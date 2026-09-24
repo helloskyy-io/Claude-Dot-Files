@@ -20,14 +20,14 @@ from pathlib import Path
 
 import pytest
 
-from modules.journal.bag import (BAG_INFO_FILE, DESCRIPTIVE_JOURNAL_LABELS,
+from common.journal.bag import (BAG_INFO_FILE, DESCRIPTIVE_JOURNAL_LABELS,
                                  JOURNAL_LABEL_PREFIX, LABEL_GAP,
                                  LABEL_INCOMPLETE, LABEL_REDACTION,
                                  LABEL_SCHEMA_VERSION, LABEL_SEALED_AT,
                                  RESERVED_JOURNAL_LABELS, BagError,
                                  known_journal_label, open_bag, read_tag_file,
                                  unrecognised_journal_labels)
-from modules.journal.validate import validate_bag
+from common.journal.validate import validate_bag
 
 
 @pytest.fixture()
@@ -150,7 +150,7 @@ def test_an_UNRECOGNISED_tag_is_REPORTED_rather_than_silently_dropped(bag) -> No
 def test_the_report_RENDERS_the_unrecognised_tag(bag) -> None:
     """Reported into a tuple nobody prints is the observable-with-no-reader
     failure this fleet has already committed three times."""
-    from modules.journal.validate import render_report
+    from common.journal.validate import render_report
     bag.add_tag("Journal-From-The-Future", "v2")
     assert "Journal-From-The-Future" in render_report(validate_bag(bag.path))
 
@@ -188,7 +188,7 @@ def test_the_reserved_refusal_lives_in_bag_py_and_not_in_a_caller() -> None:
     is about WHERE the control lives — a behavioural test passes equally well
     when every caller happens to check.
     """
-    source = (Path(__file__).resolve().parents[2] / "modules" / "journal" /
+    source = (Path(__file__).resolve().parents[2] / "common" / "journal" /
               "bag.py").read_text(encoding="utf-8")
     assert "RESERVED_JOURNAL_LABELS" in source
     assert "def add_tag" in source
@@ -280,7 +280,7 @@ def test_a_gap_appended_WHILE_the_parent_SEALS_survives(tmp_path: Path) -> None:
         # to re-open a SEALED bag, which is correct and is not what this drives.
         # The subject here is two live writers of one `bag-info.txt`, which is
         # the state a parent and its emitting children are in.
-        from modules.journal.bag import Bag
+        from common.journal.bag import Bag
         which, root = sys.argv[1], {str(root)!r}
         import pathlib
         bag = Bag(path=pathlib.Path(root) / "race", run_id="race")
@@ -300,7 +300,7 @@ def test_a_gap_appended_WHILE_the_parent_SEALS_survives(tmp_path: Path) -> None:
         out, err = worker.communicate(timeout=120)
         assert worker.returncode == 0, err.decode()
 
-    from modules.journal.bag import Bag
+    from common.journal.bag import Bag
     reopened = Bag(path=root / "race", run_id="race")
     gaps = [v for label, v in read_tag_file(reopened.info_path)
             if label == LABEL_GAP]

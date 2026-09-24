@@ -42,13 +42,13 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[5]
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "workflows" / "temporal"))
 
-from modules.journal.config_digest import (  # noqa: E402
+from common.journal.config_digest import (  # noqa: E402
     DIGEST_ALGORITHM, EMPTY, ConfigDigestError, _SEGMENT_RE, claude_config_dir,
     config_digest, installer_targets, parse_symlink_targets, parse_tag_value,
     unavailable_tag_value)
 
 INSTALL_SH = REPO_ROOT / "install.sh"
-DIGEST_MODULE = (REPO_ROOT / "scripts" / "workflows" / "temporal" / "modules"
+DIGEST_MODULE = (REPO_ROOT / "scripts" / "workflows" / "temporal" / "common"
                  / "journal" / "config_digest.py")
 
 

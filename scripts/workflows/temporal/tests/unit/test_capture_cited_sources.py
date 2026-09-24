@@ -227,7 +227,7 @@ def test_the_GUARD_PREDICATE_fires_only_for_a_cited_paper_with_an_EMPTY_store() 
 
 
 def test_record_capture_gap_EMITS_the_typed_class_and_MARKS_nothing_otherwise(tmp_path: Path) -> None:
-    from modules.journal.events import GapClass
+    from common.journal.events import GapClass
     em = _Emitter()
     pool = tmp_path / "pool"
     fired = CaptureReport(cited=3, captured=0)
@@ -439,7 +439,7 @@ def test_a_gap_that_CANNOT_BE_WRITTEN_is_named_not_swallowed(tmp_path: Path) -> 
 def test_NO_REGISTERED_EMITTER_is_the_unwritable_arm_too(tmp_path: Path) -> None:
     """Outside a run nothing is registered; the helper says the gap has no home
     rather than minting a second writer or raising."""
-    from modules.journal.emit import current_emitter
+    from common.journal.emit import current_emitter
     assert current_emitter() is None
     repo_root, wt, research_dir = _tree(tmp_path, rows=None)
     notes = capture_into_the_run_bag(research_dir=research_dir, repo_root=repo_root,

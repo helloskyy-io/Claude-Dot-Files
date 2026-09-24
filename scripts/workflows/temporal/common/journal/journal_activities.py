@@ -226,7 +226,7 @@ def _git(repo_root: Path, *args: str) -> str:
     is metadata.
     """
     # BOUNDED, AND BOUNDED HERE RATHER THAN VIA `assistant_activities.run_bounded`.
-    # This package is the lower layer — nothing under `modules/journal/` imports
+    # This package is the lower layer — nothing under `common/journal/` imports
     # the assistant tree, and reaching upward for a helper would invert that to
     # save four lines. The ceiling itself is not optional: a `git` that hangs
     # while this probe reads repo METADATA would park a run before it has opened

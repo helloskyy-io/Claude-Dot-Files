@@ -27,7 +27,7 @@ import io
 
 import pytest
 
-from modules.journal.source_fetch import (MAX_SOURCE_BYTES, USER_AGENT,
+from common.journal.source_fetch import (MAX_SOURCE_BYTES, USER_AGENT,
                                           FetchPolicy, FetchRefused,
                                           check_url, fetch_source,
                                           refused_address_reason,
@@ -399,7 +399,7 @@ def test_the_redirect_HANDLER_ITSELF_stops_urllib_following() -> None:
     import urllib.request
     import urllib.response
 
-    from modules.journal.source_fetch import _NoRedirects
+    from common.journal.source_fetch import _NoRedirects
 
     START = "https://start.example/a"
     INNER = "https://elsewhere.example/inner"

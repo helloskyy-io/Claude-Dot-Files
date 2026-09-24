@@ -8,12 +8,12 @@ file the journal cannot produce is a write that never emitted — and now a test
 says so instead of somebody finding out six weeks later.
 
 PLACED BESIDE THE STORE WRITERS, NOT IN THE JOURNAL PACKAGE, for the reason the
-package docstring gives about placement: everything under `modules/journal/`
+package docstring gives about placement: everything under `common/journal/`
 writes INTO a bag, and this writes into a store. It also needs the store
 contract — `tracked_items.STORES`, `parse_text`, the id shape — and the journal
 package may not import a workflow module. The snapshot artifact, which is a
 journal-root file Phase 5 retains and budgets, is the one piece that lives on
-the other side (`modules/journal/snapshot.py`), and it takes the store contents
+the other side (`common/journal/snapshot.py`), and it takes the store contents
 as data so the import stays one-way.
 
 REQUIREMENT 5's ENUMERATION IS THE SINGLE STATEMENT, AND EVERYTHING ELSE HERE IS
@@ -150,13 +150,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
 
-from ...journal.bag import (BAG_INFO_FILE, MANIFEST_FILE,
+from common.journal.bag import (BAG_INFO_FILE, MANIFEST_FILE,
                             FILE_MODE, DIR_MODE, bag_state, events_files, journal_bags,
                             read_tag_file, utc_now)
-from ...journal.events import (EventError, EventKind,
+from common.journal.events import (EventError, EventKind,
                                JournalEvent, applied_intents, decode_event,
                                dedupe_on_identity)
-from ...journal.snapshot import (Snapshot, SnapshotError, latest_snapshot,
+from common.journal.snapshot import (Snapshot, SnapshotError, latest_snapshot,
                                  write_snapshot)
 from . import tracked_items as ti
 
@@ -1101,8 +1101,8 @@ def main(argv: list[str] | None = None) -> int:
     to a `-m` invocation that exits 0 having done nothing.
     """
     import argparse
-    from ...journal.journal_activities import load_journal_config
-    from ...journal.root import resolve_journal_root
+    from common.journal.journal_activities import load_journal_config
+    from common.journal.root import resolve_journal_root
     ap = argparse.ArgumentParser(prog="rebuild")
     sub = ap.add_subparsers(dest="verb", required=True)
     snap = sub.add_parser("snapshot", help="record the covered stores into the journal, once")

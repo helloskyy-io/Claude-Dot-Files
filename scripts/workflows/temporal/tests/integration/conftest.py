@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from modules.journal.bag import DIR_MODE
+from common.journal.bag import DIR_MODE
 
 
 @pytest.fixture

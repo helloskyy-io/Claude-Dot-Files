@@ -32,7 +32,7 @@ import pytest
 from planning_corpus import PLANNING_ROOT  # noqa: E402
 
 from modules.assistant.review_pr import exit_record as er
-from modules.journal import emit as journal_emit
+from common.journal import emit as journal_emit
 from modules.vocabulary import TerminalState
 from modules.assistant import routing
 from modules.assistant.review_pr import review_pr_helper as helper

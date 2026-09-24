@@ -30,10 +30,10 @@ from pathlib import Path
 
 import pytest
 
-from modules.journal import harvest as h
-from modules.journal.bag import open_bag
-from modules.journal.events import EVENTS_FILE, EventKind, decode_event
-from modules.journal.harvest_activities import harvest_github_surfaces
+from common.journal import harvest as h
+from common.journal.bag import open_bag
+from common.journal.events import EVENTS_FILE, EventKind, decode_event
+from common.journal.harvest_activities import harvest_github_surfaces
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 FIXTURE_SLUG = "helloskyy-io/Claude-Dot-Files"

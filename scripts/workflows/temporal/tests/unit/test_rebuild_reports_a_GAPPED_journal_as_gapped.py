@@ -21,10 +21,10 @@ from pathlib import Path
 import pytest
 
 from modules.assistant.tracked import rebuild as rb
-from modules.journal.bag import BAG_INFO_FILE, BAGIT_FILE, open_bag, staging_prefix
-from modules.journal.emit import Emitter, gap_flag_label
-from modules.journal.events import Destination, GapClass, gap_event
-from modules.journal.snapshot import latest_snapshot
+from common.journal.bag import BAG_INFO_FILE, BAGIT_FILE, open_bag, staging_prefix
+from common.journal.emit import Emitter, gap_flag_label
+from common.journal.events import Destination, GapClass, gap_event
+from common.journal.snapshot import latest_snapshot
 from rebuild_fixture import RUN_PREFIX, build
 
 

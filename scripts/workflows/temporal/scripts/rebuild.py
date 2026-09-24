@@ -37,8 +37,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from preflight import refuse  # noqa: E402
 from modules.assistant.tracked import rebuild as rb  # noqa: E402
-from modules.journal.journal_activities import load_journal_config  # noqa: E402
-from modules.journal.root import resolve_journal_root  # noqa: E402
+from common.journal.journal_activities import load_journal_config  # noqa: E402
+from common.journal.root import resolve_journal_root  # noqa: E402
 
 
 def _absolute(value: str) -> Path:

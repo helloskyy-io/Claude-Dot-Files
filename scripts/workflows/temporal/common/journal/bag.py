@@ -238,7 +238,7 @@ def unrecognised_journal_labels(
 # load-bearing the moment a caller hands it a raw line, which is exactly
 # the change nobody would notice. `test_journal_regex_anchors.py` fails on
 # any `^`/`$` added anywhere in this package, so this is a property of
-# `modules/journal/` rather than of this line.
+# `common/journal/` rather than of this line.
 _LABEL_RE = re.compile(r"\A([^:\s][^:]*):\s?(.*)\Z")
 _SAFE_SEGMENT_RE = re.compile(r"[^A-Za-z0-9._-]+")
 

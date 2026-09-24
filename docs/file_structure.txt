@@ -284,7 +284,9 @@ claude-dot-files/
 │           │                                        #   child were deleted 2026-08-28: the split asked the operator to size the work
 │           │                                        #   before reading it, which the child does better from the pool itself. Per-paper
 │           │                                        #   rigor is untouched and research-critic still gates every paper
-│           ├── modules/journal/                    # PMP Phase 1 — WHERE a run's record goes and WHAT SHAPE it takes. One BagIt bag per
+│           ├── common/__init__.py                   # The package marker for the shared LIBRARY code beside modules/ (workflow-scripts.md
+│           │                                        #   § Location: common/ is library, modules/ is workflows) — exports nothing
+│           ├── common/journal/                    # PMP Phase 1 — WHERE a run's record goes and WHAT SHAPE it takes. One BagIt bag per
 │           │                                        #   run under a configurable root, keyed by run_id and never by path (Claude Code keys
 │           │                                        #   by mangled path, which makes every worktree its own project — the one place this
 │           │                                        #   design deliberately does not copy it). root.py resolves and REFUSES; bag.py holds
@@ -371,7 +373,7 @@ claude-dot-files/
 │           │                                        #   (PMP Phase 3 r3) — Outcome, HoldKind, Disposition, TerminalState, plus
 │           │                                        #   SHARED_CONCEPTS, which a conformance test walks rather than re-typing. A LEAF AT
 │           │                                        #   modules/ belonging to NEITHER package, and that is the whole placement argument:
-│           │                                        #   modules/journal/ may import no workflow module (Phase 6's reader would otherwise
+│           │                                        #   common/journal/ may import no workflow module (Phase 6's reader would otherwise
 │           │                                        #   drag in temporalio) and exit_record.py is dependency-free by design, so beside
 │           │                                        #   either one it would break the other. Two contracts, one spelling — two enums
 │           │                                        #   spelled alike compare UNEQUAL member-to-member while both still serialise to the
@@ -381,7 +383,7 @@ claude-dot-files/
 │           │                                        #   rebuild.py, dispatch_identity.py and dispatch_context.py,
 │           │                                        #   which are NOT kickoffs: they are what a run checks before, what an operator checks
 │           │                                        #   after (validate_bag asks whether a bag's bytes match its manifest and journal_completeness
-│           │                                        #   whether the record is WHOLE, against the profile in modules/journal/profile.py — two
+│           │                                        #   whether the record is WHOLE, against the profile in common/journal/profile.py — two
 │           │                                        #   questions the BagIt Profiles spec keeps apart and so do these; verify_citations
 │           │                                        #   asks whether the claims in it still stand against the sources they were made from;
 │           │                                        #   compare_run_config asks whether two runs absorbed the same configuration, from the
@@ -1117,7 +1119,7 @@ claude-dot-files/
 │                   │                                #   the path composition no import check can see. FAMILY 1, where the import statement
 │                   │                                #   itself binds a store name: the store modules by dotted path, the re-exported
 │                   │                                #   function, the submodule bound as a name, a star import. FAMILY 2, where the import
-│                   │                                #   binds the PACKAGE and the reach is an ATTRIBUTE — import modules.journal, …as j,
+│                   │                                #   binds the PACKAGE and the reach is an ATTRIBUTE — import common.journal, …as j,
 │                   │                                #   from modules import journal, from .. import journal. FAMILY 3, where it binds an
 │                   │                                #   ANCESTOR of the package — import modules, …as m, import modules.assistant — since a
 │                   │                                #   plain import binds its ROOT segment, so the store is reachable through the parent

@@ -43,11 +43,11 @@ from pathlib import Path
 
 import pytest
 
-from modules.journal import harvest as h
-from modules.journal.bag import LABEL_GAP, LABEL_INCOMPLETE, open_bag, read_tag_file
-from modules.journal.events import (EVENTS_FILE, EventKind, GapClass,
+from common.journal import harvest as h
+from common.journal.bag import LABEL_GAP, LABEL_INCOMPLETE, open_bag, read_tag_file
+from common.journal.events import (EVENTS_FILE, EventKind, GapClass,
                                     Provenance, decode_event)
-from modules.journal.harvest_activities import harvest_github_surfaces
+from common.journal.harvest_activities import harvest_github_surfaces
 
 REPO = "acme/widgets"
 PR = f"https://github.com/{REPO}/pull/7"
@@ -219,7 +219,7 @@ def test_a_SEALED_bag_is_refused(journal: Path) -> None:
 
 
 def test_a_forged_run_id_is_refused_by_the_SAME_allowlist_bag_open_uses(journal: Path):
-    from modules.journal.bag import BagError
+    from common.journal.bag import BagError
     with pytest.raises(BagError):
         h.resolve_bag(journal, "../escape")
 
@@ -332,7 +332,7 @@ def test_a_SECOND_harvest_derives_the_SAME_identities_so_replay_dedupes(journal:
     first = _harvest(journal, gh, (PR,))
     second = _harvest(journal, gh, (PR,))
     assert second.writer_dir.name == "harvest-2"
-    from modules.journal.events import dedupe_on_identity
+    from common.journal.events import dedupe_on_identity
     both = _events(first.writer_dir) + _events(second.writer_dir)
     assert len(both) == 6 and len(dedupe_on_identity(both)) == 3
 
@@ -384,7 +384,7 @@ def test_a_TITLE_append_that_became_a_gap_makes_the_harvest_NOT_ok(
     The append is failed for the `:title` path ALONE, the way `ENOSPC` would
     fail one write and not the next, so the gap record itself still lands."""
     import errno
-    from modules.journal.emit import Emitter
+    from common.journal.emit import Emitter
     real_append = Emitter._append
 
     def failing_title_append(self, event):
@@ -589,7 +589,7 @@ def test_the_activity_resolves_root_slug_and_login_ONCE_and_prints(journal, caps
                                                                   monkeypatch):
     _bag(journal)
     gh = FakeGh({f"{REPO}#7": (_head(count=1), [[_comment(11, "x")]])})
-    monkeypatch.setattr("modules.journal.harvest_activities.origin_remote",
+    monkeypatch.setattr("common.journal.harvest_activities.origin_remote",
                         lambda repo_root: f"git@github.com:{REPO}.git")
     report = harvest_github_surfaces(run_id="run-1", repo_root=journal,
                                      refs=("7", None), journal_root=journal,
@@ -602,7 +602,7 @@ def test_the_activity_resolves_root_slug_and_login_ONCE_and_prints(journal, caps
 def test_the_activity_REFUSES_a_run_id_with_no_bag_before_touching_the_network(
         journal, monkeypatch):
     gh = FakeGh({})
-    monkeypatch.setattr("modules.journal.harvest_activities.origin_remote",
+    monkeypatch.setattr("common.journal.harvest_activities.origin_remote",
                         lambda repo_root: f"git@github.com:{REPO}.git")
     with pytest.raises(h.HarvestError, match="resolves to no bag"):
         harvest_github_surfaces(run_id="ghost", repo_root=journal, refs=("7",),
@@ -616,7 +616,7 @@ def test_the_activity_needs_NO_repository_slug_when_every_ref_is_a_URL(journal,
                                                                        monkeypatch):
     _bag(journal)
     gh = FakeGh({f"{REPO}#7": (_head(count=0), [[]])})
-    monkeypatch.setattr("modules.journal.harvest_activities.origin_remote",
+    monkeypatch.setattr("common.journal.harvest_activities.origin_remote",
                         lambda repo_root: "")                # no origin remote
     report = harvest_github_surfaces(run_id="run-1", repo_root=journal,
                                      refs=(None, PR), journal_root=journal, runner=gh)
@@ -658,12 +658,12 @@ def test_a_JournalUnwritable_IN_FLIGHT_posts_the_durable_report_and_harvests_NOT
     reads as complete. And `gh` is never launched: the journal is gone, the
     surface can wait for the next harvest.
     """
-    from modules.journal import emit as emitmod
-    from modules.journal.emit import JournalUnwritable
+    from common.journal import emit as emitmod
+    from common.journal.emit import JournalUnwritable
 
     bag = _bag(journal)
     gh = FakeGh({f"{REPO}#7": (_head(count=1), [[_comment(11, "x")]])})
-    monkeypatch.setattr("modules.journal.harvest_activities.origin_remote",
+    monkeypatch.setattr("common.journal.harvest_activities.origin_remote",
                         lambda repo_root: f"git@github.com:{REPO}.git")
     reporter = _Reporter()
     failure = JournalUnwritable("JOURNAL-UNWRITABLE: root gone")
@@ -694,17 +694,17 @@ def test_a_ROOT_that_is_GONE_cannot_preempt_the_in_flight_report(
     and the exception that reaches the entrypoint is the JournalUnwritable
     that ended the run, not a JournalRootError about the harvest's own lookup.
     """
-    from modules.journal import emit as emitmod
-    from modules.journal.emit import JournalUnwritable
-    from modules.journal.root import JournalRootError
+    from common.journal import emit as emitmod
+    from common.journal.emit import JournalUnwritable
+    from common.journal.root import JournalRootError
 
     def _gone(**kwargs):
         raise JournalRootError("the journal root is not there")
 
-    monkeypatch.setattr("modules.journal.harvest_activities.resolve_journal_root", _gone)
-    monkeypatch.setattr("modules.journal.harvest_activities.load_journal_config",
+    monkeypatch.setattr("common.journal.harvest_activities.resolve_journal_root", _gone)
+    monkeypatch.setattr("common.journal.harvest_activities.load_journal_config",
                         lambda path: {})
-    monkeypatch.setattr("modules.journal.harvest_activities.origin_remote",
+    monkeypatch.setattr("common.journal.harvest_activities.origin_remote",
                         lambda repo_root: f"git@github.com:{REPO}.git")
     reporter = _Reporter()
     failure = JournalUnwritable("JOURNAL-UNWRITABLE: root gone")
@@ -728,14 +728,14 @@ def test_the_harvest_s_OWN_case_d_posts_the_report_and_RAISES(
     process channel carries it too.
     """
     import os
-    from modules.journal import emit as emitmod
-    from modules.journal.emit import JournalUnwritable
+    from common.journal import emit as emitmod
+    from common.journal.emit import JournalUnwritable
     if os.geteuid() == 0:
         pytest.skip("a mode-induced refusal does not bind uid 0")
 
     bag = _bag(journal)
     gh = FakeGh({})                                    # the surface is a 404 → gap
-    monkeypatch.setattr("modules.journal.harvest_activities.origin_remote",
+    monkeypatch.setattr("common.journal.harvest_activities.origin_remote",
                         lambda repo_root: f"git@github.com:{REPO}.git")
     reporter = _Reporter()
     bag.info_path.chmod(0o400)
@@ -751,9 +751,9 @@ def test_the_harvest_s_OWN_case_d_posts_the_report_and_RAISES(
 
 def test_with_NO_reporter_registered_the_process_channel_is_named_as_the_only_one(
         journal, monkeypatch, capsys) -> None:
-    from modules.journal import emit as emitmod
-    from modules.journal.emit import JournalUnwritable
-    from modules.journal.harvest_activities import report_case_d_durably
+    from common.journal import emit as emitmod
+    from common.journal.emit import JournalUnwritable
+    from common.journal.harvest_activities import report_case_d_durably
 
     with emitmod.reporting_case_d_through(None):
         posted = report_case_d_durably(JournalUnwritable("x"), refs=(PR,),
@@ -766,9 +766,9 @@ def test_with_NO_reporter_registered_the_process_channel_is_named_as_the_only_on
 def test_with_NO_addressable_ref_the_report_has_nowhere_to_go_and_says_so(
         journal, capsys) -> None:
     """A run dispatched against no PR that died before creating one."""
-    from modules.journal import emit as emitmod
-    from modules.journal.emit import JournalUnwritable
-    from modules.journal.harvest_activities import report_case_d_durably
+    from common.journal import emit as emitmod
+    from common.journal.emit import JournalUnwritable
+    from common.journal.harvest_activities import report_case_d_durably
 
     reporter = _Reporter()
     with emitmod.reporting_case_d_through(reporter):
@@ -793,7 +793,7 @@ def test_a_surface_carrying_the_MARKER_is_surfaced_in_the_note_and_the_index(
     operator reads beside the banner and in the index the reconcile tool
     reads, rather than stored beside a hundred other comments.
     """
-    from modules.journal.emit import UNWRITABLE_JOURNAL_MARKER
+    from common.journal.emit import UNWRITABLE_JOURNAL_MARKER
 
     bag = _bag(journal)
     report_line = f"**{UNWRITABLE_JOURNAL_MARKER}** — this run's journal could not be written"

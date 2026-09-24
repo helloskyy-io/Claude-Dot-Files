@@ -118,7 +118,7 @@ def capture_source(*, bag: Bag, stage: str, claim_id: str, quote: str, url: str,
     store alone, which is requirement 2, and keeping the fetcher out of that
     graph is what makes the property structural rather than a promise.
 
-    ⚠ THE QUALIFIER IS LOAD-BEARING AND WAS MISSING. `modules/journal/__init__`
+    ⚠ THE QUALIFIER IS LOAD-BEARING AND WAS MISSING. `common/journal/__init__`
     imports this module eagerly, so a process entering through the PACKAGE — and
     `scripts/verify_citations.py` does — has `urllib` loaded whether or not
     `verify` reaches it. The closure is what the guard asserts and what a

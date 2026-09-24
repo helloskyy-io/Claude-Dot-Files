@@ -146,7 +146,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TypeVar
 
-from ..vocabulary import TerminalState
+from modules.vocabulary import TerminalState
 from .bag import FILE_MODE, Bag, BagError
 from .capture_filter import filter_capture
 from .edge_id import NO_CREDENTIAL_EPOCH, resolve_edge_id

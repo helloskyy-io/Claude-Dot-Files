@@ -27,13 +27,13 @@ import pytest
 
 from modules.assistant.tracked import rebuild as rb
 from modules.assistant.tracked import tracked_items as ti
-from modules.journal import emit as journal_emit
-from modules.journal import snapshot as snap
-from modules.journal.bag import open_bag
-from modules.journal.emit import Emitter, emitting_into
-from modules.journal.events import (Destination, EventKind, JournalEvent,
+from common.journal import emit as journal_emit
+from common.journal import snapshot as snap
+from common.journal.bag import open_bag
+from common.journal.emit import Emitter, emitting_into
+from common.journal.events import (Destination, EventKind, JournalEvent,
                                     Provenance, event_identity)
-from modules.journal.snapshot import Snapshot, SnapshotError, latest_snapshot
+from common.journal.snapshot import Snapshot, SnapshotError, latest_snapshot
 from rebuild_fixture import COMMITTED, FIXTURE_EDGE, RUN_PREFIX, build
 
 

@@ -30,7 +30,7 @@ import pytest
 
 from modules.assistant.review_pr import review_pr_helper as helper
 from modules.assistant.review_pr.review_pr_helper import ReviewInput
-from modules.journal import harvest
+from common.journal import harvest
 from review_run_fakes import _FakeWorkflow, _record
 
 PROMPT = (Path(__file__).resolve().parents[2] / "modules" / "assistant" / "review_pr"

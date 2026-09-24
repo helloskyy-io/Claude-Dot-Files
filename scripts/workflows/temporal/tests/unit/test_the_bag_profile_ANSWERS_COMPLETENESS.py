@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from modules.journal import profile as pf
+from common.journal import profile as pf
 
 
 _UNSET = object()

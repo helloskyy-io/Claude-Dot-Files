@@ -48,9 +48,9 @@ from pathlib import Path
 
 import pytest
 
-from modules.journal.journal_activities import load_journal_config
-from modules.journal.root import JournalRootError, resolve_journal_root
-from modules.journal.validate import render_report, validate_bag
+from common.journal.journal_activities import load_journal_config
+from common.journal.root import JournalRootError, resolve_journal_root
+from common.journal.validate import render_report, validate_bag
 
 
 def _real_bags() -> list[Path]:

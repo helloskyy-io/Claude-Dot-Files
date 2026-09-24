@@ -9,8 +9,8 @@ from dispatch_identity import add_identity_arguments, resolve_identity  # noqa: 
 from dispatch_context import RunContext  # noqa: E402
 from modules.assistant.review_pr import review_pr_activities as review_act  # noqa: E402
 from modules.assistant import assistant_activities as act_shared  # noqa: E402
-from modules.journal import journal_activities as journal  # noqa: E402
-from modules.journal import harvest_activities as harvest  # noqa: E402
+from common.journal import journal_activities as journal  # noqa: E402
+from common.journal import harvest_activities as harvest  # noqa: E402
 from modules.assistant.plan import plan_activities as act  # noqa: E402
 from modules.assistant.plan.plan_sprint import plan_sprint_workflow as wf  # noqa: E402
 

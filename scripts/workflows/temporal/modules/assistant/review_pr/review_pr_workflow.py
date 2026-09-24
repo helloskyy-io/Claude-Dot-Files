@@ -26,7 +26,7 @@ import time
 import uuid
 from pathlib import Path
 
-from ...journal import emit as journal_emit
+from common.journal import emit as journal_emit
 from ...vocabulary import TerminalState
 from .. import assistant_activities as _shared
 from .. import convergence

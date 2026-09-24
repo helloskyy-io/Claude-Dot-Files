@@ -35,7 +35,7 @@ from pathlib import Path
 
 import pytest
 
-from modules.journal.root import (DEPLOYMENT_SHAPES, ROOT_MODE,
+from common.journal.root import (DEPLOYMENT_SHAPES, ROOT_MODE,
                                   JournalRootError, default_root_for,
                                   journal_config, resolve_journal_root)
 
@@ -331,7 +331,7 @@ def test_a_MALFORMED_config_refuses_as_a_RuntimeError_not_a_traceback(tmp_path: 
     class of problem — a misconfiguration — that this design exists to report
     cleanly. The refusal names the file and the parser's own complaint.
     """
-    from modules.journal.journal_activities import load_journal_config
+    from common.journal.journal_activities import load_journal_config
 
     broken = tmp_path / "config.yaml"
     broken.write_text("journal:\n  root: \"unclosed\n  deployment: user\n")
@@ -345,7 +345,7 @@ def test_a_MALFORMED_config_refuses_as_a_RuntimeError_not_a_traceback(tmp_path: 
 
 def test_an_ABSENT_config_is_not_an_error(tmp_path: Path) -> None:
     """Absent means "no override", which is the designed path, not a degradation."""
-    from modules.journal.journal_activities import load_journal_config
+    from common.journal.journal_activities import load_journal_config
 
     assert load_journal_config(tmp_path / "nope.yaml") == {}
 
@@ -422,7 +422,7 @@ def test_every_way_the_config_can_fail_is_a_RuntimeError(tmp_path: Path) -> None
     if os.geteuid() == 0:
         pytest.skip("root reads a 0o000 file, so the unreadable case cannot be built")
 
-    from modules.journal.journal_activities import load_journal_config
+    from common.journal.journal_activities import load_journal_config
 
     for description, path in _every_way_a_config_can_fail(tmp_path):
         if path.is_dir():
@@ -452,7 +452,7 @@ def test_an_UNREADABLE_config_names_the_file_and_does_not_traceback(tmp_path: Pa
     if os.geteuid() == 0:
         pytest.skip("root reads a 0o000 file, so the failure cannot be provoked")
 
-    from modules.journal.journal_activities import load_journal_config
+    from common.journal.journal_activities import load_journal_config
 
     blocked = tmp_path / "config.yaml"
     blocked.write_text("journal:\n  deployment: user\n")

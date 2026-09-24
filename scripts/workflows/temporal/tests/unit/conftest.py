@@ -22,10 +22,10 @@ import sys
 
 import pytest
 
-# `modules.journal` is importable because `tests/conftest.py` put the component
+# `common.journal` is importable because `tests/conftest.py` put the component
 # root on `sys.path`; this import is what makes the mode a shared constant
 # rather than a literal each caller retypes.
-from modules.journal.bag import DIR_MODE  # noqa: E402
+from common.journal.bag import DIR_MODE  # noqa: E402
 
 assert sys.path, "component conftest must have run first"
 

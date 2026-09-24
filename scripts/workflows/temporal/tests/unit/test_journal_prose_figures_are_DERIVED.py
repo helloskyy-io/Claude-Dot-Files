@@ -78,7 +78,7 @@ from journal_entrypoint_facts import (ENTRYPOINTS_DIR,  # noqa: E402
 # map is what CLAUDE.md tells a reader to trust, and its journal annotations
 # restate figures owned here — which is exactly where `pruned` got in.
 _PROSE = (
-    sorted((TEMPORAL / "modules" / "journal").glob("*.py"))
+    sorted((TEMPORAL / "common" / "journal").glob("*.py"))
     + [TEMPORAL / "scripts" / "validate_bag.py",
        TEMPORAL / "scripts" / "verify_citations.py",
        TEMPORAL / "tests" / "conftest.py"]

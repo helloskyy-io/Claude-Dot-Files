@@ -256,7 +256,7 @@ _DECLARED_TEST_MODULES: dict[tuple[str, str], str] = {
         "dynamic-load gate — a correction pass reached four private helpers out "
         "of it by `spec_from_file_location`. The measurement is about that file "
         "and cannot be restated without it.",
-    ("scripts/workflows/temporal/modules/journal/verify.py",
+    ("scripts/workflows/temporal/common/journal/verify.py",
      "test_verify_is_offline.py"):
         "a file that NEVER EXISTED. `verify.py` names it in the act of saying so "
         "— the sentence IS the correction, and blanking the name leaves it "

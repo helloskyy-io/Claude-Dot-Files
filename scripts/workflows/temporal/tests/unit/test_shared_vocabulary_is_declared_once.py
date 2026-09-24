@@ -33,9 +33,9 @@ import pytest
 from modules import vocabulary
 from modules.assistant import convergence
 from modules.assistant.review_pr import exit_record
-from modules.journal import events
+from common.journal import events
 
-MODULES = Path(__file__).resolve().parents[2] / "modules"
+TEMPORAL = Path(__file__).resolve().parents[2]
 
 
 def test_SHARED_CONCEPTS_enumerates_every_enum_the_module_declares() -> None:
@@ -102,10 +102,11 @@ def test_no_shared_concept_is_RE_DECLARED_in_either_contract(concept: str) -> No
     same name as a declaration, so `hasattr` cannot tell "imported from the one
     declaration" from "declared again here". A `ClassDef` can only be the second.
     """
-    for relpath in ("assistant/review_pr/exit_record.py", "journal/events.py"):
-        tree = ast.parse((MODULES / relpath).read_text(encoding="utf-8"))
+    for relpath in ("modules/assistant/review_pr/exit_record.py",
+                    "common/journal/events.py"):
+        tree = ast.parse((TEMPORAL / relpath).read_text(encoding="utf-8"))
         assert not redeclares(tree, concept), (
-            f"modules/{relpath} declares `{concept}` again. Two enums spelled alike "
+            f"{relpath} declares `{concept}` again. Two enums spelled alike "
             f"compare unequal member-to-member while both still serialise to "
             f"the same string, so a rebuild diffing them reports a difference "
             f"that is not one — and every string test keeps passing.")

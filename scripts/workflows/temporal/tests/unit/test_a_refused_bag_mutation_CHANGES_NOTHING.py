@@ -76,14 +76,14 @@ from typing import Callable
 import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[5]
-BAG_PY = REPO_ROOT / "scripts" / "workflows" / "temporal" / "modules" / "journal" / "bag.py"
+BAG_PY = REPO_ROOT / "scripts" / "workflows" / "temporal" / "common" / "journal" / "bag.py"
 
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "workflows" / "temporal"))
 
-from modules.journal import bag as bagmod  # noqa: E402
-from modules.journal.bag import BagError, open_bag  # noqa: E402
+from common.journal import bag as bagmod  # noqa: E402
+from common.journal.bag import BagError, open_bag  # noqa: E402
 
-SCOPE = "modules/journal/bag.py"
+SCOPE = "common/journal/bag.py"
 
 # --- half A: the primitives ------------------------------------------------------
 

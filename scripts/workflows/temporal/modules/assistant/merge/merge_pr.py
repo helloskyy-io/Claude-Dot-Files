@@ -58,8 +58,8 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from ...journal import emit as journal_emit
-from ...journal.events import Destination, Provenance
+from common.journal import emit as journal_emit
+from common.journal.events import Destination, Provenance
 from .. import routing
 from .. import assistant_activities as act
 from ..assistant_activities import ci_verdict

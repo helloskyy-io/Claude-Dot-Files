@@ -17,8 +17,8 @@ from pathlib import Path
 import pytest
 
 from modules.assistant.tracked import rebuild as rb
-from modules.journal import bag as bag_mod
-from modules.journal.bag import (BAG_INFO_FILE, BAGIT_FILE, BagError, RUN_ID_PERMITTED,
+from common.journal import bag as bag_mod
+from common.journal.bag import (BAG_INFO_FILE, BAGIT_FILE, BagError, RUN_ID_PERMITTED,
                                  STAGING_MARK, journal_bags, open_bag, staging_prefix,
                                  validated_run_id)
 

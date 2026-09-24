@@ -33,8 +33,8 @@ REPO_ROOT = Path(__file__).resolve().parents[5]
 TEMPORAL = REPO_ROOT / "scripts" / "workflows" / "temporal"
 sys.path.insert(0, str(TEMPORAL))
 
-from modules.journal import journal_activities as ja  # noqa: E402
-from modules.journal.config_digest import (  # noqa: E402
+from common.journal import journal_activities as ja  # noqa: E402
+from common.journal.config_digest import (  # noqa: E402
     LABEL_CONFIG_DIGEST, parse_tag_value, unavailable_tag_value)
 
 READER = TEMPORAL / "scripts" / "compare_run_config.py"
@@ -600,7 +600,7 @@ def test_EVERY_reason_the_backstop_can_PRODUCE_is_one_the_tag_can_CARRY() -> Non
     added later is covered without anyone remembering to add it here. A hand-kept
     list of four cannot see the fifth row, which is the only row this exists for.
     """
-    from modules.journal.journal_activities import (
+    from common.journal.journal_activities import (
         _DIGEST_FAILURE_REASONS, _digest_failure_reason)
 
     # Driven through the real function, including its out-of-table fallback.

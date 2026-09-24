@@ -68,8 +68,8 @@ from pathlib import Path
 # it and the import runs context -> identity. Read it there; it is the
 # documentation contract for THIS object.
 from dispatch_identity import RunIdentity, derivation, resolve_identity
-from modules.journal.journal_activities import load_journal_config
-from modules.journal.root import resolve_journal_root
+from common.journal.journal_activities import load_journal_config
+from common.journal.root import resolve_journal_root
 
 __all__ = ["RunContext", "DRY_RUN_RUN_ID", "context_field_documentation"]
 

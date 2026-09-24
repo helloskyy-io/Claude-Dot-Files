@@ -87,7 +87,7 @@ Phase 9's checklist asks to be written down rather than left to each caller.
   caller, stable across the whole run, and mapped onto whatever the orchestrator
   already calls a dispatch.
 
-WHY THIS LIVES IN `scripts/` AND NOT IN `modules/journal/`. The journal package
+WHY THIS LIVES IN `scripts/` AND NOT IN `common/journal/`. The journal package
 is DEPENDENCY-FREE ON THE WORKFLOW TREE and does I/O that has to be recorded and
 retried; this module parses argv. It is a launch concern, exactly like
 `preflight.py` beside it, and `preflight` is the precedent: a helper the
@@ -103,9 +103,9 @@ import argparse
 import sys
 from dataclasses import dataclass, field
 
-from modules.journal.bag import (BagError, RUN_ID_PERMITTED_DESCRIPTION,
+from common.journal.bag import (BagError, RUN_ID_PERMITTED_DESCRIPTION,
                                  validated_run_id)
-from modules.journal.journal_activities import mint_run_id
+from common.journal.journal_activities import mint_run_id
 
 __all__ = ["RunIdentity", "add_identity_arguments", "derivation",
            "resolve_identity"]

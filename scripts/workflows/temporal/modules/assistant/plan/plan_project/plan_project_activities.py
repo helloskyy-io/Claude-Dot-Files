@@ -52,8 +52,8 @@ import re
 from pathlib import Path
 from typing import NamedTuple
 
-from ....journal import emit as journal_emit
-from ....journal.events import Destination, Provenance
+from common.journal import emit as journal_emit
+from common.journal.events import Destination, Provenance
 from .. import plan_activities as act
 
 # Strips the leading marker so a section name is just its name.

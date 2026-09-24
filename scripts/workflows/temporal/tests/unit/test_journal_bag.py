@@ -30,8 +30,8 @@ from pathlib import Path
 
 import pytest
 
-from modules.journal import bag as bagmod
-from modules.journal.bag import (BAGIT_FILE, BAG_INFO_FILE, DIR_MODE,
+from common.journal import bag as bagmod
+from common.journal.bag import (BAGIT_FILE, BAG_INFO_FILE, DIR_MODE,
                                  FILE_MODE, JOURNAL_SCHEMA_VERSION,
                                  MANIFEST_FILE, PAYLOAD_DIR, BagError,
                                  open_bag, read_tag_file,

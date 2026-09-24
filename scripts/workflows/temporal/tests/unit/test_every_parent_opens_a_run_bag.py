@@ -421,11 +421,11 @@ def test_the_sweep_FAILS_on_a_deliberately_non_conforming_parent(tmp_path: Path)
     scripts = tmp_path / "scripts"
     scripts.mkdir()
     (scripts / "run_good.py").write_text(
-        "from modules.journal import journal_activities as journal\n"
+        "from common.journal import journal_activities as journal\n"
         "def main():\n"
         "    journal.open_run_bag(run_id='x', repo_root='.', workflow_key='good')\n")
     (scripts / "run_also_good.py").write_text(
-        "from modules.journal.journal_activities import open_run_bag\n"
+        "from common.journal.journal_activities import open_run_bag\n"
         "def main():\n"
         "    open_run_bag(run_id='x', repo_root='.', workflow_key='also-good')\n")
     (scripts / "run_forgot.py").write_text(
@@ -734,7 +734,7 @@ def test_the_reachability_check_FAILS_on_a_module_only_MENTIONED(tmp_path: Path)
 #: depends on was unasserted for nine files, including the four least-reviewed
 #: ones, while the guard still read as covering the package.
 _JOURNAL_PACKAGE = (REPO_ROOT / "scripts" / "workflows" / "temporal" /
-                    "modules" / "journal")
+                    "common" / "journal")
 
 #: ONE expression, read by the parametrize AND by its denominator below. Written
 #: twice, the denominator re-derived the population instead of measuring the one

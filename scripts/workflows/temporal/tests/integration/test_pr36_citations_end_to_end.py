@@ -53,12 +53,12 @@ import pytest
 
 from modules.assistant.research.capture_cited_sources import (
     GAP_WRITE_PATH, SIDECAR_NAME, capture_cited_sources, record_capture_gap)
-from modules.journal.bag import LABEL_GAP, open_bag
-from modules.journal.citations import read_citations
-from modules.journal.content_activities import capture_fetched_source
-from modules.journal.emit import Emitter
-from modules.journal.events import EVENTS_FILE, EventKind, GapClass, decode_event
-from modules.journal.verify import EXIT_OK, VERIFIED, verify_bag
+from common.journal.bag import LABEL_GAP, open_bag
+from common.journal.citations import read_citations
+from common.journal.content_activities import capture_fetched_source
+from common.journal.emit import Emitter
+from common.journal.events import EVENTS_FILE, EventKind, GapClass, decode_event
+from common.journal.verify import EXIT_OK, VERIFIED, verify_bag
 
 COMPONENT_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = COMPONENT_ROOT / "tests" / "fixtures" / "pr36_citations"

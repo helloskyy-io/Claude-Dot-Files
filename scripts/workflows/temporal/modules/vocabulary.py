@@ -14,11 +14,11 @@ in one and `MERGE`/`HOLD` in the other makes a rebuild's diff report a
 difference that is not one. This module is where each shared concept is spelled,
 once. Both sides import it; neither restates it.
 
-WHY IT SITS AT `modules/` AND NOT INSIDE EITHER PACKAGE. `modules/journal/`
+WHY IT SITS AT `modules/` AND NOT INSIDE EITHER PACKAGE. `common/journal/`
 imports no workflow module — `test_the_journal_package_imports_no_workflow_module`
 holds that, and Phase 6's reader depends on it, because dragging in
 `modules.assistant` drags in `temporalio` behind it. So the vocabulary cannot
-live beside `exit_record.py`. Putting it inside `modules/journal/` instead would
+live beside `exit_record.py`. Putting it inside `common/journal/` instead would
 invert the problem: `exit_record.py` is dependency-free by design and importing
 the journal package would execute its whole `__init__`. A leaf at `modules/`
 belongs to neither and is importable by both, which is the only placement that

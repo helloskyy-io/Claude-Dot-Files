@@ -20,9 +20,9 @@ from pathlib import Path
 
 import pytest
 
-from modules.journal.capture_filter import (RULES, filter_capture,
+from common.journal.capture_filter import (RULES, filter_capture,
                                             placeholder_for)
-from modules.journal.edge_id import (EDGE_ID_FILE, NO_CREDENTIAL_EPOCH,
+from common.journal.edge_id import (EDGE_ID_FILE, NO_CREDENTIAL_EPOCH,
                                      EdgeIdError, adopt_edge_id, read_edge_id,
                                      resolve_edge_id)
 

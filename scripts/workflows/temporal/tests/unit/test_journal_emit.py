@@ -29,16 +29,16 @@ from unittest import mock
 
 import pytest
 
-from modules.journal import emit as emitmod
-from modules.journal.bag import LABEL_GAP, open_bag, read_tag_file
-from modules.journal.edge_id import NO_CREDENTIAL_EPOCH
-from modules.journal.emit import (GAP_FLAG_REASON, EmitFailed, Emitter,
+from common.journal import emit as emitmod
+from common.journal.bag import LABEL_GAP, open_bag, read_tag_file
+from common.journal.edge_id import NO_CREDENTIAL_EPOCH
+from common.journal.emit import (GAP_FLAG_REASON, EmitFailed, Emitter,
                                   JournalUnwritable, StoreWriteFailed,
                                   current_emitter, emitting_into,
                                   gap_class_for, gap_flag_label,
                                   unwritable_journal_in_text,
                                   unwritable_journal_report)
-from modules.journal.events import (EVENTS_FILE, Destination, EventKind,
+from common.journal.events import (EVENTS_FILE, Destination, EventKind,
                                     GapClass, Provenance, decode_event)
 from modules.assistant.review_pr import exit_record
 from modules.vocabulary import TerminalState
@@ -257,7 +257,7 @@ def test_a_RETRIED_paired_write_APPENDS_ONCE(emitter: Emitter) -> None:
     on the retry because the result the caller needs is not in the journal.
     That half is the store's idempotency key, exactly as before.
     """
-    from modules.journal.events import applied_intents
+    from common.journal.events import applied_intents
 
     perform_calls = 0
 
@@ -290,7 +290,7 @@ def test_a_retry_that_DIED_between_intent_and_store_write_completes_the_pair(
     write, and appends the completion — so the record ends with ONE applied
     unit, not an intent with no completion beside a duplicate pair.
     """
-    from modules.journal.events import applied_intents
+    from common.journal.events import applied_intents
 
     class Died(Exception):
         pass
@@ -863,7 +863,7 @@ def test_the_marker_is_ONE_declaration_shared_by_producer_and_reader() -> None:
     """
     import ast
     import pathlib
-    source = (pathlib.Path(__file__).resolve().parents[2] / "modules" /
+    source = (pathlib.Path(__file__).resolve().parents[2] / "common" /
               "journal" / "emit.py").read_text(encoding="utf-8")
     literals = [n.value for n in ast.walk(ast.parse(source))
                 if isinstance(n, ast.Constant) and isinstance(n.value, str)

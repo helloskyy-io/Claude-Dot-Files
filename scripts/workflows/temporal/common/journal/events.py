@@ -67,7 +67,7 @@ from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Any
 
-from ..vocabulary import Outcome, TerminalState
+from modules.vocabulary import Outcome, TerminalState
 # `EVENTS_FILE` is the bag's layout and `bag.py` owns it (with `events_files`,
 # the one walk that finds every writer's copy); re-exported here, where every
 # caller has always imported it from.

@@ -257,7 +257,7 @@ def test_every_blocking_launch_carries_a_timeout() -> None:
     the ceiling and returns a `TimedOutProcess` — a non-zero reply, so the
     `returncode != 0` branch the call site already has is already correct.
     Passing `timeout=` directly is right only for a module that must not import
-    the assistant tree (`modules/journal/`, `scripts/preflight.py`), and both of
+    the assistant tree (`common/journal/`, `scripts/preflight.py`), and both of
     those say so at the call.
     """
     runs, _p, _o = _census()

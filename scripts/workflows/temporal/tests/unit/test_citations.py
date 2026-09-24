@@ -24,8 +24,8 @@ from pathlib import Path
 
 import pytest
 
-from modules.journal.bag import open_bag
-from modules.journal.citations import (CAPTURE_HARVEST, CAPTURE_READ_TIME,
+from common.journal.bag import open_bag
+from common.journal.citations import (CAPTURE_HARVEST, CAPTURE_READ_TIME,
                                        CITATIONS_FILE, Citation, CitationError,
                                        converged_stages, evidence_set_hash,
                                        is_git_ref, new_citation, parse_git_ref,
@@ -317,7 +317,7 @@ def test_the_citation_file_is_written_at_FILE_MODE_and_refuses_a_SYMLINK(tmp_pat
     planted `citations.jsonl` symlink diverted appended rows out of the bag. The
     read side already refused to FOLLOW such a link; only the write side was open.
     """
-    from modules.journal.bag import DIR_MODE, FILE_MODE
+    from common.journal.bag import DIR_MODE, FILE_MODE
 
     root = tmp_path / "journal"
     root.mkdir(mode=DIR_MODE)

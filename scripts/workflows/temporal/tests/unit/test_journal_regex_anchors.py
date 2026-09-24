@@ -32,7 +32,7 @@ exemptions. An empty escape hatch is the honest state, not a missing one.
 
 ⚠ WHAT THIS DOES NOT COVER, because a sweep is only as good as its predicate:
 
-  * IT SWEEPS `modules/journal/*.py` AND NOTHING ELSE, the same scope as the
+  * IT SWEEPS `common/journal/*.py` AND NOTHING ELSE, the same scope as the
     containment and tag-line sweeps. A pattern in another package is invisible
     here and the scope is named in the failure message so a reader hitting it
     learns the boundary rather than assuming there is none.
@@ -70,7 +70,7 @@ import sys
 import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[5]
-PACKAGE = REPO_ROOT / "scripts" / "workflows" / "temporal" / "modules" / "journal"
+PACKAGE = REPO_ROOT / "scripts" / "workflows" / "temporal" / "common" / "journal"
 
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "workflows" / "temporal"))
 
@@ -494,7 +494,7 @@ def test_the_package_pattern_that_was_the_residue_refuses_a_trailing_newline() -
     exhaustive. What is asserted here is the pattern's own contract, so a caller
     change cannot quietly turn it into a defect.
     """
-    from modules.journal.bag import _LABEL_RE
+    from common.journal.bag import _LABEL_RE
 
     assert _LABEL_RE.match("Label: value") is not None
     assert _LABEL_RE.match("Label: value\n") is None
@@ -502,7 +502,7 @@ def test_the_package_pattern_that_was_the_residue_refuses_a_trailing_newline() -
 
 def test_the_digest_gate_refuses_a_trailing_newline() -> None:
     """The other instance of the same class, in the gate that IS the path safety."""
-    from modules.journal.content_store import ContentStoreError, validated_digest
+    from common.journal.content_store import ContentStoreError, validated_digest
 
     good = "a" * 64
     assert validated_digest(good) == good

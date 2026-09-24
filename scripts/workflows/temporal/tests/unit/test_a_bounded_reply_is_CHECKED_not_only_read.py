@@ -85,7 +85,7 @@ from pathlib import Path
 import pytest
 
 _TREE = Path(__file__).resolve().parents[2]
-_ROOTS = (_TREE / "modules", _TREE / "scripts")
+_ROOTS = (_TREE / "modules", _TREE / "common", _TREE / "scripts")
 
 # The launch helpers whose reply carries an outcome nobody may drop. Spelled as
 # attribute-or-bare so `shared.run_bounded(...)` and `run_bounded(...)` are one

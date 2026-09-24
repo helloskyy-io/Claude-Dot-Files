@@ -50,8 +50,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from modules.journal.bag import BAG_INFO_FILE, BagError, read_tag_file  # noqa: E402
-from modules.journal.config_digest import (  # noqa: E402
+from common.journal.bag import BAG_INFO_FILE, BagError, read_tag_file  # noqa: E402
+from common.journal.config_digest import (  # noqa: E402
     DIGEST_ALGORITHM, FIELD_ORDER, LABEL_CONFIG_DIGEST, parse_tag_value)
 
 USAGE = "usage: compare_run_config.py <bag-a> <bag-b>"

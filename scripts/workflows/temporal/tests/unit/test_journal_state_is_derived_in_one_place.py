@@ -60,15 +60,15 @@ import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[5]
 TEMPORAL = REPO_ROOT / "scripts" / "workflows" / "temporal"
-PACKAGE = TEMPORAL / "modules" / "journal"
+PACKAGE = TEMPORAL / "common" / "journal"
 
 sys.path.insert(0, str(TEMPORAL))
 
-from modules.journal import bag as bagmod                        # noqa: E402
-from modules.journal import validate as validate_mod             # noqa: E402
-from modules.journal.bag import (BagState, bag_state, lifecycle_of,  # noqa: E402
+from common.journal import bag as bagmod                        # noqa: E402
+from common.journal import validate as validate_mod             # noqa: E402
+from common.journal.bag import (BagState, bag_state, lifecycle_of,  # noqa: E402
                                  open_bag)
-from modules.journal.validate import validate_bag                # noqa: E402
+from common.journal.validate import validate_bag                # noqa: E402
 
 # EVERY LABEL THIS PACKAGE DEFINES, AND THE RULE IS THAT SIMPLE ON PURPOSE. An
 # earlier draft of this file swept four of the five and justified the exclusion
@@ -113,10 +113,10 @@ def imports_the_journal_package(source: str, path: pathlib.Path) -> bool:
 
     RESOLVED FROM THE AST, NOT MATCHED AS A SUBSTRING, and the difference is the
     whole future-proofing claim. The first draft asked whether the text contained
-    `"modules.journal"` or `"from .journal"`. That was true of every importer
+    `"common.journal"` or `"from .journal"`. That was true of every importer
     that exists today and false of at least four legal spellings of the same
-    import — `from modules import journal`, `from . import journal`,
-    `from ..journal import bag`, `import modules.journal.bag as b` — none of
+    import — `from common import journal`, `from . import journal`,
+    `from ..journal import bag`, `import common.journal.bag as b` — none of
     which violates any convention this repo documents. A Phase 3 emitter written
     that way would have been outside the sweep while the docstring claimed it was
     inside it, which is a worse failure than not sweeping at all: an undisclosed
@@ -145,7 +145,7 @@ def imports_the_journal_package(source: str, path: pathlib.Path) -> bool:
                     continue
                 prefix = anchor.relative_to(TEMPORAL).as_posix().replace("/", ".")
                 base = f"{prefix}.{base}" if base else prefix
-            # BOTH the module and each imported NAME: `from modules import
+            # BOTH the module and each imported NAME: `from common import
             # journal` names the package in the second position, not the first.
             named.append(base)
             named.extend(f"{base}.{alias.name}" if base else alias.name
@@ -431,16 +431,16 @@ def test_the_swept_set_actually_contains_the_two_readers_that_drifted() -> None:
 # case — a parametrisation that varied only the statement asserted something
 # false and was corrected by running it.
 _DEEP = TEMPORAL / "modules" / "assistant" / "emit" / "an_emitter.py"
-_BESIDE = TEMPORAL / "modules" / "an_emitter.py"
-_ONE_DOWN = TEMPORAL / "modules" / "assistant" / "an_emitter.py"
+_BESIDE = TEMPORAL / "common" / "an_emitter.py"
+_ONE_DOWN = TEMPORAL / "common" / "sub" / "an_emitter.py"
 
 
 @pytest.mark.parametrize("author,statement", [
-    (_DEEP, "from modules.journal import bag"),      # the spelling in use today
-    (_DEEP, "from modules.journal.bag import bag_state"),
-    (_DEEP, "import modules.journal.bag"),
-    (_DEEP, "import modules.journal.bag as b"),
-    (_DEEP, "from modules import journal"),          # names the package SECOND
+    (_DEEP, "from common.journal import bag"),      # the spelling in use today
+    (_DEEP, "from common.journal.bag import bag_state"),
+    (_DEEP, "import common.journal.bag"),
+    (_DEEP, "import common.journal.bag as b"),
+    (_DEEP, "from common import journal"),           # names the package SECOND
     (_BESIDE, "from . import journal"),              # relative, beside the package
     (_BESIDE, "from .journal import bag"),
     (_ONE_DOWN, "from ..journal.bag import bag_state"),   # up out of a subpackage
@@ -449,7 +449,7 @@ def test_importer_discovery_sees_EVERY_spelling_of_the_import(
         author: pathlib.Path, statement: str) -> None:
     """The claim the whole design leans on: Phase 3's emitters are in scope.
 
-    A substring match on `"modules.journal"` was true of every importer that
+    A substring match on `"common.journal"` was true of every importer that
     exists today and false of four of these, none of which breaks any documented
     convention. The guarantee was therefore stronger in the docstring than in the
     code — the exact shape of defect this file exists to catch, in this file.

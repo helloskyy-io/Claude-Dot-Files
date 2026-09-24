@@ -796,7 +796,7 @@ def checked_boxes(path: Path) -> Counter:
 # `\A…\Z` AND NOT `^…$`: `$` also matches immediately BEFORE a trailing
 # newline, which a POSIX filename may end with, so the anchor that refuses
 # `phase9_x.md.bak` above would have admitted `phase9_x.md\n`. Swept from
-# `modules/journal/`, where the same spelling let a digest carrying a newline
+# `common/journal/`, where the same spelling let a digest carrying a newline
 # through the gate that derives an on-disk path.
 _LOOKS_LIKE_A_PHASE = re.compile(r"\Aphase.*\.md\Z", re.I)
 

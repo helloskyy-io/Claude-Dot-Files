@@ -20,9 +20,9 @@ import pytest
 
 from modules.assistant import routing
 from modules.assistant.merge import merge_pr  # noqa: E402
-from modules.journal.bag import open_bag
-from modules.journal.emit import Emitter, emitting_into
-from modules.journal.events import EVENTS_FILE, EventKind, decode_event
+from common.journal.bag import open_bag
+from common.journal.emit import Emitter, emitting_into
+from common.journal.events import EVENTS_FILE, EventKind, decode_event
 
 REPO = Path("/nonexistent-by-design")
 

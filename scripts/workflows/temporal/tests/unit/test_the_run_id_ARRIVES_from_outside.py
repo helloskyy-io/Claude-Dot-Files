@@ -51,7 +51,7 @@ from journal_entrypoint_facts import (ENTRYPOINTS_DIR, REPO_ROOT,  # noqa: E402
 
 # The one function in this fleet that names a run, and the helper that declares
 # the argument the name arrives on. Both are single-sourced: `mint_run_id` in
-# `modules/journal/journal_activities.py`, `add_identity_arguments` in
+# `common/journal/journal_activities.py`, `add_identity_arguments` in
 # `scripts/dispatch_identity.py`.
 MINTING_AUTHORITY = "mint_run_id"
 IDENTITY_ARGUMENTS = "add_identity_arguments"
@@ -503,9 +503,9 @@ def test_the_ARGUMENT_check_catches_an_entrypoint_that_can_never_BE_told(
 @pytest.mark.parametrize("snippet,expected", [
     ("journal.mint_run_id()", True),
     ("mint_run_id()", True),
-    ("from modules.journal import mint_run_id", True),
-    ("from modules.journal import mint_run_id as m", True),
-    ("import modules.journal.mint_run_id", True),
+    ("from common.journal import mint_run_id", True),
+    ("from common.journal import mint_run_id as m", True),
+    ("import common.journal.mint_run_id", True),
     ("helper(mint_run_id)", True),
     ("identity = resolve_identity(argv)", False),
     ("journal.open_run_bag(run_id=identity.run_id)", False),
@@ -534,9 +534,9 @@ def test_the_NAME_PREDICATE_answers_correctly_on_a_LITERAL_SNIPPET(
 @pytest.mark.parametrize("spelling,source", [
     ("attribute call", "journal.mint_run_id()"),
     ("bare call", "mint_run_id()"),
-    ("imported name", "from modules.journal import mint_run_id"),
+    ("imported name", "from common.journal import mint_run_id"),
     ("passed as a value", "helper(mint_run_id)"),
-    ("aliased import", "from modules.journal import mint_run_id as m"),
+    ("aliased import", "from common.journal import mint_run_id as m"),
 ])
 def test_every_SPELLING_of_reaching_the_authority_is_seen(
         tmp_path: pathlib.Path, spelling: str, source: str) -> None:

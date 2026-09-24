@@ -27,9 +27,9 @@ import pytest
 
 from modules.assistant.tracked import rebuild as rb
 from modules.assistant.tracked import tracked_items as ti
-from modules.journal.bag import open_bag
-from modules.journal.emit import Emitter, emitting_into
-from modules.journal.events import Destination, GapClass
+from common.journal.bag import open_bag
+from common.journal.emit import Emitter, emitting_into
+from common.journal.events import Destination, GapClass
 from rebuild_fixture import RUN_PREFIX, build
 
 
@@ -353,7 +353,7 @@ def test_the_written_files_carry_the_journal_FILE_MODE(fixture) -> None:
     (stores / "candidates" / "C-fixt0005.md").unlink()
     rb.restore(journal, stores, "candidates", apply=True)
     mode = os.stat(stores / "candidates" / "C-fixt0005.md").st_mode & 0o777
-    from modules.journal.bag import FILE_MODE
+    from common.journal.bag import FILE_MODE
     assert mode == FILE_MODE
 
 
