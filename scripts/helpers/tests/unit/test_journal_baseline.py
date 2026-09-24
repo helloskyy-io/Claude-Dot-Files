@@ -94,8 +94,8 @@ def _transcript(*, turns=10, cost=1.0, dur=60_000, api=50_000, result=True,
     return "\n".join(json.dumps(x) for x in lines) + "\n"
 
 
-def _child(key: str, n: int, *, route=None, conv=None, **transcript):
-    return {"key": key, "n": n, "route": route, "conv": conv, "transcript": transcript}
+def _child(key: str, n: int, *, route=None, conv=None, day=None, **transcript):
+    return {"key": key, "n": n, "route": route, "conv": conv, "day": day, "transcript": transcript}
 
 
 def _bag(root: Path, run_id: str, *, repo="alpha", workflow="build", children=(),
@@ -114,7 +114,7 @@ def _bag(root: Path, run_id: str, *, repo="alpha", workflow="build", children=()
         for k, spec in enumerate(children):
             for i in range(spec["n"]):
                 address = f"/logs/{spec['key']}-20260920-000000-{run_id}{k:02d}{i:04d}.jsonl"
-                at = f"{day}T00:00:00Z"
+                at = f"{spec['day'] or day}T00:00:00Z"
                 if spec["transcript"] is not None:
                     lines.append(_journal_line(run_id, "cli-transcript", address,
                                         _transcript(**spec["transcript"]), recorded_at=at))
@@ -229,7 +229,7 @@ def test_every_PRINTED_figure_carries_its_parts(root, capsys):
     for line in figures:
         assert "window 2026-09-15..2026-09-24" in line and "runs 2026-09-20..2026-09-20" in line, line
         numeric = "median" in line and "IQR" in line and "n=" in line
-        categorical = re.search(r"\b\d+/\d+ \(\d+%\)", line) is not None
+        categorical = re.search(r"\b\d+/\d+ \(\d+%, 95% CI \d+–\d+%\)", line) is not None
         assert numeric or categorical, line
 
 
@@ -244,8 +244,25 @@ def test_F7_is_computed_over_PARSEABLE_records_only(root, capsys):
     _bag(root, "a" * 32, workflow="review-pr", children=[_child("review-pr", 20, route=route)])
     _, out = _run(root, capsys=capsys)
     assert "12 of 20 parent_route records; EXCLUDED 8 (shadow_parseable false 8, absent 0)" in out
-    assert "F7 channels agree                  12/12 (100%)" in out
-    assert "F7 channels disagree               0/12 (0%)" in out
+    assert "F7 channels agree                  12/12 (100%, 95% CI 76–100%)" in out
+    assert "F7 channels disagree               0/12 (0%, 95% CI 0–24%)" in out
+
+
+def test_a_proportion_carries_its_WILSON_interval():
+    # Known values: 12/12 -> [0.7575, 1]; 0/12 is its mirror; 20/40 -> [0.352, 0.648].
+    lo, hi = jb.wilson(12, 12)
+    assert (round(lo, 4), hi) == (0.7575, 1.0)
+    assert tuple(round(x, 4) for x in jb.wilson(0, 12)) == (0.0, round(1 - lo, 4))
+    assert tuple(round(x, 3) for x in jb.wilson(20, 40)) == (0.352, 0.648)
+
+
+def test_the_review_pr_floor_names_its_POPULATION(root, capsys):
+    _bag(root, "a" * 32, workflow="review-pr", children=[
+        _child("review-pr", 15, route=lambda i: {"routed_outcome": "merge"}),
+        _child("review-pr", 5, result=False, route=lambda i: {"routed_outcome": "merge"})])
+    _, out = _run(root, capsys=capsys)
+    assert "population: 20 review-pr runs in window, 15 with a result event (the floor counts all of them)" in out
+    assert "F5 routed merge                    20/20" in out
 
 
 # --- r4: an incomplete record says so ---------------------------------------------------
@@ -275,6 +292,58 @@ def test_the_gapped_figure_DEDUPES_on_run_id_across_bag_and_snapshot(root, capsy
         "carried_events": carried}))
     _, out = _run(root, capsys=capsys)
     assert "  2/4  (bags on disk 2 + rotated out behind the snapshot 2;" in out
+
+
+def _member_stream(bag: Path, writer: str, lines: list[str]) -> None:
+    """A member's own stream, where `Bag.writer_dir` puts it."""
+    (bag / "data" / writer).mkdir()
+    (bag / "data" / writer / "events.jsonl").write_text("\n".join(lines) + "\n")
+
+
+def test_a_MEMBER_writers_stream_is_READ(root):
+    run_id = "a" * 32
+    bag = _bag(root, run_id, children=[_child("build-draft", 1)])
+    address = f"/logs/build-refine-20260920-000000-{run_id}.jsonl"
+    _member_stream(bag, "w-1", [
+        _journal_line(run_id, "cli-transcript", address, _transcript(), seq=1),
+        _journal_line(run_id, "tracked:issues:file", "", kind="gap", seq=2, gap_class="write_failed")])
+    journal = je.open_journal(str(root))
+    unit = journal.read(journal.units()[0])
+    assert sorted(c.child for c in unit.children) == ["build-draft", "build-refine"]
+    assert unit.gap_events == 1 and unit.gapped
+
+
+def test_a_RETRIED_member_re_emitting_into_a_new_writer_is_counted_ONCE(root):
+    # A retry of one member is handed the next ordinal (`w-2`) and re-emits
+    # what `w-1` already recorded; identity dedupe spans the writers.
+    run_id = "a" * 32
+    bag = _bag(root, run_id, children=[])
+    gap = _journal_line(run_id, "tracked:issues:file", "", kind="gap", seq=2, gap_class="write_failed")
+    _member_stream(bag, "w-1", [gap])
+    _member_stream(bag, "w-2", [gap])
+    journal = je.open_journal(str(root))
+    assert journal.read(journal.units()[0]).gap_events == 1
+
+
+def test_gapped_is_the_PRODUCERS_predicate_in_parity_with_replay(root):
+    """r4: the gapped count IS PMP Phase 4 r7's. Replay's `BagRead.gapped` is
+    that predicate; every shape a bag can record a gap in is held to it."""
+    from modules.assistant.tracked import rebuild
+    stamp = f"{DAY}T00:00:00Z tracked:issues:file write_failed"
+    _bag(root, "a" * 32, children=[_child("build-draft", 1)])                        # clean
+    _bag(root, "b" * 32, children=[_child("build-draft", 1)], gap=True)              # parent gap event
+    member = _bag(root, "c" * 32, children=[_child("build-draft", 1)])               # member gap event
+    _member_stream(member, "w-1", [_journal_line("c" * 32, "tracked:issues:file", "", kind="gap",
+                                                 seq=3, gap_class="write_failed")])
+    _bag(root, "d" * 32, children=[_child("build-draft", 1)],                        # flag + label
+         labels=["Journal-Incomplete: true", f"Journal-Gap: {stamp}"])
+    _bag(root, "e" * 32, children=[_child("build-draft", 1)],                        # label alone
+         labels=[f"Journal-Gap: {stamp}"])
+    journal = je.open_journal(str(root))
+    ours = {u.run_id: (u.gapped, u.gap_events) for u in map(journal.read, journal.units())}
+    theirs = {b.run_id: (b.gapped, len(b.gap_events)) for b in rebuild.read_bags(root)}
+    assert ours == theirs
+    assert [r for r, (g, _) in sorted(ours.items()) if g] == ["b" * 32, "c" * 32, "d" * 32]
 
 
 def test_coverage_is_the_CONTRACT_verdict_not_a_copy_of_it(root, capsys):
@@ -328,7 +397,7 @@ def test_an_out_of_vocabulary_disposition_is_COUNTED_never_echoed(root, capsys):
         "review-pr", 20, so={"outcome": "hold", "hold_kind": "redispatch",
                              "findings": [{"disposition": slug}, {"disposition": "fixed"}]})])
     _, out = _run(root, capsys=capsys)
-    assert "F6 disposition unrecognised        20/40 (50%)" in out
+    assert "F6 disposition unrecognised        20/40 (50%, 95% CI 35–65%)" in out
     assert slug not in out
 
 
@@ -406,6 +475,18 @@ def test_no_window_reaches_before_the_RELIABILITY_FLOOR(root, capsys):
     assert code == 0
     assert "window  : 2026-09-15..2026-09-24  (requested start 2026-09-01 CLAMPED" in out
     assert "(1 repos, 2 bags; 1 in window)" in out
+
+
+def test_a_child_is_windowed_by_ITS_OWN_date(root):
+    # One bag, two children a day apart. A window opening on the second day
+    # holds the second child — whose bag's earliest event is the day before.
+    _bag(root, "a" * 32, children=[_child("build-draft", 1, day="2026-09-20"),
+                                   _child("build-refine", 1, day="2026-09-21")])
+    journal = je.open_journal(str(root))
+    units = [journal.read(r) for r in journal.units()]
+    assert units[0].date == "2026-09-20"
+    runs = jb.child_runs(units, jb.make_window("2026-09-21", "2026-09-24", TODAY))
+    assert [(c.child, c.date) for c in runs] == [("build-refine", "2026-09-21")]
 
 
 def test_the_default_window_is_the_TRAILING_30_DAYS():

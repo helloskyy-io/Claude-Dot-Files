@@ -52,9 +52,9 @@ if str(_TEMPORAL) not in sys.path:
     sys.path.insert(0, str(_TEMPORAL))
 
 from modules.journal.bag import (BAG_INFO_FILE, BAGIT_FILE, MANIFEST_FILE,  # noqa: E402
-                                 BagError, bag_state, read_tag_file)
-from modules.journal.events import (EventError, EventKind, decode_event,  # noqa: E402
-                                    dedupe_on_identity)
+                                 PAYLOAD_DIR, BagError, bag_state, read_tag_file)
+from modules.journal.events import (EVENTS_FILE, EventError, EventKind,  # noqa: E402
+                                    decode_event, dedupe_on_identity)
 from modules.journal.journal_activities import load_journal_config  # noqa: E402
 from modules.journal.profile import (EVENTS, HARVEST_EVENTS,  # noqa: E402
                                      assess_completeness)
@@ -134,6 +134,7 @@ class ChildRun:
     """
 
     child: str                       # workflow key, or "unrecognised"
+    date: str                        # YYYY-MM-DD of this run's own earliest event
     has_transcript: bool
     has_result: bool
     num_turns: int | None
@@ -191,7 +192,12 @@ class Unit:
 
     @property
     def gapped(self) -> bool:
-        return self.incomplete_flag or self.gap_events > 0 or self.gap_labels > 0
+        # THE PRODUCER'S PREDICATE, `rebuild.BagRead.gapped`, term for term —
+        # r4 says this count IS PMP Phase 4 r7's figure, so it may not be a
+        # wider one. `gap_labels` is reported, not counted: `mark_incomplete`
+        # writes a label only beside the flag, and a label-only bag is one the
+        # producer does not call gapped. A test holds the two in parity.
+        return self.incomplete_flag or self.gap_events > 0
 
 
 @dataclass(frozen=True)
@@ -201,6 +207,15 @@ class RotatedOut:
     PMP Phase 5 r8 carries gap events from rotated bags into the snapshot, each
     with its originating `run_id`; that id is what lets a gap be counted ONCE
     (PMP Phase 4 r7). `snapshot` is "" when the root holds none.
+
+    WHY THE ROTATED-OUT DENOMINATOR IS READ FROM CARRIED IDS AND NOT FROM
+    `bags_at_snapshot`. A bag is removed "entire, with a retention event saying
+    so" (Phase 5 § *So a run folder is the unit*), and r8 carries that event
+    forward with its `run_id` — so every rotated bag, clean or gapped, leaves
+    an id here. `bags_at_snapshot` is a count with no ids, and cannot say WHICH
+    of today's bags it already counted. Retention is unbuilt, so today the
+    carried set is empty; Phase 5's compacted carry form, when it lands, is
+    `latest_snapshot`'s to parse, and this reduction follows it.
     """
 
     snapshot: str
@@ -252,13 +267,20 @@ class JournalEvidence:
         state = bag_state(manifest_exists=(bag / MANIFEST_FILE).is_file(),
                           info_entries=entries)
 
-        events_path = bag / EVENTS
-        has_events = events_path.is_file()
+        # EVERY WRITER'S STREAM, not the parent's alone. A parent writes
+        # `data/events.jsonl`, each member `data/<writer>/events.jsonl`
+        # (`Bag.writer_dir`), the harvest `data/harvest/events.jsonl`; replay
+        # (`rebuild.read_bags`) reads them all, and a reader that read two
+        # fixed names would miss a member's transcript and its gap events —
+        # a silently smaller denominator. `has_events` stays the contract's
+        # notion: the parent's file, which `assess_completeness` names.
+        has_events = (bag / EVENTS).is_file()
         if not has_events:
             missing.append(f"no {EVENTS}")
-        parent, bad_parent = _decode(events_path) if has_events else ([], 0)
         harvest_path = bag / HARVEST_EVENTS
-        harvested, bad_harvest = _decode(harvest_path) if harvest_path.is_file() else ([], 0)
+        streams = _events_files(bag)
+        parent, bad_parent = _decode_all([p for p in streams if p != harvest_path])
+        harvested, bad_harvest = _decode_all([p for p in streams if p == harvest_path])
 
         stamps = [e.recorded_at for e in parent + harvested if e.recorded_at]
         if stamps:
@@ -363,6 +385,31 @@ def _decode(path: Path):
     return dedupe_on_identity(found), refused
 
 
+def _decode_all(paths: list[Path]):
+    """`_decode` over several writers' files, deduped once across all of them."""
+    found, refused = [], 0
+    for path in paths:
+        events, bad = _decode(path)
+        found += events
+        refused += bad
+    return dedupe_on_identity(found), refused
+
+
+def _events_files(bag: Path) -> list[Path]:
+    """Every regular `events.jsonl` under the payload, never through a link —
+    `rebuild._events_files`' rule, which a parity test holds this to."""
+    found: list[Path] = []
+    payload = bag / PAYLOAD_DIR
+    if not payload.is_dir() or payload.is_symlink():
+        return found
+    for dirpath, dirnames, filenames in os.walk(payload, followlinks=False):
+        dirnames.sort()
+        candidate = Path(dirpath) / EVENTS_FILE
+        if EVENTS_FILE in filenames and not candidate.is_symlink() and candidate.is_file():
+            found.append(candidate)
+    return sorted(found)
+
+
 def _bytes(bag: Path) -> int:
     total = 0
     for dirpath, _dirs, files in os.walk(bag, followlinks=False):
@@ -379,7 +426,9 @@ def _children(events) -> list[ChildRun]:
     for e in events:
         if e.kind is not EventKind.COMPLETION:
             continue
-        slot = by_address.setdefault(e.destination.address, {"members": {}})
+        slot = by_address.setdefault(e.destination.address, {"members": {}, "stamps": []})
+        if e.recorded_at:
+            slot["stamps"].append(e.recorded_at)
         if e.write_path == TRANSCRIPT_WRITE_PATH:
             slot["transcript"] = e.content
         elif e.write_path.startswith(RUN_LOG_PREFIX):
@@ -392,7 +441,11 @@ def _children(events) -> list[ChildRun]:
                 # 2026-09-24) records its final route second, which is the
                 # research paper's "last event per log" rule (§2.4).
                 slot["members"][member] = payload
-    return [_child(address, slot) for address, slot in sorted(by_address.items())
+    # A CHILD IS DATED BY ITS OWN EVENTS, not by its bag's first one: a parent
+    # that runs past midnight has children on two dates, and windowing them by
+    # the bag's start would drop or admit a run on a day it did not happen.
+    return [_child(address, slot, min(slot["stamps"])[:10] if slot["stamps"] else "")
+            for address, slot in sorted(by_address.items())
             if "transcript" in slot or slot["members"]]
 
 
@@ -409,7 +462,7 @@ def _child_key(address: str, resources: dict | None) -> str:
     return key if _KEY_SHAPE.match(key) else "unrecognised"
 
 
-def _child(address: str, slot: dict) -> ChildRun:
+def _child(address: str, slot: dict, date: str) -> ChildRun:
     members = slot["members"]
     route = members.get("parent_route")
     conv = members.get("convergence")
@@ -431,6 +484,7 @@ def _child(address: str, slot: dict) -> ChildRun:
     so = so if isinstance(so, dict) else None
     return ChildRun(
         child=child,
+        date=date,
         has_transcript="transcript" in slot,
         has_result=t.result is not None,
         num_turns=_number(t.result, "num_turns"),
@@ -485,6 +539,11 @@ class _Trajectory:
     REPEATED READS ARE KEYED ON (context, path). A sub-agent reading a file its
     parent already read is a separate context doing its own work, not a re-read;
     the context is the event's `parent_tool_use_id` (None for the main loop).
+
+    EVERY OTHER COUNT IS RUN-WIDE, sub-agent contexts included, and that is a
+    choice. F4 is the phase doc's `tool_result.is_error == true` over the run's
+    whole transcript, which carries its sub-agents' tool traffic under their
+    `parent_tool_use_id`; only a re-read is a property of ONE context's memory.
     """
 
     def __init__(self, text: str | None) -> None:

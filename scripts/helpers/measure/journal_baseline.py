@@ -20,10 +20,14 @@ else — so the tool cannot print a bare number, rather than merely not doing so
 
   * A NUMERIC figure (turns, cost, time, counts per run) is median, IQR and n.
   * A CATEGORICAL figure (an outcome rate, a disposition share, an agreement
-    rate) is k of n. A median and IQR of a 0/1 indicator are each 0 or 1 and
-    say nothing, so the categorical form carries the count, the denominator
-    and the window instead — the same four-part refusal, fitted to what the
-    figure is.
+    rate) is k of n with its 95% Wilson interval. A median and IQR of a 0/1
+    indicator are each 0 or 1 and say nothing, so the categorical form carries
+    the count, the denominator and the window instead — the same four-part
+    refusal, fitted to what the figure is — and the interval is its spread:
+    two rates whose intervals overlap are not a change (synthesis finding 2).
+    WILSON, not the normal approximation, because the rates this fleet
+    produces sit at or near 0% and 100%, where the normal interval
+    collapses to zero width and claims a certainty n cannot support.
 
 THE RUN FLOOR IS 20 AND IT IS THE PAPER'S. A child under it is listed with its
 count and no figures, and the floor is printed beside it.
@@ -47,6 +51,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
+import math
 import statistics
 import sys
 import time
@@ -158,6 +163,19 @@ def distribution(figure: str, values: list[tuple[float | None, str]], window: Wi
                         dates[0], dates[-1], excluded=len(values) - len(kept))
 
 
+#: The two-sided 95% normal quantile the Wilson interval is taken at.
+_Z95 = 1.959963984540054
+
+
+def wilson(count: int, n: int, z: float = _Z95) -> tuple[float, float]:
+    """The Wilson score interval for `count` of `n`, as fractions in [0, 1]."""
+    p = count / n
+    denom = 1 + z * z / n
+    centre = (p + z * z / (2 * n)) / denom
+    half = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / denom
+    return max(0.0, centre - half), min(1.0, centre + half)
+
+
 def _fmt(value: float) -> str:
     return f"{value:,.2f}" if abs(value) < 100 and value != int(value) else f"{value:,.0f}"
 
@@ -171,7 +189,9 @@ def render(fig: Distribution | Proportion) -> str:
         return (f"{fig.figure:<34} median {_fmt(fig.median):>9}  IQR {_fmt(fig.q1)}–{_fmt(fig.q3)}"
                 f"  n={fig.n}{extra}  {span}")
     pct = 100.0 * fig.count / fig.n
-    return f"{fig.figure:<34} {fig.count}/{fig.n} ({pct:.0f}%)  {span}"
+    lo, hi = wilson(fig.count, fig.n)
+    return (f"{fig.figure:<34} {fig.count}/{fig.n} ({pct:.0f}%, 95% CI {100 * lo:.0f}–{100 * hi:.0f}%)"
+            f"  {span}")
 
 
 # --- the report -----------------------------------------------------------------
@@ -195,6 +215,7 @@ def sweep(journal: je.JournalEvidence) -> Sweep:
 def report(s: Sweep, window: Window) -> list[str]:
     out: list[str] = []
     in_window = [u for u in s.units if window.holds(u.date)]
+    runs = child_runs(s.units, window)
 
     out.append("# Self-improvement baseline — the journal's run records, as distributions")
     out.append("")
@@ -209,15 +230,28 @@ def report(s: Sweep, window: Window) -> list[str]:
 
     out += _repos(s.units, in_window)
     out += _coverage(in_window)
-    out += _incomplete(in_window)
+    out += _incomplete(in_window, runs)
     out += _gapped(s)
-    out += _children(in_window, window)
-    out += _review_pr(in_window, window)
+    out += _children(runs, window)
+    out += _review_pr(runs, window)
     total_bytes = sum(u.bytes for u in s.units)
     out.append("## Sweep cost (r9 — the no-database decision's revisit trigger reads this)")
     out.append(f"  {s.seconds:.2f}s wall-clock over {len(s.units)} bags, {total_bytes:,} bytes "
                f"({total_bytes / 2**20:,.1f} MiB)")
     return out
+
+
+def child_runs(units, window: Window) -> list:
+    """Every child run in the window, windowed by ITS OWN date.
+
+    Bag-level sections (coverage, incompleteness) window on the bag; a figure
+    windows on the run, because a bag's children can fall on two dates. The
+    bag must still start on or after the reliability floor — a run inside a
+    bag opened during the wiring window is that bag's evidence, and the floor
+    is about bags.
+    """
+    return [c for u in units if u.date >= RELIABILITY_FLOOR
+            for c in u.children if c.date and window.holds(c.date)]
 
 
 def _repos(units, in_window) -> list[str]:
@@ -245,8 +279,7 @@ def _coverage(in_window) -> list[str]:
     return out + [""]
 
 
-def _incomplete(in_window) -> list[str]:
-    runs = [c for u in in_window for c in u.children]
+def _incomplete(in_window, runs) -> list[str]:
     no_result = [c for c in runs if c.has_transcript and not c.has_result]
     no_transcript = [c for c in runs if not c.has_transcript]
     out = ["## Incomplete records in the window — counted, never a silently smaller denominator",
@@ -282,11 +315,10 @@ def _gapped(s: Sweep) -> list[str]:
             f"the snapshot {len(s.rotated.carried_run_ids)}; snapshot: {snap})", ""]
 
 
-def _children(in_window, window: Window) -> list[str]:
+def _children(runs, window: Window) -> list[str]:
     by_child: dict[str, list] = defaultdict(list)
-    for u in in_window:
-        for c in u.children:
-            by_child[c.child].append((c, u.date))
+    for c in runs:
+        by_child[c.child].append((c, c.date))
     out = ["## F1–F4 and the trajectory figures, per child"]
     for child, runs in sorted(by_child.items(), key=lambda kv: (-len(kv[1]), kv[0])):
         done = [(c, d) for c, d in runs if c.has_result]
@@ -318,11 +350,17 @@ def child_figures(done, window: Window) -> list[Distribution]:
     return [f for f in figs if f is not None]
 
 
-def _review_pr(in_window, window: Window) -> list[str]:
-    runs = [(c, u.date) for u in in_window for c in u.children if c.child == REVIEW_PR]
-    out = ["## F5–F7 — review-pr only"]
+def _review_pr(all_runs, window: Window) -> list[str]:
+    runs = [(c, c.date) for c in all_runs if c.child == REVIEW_PR]
+    # THE FLOOR COUNTS EVERY review-pr RUN, result or not — unlike F1–F4's,
+    # which counts runs with a result. F5's routed rate and F7 read the
+    # parent's records, which exist without a result; each figure below
+    # states its own denominator.
+    out = ["## F5–F7 — review-pr only",
+           f"  population: {len(runs)} review-pr runs in window, "
+           f"{sum(c.has_result for c, _ in runs)} with a result event (the floor counts all of them)"]
     if len(runs) < RUN_FLOOR:
-        return out + [f"  {len(runs)} runs in window; below the run floor of {RUN_FLOOR} — no figures", ""]
+        return out + [f"  below the run floor of {RUN_FLOOR} — no figures", ""]
     for fig_lines in (_f5(runs, window), _f6(runs, window), _f7(runs, window)):
         out += fig_lines
     return out + [""]
