@@ -36,6 +36,17 @@ typed facts (counts, numbers, enum values) and hands up nothing else from the
 transcript. Harvested PR text is handed up raw because Phase 2 reads it, and
 `HarvestItem` says so on the type. Nothing here calls a model, and nothing
 here writes: every open below is a read.
+
+PHASE 2's HALF (`phase2_the_self_report_and_recurrence_measured.md` r4). Two
+more reads, each on its own method so the baseline never pays for them:
+`review_records` hands up a `review-pr` pass's typed finding ids — model-
+authored slugs, marked untrusted on the type exactly as `HarvestItem` is — and
+`threads` hands up the harvested pull-request conversations, grouped by
+surface. `forge_thread` is the one read that is not the journal's: a run that
+predates the harvest has no thread in its bag, and r4 reads those from the
+forge through the harvest's OWN fetch (`harvest.fetch_surface`), so the two
+sources cannot disagree about what a thread is. Every `Thread` says which
+source it came from.
 """
 
 from __future__ import annotations
@@ -58,6 +69,8 @@ from common.journal.bag import (BAG_INFO_FILE, MANIFEST_FILE, BagError,  # noqa:
                                  bag_state, events_files, journal_bags, read_tag_file)
 from common.journal.events import (EventError, EventKind,  # noqa: E402
                                     decode_event, dedupe_on_identity)
+from common.journal.harvest import (HarvestError, SurfaceRef,  # noqa: E402
+                                     SurfaceUnreadable, fetch_surface, parse_ref)
 from common.journal.journal_activities import load_journal_config  # noqa: E402
 from common.journal.profile import (EVENTS, HARVEST_EVENTS,  # noqa: E402
                                      assess_completeness)
@@ -80,7 +93,8 @@ def _load_run_log():
 _run_log = _load_run_log()
 
 __all__ = ["JournalEvidence", "UnitRef", "Unit", "ChildRun", "HarvestItem",
-           "RotatedOut", "open_journal", "JournalEvidenceError", "DISPOSITIONS"]
+           "RotatedOut", "ReviewRecord", "Thread", "open_journal", "forge_thread",
+           "JournalEvidenceError", "DISPOSITIONS"]
 
 #: The finding-disposition vocabulary, re-exported so a figure module can bucket
 #: a value without importing the workflow tree itself. A disposition outside it
@@ -112,6 +126,20 @@ _READ_BEFORE_EDIT = re.compile(r"File has not been read yet|File has been modifi
 #: publishable field) or the log file name, and anything that is not the shape
 #: of a fleet key is reported as unrecognised rather than echoed.
 _KEY_SHAPE = re.compile(r"\A[a-z][a-z0-9-]{0,63}\Z")
+
+#: The child whose `structured_output` carries typed findings.
+REVIEW_PR = "review-pr"
+
+#: A harvested item's write path: `SurfaceRef.write_path`'s stem, then the part.
+#: The stem is the harvest's (`harvest.SurfaceRef.write_path`); the parts are
+#: what `harvest_run` appends — `title`, `body`, `comment:<id>`.
+_HARVEST_PATH = re.compile(
+    r"\Aharvest:github:(?P<repo>[^#\s/]+/[^#\s/]+)#(?P<n>[0-9]+):"
+    r"(?:(?P<part>title|body)|comment:(?P<cid>[0-9]+))\Z")
+
+#: A run nonce — `uuid.uuid4().hex`. A `structured_output.run_id` of any other
+#: shape joins nothing and is handed up as "".
+_RUN_ID = re.compile(r"\A[0-9a-f]{32}\Z")
 
 
 class JournalEvidenceError(RuntimeError):
@@ -169,6 +197,42 @@ class HarvestItem:
     write_path: str
     recorded_at: str
     content: str
+
+
+@dataclass(frozen=True)
+class ReviewRecord:
+    """One `review-pr` pass's typed record, as the pass's `result` carried it.
+
+    ⚠ `findings` CARRIES MODEL-AUTHORED `id` SLUGS. They are the join key a
+    Phase 2 check needs — a finding is looked up in its pass's `pr_review:`
+    block and in later passes by id — and they are data: no caller may print
+    one (`run_log.py` publish rule). The disposition beside each is narrowed to
+    the shared vocabulary here, as `ChildRun.dispositions` is.
+    """
+
+    run_id: str                            # the bag's
+    child_run_id: str                      # structured_output.run_id if it is a nonce, else ""
+    date: str                              # the child's own earliest event, "" if undated
+    repo: str                              # completion_ref's `owner/name`, "" if it names no PR
+    pr: int | None
+    findings: tuple[tuple[str, str], ...]  # (id, disposition) in record order
+
+
+@dataclass(frozen=True)
+class Thread:
+    """One pull request's conversation. ⚠ `body` and every comment's text are
+    UNTRUSTED, model- or human-authored forge text — `HarvestItem`'s rule.
+
+    `comments` is ascending by comment id, which GitHub allocates in posting
+    order; that order is what lets a reader ask *what had been said BEFORE a
+    given comment* without trusting a timestamp inside the text.
+    """
+
+    repo: str
+    pr: int
+    source: str                            # "harvest" or "forge"
+    body: str
+    comments: tuple[tuple[int, str], ...]  # (comment id, text)
 
 
 @dataclass(frozen=True)
@@ -330,6 +394,62 @@ class JournalEvidence:
         return tuple(HarvestItem(e.write_path, e.recorded_at, e.content)
                      for e in events if e.kind is EventKind.COMPLETION)
 
+    def threads(self, ref: UnitRef) -> tuple[Thread, ...]:
+        """The harvested surfaces of one unit, each assembled into a `Thread`.
+
+        A harvest item whose write path is not the harvest's shape is not a
+        surface part and is not guessed at. A surface harvested with no body
+        event (a `body=absent` surface) has body "". WHERE THE SAME COMMENT WAS
+        HARVESTED TWICE into one bag (a re-run harvest after an edit), the
+        later-recorded text wins — it is what the surface said last.
+        """
+        parts: dict[tuple[str, int], dict] = {}
+        for item in sorted(self.harvest(ref), key=lambda h: h.recorded_at):
+            m = _HARVEST_PATH.match(item.write_path)
+            if not m:
+                continue
+            slot = parts.setdefault((m["repo"], int(m["n"])), {"body": "", "comments": {}})
+            if m["part"] == "body":
+                slot["body"] = item.content
+            elif m["cid"]:
+                slot["comments"][int(m["cid"])] = item.content
+        return tuple(Thread(repo, n, "harvest", slot["body"], tuple(sorted(slot["comments"].items())))
+                     for (repo, n), slot in sorted(parts.items()))
+
+    def review_records(self, ref: UnitRef) -> tuple[ReviewRecord, ...]:
+        """Every `review-pr` child in the unit that carries a `structured_output`.
+
+        The child is found the way `read` finds it — the parent streams grouped
+        on the log address, the key from `run_resources` or the log name — and
+        its `result` is the transcript's LAST, as `_Trajectory` reads it. The
+        PR is `completion_ref.uri`, parsed by the harvest's own `parse_ref`; a
+        reference that is not a github.com PR URL leaves `repo` "" and `pr`
+        None, and the record is still handed up so a consumer can count it.
+        """
+        bag: Path = ref._location  # type: ignore[assignment]
+        harvest_path = bag / HARVEST_EVENTS
+        parent, _bad = _decode_all([p for p in events_files(bag) if p != harvest_path])
+        out = []
+        for address, slot in _slots(parent):
+            if _child_key(address, slot["members"].get("run_resources")) != REVIEW_PR:
+                continue
+            result = _result_event(slot.get("transcript"))
+            so = (result or {}).get("structured_output")
+            if not isinstance(so, dict):
+                continue
+            repo, pr = _pull_of(so.get("completion_ref"))
+            child_run_id = so.get("run_id")
+            out.append(ReviewRecord(
+                run_id=ref.run_id,
+                child_run_id=child_run_id if isinstance(child_run_id, str) and _RUN_ID.match(child_run_id) else "",
+                date=min(slot["stamps"]) if slot["stamps"] else "",
+                repo=repo, pr=pr,
+                findings=tuple((f["id"], _in(f.get("disposition"), DISPOSITIONS))
+                               for f in so.get("findings") or []
+                               if isinstance(f, dict) and isinstance(f.get("id"), str) and f["id"]),
+            ))
+        return tuple(out)
+
     def rotated_out(self, on_disk: set[str]) -> RotatedOut:
         """The latest snapshot's carried events, reduced to run ids.
 
@@ -357,6 +477,28 @@ def open_journal(root: str | None = None) -> JournalEvidence:
     if not path.is_dir():
         raise JournalEvidenceError(f"journal root is not a directory: {path}")
     return JournalEvidence(path)
+
+
+def forge_thread(repo: str, pr: int, *, runner=None) -> Thread:
+    """One pull request's conversation read from the forge NOW — for a run whose
+    bag carries no harvest of it (r4: *"from the forge for runs that predate
+    the harvest"*).
+
+    THROUGH THE HARVEST'S OWN FETCH, `harvest.fetch_surface`, so a forge thread
+    and a harvested one are the same object read at different times — the
+    source is labelled, never blended. A forge thread holds every comment
+    posted since the run, so a consumer that needs what was said by a given
+    moment must cut on comment order, which `Thread` preserves. A surface the
+    forge will not return is RAISED as `JournalEvidenceError`, for the caller
+    to count; `runner` is the harvest's injectable `gh` seam.
+    """
+    try:
+        snap = fetch_surface(SurfaceRef(repo=repo, kind="pull", number=pr),
+                             cwd=Path.cwd(), runner=runner)
+    except (HarvestError, SurfaceUnreadable) as exc:
+        raise JournalEvidenceError(f"{repo}#{pr}: the forge did not return the thread: {exc}") from exc
+    return Thread(repo, pr, "forge", snap.body,
+                  tuple(sorted((c.id, c.body) for c in snap.comments)))
 
 
 # --- parsing -----------------------------------------------------------------
@@ -402,7 +544,20 @@ def _bytes(bag: Path) -> int:
 
 
 def _children(events) -> list[ChildRun]:
-    """Group a bag's parent stream into child runs on the log address."""
+    """A bag's parent stream as child runs.
+
+    A CHILD IS DATED BY ITS OWN EVENTS, not by its bag's first one: a parent
+    that runs past midnight has children on two dates, and windowing them by
+    the bag's start would drop or admit a run on a day it did not happen.
+    """
+    return [_child(address, slot, min(slot["stamps"]) if slot["stamps"] else "")
+            for address, slot in _slots(events)]
+
+
+def _slots(events) -> list[tuple[str, dict]]:
+    """Group a bag's parent stream on the log address: each child's transcript,
+    its run-log members and its event dates. `_children` and `review_records`
+    both read this, so the two cannot disagree about which runs a bag holds."""
     by_address: dict[str, dict] = {}
     for e in events:
         if e.kind is not EventKind.COMPLETION:
@@ -423,12 +578,35 @@ def _children(events) -> list[ChildRun]:
                 # 2026-09-24) records its final route second, which is the
                 # research paper's "last event per log" rule (§2.4).
                 slot["members"][member] = payload
-    # A CHILD IS DATED BY ITS OWN EVENTS, not by its bag's first one: a parent
-    # that runs past midnight has children on two dates, and windowing them by
-    # the bag's start would drop or admit a run on a day it did not happen.
-    return [_child(address, slot, min(slot["stamps"]) if slot["stamps"] else "")
-            for address, slot in sorted(by_address.items())
+    return [(address, slot) for address, slot in sorted(by_address.items())
             if "transcript" in slot or slot["members"]]
+
+
+def _result_event(text: str | None) -> dict | None:
+    """A transcript's LAST `result` event — `_Trajectory`'s rule, without its counts."""
+    result = None
+    for line in (text or "").splitlines():
+        if line.startswith("{") and '"result"' in line:
+            event = _json_object(line)
+            if event is not None and event.get("type") == "result":
+                result = event
+    return result
+
+
+def _pull_of(completion_ref) -> tuple[str, int | None]:
+    """`completion_ref.uri` as (`owner/name`, number) when it is a PR URL, else ("", None).
+
+    A BARE NUMBER IS NOT RESOLVED: `parse_ref` would need a default repo, and
+    guessing one would join a pass to the wrong repository's PR N.
+    """
+    uri = completion_ref.get("uri") if isinstance(completion_ref, dict) else None
+    if not isinstance(uri, str):
+        return "", None
+    try:
+        ref = parse_ref(uri, default_repo=None)
+    except HarvestError:
+        return "", None
+    return (ref.repo, ref.number) if ref.kind == "pull" else ("", None)
 
 
 def _day(stamp) -> str | None:

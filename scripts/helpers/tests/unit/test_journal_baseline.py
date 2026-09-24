@@ -570,7 +570,7 @@ _FORBIDDEN_NAMES = {"Path", "PurePath", "open", "iterdir", "glob", "rglob", "wal
 #: Every module that reads the journal THROUGH the interface. A new consumer
 #: (Phase 2's checks) is covered only once it is named here — the guard scans
 #: what it names, and cannot see a module nobody added.
-_CONSUMERS = ("journal_baseline.py",)
+_CONSUMERS = ("journal_baseline.py", "self_report_measure.py")
 
 
 def _path_semantics(source: str) -> list[str]:
@@ -591,9 +591,14 @@ def _path_semantics(source: str) -> list[str]:
 
 
 def _code_strings(source: str) -> set[str]:
-    docstrings = {id(n.value) for n in ast.walk(ast.parse(source))
+    # ONE TREE, held for both walks. The ids below are object ids; parsed
+    # twice, the first tree is freed and its ids REUSED by the second, so a
+    # real constant could match a dead docstring's id and vanish — measured:
+    # the `data/events.jsonl` control passed alone and failed in the full run.
+    tree = ast.parse(source)
+    docstrings = {id(n.value) for n in ast.walk(tree)
                   if isinstance(n, ast.Expr) and isinstance(n.value, ast.Constant)}
-    return {n.value for n in ast.walk(ast.parse(source))
+    return {n.value for n in ast.walk(tree)
             if isinstance(n, ast.Constant) and isinstance(n.value, str) and id(n) not in docstrings}
 
 
