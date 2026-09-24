@@ -760,7 +760,7 @@ def test_the_RELATIVE_package_binding_bypass_is_caught(tmp_path) -> None:
     package, so since the journal moved to `common/` this line reaches it ONLY
     from a module in a sub-package of `common/` — `common/<sub>/x.py` — and the
     fixtures sit exactly there. Written under `modules/assistant/` it resolves
-    to `modules.journal`, which no longer exists. This control is also what
+    to a `journal` package under `modules/`, and there is none. This control is also what
     proves `common/` is swept at all: drop it from `SWEPT_DIRS` and the fixture
     count below is zero. `node.module` is None, so the parent check cannot
     apply and the binding is recognised by the imported name alone.
