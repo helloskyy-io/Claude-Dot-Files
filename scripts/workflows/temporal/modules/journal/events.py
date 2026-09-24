@@ -80,7 +80,6 @@ __all__ = ["EventKind", "Provenance", "Destination", "Lineage", "JournalEvent",
 
 
 
-
 class EventError(RuntimeError):
     """An event could not be constructed or admitted.
 

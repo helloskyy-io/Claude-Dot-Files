@@ -463,22 +463,13 @@ def _read_events_file(path: Path) -> tuple[list[JournalEvent], list[str]]:
 
 
 def read_bags(journal_root: Path) -> list[BagRead]:
-    """Every bag directly under the root, once each, in run-id order.
+    """Every bag directly under the root, once each, in run-id order, with
+    EVERY WRITER'S `events.jsonl` read.
 
-    A BAG IS A DIRECTORY CARRYING `bagit.txt`; anything else under the root — the
-    `edge-id` file, a snapshot, a staging directory `open_bag` is still renaming
-    — is not a bag and is not read. The run id is the directory name, re-proven
-    through `validated_run_id` before it is used as a key, so a directory that
-    could not have been opened by `open_bag` cannot be counted as a run.
-
-    EVERY WRITER'S `events.jsonl` IS READ. A parent writes `data/events.jsonl`;
-    each member writes `data/<writer>/events.jsonl`; the harvest writes
-    `data/harvest/events.jsonl`. `os.walk(followlinks=False)` under the payload
-    finds them all and NEVER descends a symlinked directory — stated in the
-    call rather than left to `Path.rglob`, whose symlink behaviour changed at
-    3.13 and which this containment claim must not depend on. The payload
-    contract forbids a link; this is what holds if one is planted anyway
-    (Phase 7: a bag may have arrived from another machine).
+    Which directories are bags is `bag.journal_bags`, and which files are a
+    bag's events is `bag.events_files` — the rules are stated there, once, and
+    not restated here: the Self Improvement reader enumerates by the same two
+    functions, and its gapped figure IS this one.
     """
     bags: dict[str, BagRead] = {}
     # WHICH DIRECTORIES ARE BAGS, AND WHICH FILES ARE THEIR EVENTS, are

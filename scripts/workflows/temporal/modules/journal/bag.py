@@ -932,6 +932,12 @@ def journal_bags(root: Path) -> list[Path]:
     `validated_run_id` accepts — a directory `open_bag` could not have opened
     is not a run. Files beside the bags (`edge-id`, snapshots) are not bags.
 
+    ⚠ A CRASH-LEFT STAGING DIRECTORY IS NOT EXCLUDED. `open_bag` writes
+    `bagit.txt` into a hidden `.{run_id}.*` directory before renaming it, and
+    that name passes `validated_run_id` (a leading `.` is permitted), so one
+    left by a crash between the two is enumerated as a run. None exists in the
+    live journal (2026-09-24); the rule this replaces claimed otherwise.
+
     ONE OWNER, BECAUSE TWO READERS MUST AGREE. Replay (`rebuild.read_bags`) and
     the Self Improvement reader (`journal_evidence.units`) both count bags, and
     the reader's gapped figure IS replay's (Self Improvement Phase 1 r4). A

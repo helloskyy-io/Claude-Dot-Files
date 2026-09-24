@@ -1104,12 +1104,14 @@ RUNTIME_RECORDS: dict[str, RuntimeRecord] = {
     #     Every writer's `events.jsonl` under the payload, decoded and deduped
     #     on identity, then applied from the starting snapshot forward. Reached
     #     by the operator through `rebuild.py check` and by the suite on both
-    #     arms of requirement 4.
+    #     arms of requirement 4. The file name and the walk that finds every
+    #     writer's copy are `bag.py`'s, shared with the Self Improvement
+    #     reader so the two cannot read different streams.
     "a bag's event stream, events.jsonl": RuntimeRecord(
-        f"{_JOURNAL}/events.py", "EVENTS_FILE",
-        "scripts/workflows/temporal/modules/assistant/tracked/rebuild.py",
-        "read_bags",
-        via=(f"{_TOOLS}/rebuild.py",)),
+        f"{_JOURNAL}/bag.py", "EVENTS_FILE",
+        f"{_JOURNAL}/bag.py", "events_files",
+        via=(f"{_TOOLS}/rebuild.py",
+             "scripts/workflows/temporal/modules/assistant/tracked/rebuild.py")),
     # --- the starting snapshot, as the same replay starts from it ----------
     "the starting snapshot at the journal root": RuntimeRecord(
         f"{_JOURNAL}/snapshot.py", "SNAPSHOT_NAME_RE",

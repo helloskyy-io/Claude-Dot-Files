@@ -408,8 +408,9 @@ def _children(events) -> list[ChildRun]:
         if e.kind is not EventKind.COMPLETION:
             continue
         slot = by_address.setdefault(e.destination.address, {"members": {}, "stamps": []})
-        if _day(e.recorded_at):
-            slot["stamps"].append(_day(e.recorded_at))
+        day = _day(e.recorded_at)
+        if day:
+            slot["stamps"].append(day)
         if e.write_path == TRANSCRIPT_WRITE_PATH:
             slot["transcript"] = e.content
         elif e.write_path.startswith(RUN_LOG_PREFIX):
@@ -558,7 +559,11 @@ class _Trajectory:
             return
         seen_use: set[str] = set()
         seen_result: set[str] = set()
-        read_paths: set[tuple[object, str, str, str]] = set()  # offset/limit by repr: may be unhashable
+        # offset/limit enter the key by `repr`, so a malformed (unhashable)
+        # argument cannot raise; the cost is that int 1 and string "1" are
+        # different keys — an UNDERCOUNT only, and the Read schema types both
+        # as integers.
+        read_paths: set[tuple[object, str, str, str]] = set()
         for line in text.splitlines():
             if not line.startswith("{"):
                 continue
