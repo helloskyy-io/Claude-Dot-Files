@@ -14,10 +14,11 @@ Self Improvement Phase 2 (`phase2_the_self_report_and_recurrence_measured.md`).
       request BEFORE the pass's own comment. Classification is the predecessor
       `judge_marginal_yield.py`'s rule — its bullet extraction, its token
       reduction and its threshold, IMPORTED — applied per record rather than
-      per title list. LEXICAL, so the NEW share is biased UPWARD; the report
-      says so beside the figure, and prints the predecessor's own population
-      rule (every non-judge comment, no cut) over the same records as the
-      control.
+      per title list. LEXICAL: the phase doc expects an UPWARD bias on the NEW
+      share (paraphrase scores NEW), and shared topic words bias it DOWNWARD;
+      the report states both and the hand sample's `moves` say which won. The
+      predecessor's own population rule (every non-judge comment, no cut) runs
+      over the same records as the control.
   r2  THE RECURRENCE-CLAIM CHECK. Every Post-Run Reflection sentence in one
       repo's pull-request comments that claims recurrence is corroborated when
       it names a tracked item whose `count` is at least 2, or a typed finding
@@ -513,14 +514,24 @@ def apply_calibration_hypotheses(groups, sections, deferrals, hyps) -> tuple[lis
 
 # --- hand check -----------------------------------------------------------------------
 
-def hand_agreement(computed: dict[str, str], labels: dict) -> str:
+def hand_agreement(computed: dict[str, str], labels: dict, label: str = "hand sample") -> list[str]:
+    """The disagreement rate, and BOTH SIDES' label counts over the matched keys.
+
+    The counts are printed because a disagreement rate alone hides its
+    direction: 8 disagreements that all move NEW to STATED say the method
+    over-counts NEW, and a reader should not have to re-derive that.
+    """
     matched = [(computed[k], v) for k, v in labels.items() if k in computed]
     if not matched:
-        return "no hand labels matched a classified key"
+        return [f"{label}: no hand labels matched a classified key"]
     disagree = sum(a != b for a, b in matched)
     lo, hi = jb.wilson(disagree, len(matched))
-    return (f"hand sample n={len(matched)} ({len(labels) - len(matched)} labels matched nothing), "
-            f"disagreements {disagree} ({100 * disagree / len(matched):.0f}%, 95% CI {100 * lo:.0f}–{100 * hi:.0f}%)")
+    tool, hand = Counter(a for a, _ in matched), Counter(b for _, b in matched)
+    moves = Counter(f"{a}->{b}" for a, b in matched if a != b)
+    return [f"{label} n={len(matched)} ({len(labels) - len(matched)} labels matched nothing), "
+            f"disagreements {disagree} ({100 * disagree / len(matched):.0f}%, 95% CI {100 * lo:.0f}–{100 * hi:.0f}%)",
+            f"    computed {dict(sorted(tool.items()))}  hand {dict(sorted(hand.items()))}"
+            f"  moves {dict(sorted(moves.items()))}"]
 
 
 # --- the report --------------------------------------------------------------------------
@@ -567,11 +578,13 @@ def report_e1b(found: list[Classified], corpus: Corpus, hand, hyps) -> list[str]
     out += ["  METHOD : judge_marginal_yield's rule, imported — a finding is STATED when ONE reflection or",
             f"           Decision Log bullet posted BEFORE the pass's comment covers >= {jmy.ECHO_THRESHOLD} of its",
             "           title's significant words. The judge's own comments are excluded.",
-            "  BIAS   : LEXICAL — a finding the run described in other words scores NEW, so the NEW share is",
-            "           an UPPER bound. Earlier refine runs answering an earlier pass count as the producing",
-            "           runs, so a CARRIED finding is likelier STATED; the split above shows by how much."]
+            "  BIAS   : LEXICAL, and it errs BOTH ways. A finding the run described in other words scores NEW",
+            "           (the upward bias the predecessor states); a bullet sharing a third of a title's words",
+            "           while describing a DIFFERENT issue scores STATED (downward). Which dominates is the hand",
+            "           sample's `moves`, not an assumption. Earlier refine runs answering an earlier pass count",
+            "           as producing runs, so a CARRIED finding is likelier STATED; the split above shows how much."]
     if hand is not None:
-        out.append("  " + hand_agreement({c.key: c.status for c in rated}, hand))
+        out += ["  " + line for line in hand_agreement({c.key: c.status for c in rated}, hand)]
     if hyps is not None:
         out.append(f"  sweep hypotheses (finding ids to look up) : {hyps or 'none supplied'} "
                    "— the rate above is unchanged by them by construction")
@@ -581,13 +594,17 @@ def report_e1b(found: list[Classified], corpus: Corpus, hand, hyps) -> list[str]
 def report_claims(repo, claims, reach, added, tally, hand) -> list[str]:
     out = [f"## r2 — the recurrence-claim check, repo {repo}",
            f"  threads read : {sum(reach.values())} ({', '.join(f'{k} {v}' for k, v in sorted(reach.items())) or 'none'})"]
-    if not claims:
-        return out + ["  no reflection sentence claims recurrence — no denominator", ""]
-    corr = sum(c.status == "corroborated" for c in claims)
-    out.append("  " + _share("claims corroborated (computed)", corr, len(claims)) + "   <- THE RATE")
-    out.append(f"    by count {sum(c.by == 'count' for c in claims)}, by finding id "
-               f"{sum(c.by == 'finding id' for c in claims)}; in a review pass's comment "
-               f"{sum(c.judge for c in claims)}, in a producing run's {sum(not c.judge for c in claims)}")
+    # AN EMPTY COMPUTED POPULATION DOES NOT END THE SECTION: the sweep's claims
+    # are exactly the ones the pattern missed, so an empty computed set is where
+    # they matter most. (An early return here once dropped them silently.)
+    if claims:
+        corr = sum(c.status == "corroborated" for c in claims)
+        out.append("  " + _share("claims corroborated (computed)", corr, len(claims)) + "   <- THE RATE")
+        out.append(f"    by count {sum(c.by == 'count' for c in claims)}, by finding id "
+                   f"{sum(c.by == 'finding id' for c in claims)}; in a review pass's comment "
+                   f"{sum(c.judge for c in claims)}, in a producing run's {sum(not c.judge for c in claims)}")
+    else:
+        out.append("  no reflection sentence claims recurrence — the computed rate has no denominator")
     if tally is not None:
         both = claims + added
         out.append(f"  WITH THE SWEEP'S CLAIMS: {tally or 'none supplied'}")
@@ -599,7 +616,7 @@ def report_claims(repo, claims, reach, added, tally, hand) -> list[str]:
             "  BIAS   : a real recurrence described without an id is UNCORROBORATED, and a sentence that",
             "           describes the recurrence RULE is in the population — the rate is a LOWER bound."]
     if hand is not None:
-        out.append("  " + hand_agreement({c.key: c.status for c in claims}, hand))
+        out += ["  " + line for line in hand_agreement({c.key: c.status for c in claims}, hand)]
     out.append("  UNCORROBORATED — model-authored text, for the reader of this output; never publish it:")
     for c in claims + (added or []):
         if c.status == "uncorroborated":
@@ -637,7 +654,12 @@ def report_calibration(groups, today, tally, base, hand, sources) -> list[str]:
             "           the ratio a LOWER bound. Censoring only ever removes would-be NEVERs, so the ratio",
             "           over young entries is not comparable with the ratio over old ones."]
     if hand is not None:
-        out.append("  " + hand_agreement({g.key: g.group for g in groups}, hand))
+        # PER ORIGIN, because pooled they hide each other: a tracked item's
+        # group is an integer read, and a censored entry agrees by construction.
+        for label, gs in (("hand sample, CPI entries", cpi), ("hand sample, tracked items", tracked)):
+            keys = {g.key for g in gs}
+            out += ["  " + line for line in hand_agreement({g.key: g.group for g in gs},
+                                                           {k: v for k, v in hand.items() if k in keys}, label)]
     out.append("  RECURRED:")
     for g in groups:
         if g.group == "recurred":
@@ -679,10 +701,14 @@ def emit_reflections(corpus: Corpus) -> list[str]:
         if thread is None:
             continue
         for cid, text in thread.comments:
+            block = block_of(text)
+            # A review pass's finding ids ride along so the sweep can hand r1
+            # "a finding id to look up" — it reads ids, it does not invent them.
+            findings = [{"id": i, "title": t} for i, t in titles_in_block(block).items()] if block else []
             for section in reflection_sections(text):
                 out.append(json.dumps({"pr": f"{key[0]}#{key[1]}", "comment_id": cid, "source": source,
-                                       "author": "review-pr" if block_of(text) else "producing run",
-                                       "reflection": section}, ensure_ascii=False))
+                                       "author": "review-pr" if block else "producing run",
+                                       "reflection": section, "pass_findings": findings}, ensure_ascii=False))
     return out
 
 
