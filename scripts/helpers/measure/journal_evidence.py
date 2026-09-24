@@ -7,6 +7,8 @@ Everything above it — `journal_baseline.py` today, the recurrence checks of
 Phase 2 next — gets `UnitRef`s and `Unit`s and never a path, a glob or a
 directory walk. `test_journal_baseline.py` asserts that of the figure module by
 AST, so a figure that starts opening files fails a test rather than a review.
+**A NEW CONSUMER MODULE IS NOT COVERED UNTIL IT IS ADDED TO THAT TEST'S
+`_CONSUMERS`** — the guard scans the modules it names, not the directory.
 
 WHY AN INTERFACE AND NOT A FUNCTION. Phase 2 r4 requires every rate it computes
 to read "through the reader's interface", and its checklist verifies *"the
@@ -51,13 +53,14 @@ if str(_TEMPORAL) not in sys.path:
 
 from modules.journal.bag import (BAG_INFO_FILE, BAGIT_FILE, MANIFEST_FILE,  # noqa: E402
                                  BagError, bag_state, read_tag_file)
-from modules.journal.events import EventError, EventKind, decode_event  # noqa: E402
+from modules.journal.events import (EventError, EventKind, decode_event,  # noqa: E402
+                                    dedupe_on_identity)
 from modules.journal.journal_activities import load_journal_config  # noqa: E402
 from modules.journal.profile import (EVENTS, HARVEST_EVENTS,  # noqa: E402
                                      assess_completeness)
 from modules.journal.root import resolve_journal_root  # noqa: E402
 from modules.journal.snapshot import SnapshotError, latest_snapshot  # noqa: E402
-from modules.vocabulary import Disposition  # noqa: E402
+from modules.vocabulary import Disposition, HoldKind  # noqa: E402
 
 
 def _load_run_log():
@@ -80,6 +83,14 @@ __all__ = ["JournalEvidence", "UnitRef", "Unit", "ChildRun", "HarvestItem",
 #: a value without importing the workflow tree itself. A disposition outside it
 #: is counted as unrecognised and never printed — the value is model-authored.
 DISPOSITIONS = tuple(d.value for d in Disposition)
+
+#: Outcome values a `ChildRun` may carry, spelled `merge`, `hold:<kind>` or
+#: `undetermined` from the shared vocabulary. Anything else becomes
+#: `UNRECOGNISED` AT CONSTRUCTION — the outcome and hold kind are fields of a
+#: model-authored record, and a consumer trusting this record's docstring must
+#: not be handed their raw text.
+OUTCOMES = ("merge", *(f"hold:{k.value}" for k in HoldKind), "undetermined")
+UNRECOGNISED = "unrecognised"
 
 #: The transcript's write path and the prefix every run-log member carries —
 #: `assistant_activities` writes `run-log:{event_type}` and `cli-transcript`.
@@ -134,10 +145,10 @@ class ChildRun:
     repeated_reads: int              # Read calls on a path already Read in the same context
     subagents: int
     # review-pr's typed record and the parent's two computed shadows
-    asserted_outcome: str | None     # structured_output: merge | hold:<kind> | None
-    dispositions: tuple[str, ...]    # structured_output.findings[].disposition, raw values
+    asserted_outcome: str | None     # structured_output outcome, in OUTCOMES or UNRECOGNISED
+    dispositions: tuple[str, ...]    # findings[].disposition, each in DISPOSITIONS or UNRECOGNISED
     has_structured_output: bool
-    routed_outcome: str | None       # parent_route: merge | hold:<kind> | undetermined
+    routed_outcome: str | None       # parent_route outcome, in OUTCOMES or UNRECOGNISED
     shadow_parseable: bool | None
     channels_agree: bool | None
     convergence_agrees: bool | None
@@ -333,7 +344,13 @@ def open_journal(root: str | None = None) -> JournalEvidence:
 # --- parsing -----------------------------------------------------------------
 
 def _decode(path: Path):
-    """Every decodable event in one `events.jsonl`, and how many lines were refused."""
+    """Every decodable event in one `events.jsonl`, deduped, and how many lines were refused.
+
+    DEDUPED ON IDENTITY, the journal's own replay rule (`events.dedupe_on_identity`).
+    A re-run harvest appends the same events to the same writer's file, and a
+    retried activity re-emits; counting both would double a run's harvested
+    items, gaps and redactions — a wrong figure nothing downstream could see.
+    """
     found, refused = [], 0
     with path.open("r", encoding="utf-8", errors="replace") as handle:
         for line in handle:
@@ -343,7 +360,7 @@ def _decode(path: Path):
                 found.append(decode_event(line))
             except (EventError, ValueError, KeyError, TypeError):
                 refused += 1
-    return found, refused
+    return dedupe_on_identity(found), refused
 
 
 def _bytes(bag: Path) -> int:
@@ -396,11 +413,24 @@ def _child(address: str, slot: dict) -> ChildRun:
     members = slot["members"]
     route = members.get("parent_route")
     conv = members.get("convergence")
+    resources = members.get("run_resources")
+    child = _child_key(address, resources)
+    # THE DIRECTORY'S PUBLISH RULE, ENFORCED ON WHAT LEAVES THIS FUNCTION
+    # (`measure/README.md` § PUBLISH CLASSIFICATION): each member's values that
+    # reach a ChildRun are checked against what arrived in that member's
+    # NON-publishable fields — the call every sibling reader makes.
+    if resources is not None:
+        _run_log.assert_publishable("run_resources", resources, {"child": child})
+    if route is not None:
+        _run_log.assert_publishable("parent_route", route, {
+            "routed": _outcome(route.get("routed_outcome"), route.get("hold_kind"))})
+    if conv is not None:
+        _run_log.assert_publishable("convergence", conv, {"agrees": _bool(conv, "agrees")})
     t = _Trajectory(slot.get("transcript"))
     so = t.result.get("structured_output") if t.result else None
     so = so if isinstance(so, dict) else None
     return ChildRun(
-        child=_child_key(address, members.get("run_resources")),
+        child=child,
         has_transcript="transcript" in slot,
         has_result=t.result is not None,
         num_turns=_number(t.result, "num_turns"),
@@ -412,8 +442,8 @@ def _child(address: str, slot: dict) -> ChildRun:
         repeated_reads=t.repeated_reads,
         subagents=t.subagents,
         asserted_outcome=_outcome(so.get("outcome"), so.get("hold_kind")) if so else None,
-        dispositions=tuple(str(f.get("disposition")) for f in (so or {}).get("findings") or []
-                           if isinstance(f, dict)),
+        dispositions=tuple(_in(f.get("disposition"), DISPOSITIONS)
+                           for f in (so or {}).get("findings") or [] if isinstance(f, dict)),
         has_structured_output=so is not None,
         routed_outcome=_outcome(route.get("routed_outcome"), route.get("hold_kind")) if route else None,
         shadow_parseable=_bool(route, "shadow_parseable"),
@@ -425,9 +455,13 @@ def _child(address: str, slot: dict) -> ChildRun:
 
 
 def _outcome(outcome, hold_kind) -> str | None:
-    if outcome == "hold":
-        return f"hold:{hold_kind}" if hold_kind else "hold"
-    return outcome if isinstance(outcome, str) else None
+    if outcome is None:
+        return None
+    return _in(f"hold:{hold_kind}" if outcome == "hold" else outcome, OUTCOMES)
+
+
+def _in(value, vocabulary) -> str:
+    return value if value in vocabulary else UNRECOGNISED
 
 
 def _number(record: dict | None, key: str):
