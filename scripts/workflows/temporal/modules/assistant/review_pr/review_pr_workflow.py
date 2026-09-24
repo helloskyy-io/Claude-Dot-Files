@@ -722,7 +722,7 @@ def _convergence_notes(assessment: convergence.ConvergenceAssessment,
     """
     informative = (assessment.state is convergence.ConvergenceState.CONVERGED
                    or assessment.stalled or assessment.escalated_open
-                   or assessment.unknown_dispositions or assessment.reopened
+                   or assessment.unknown_dispositions or assessment.reopened_still_open
                    or agrees is False)
     if not informative:
         return []
@@ -740,19 +740,34 @@ def _convergence_notes(assessment: convergence.ConvergenceAssessment,
     if assessment.unknown_dispositions:
         line += ("; unrecognised disposition(s) counted OPEN: "
                  + ", ".join(assessment.unknown_dispositions))
-    if assessment.reopened:
+    if assessment.reopened_still_open:
         # THE LOOP IS GOING BACKWARDS, AND THAT IS NOT THE SAME AS UNFINISHED.
         # A finding that was closed and is open again means the fix did not
         # hold — so another pass of the same shape is the thing that has
         # already failed. Said loudly because a human reading a HOLD reaches
         # for a redispatch by default, and this is the case where that is the
         # wrong reflex. (#342: this fires at pass 6; the loop ran to 11.)
-        line += (f". NOT CONVERGING — {len(assessment.reopened)} finding(s) "
+        #
+        # KEYED ON THE STILL-OPEN SUBSET, NOT ON THE HISTORY, and that is the
+        # difference between a stop and a fact. `reopened` is cumulative by
+        # design; reading it here made three of #63's five passes print this
+        # sentence about a finding those same passes dispositioned FIXED, one
+        # of them with nothing open at all. The history is still reported
+        # below, in the past tense it belongs in.
+        line += (f". NOT CONVERGING — {len(assessment.reopened_still_open)} finding(s) "
                  f"CLOSED IN AN EARLIER PASS AND OPEN AGAIN: "
-                 + ", ".join(assessment.reopened)
+                 + ", ".join(assessment.reopened_still_open)
                  + ". A fix that did not hold is not progress; another pass of "
                  "the same shape is what already failed. Read the named "
                  "finding(s) in full before dispatching anything")
+    settled_after_churn = tuple(i for i in assessment.reopened
+                                if i not in assessment.open_ids)
+    if settled_after_churn:
+        # Reported, never as a stop. A finding that oscillated and then settled
+        # is worth a post-run read — it is where a fix went in twice — and it
+        # is not a reason to hold anything.
+        line += (f"; {len(settled_after_churn)} finding(s) reopened earlier in "
+                 f"this thread and are settled now: " + ", ".join(settled_after_churn))
     if agrees is False:
         # NOT called a disagreement, because the two rules answer different
         # questions and a difference is a definitional one at least as often as

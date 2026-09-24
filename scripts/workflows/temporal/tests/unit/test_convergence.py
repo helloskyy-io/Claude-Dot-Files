@@ -848,7 +848,15 @@ def test_nothing_in_the_tree_routes_on_the_convergence_signal() -> None:
                 for test in tests:
                     if _mentions(test, tainted):
                         found.add((rel, fn.name))
-                        sites.append(f"{rel}:{node.lineno} in {fn.name}()")
+                        # `ast.comprehension` IS NOT AN `expr` AND CARRIES NO
+                        # `lineno`, so reporting the node crashed the walk the
+                        # first time a comprehension filter named the
+                        # vocabulary — a guard that raises is neither a pass
+                        # nor a fail, it is a guard that cannot judge. The
+                        # filter expression has a position; the clause does
+                        # not. Found 2026-09-24 by the first such filter.
+                        line = getattr(node, "lineno", None) or test.lineno
+                        sites.append(f"{rel}:{line} in {fn.name}()")
 
     assert outside_assistant > 0, (
         f"the walk visited {outside_assistant} files outside "
@@ -1526,3 +1534,64 @@ def test_the_needs_assistance_note_CLAIMS_NO_CAUSE(name: str) -> None:
     assert "loop-back" in appended, (
         f"{name}'s note no longer states the LOOP decision, which is the one thing "
         f"the function knows and the reason it appends anything at all")
+
+
+# --------------------------------------------------------------------------
+# The oscillation STOP fires on work that is still open, never on work that
+# settled. Filed as I-r8nk4wvd after the fix shipped at dc80e6fb reported a
+# fixed finding as a reason to stop, on three consecutive passes of #63.
+# --------------------------------------------------------------------------
+
+def test_the_oscillation_STOP_names_only_the_reopened_ids_STILL_OPEN() -> None:
+    """The loud line is a stop, so it must describe the present.
+
+    POSITIVE CONTROL IS THE `still` ID: it is in both `reopened` and
+    `open_ids`, so a fix that simply deleted the warning fails here.
+    """
+    from modules.assistant.review_pr import review_pr_workflow as wf
+    a = cv.ConvergenceAssessment(
+        cv.ConvergenceState.NOT_CONVERGED, passes=3,
+        open_ids=("still",), reopened=("settled", "still"),
+    )
+    assert a.reopened_still_open == ("still",)
+
+    (line,) = wf._convergence_notes(a, asserted=None, agrees=None)
+    assert "NOT CONVERGING — 1 finding(s)" in line
+    assert "CLOSED IN AN EARLIER PASS AND OPEN AGAIN: still" in line
+    # The settled one is reported, and NOT as part of the stop.
+    head, _, tail = line.partition("are settled now:")
+    assert "settled" in tail
+    assert "settled" not in head.split("OPEN AGAIN:")[1].split(".")[0]
+
+
+def test_a_reopened_finding_that_was_FIXED_raises_no_stop() -> None:
+    """#63 passes 3-5, replayed: the warning must not fire at all.
+
+    Reverting `reopened_still_open` to `reopened` makes this the test that
+    fails — it is the whole defect, in one assertion.
+    """
+    from modules.assistant.review_pr import review_pr_workflow as wf
+    a = cv.ConvergenceAssessment(
+        cv.ConvergenceState.NOT_CONVERGED, passes=4,
+        open_ids=("other",), reopened=("wireguard-design-uncovered",),
+    )
+    assert a.reopened_still_open == ()
+    notes = wf._convergence_notes(a, asserted=None, agrees=None)
+    assert not any("NOT CONVERGING" in n for n in notes), notes
+
+
+def test_a_history_of_churn_alone_does_not_make_a_report_informative() -> None:
+    """Nothing open, nothing stalled, nothing escalated — and old churn.
+
+    The rider is worth printing beside real news; it is not news by itself,
+    and the gate it feeds exists so the first real line is not skimmed past.
+    """
+    from modules.assistant.review_pr import review_pr_workflow as wf
+    a = cv.ConvergenceAssessment(
+        cv.ConvergenceState.NOT_CONVERGED, passes=2,
+        open_ids=("x",), opened=("x",), reopened=("done-with",),
+    )
+    # `opened` is set so the assessment is not STALLED, which is informative on
+    # its own and would mask what this test is about.
+    assert not a.stalled
+    assert wf._convergence_notes(a, asserted=None, agrees=None) == []

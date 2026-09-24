@@ -276,6 +276,19 @@ class Residue(NamedTuple):
 # DO NOT RETYPE THE `paths` SETS. They are the output of `_fixed_paths` over
 # `git ls-files docs`, and the test below is what reconciles them.
 DOCS_RESIDUE: dict[str, Residue] = {
+    "tracked/standards/S-50f6v6ig.md": Residue(
+        frozenset({"/tmp/claude-snpm1-mdcpm2-to-snpm3-build-contract-amendments-20260915.md"}),
+        "NOT FIX-CLASS. This is a PROVENANCE CITATION — the tracked item names the "
+        "handoff document it was filed from, in the `Source:` line every item "
+        "carries. It is a statement about where this item came from, not a path "
+        "anything writes to or reads, so two concurrent dispatches cannot collide "
+        "on it and rewriting it would falsify the item's own account of its "
+        "origin. Arrived 2026-09-24 when `merge-pr`'s drain landed sixteen "
+        "intakes; the same shape will recur on every drained item whose source "
+        "was a handoff, which is most of them. Recorded rather than exempted: the "
+        "predicate is right that this is a fixed path under `/tmp`, and only a "
+        "reader can tell a citation from an instruction.",
+    ),
     "development/edge-assistant/workflow-decomposition/phase5_configuration_a_run_absorbed.md": Residue(
         frozenset({"/tmp/r5-hookflag/marker-hook.txt", "/tmp/r5-trials/marker-B0.txt",
                    "/tmp/r5-trials/marker-Bj.txt", "/tmp/r5-trials/marker-B.txt",

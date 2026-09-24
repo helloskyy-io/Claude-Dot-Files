@@ -54,11 +54,16 @@ items have all just been filed.
 
 from __future__ import annotations
 
+from typing import Iterable, TYPE_CHECKING
+
 import re
 import subprocess
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from ..plan_extractor.tracked import TrackedItem
 
 GIT_TIMEOUT_SECONDS = 30
 
@@ -106,6 +111,44 @@ class History:
     store_touches: dict[str, dict[str, set[str]]] = field(default_factory=dict)
     #: 1-indexed line of development/sprints.md -> the commit that last set it.
     sprint_line_activity: dict[int, Activity] = field(default_factory=dict)
+
+    def seed_uncommitted(self, items: "Iterable[TrackedItem]") -> None:
+        """Give an item with no commit its own `filed:` date as activity.
+
+        THE PRE-COMMIT HOOK REGENERATES THIS PAGE FROM THE TREE BEING
+        COMMITTED, so an item being ADDED by that commit has no commit touching
+        it yet and its age columns render as an em dash. One commit later the
+        same generator produces `0d`, so `--check` reports the page STALE on
+        arrival and a second, purely mechanical commit is needed to settle it.
+
+        MEASURED THREE TIMES ON 2026-09-24 in `skyynet-master-planning`: filing
+        two issues, filing the issue that describes this, and draining sixteen
+        intakes. Each needed a follow-up commit carrying no authored change.
+        The cost is not the extra commit — it is that `--check` goes red as a
+        routine consequence of correct work, and a gate that does that stops
+        being read.
+
+        `filed:` IS THE RIGHT FALLBACK AND NOT AN APPROXIMATION: it is required
+        by Tracked Items §3, and it is the value git itself will report one
+        commit later. The fallback is reachable only for a path git does not
+        know, so it can never mask a real commit date, and an item whose
+        `filed:` is missing or unparseable is left as it was — absent, which is
+        what an unknowable age should render as.
+        """
+        for item in items:
+            if not item.path or item.path in self.item_activity:
+                continue
+            filed = item.fields.get("filed", "").strip()
+            try:
+                day = date.fromisoformat(filed)
+            except ValueError:
+                continue
+            moment = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
+            self.item_activity[item.path] = Activity(
+                commit=_UNCOMMITTED_SHA,
+                timestamp=int(moment.timestamp()),
+                when=moment.isoformat(),
+            )
 
     def days_since(self, activity: Activity | None, as_of: date) -> int | None:
         if activity is None:

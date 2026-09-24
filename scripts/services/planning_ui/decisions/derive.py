@@ -77,6 +77,11 @@ def assemble(result: ExtractionResult, as_of: date | None = None) -> DecisionsPa
         )
 
     history = read_history(root, tuple(sorted(STORES)), SPRINTS_REL)
+    # An item being ADDED by the commit this hook is regenerating for has no
+    # commit touching it yet. Seeded from its own `filed:` so the page does not
+    # arrive stale and need a second, empty commit to settle. See
+    # `History.seed_uncommitted`.
+    history.seed_uncommitted(result.stores.all_items())
     if not history.available:
         findings.append(
             Finding(

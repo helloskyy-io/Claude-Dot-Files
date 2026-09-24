@@ -286,3 +286,55 @@ def test_a_checkout_with_no_history_reports_unavailable_rather_than_zero(tmp_pat
     assert history.available is False
     assert history.passes_since_activity("issues", "tracked/issues/I-aaaaaaaa.md") is None
     assert history.item_age_days("tracked/issues/I-aaaaaaaa.md", date(2026, 1, 1)) is None
+
+
+def test_an_item_added_but_not_yet_committed_is_dated_from_its_filed_field(repo: Path):
+    """I-x7pv3ke2: the hook regenerates from the tree being committed.
+
+    POSITIVE CONTROL: the committed item must still take its date from GIT,
+    not from `filed:`. Without that, a fallback that ran unconditionally would
+    pass this test while silently overriding every real commit date.
+    """
+    from planning_ui.decisions.history import read_history
+    from planning_ui.plan_extractor.tracked import TrackedItem
+
+    committed = "tracked/issues/I-committed.md"
+    (repo / committed).parent.mkdir(parents=True, exist_ok=True)
+    (repo / committed).write_text(
+        "---\nid: I-committed\nstatus: open\ncount: 1\nfiled: 2020-01-01\n---\n\nbody\n"
+    )
+    _git(repo, "add", committed)
+    _git(repo, "commit", "-m", "file the committed one")
+
+    staged = "tracked/issues/I-staged.md"
+    (repo / staged).write_text(
+        "---\nid: I-staged\nstatus: open\ncount: 1\nfiled: 2026-09-24\n---\n\nbody\n"
+    )
+
+    history = read_history(repo, ("issues",), "development/sprints.md")
+    assert staged not in history.item_activity, "precondition: git cannot see it yet"
+    before = history.item_activity[committed]
+
+    history.seed_uncommitted([
+        TrackedItem(store="issues", path=committed, fields={"filed": "2020-01-01"}),
+        TrackedItem(store="issues", path=staged, fields={"filed": "2026-09-24"}),
+    ])
+
+    assert history.item_activity[staged].day == "2026-09-24"
+    assert history.item_activity[committed] == before, (
+        "the committed item's real commit date was overwritten by its frontmatter"
+    )
+
+
+def test_an_unparseable_filed_field_leaves_the_age_absent(repo: Path):
+    """An unknowable age renders as absent, never as today."""
+    from planning_ui.decisions.history import read_history
+    from planning_ui.plan_extractor.tracked import TrackedItem
+
+    history = read_history(repo, ("issues",), "development/sprints.md")
+    for bad in ("", "soon", "2026-13-99"):
+        history.seed_uncommitted(
+            [TrackedItem(store="issues", path="tracked/issues/I-bad.md",
+                         fields={"filed": bad})]
+        )
+        assert "tracked/issues/I-bad.md" not in history.item_activity, bad

@@ -192,6 +192,30 @@ class ConvergenceAssessment:
     # a property of the reporting shape, not of the fleet.
     added_ids: tuple[str, ...] = ()
 
+    @property
+    def reopened_still_open(self) -> tuple[str, ...]:
+        """The reopened ids that are open RIGHT NOW — the actionable subset.
+
+        `reopened` is the whole history and stays that way: a cycle is only
+        visible across every pass, and C5 rules on the history deliberately.
+        But a REPORT that reads the history directly states a past event in the
+        present tense, and the line it feeds is phrased as a stop.
+
+        MEASURED ON THE FIRST PR THE OSCILLATION FIX EVER RAN AGAINST —
+        `skyynet-master-planning#63`. `wireguard-design-uncovered` reopened at
+        pass 2 and was dispositioned FIXED at pass 3, and passes 3, 4 and 5 each
+        printed *"NOT CONVERGING … A fix that did not hold is not progress"*
+        naming it, while open findings went 12 → 6 → 3 → 0. Three of the five
+        passes told the operator the loop was going backwards while it was
+        converging, and the last one said it with nothing open at all.
+
+        A STOP SIGNAL THAT FIRES ON SETTLED WORK IS THE FAILURE THE RULE IT
+        LIVES BESIDE WAS BUILT FROM: #342's own `converged: false` was correct
+        eleven times, routed nothing, and was ignored. Being right about the
+        past is not what makes a warning worth reading.
+        """
+        return tuple(i for i in self.reopened if i in self.open_ids)
+
     def __post_init__(self) -> None:
         """`reason` is required IFF the state is INDETERMINATE.
 
