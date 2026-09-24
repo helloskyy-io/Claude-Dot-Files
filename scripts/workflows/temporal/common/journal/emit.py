@@ -146,7 +146,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TypeVar
 
-from modules.vocabulary import TerminalState
+from common.vocabulary import TerminalState
 from .bag import FILE_MODE, Bag, BagError
 from .capture_filter import filter_capture
 from .edge_id import NO_CREDENTIAL_EPOCH, resolve_edge_id
@@ -1055,7 +1055,7 @@ def unwritable_journal_report(exc: JournalUnwritable, *,
     that needs nothing built.
 
     `terminal_state` IS `TerminalState.JOURNAL_UNWRITABLE`, from
-    `modules/vocabulary.py` — the same declaration the journal event's own
+    `common/vocabulary.py` — the same declaration the journal event's own
     `terminal_state` comes from. That is requirement 3 doing its job on the one
     field that crosses both contracts on the failure path.
 

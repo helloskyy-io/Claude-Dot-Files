@@ -41,7 +41,7 @@ from common.journal.emit import (GAP_FLAG_REASON, EmitFailed, Emitter,
 from common.journal.events import (EVENTS_FILE, Destination, EventKind,
                                     GapClass, Provenance, decode_event)
 from modules.assistant.review_pr import exit_record
-from modules.vocabulary import TerminalState
+from common.vocabulary import TerminalState
 
 ROOT_SKIP = pytest.mark.skipif(
     os.geteuid() == 0,

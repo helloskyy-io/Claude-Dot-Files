@@ -1,6 +1,6 @@
 """One declaration per shared concept — PMP Phase 3 requirement 3, as a test.
 
-⚠ THIS FILE EXISTS BECAUSE `modules/vocabulary.py` CITED IT AND IT DID NOT EXIST.
+⚠ THIS FILE EXISTS BECAUSE `common/vocabulary.py` CITED IT AND IT DID NOT EXIST.
 Its docstring said *"The test that holds this is
 `test_shared_vocabulary_is_declared_once.py`, which asserts the spelling
 agreement in both directions"* — and the module's whole argument, stated three
@@ -30,7 +30,7 @@ from pathlib import Path
 
 import pytest
 
-from modules import vocabulary
+from common import vocabulary
 from modules.assistant import convergence
 from modules.assistant.review_pr import exit_record
 from common.journal import events
@@ -75,7 +75,7 @@ def redeclares(tree: ast.Module, concept: str) -> bool:
 
 @pytest.mark.parametrize("source,expected", [
     ("from ..vocabulary import Outcome\n", False),
-    ("from modules.vocabulary import Outcome as Outcome\n", False),
+    ("from common.vocabulary import Outcome as Outcome\n", False),
     ("Outcome = 1\n", False),
     ('"""A docstring mentioning class Outcome(str, Enum)."""\n', False),
     ("class Outcome(str, Enum):\n    MERGE = 'merge'\n", True),

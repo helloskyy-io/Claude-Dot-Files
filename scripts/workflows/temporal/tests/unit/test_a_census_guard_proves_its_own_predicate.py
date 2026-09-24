@@ -220,7 +220,7 @@ _HERE = Path(__file__).resolve().parent
 # corrected one, a function that never cuts, and a call that legitimately
 # needs the worktree.
 # 44 -> 45 and 34 -> 35 when a `build-refine` pass added
-# `test_shared_vocabulary_is_declared_once.py` — the test `modules/vocabulary.py`
+# `test_shared_vocabulary_is_declared_once.py` — the test `common/vocabulary.py`
 # had CITED while it did not exist, which is why the module's one invariant was
 # held by a paragraph. BOTH numbers moved because it arrived WITH its control:
 # six literal snippets drive its re-declaration predicate, and the two that

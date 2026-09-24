@@ -33,7 +33,7 @@ from planning_corpus import PLANNING_ROOT  # noqa: E402
 
 from modules.assistant.review_pr import exit_record as er
 from common.journal import emit as journal_emit
-from modules.vocabulary import TerminalState
+from common.vocabulary import TerminalState
 from modules.assistant import routing
 from modules.assistant.review_pr import review_pr_helper as helper
 
@@ -1079,11 +1079,18 @@ def test_the_typed_vocabulary_is_declared_in_exactly_one_module() -> None:
     Not a list of the strings that are wrong today — a list like that retires
     itself the moment it passes, and would be blind to the NEXT member added.
     This enumerates the vocabulary FROM the enums and asserts that no other
-    module under `modules/` spells any member as a literal. A second copy passes
+    module under `modules/assistant/` spells any member as a literal. A second copy passes
     every test in both copies while diverging; that is how `parse_verdict` came
     to be typed twice, and the copy that decided merges had zero tests.
 
-    SCOPE, STATED: `modules/**/*.py`. Deliberately outside it — the prompt
+    SCOPE, STATED: `modules/assistant/**/*.py` — the walk is `_ASSISTANT`,
+    the tree that consumes the exit record. Deliberately outside it —
+    `common/vocabulary.py`, which DECLARES `HoldKind` and so spells its members
+    by construction (a walk including it could only pass by exempting it); the
+    rest of `common/`, which is library code that imports the vocabulary rather
+    than consuming the record (measured 2026-09-24: widening the walk to
+    `modules/` and `common/` finds `common/vocabulary.py` and nothing else);
+    the prompt
     files, where the emit instruction legitimately names members (§6 makes
     prompt-borne emission part of the conformance surface, and the render tests
     cover that a placeholder has a supplier), and the frozen V1 bash fleet,

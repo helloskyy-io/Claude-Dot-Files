@@ -51,8 +51,8 @@ Phase 3's contract and nothing else:
                              (r7); derives root, slug and login once
 
 THE EVENT CONTRACT IS SEPARATE FROM THE TYPED EXIT RECORD'S AND SHARES ONE
-VOCABULARY WITH IT (r3). `modules/vocabulary.py` is that vocabulary — a leaf at
-`modules/` belonging to neither package, because this package may not import
+VOCABULARY WITH IT (r3). `common/vocabulary.py` is that vocabulary — a leaf at
+`common/` belonging to neither package, because this package may not import
 `modules.assistant` and `exit_record.py` is dependency-free by design. The full
 argument is in `vocabulary.py`'s own docstring.
 

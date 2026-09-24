@@ -63,7 +63,7 @@ from common.journal.profile import (EVENTS, HARVEST_EVENTS,  # noqa: E402
                                      assess_completeness)
 from common.journal.root import resolve_journal_root  # noqa: E402
 from common.journal.snapshot import SnapshotError, latest_snapshot  # noqa: E402
-from modules.vocabulary import Disposition, HoldKind  # noqa: E402
+from common.vocabulary import Disposition, HoldKind  # noqa: E402
 
 
 def _load_run_log():

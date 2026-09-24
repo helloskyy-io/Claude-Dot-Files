@@ -26,7 +26,7 @@ enumerating test is only as good as its discovery predicate:
     walk. This closes the reach somebody writes by accident, not the one somebody
     writes deliberately — which is the correct ambition for a guard whose whole
     population is this repo's own modules.
-  * ANYTHING OUTSIDE `scripts/workflows/temporal/{modules,scripts}/**.py`. A
+  * ANYTHING OUTSIDE `scripts/workflows/temporal/{modules,scripts,common}/**.py`. A
     shell script that finds and cats an object, or a consumer in another repo,
     is outside the swept scope. Named in the failure text so a reader hitting
     this learns the boundary rather than assuming there is none.
@@ -120,8 +120,11 @@ BRANCH that reads the boundary's terminal state off the failure that ended a
 child. `from .. import journal` is the
 dominant relative-import spelling across the workflow tree (`from .. import
 routing`, `from .. import plan_activities as act`, `from . import
-tracked_items as ti`). So both are what a real bypass looks like: a line copied
-from the one above it.
+tracked_items as ti`) — and since the journal moved to `common/`, it reaches the
+journal only from a module in a SUB-PACKAGE OF `common/`, because a relative
+import cannot climb out of its top-level package. That is why `common/` is
+swept. So both are what a real bypass looks like: a line copied from the one
+above it.
 
 ⚠ THE FIX FOR FAMILY 2 BINDS BY SEMANTICS, NEVER BY THE SPELLING `journal`, AND
 TWO SEPARATE MECHANISMS HOLD THAT — which is worth stating because a review
@@ -205,7 +208,7 @@ BOUNDARY_PACKAGE = BOUNDARY_DIR.name
 BOUNDARY_PARENT = BOUNDARY_DIR.parent.name
 
 # Directories swept. `tests/` is excluded — see the docstring's scope list.
-SWEPT_DIRS = ("modules", "scripts")
+SWEPT_DIRS = ("modules", "scripts", "common")
 
 # The two modules that own the store's I/O. Importing either from outside the
 # package is a reach, whatever it is imported for.
@@ -504,7 +507,7 @@ def test_the_sweep_is_not_vacuous() -> None:
     """A sweep that examined nothing satisfies the assertion above exactly.
 
     THE FLOOR IS PER DIRECTORY, AND A SINGLE AGGREGATE FLOOR IS WHAT THIS FILE
-    SHIPPED FIRST. `modules/` alone holds 62 of the 87, so a total-only floor of
+    SHIPPED FIRST. `modules/` alone holds 61 of the 88, so a total-only floor of
     fifty stayed green with the 25 under `scripts/` dropped from the population
     entirely. That is the failure this control exists to catch,
     passing the control: a guard whose SCOPE has halved reports the same green
@@ -514,13 +517,14 @@ def test_the_sweep_is_not_vacuous() -> None:
     reason the next time a module is added, while a bare `assert swept` cannot
     tell one file from the whole fleet.
     """
-    for name, floor in (("modules", 40), ("scripts", 15)):
+    for name, floor in (("modules", 40), ("scripts", 15), ("common", 2)):
         found = [p for p in _swept_modules(FLEET_ROOT)
                  if (FLEET_ROOT / name) in p.parents]
         assert len(found) >= floor, (
             f"only {len(found)} modules discovered under {FLEET_ROOT / name}; "
-            f"this fleet has 62 under modules/ (outside the journal package) "
-            f"and 25 under scripts/. The predicate has drifted from the tree "
+            f"this fleet has 61 under modules/, 25 under scripts/ and "
+            f"2 under common/ (outside the journal package). The predicate has "
+            f"drifted from the tree "
             f"and the absence above proves nothing about this half of it.")
 
 
@@ -749,25 +753,30 @@ def test_the_FROM_PARENT_package_binding_bypass_is_caught(tmp_path) -> None:
 def test_the_RELATIVE_package_binding_bypass_is_caught(tmp_path) -> None:
     """`from .. import journal` -> `journal.content_store.load_object(…)`.
 
-    THE LIKELIEST BYPASS IN THE TREE, because it is the fleet's dominant
-    relative-import spelling: `from .. import routing`, `from .. import
-    plan_activities as act`, `from . import tracked_items as ti` and twenty more.
-    A module under `modules/assistant/` that needs a stored object writes this
-    line without thinking about it. `node.module` is None, so the parent check
-    cannot apply and the binding is recognised by the imported name alone.
+    THE LIKELIEST BYPASS FROM A LIBRARY SIBLING OF THE JOURNAL, because it is
+    the fleet's dominant relative-import spelling: `from .. import routing`,
+    `from .. import plan_activities as act`, `from . import tracked_items as ti`
+    and twenty more. A relative import cannot climb out of its top-level
+    package, so since the journal moved to `common/` this line reaches it ONLY
+    from a module in a sub-package of `common/` — `common/<sub>/x.py` — and the
+    fixtures sit exactly there. Written under `modules/assistant/` it resolves
+    to `modules.journal`, which no longer exists. This control is also what
+    proves `common/` is swept at all: drop it from `SWEPT_DIRS` and the fixture
+    count below is zero. `node.module` is None, so the parent check cannot
+    apply and the binding is recognised by the imported name alone.
 
     Two hops on purpose: this fixture is the one that reaches THROUGH the
     package to the submodule, which is what pins the `<bound>.content_store.…`
     resolution rather than only the one-hop re-export.
     """
-    modules = tmp_path / "modules"
-    modules.mkdir()
-    (modules / "relative_bad.py").write_text(
+    sibling = tmp_path / "common" / "sibling"
+    sibling.mkdir(parents=True)
+    (sibling / "relative_bad.py").write_text(
         "from .. import journal\n"
         "def run(bag, digest):\n"
         "    return journal.content_store.load_object(bag, digest)\n",
         encoding="utf-8")
-    (modules / "relative_good.py").write_text(
+    (sibling / "relative_good.py").write_text(
         "from .. import journal\n"
         "def run(run_id, writer):\n"
         "    return journal.journal_activities.open_run_bag(run_id, writer)\n",
@@ -775,7 +784,7 @@ def test_the_RELATIVE_package_binding_bypass_is_caught(tmp_path) -> None:
 
     assert len(_swept_modules(tmp_path)) == 2, "the fixture itself must be discovered"
     flagged = {reach.split(":")[0] for reach in _sweep(tmp_path)}
-    assert flagged == {"modules/relative_bad.py"}, (
+    assert flagged == {"common/sibling/relative_bad.py"}, (
         f"the sweep must name exactly the non-conforming module; it named {flagged}")
 
 
@@ -1185,6 +1194,7 @@ def test_the_FIGURES_this_files_prose_rests_on_are_DERIVED() -> None:
             "the swept population, in the per-directory floor argument",
         f"{under['modules']} under modules/": "the same, in the failure text",
         f"{under['scripts']} under scripts/": "the same, for the other directory",
+        f"{under['common']} under common/": "the same, for the library directory",
     }
     missing = {sentence: why for sentence, why in expected.items()
                if sentence not in prose}
@@ -1215,8 +1225,9 @@ def test_the_FIGURES_this_files_prose_rests_on_are_DERIVED() -> None:
         f"the {_WORD_OF[len(all_sites)]} call sites trip the first two at once",
         f"holding {under['modules']} of the {len(swept)}",
         f"all {under['scripts']} modules under scripts/",
+        f"{under['common']} under common/ outside the journal",
         f"the {shape_word} shapes, the {_WORD_OF[len(all_sites)]} call sites, "
-        f"{under['modules']}/{under['scripts']}/{len(swept)}",
+        f"{under['modules']}/{under['scripts']}/{under['common']}/{len(swept)}",
     ) if sentence not in entry]
     assert not stale, (
         f"docs/file_structure.txt's annotation for this file no longer states "

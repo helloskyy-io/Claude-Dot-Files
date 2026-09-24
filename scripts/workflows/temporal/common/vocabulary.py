@@ -14,15 +14,20 @@ in one and `MERGE`/`HOLD` in the other makes a rebuild's diff report a
 difference that is not one. This module is where each shared concept is spelled,
 once. Both sides import it; neither restates it.
 
-WHY IT SITS AT `modules/` AND NOT INSIDE EITHER PACKAGE. `common/journal/`
+WHY IT SITS AT `common/` AND NOT INSIDE EITHER PACKAGE. `common/journal/`
 imports no workflow module — `test_the_journal_package_imports_no_workflow_module`
 holds that, and Phase 6's reader depends on it, because dragging in
 `modules.assistant` drags in `temporalio` behind it. So the vocabulary cannot
 live beside `exit_record.py`. Putting it inside `common/journal/` instead would
 invert the problem: `exit_record.py` is dependency-free by design and importing
-the journal package would execute its whole `__init__`. A leaf at `modules/`
-belongs to neither and is importable by both, which is the only placement that
-leaves both properties intact.
+the journal package would execute its whole `__init__`. A leaf at `common/`
+belongs to neither and is importable by both — `common/__init__.py` is empty, so
+importing it runs nothing — which is the only placement that leaves both
+properties intact. And it is `common/` rather than `modules/` because
+`workflow-scripts.md` § Location defines `modules/` as workflows and `common/` as
+shared library code, types included: a shared enum is not a workflow, and a
+leaf under `modules/` would make the library (`common/journal/`) import from the
+workflow tree.
 
 STDLIB ONLY, NO I/O, NO CLOCK — the same discipline `routing.py` and
 `exit_record.py` keep, and for the same reason: a vocabulary that could fail to
