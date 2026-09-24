@@ -142,6 +142,9 @@ claude-dot-files/
 │   │   │   ├── judge_marginal_yield.py               # Disposition findings classified ECHOED by the producing run's own reflection vs NEW to the judge — the marginal-yield measure
 │   │   │   ├── journal_baseline.py                  # The reader (Self Improvement Phase 1): per-child baseline over the journal's bags, stdout only
 │   │   │   ├── journal_evidence.py                  # The read interface over the journal — the only module here that knows a bag is a directory
+│   │   │   ├── planning_evidence.py                 # The read interface over the planning corpus's deferrals — tracked stores and the CPI log's DEFERRED entries
+│   │   │   ├── self_report_measure.py               # Self Improvement Phase 2: E1b, the recurrence-claim check and the V1 calibration ratio — asserted vs
+│   │   │   │                                        #   computed, each with method, bias, a hand-sample check, and sweep hypotheses printed BESIDE the rate
 │   │   │   ├── replay_pr_review_blocks.py           # Finding-set delta between review passes + stable-id conformance → MMF Phase 1 E7, Phase 5
 │   │   │   ├── run_log.py                           # NOT a replay tool — the ONE DECLARATION of the RUN LOG surface (MMF Phase 6): its member
 │   │   │   │                                        #   event types, join key, publish classification and per-figure cutovers. A test compares the
@@ -180,6 +183,8 @@ claude-dot-files/
 │   │               #   NOT filtered away — skipping it reports the corpus clean while a session can
 │   │               #   still read it. Exit 2 on a corpus it cannot find, never 0.
 │   │           ├── test_journal_baseline.py         # The reader's requirements, each asserted with the input that would break it
+│   │           ├── test_self_report_measure.py      # Phase 2's three rates on fixtures: the cut at the pass's comment, the censoring horizon, criterion-vs-event
+│   │           │                                    #   markers, sweep hypotheses kept out of the computed rate, and no path semantics above the two interfaces
 │   │           ├── test_replay_completion_predicate.py  # Guards the anchoring and strict-vs-loose gap E5's zero depends on (3 mutation-proven)
 │   │           ├── test_replay_convergence_predicate.py  # Guards both early-fire counters — the OBSERVED one (a later pass reopened work)
 │   │           │                                    #   and the circular self-reported one — plus comment-order sequencing, the pass-1

@@ -73,7 +73,16 @@ def findings(bodies: list[str]) -> list[str]:
 
 
 def reflection_bullets(bodies: list[str]) -> list[set[str]]:
-    """The producing run's self-disclosure, ONE BULLET AT A TIME.
+    """`reflection_lines`, each reduced to its significant tokens."""
+    return [s for s in map(sig, reflection_lines(bodies)) if s]
+
+
+def reflection_lines(bodies: list[str]) -> list[str]:
+    """The producing run's self-disclosure, ONE BULLET AT A TIME, as written.
+
+    Split out of `reflection_bullets` for Self Improvement Phase 2's E1b, which
+    applies THIS rule per typed record and needs the bullet text for its
+    hand-classified sample — one rule, two readers, no copy.
 
     MATCHING AGAINST THE WHOLE TEXT WAS THE SECOND BUG AND IT READ AS A RESULT.
     A finding title holds a handful of significant words; a reflection holds
@@ -96,8 +105,8 @@ def reflection_bullets(bodies: list[str]) -> list[set[str]]:
             for line in m.group(1).split("\n"):
                 line = line.strip()
                 if line.startswith(("-", "*")) and len(line) > 40:
-                    out.append(sig(line))
-    return [s for s in out if s]
+                    out.append(line)
+    return out
 
 
 # An overlap this large between a finding title and the run's own words is a
