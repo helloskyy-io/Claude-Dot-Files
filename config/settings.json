@@ -262,5 +262,7 @@
         ]
       }
     ]
-  }
+  },
+  "skipDangerousModePermissionPrompt": true,
+  "model": "opus[1m]"
 }

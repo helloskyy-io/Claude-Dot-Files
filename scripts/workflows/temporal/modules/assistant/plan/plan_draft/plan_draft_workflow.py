@@ -358,7 +358,7 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
         "act.components_this_run_had_no_right_to — one comparator per column, "
         "because each column is prohibited for a different reason and the "
         "comparator docstring is where that reason is recorded",
-    "Edit `problem-statement.md`, `architecture_standard.md`, or anything else under `standards/`":
+    "Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `standards/`":
         "FORBIDDEN_PATHS `^docs/standards/` less permitted_paths, same mechanism",
     "**Delete anything** — a candidate row, a phase doc, or a planning file":
         "act.ids_deleted over the candidate id snapshots and over the phase-doc "

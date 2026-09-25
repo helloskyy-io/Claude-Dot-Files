@@ -50,7 +50,7 @@ Items intentionally NOT addressed in this PR but tracked for follow-up. The find
 
 **If you cannot verify it, you may not defer to it.** Fix the item, or SURFACE it plainly with no pointer at all. An honest 'no home for this' is worth more than a plausible pointer to nothing — and a naked surfaced item gets picked up downstream, while a laundered one gets filed away as handled.
 
-**FIRST, BEFORE PLACEMENT — is this a DEFECT or a PROPOSAL?** [Architecture Standard § 4 Memory](/opt/skyy-net/skyynet-master-planning/standards/architecture/architecture_standard.md) binds this; apply it rather than re-deriving it.
+**FIRST, BEFORE PLACEMENT — is this a DEFECT or a PROPOSAL?** [Architecture Standard § 4 Memory](/opt/skyy-net/skyynet-master-planning/standards/architecture/architectural_standard.md) binds this; apply it rather than re-deriving it.
 
 - **DEFECT** — something already built or already decided behaves wrongly, or a decision the research and planning do not supply is now blocking. Continue below.
 - **PROPOSAL** — capability that does not exist and would be *added*. It belongs in **`tracked/candidates/`**, never `tracked/issues/`, whatever its done-state looks like. Bias here when a finding reads either way.

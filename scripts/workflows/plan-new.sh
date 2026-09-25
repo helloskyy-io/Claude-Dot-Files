@@ -341,7 +341,7 @@ Guiding principles: boring is beautiful, team expertise matters, operational sim
 ## Stage 4: ARCHITECTURE
 Design the high-level architecture.
 
-Create `/opt/skyy-net/skyynet-master-planning/standards/architecture/architecture_standard.md` with:
+Create `/opt/skyy-net/skyynet-master-planning/standards/architecture/architectural_standard.md` with:
 - **Component diagram:** Major pieces and how they connect
 - **Data flow:** Request lifecycle, write path, read path, background processing
 - **External integrations:** Third-party APIs, webhooks, identity providers

@@ -22,7 +22,7 @@ ${WORKING_SET}
 | Name the `component` on a row YOU append | **Touch `sprint.md` at all** — you hold no authorization over it |
 | | Write or edit any phase doc |
 | | Design *how* anything gets built |
-| | Edit `problem-statement.md`, `architecture_standard.md`, or anything else under `standards/` |
+| | Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `standards/` |
 | | **Delete anything** — a candidate item, or the store |
 
 **`sprint.md` is not yours, and this is not a formality.** The sprint plan is the operator's cross-domain sequencing surface and the standing rule is that dispatches never write it. `plan-sprint` carries a specific, bounded override for it; **you do not.** If a candidate you ship looks like it needs a sprint section, say so in your report and stop — `plan-sprint` runs after you and that is its call to make.
@@ -52,7 +52,7 @@ Read, in this order, and do not skip any:
 1. **`${CANDIDATES_PATH}`** — the running list, including its header sections. Note which rows have a blank `decision` (untriaged, your job) versus a set one (already ruled, leave alone unless new evidence overturns it).
 2. **`${RESEARCH_DIR}/synthesis.md`** — what the PRODUCT-level evidence currently says. **This is your evidence input. DO NOT READ THE RAW PAPERS.** The Research Standard is explicit that downstream consumers take the synthesis and never the pool, and a triage pass that opens 21 papers is an hour-long run doing a job the synthesis already did. The paper *list* below is for coverage checking only — noticing a title the synthesis never mentions. **Open a paper only if a specific candidate cannot be ruled on without it, and say in your report which one and why.**
 3. **`/opt/skyy-net/skyynet-master-planning/standards/architecture/problem-statement.md`** — the thesis and the differentiators. **You never edit this.** You read it because a candidate that serves no stated differentiator is a candidate you should be sceptical of.
-4. **`/opt/skyy-net/skyynet-master-planning/standards/architecture/architecture_standard.md`** — the binding vocabulary and the seams. A candidate that violates a seam is a `reject`, and the reason is the seam.
+4. **`/opt/skyy-net/skyynet-master-planning/standards/architecture/architectural_standard.md`** — the binding vocabulary and the seams. A candidate that violates a seam is a `reject`, and the reason is the seam.
 5. **`/opt/skyy-net/skyynet-master-planning/standards/architecture/stack_reference.md`** — what we run on and **what we deliberately do not**. A candidate contradicting a settled stack decision is a `reject`, and the reason is that it was already decided. Note its "What we do NOT use" section: that list exists because a research cycle once costed out a product ruled out three weeks earlier.
 
 ${EXISTING_WORK}

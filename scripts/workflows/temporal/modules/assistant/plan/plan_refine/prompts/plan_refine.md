@@ -34,7 +34,7 @@ ${PLAN_INVENTORY}
 | Name the `component` you believe a surfaced proposal belongs to | |
 | | **Tick a completion checkbox** — nothing has been built |
 | | Write ANY `tracked/` store — you surface, `review-pr` files |
-| | Edit `problem-statement.md`, `architecture_standard.md`, or anything else under `standards/` |
+| | Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `standards/` |
 | | **Delete anything** — a phase doc or the roadmap |
 | | Decide WHEN this component gets built, or where it sits against other work |
 
@@ -120,7 +120,7 @@ Read, in this order, and do not skip any:
 1. **`${COMPONENT_PATH}/roadmap.md`**, then **every phase doc listed above, in full.** The decomposition you are judging lives in the phase docs; the roadmap is its index. A review that read only the roadmap has judged a table of contents.
 2. **`${COMPONENT_PATH}/research/synthesis.md`** — READ-ONLY, and read it for one purpose: question 4 below asks whether the evidence a phase cites actually supports it, and you cannot answer that from the citation alone.
 3. **`/opt/skyy-net/skyynet-master-planning/standards/architecture/problem-statement.md`** — the thesis. A plan that does not serve it is a well-formed plan for something nobody needed.
-4. **`/opt/skyy-net/skyynet-master-planning/standards/architecture/architecture_standard.md`** — the binding seams. A phase that violates one is a finding with a named reason.
+4. **`/opt/skyy-net/skyynet-master-planning/standards/architecture/architectural_standard.md`** — the binding seams. A phase that violates one is a finding with a named reason.
 5. **`/opt/skyy-net/skyynet-master-planning/standards/documentation/documentation_standard.md`** — § *Development Planning Files* and § *Phase Numbering and Roadmap Ordering*, which is binding.
 6. **`/opt/skyy-net/skyynet-master-planning/standards/architecture/stack_reference.md`** — what we run on and, in its *"What we do NOT use"* section, what we have deliberately ruled out. **A phase planned on something in that list is a finding no other reader is positioned to catch**, and sizing a phase built on the wrong stack produces a confident number for work that will not happen.
 7. **`docs/file_structure.txt`** — the annotated map, and the root `CLAUDE.md` beside it. The map is how you find everything above without guessing a path, and it is also direct sizing evidence: how many files a subsystem already holds tells you more about the cost of changing it than the phase's prose does.

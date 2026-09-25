@@ -28,7 +28,7 @@ ${RESEARCH_INVENTORY}
 | Name the `component` you believe a surfaced proposal belongs to | Write or edit anything under ANOTHER component, or under your own `research/` |
 | | **Tick a completion checkbox** — you have built nothing |
 | | Set `decision`, `size`, `status`, or another filer's `component` in the candidates file |
-| | Edit `problem-statement.md`, `architecture_standard.md`, or anything else under `standards/` |
+| | Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `standards/` |
 | | **Delete anything** — a candidate row, a phase doc, or a planning file |
 | | Decide WHEN this component gets built, or where it sits against other work |
 
@@ -109,7 +109,7 @@ Read, in this order, and do not skip any:
 3. **`docs/file_structure.txt`** — the annotated map of the repo, and **read it EARLY: it is how you find everything below without guessing a path.** Read the root `CLAUDE.md` beside it; that chain is what names which standards bind in THIS repo.
 4. **The PROJECT-level research pool and its synthesis** — normally `/opt/skyy-net/skyynet-master-planning/standards/architecture/research`, confirm against the map. This is what the project as a whole has established: the direction, the settled questions, the problem statement's evidence. **Your component's synthesis is the local evidence; this is the frame it sits in.** Read it so a phase you write does not contradict — or quietly re-derive — something the project already settled at a higher altitude.
 5. **`/opt/skyy-net/skyynet-master-planning/standards/architecture/problem-statement.md`** — the thesis and the differentiators. **You never edit this.** A plan that does not serve the thesis is a well-formed plan for something nobody needed.
-6. **`/opt/skyy-net/skyynet-master-planning/standards/architecture/architecture_standard.md`** — the binding vocabulary and the seams. A phase that violates a seam is a phase to redesign, and the reason is the seam.
+6. **`/opt/skyy-net/skyynet-master-planning/standards/architecture/architectural_standard.md`** — the binding vocabulary and the seams. A phase that violates a seam is a phase to redesign, and the reason is the seam.
 7. **`/opt/skyy-net/skyynet-master-planning/standards/architecture/stack_reference.md`** — what we run on and **what we deliberately do not**. Note its "What we do NOT use" section.
 8. **`/opt/skyy-net/skyynet-master-planning/standards/documentation/documentation_standard.md`** — § *Development Planning Files* for the two artifact shapes, and § *Phase Numbering and Roadmap Ordering* which is **binding** and is where the identity-versus-order rule above comes from.
 9. **`sprint.md` — READ IT. You may not write it; that is exactly why you must read it.** It is the only place that shows what else is being built and in what order. **Read it to avoid planning work another component already owns, and to see what this component would sit beside** — Stage 4 requires you to name the sprint entry this component needs, and you cannot propose a position in a sequence you have never seen. Its path is in the map above if it is not `/opt/skyy-net/skyynet-master-planning/development/sprints.md`.

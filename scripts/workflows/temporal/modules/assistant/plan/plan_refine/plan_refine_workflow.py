@@ -375,7 +375,7 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
         "path check answers it one altitude up and the field checks have no "
         "subject here. Operator ruling 2026-08-26: a producing run surfaces and "
         "`review-pr` files, for all three autonomous stores, no exception",
-    "Edit `problem-statement.md`, `architecture_standard.md`, or anything else under `standards/`":
+    "Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `standards/`":
         "FORBIDDEN_PATHS `^docs/standards/` less permitted_paths, same mechanism",
     "**Delete anything** — a phase doc or the roadmap":
         "act.ids_deleted over the candidate id snapshots for a ROW, "

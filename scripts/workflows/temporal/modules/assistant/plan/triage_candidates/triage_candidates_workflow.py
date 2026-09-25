@@ -194,7 +194,7 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
         "workflow is required to write. Its report MUST say what it noticed "
         "about a shipped candidate, so the observable that would separate "
         "designing from reporting is the prose itself.",
-    "Edit `problem-statement.md`, `architecture_standard.md`, or anything else under `standards/`":
+    "Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `standards/`":
         "FORBIDDEN_PATHS `^docs/standards/` less permitted_paths, same mechanism",
     "**Delete anything** — a candidate item, or the store":
         "act.ids_deleted over both id snapshots, and act.grants_that_vanished "
