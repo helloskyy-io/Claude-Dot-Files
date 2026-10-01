@@ -288,7 +288,12 @@ BUDGETS: dict[str, int] = {
     # roughly eightfold. The trade is paying a little on the cheap reviews to
     # cap the expensive ones — #342 reached eleven passes with 33 of 35 rows
     # settled, and the cheap reviews it protects cost a fiftieth of that.
-    "review_pr/prompts/disposition.md": 94_976,
+    # +1: the 2026-10-01 rename of `architecture_standard.md` to
+    # `architectural_standard.md` — MDC's spelling, adopted by operator ruling so one
+    # artifact has one name across every repo. The new name is ONE character longer and
+    # this prompt carries 1 reference(s), so the overrun is exactly 1 byte(s): a
+    # measured consequence of a ruling, not an addition anyone chose to make here.
+    "review_pr/prompts/disposition.md": 94_977,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-f0lfdhmm's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the
     # residue is 19 bytes. Worth stating because this is the mechanism working
@@ -535,7 +540,12 @@ BUDGETS: dict[str, int] = {
     # `skyy-command` cites its planning repo the same way, hundreds of times —
     # and it is the only form that resolves from a worktree of another repo.
     # NO INSTRUCTION WAS ADDED; the same sentences got longer.
-    "plan/plan_draft/prompts/plan_draft.md": 24_341,
+    # +2: the 2026-10-01 rename of `architecture_standard.md` to
+    # `architectural_standard.md` — MDC's spelling, adopted by operator ruling so one
+    # artifact has one name across every repo. The new name is ONE character longer and
+    # this prompt carries 2 reference(s), so the overrun is exactly 2 byte(s): a
+    # measured consequence of a ruling, not an addition anyone chose to make here.
+    "plan/plan_draft/prompts/plan_draft.md": 24_343,
     # 15_510 -> 13_204: the `research-analyst` re-dispatch is gone. The verify
     # child holds Write/Edit and applies the critic's findings itself, so the
     # rules that existed only to coordinate a second writing agent went with it
@@ -779,7 +789,12 @@ BUDGETS: dict[str, int] = {
     # so the gap was never "no attestation"; it was that nothing said a SILENT
     # NARROWING is a defect even when the tests pass, because the tests were
     # written against the cases the narrowing did handle.
-    "prompts/decision_log_and_reflection.md": 10_596,
+    # +1: the 2026-10-01 rename of `architecture_standard.md` to
+    # `architectural_standard.md` — MDC's spelling, adopted by operator ruling so one
+    # artifact has one name across every repo. The new name is ONE character longer and
+    # this prompt carries 1 reference(s), so the overrun is exactly 1 byte(s): a
+    # measured consequence of a ruling, not an addition anyone chose to make here.
+    "prompts/decision_log_and_reflection.md": 10_597,
     # 8,106 not 8,057 — the first draft of this budget counted CHARACTERS and
     # this file is full of em-dashes. The test caught it on its first run,
     # which is the cheapest possible demonstration that byte counts are not

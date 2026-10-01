@@ -2,8 +2,24 @@
 name: research-analyst
 description: Deep-research agent that gathers sources and writes/updates research mini-papers per the consuming repo's Research Standard. Gathers 10-20 credible sources per topic, marks confidence per claim, states gaps as findings, and always includes an honest-boundary analysis. Only use when explicitly requested or as part of the research workflow pipeline.
 tools: ["Read", "Grep", "Glob", "Bash", "Write", "Edit", "WebSearch", "WebFetch"]
-model: opus
+model: sonnet
 ---
+> **MODEL: `sonnet`, changed from `opus` on 2026-10-01, and the reason is a landscape change rather than a cost cut.**
+> Claude Sonnet 5.5 shipped 2026-09-30. The fleet's 2026-08-18 ruling — *"MINOR MEANS SMALLER, NOT WEAKER … buying a
+> further cut by downgrading the reasoner was the wrong trade"* — was decided against the previous Sonnet generation
+> and does not carry across it; the operator ruled so explicitly. **Measured on the trunk research cycle
+> (`f4f4d0a2b785417f8435685626cf6f18`, 2026-09-28):** this agent read **11.5M of the draft stage's 13.4M cached tokens
+> — 86%** — at Opus 5.5's $0.40/M against Sonnet 5.5's $0.20/M, on 89 of its 109 messages. Cache reads scale with the
+> model's input price, so the halving is real and it lands on the largest line in the whole workflow.
+>
+> **The orchestrators stay on Opus deliberately.** `research-draft` and `research-refine` decide which agent each topic
+> gets, judge sufficiency, and author the synthesis; they are 68 messages and ~7.2M reads across the whole cycle, so
+> cheapening them saves little and risks the judgement. Powerful model on the deciders, Sonnet on the fan-out.
+>
+> **What makes this the safest worker to move:** `research-critic` fetches every source this agent cites and verifies
+> the claim against it. This is the one worker in the fleet with a dedicated verifier downstream, so a capability
+> regression surfaces as critic findings rather than as a bad paper that merges.
+
 
 ## YOU HAVE A SHELL — FOR READING, NEVER FOR CHANGING STATE
 
