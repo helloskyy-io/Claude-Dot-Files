@@ -127,11 +127,32 @@ class CaptureReport:
         return self.cited is None or self.cited > 0
 
     def coverage_line(self) -> str:
+        """TWO COUNTS, NOT A RATIO — because they count different populations.
+
+        MEASURED 2026-10-02: a real cycle printed `coverage 63/45 cited sources
+        captured`, a numerator larger than its denominator, which made the figure
+        unusable as the quality gate it looked like. It was not an off-by-one.
+        The denominator is URLs found by regex IN THE CHANGED PAPERS — what a
+        reader would click. The numerator is `final_url` from the SIDECAR — the
+        raw URL the analyst's `curl` actually hit, which the prompt requires to
+        be the raw-bytes address. A paper citing `arxiv.org/abs/2308.10144` and
+        a sidecar row naming `export.arxiv.org/...` are the same source under two
+        addresses, so the sets overlap by accident rather than by construction
+        and their ratio means nothing.
+
+        A TRUE COVERAGE FIGURE NEEDS THE SIDECAR TO CARRY BOTH ADDRESSES — the
+        cited URL and the fetched one — which is a schema change and a prompt
+        change, not a reporting fix. Until then this states both counts and says
+        they are not a fraction, so nobody gates on it. The gap predicate above
+        reads `cited` and `captured` directly and is unaffected.
+        """
         if self.cited is None:
             return "coverage UNKNOWN — the run's paper set could not be read"
         if self.cited == 0:
             return "coverage n/a — the run's papers cite no source by URL"
-        return f"coverage {len(self.captured_urls)}/{self.cited} cited sources captured"
+        return (f"{self.cited} cited URL(s) in the changed papers; "
+                f"{len(self.captured_urls)} source(s) stored — NOT a ratio, the "
+                f"two count different addresses for the same sources")
 
     #: What the note leads with whenever the gap fires. ONE STRING, prefixed by
     #: `_loud` on every arm of `as_note`, so the note and `record_capture_gap`

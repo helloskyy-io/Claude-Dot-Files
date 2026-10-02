@@ -169,7 +169,7 @@ def test_a_run_that_WRITES_the_sidecar_fills_the_store_and_verify_resolves_it_OF
                              "measured_baseline_and_method_transfer.md"]
     assert report.cited == len(URLS) == 4
     assert report.captured_urls == set(URLS)
-    assert "coverage 4/4 cited sources captured" in report.as_note()
+    assert "4 cited URL(s) in the changed papers; 4 source(s) stored" in report.as_note()
 
     assert record_capture_gap(report, emitter=emitter, pool_dir=pool) is False
     assert not bag.incomplete
@@ -262,7 +262,7 @@ def test_a_CITED_paper_with_NO_sidecar_marks_the_bag_INCOMPLETE(tmp_path: Path,
 
     note = report.as_note()
     assert "CONTENT STORE EMPTY" in note and "INCOMPLETE" in note and "sources_uncaptured" in note
-    assert "coverage 0/4" in note
+    assert "4 cited URL(s) in the changed papers; 0 source(s) stored" in note
 
 
 def test_a_paper_that_cites_NOTHING_is_not_a_gap(tmp_path: Path, journal_root: Path) -> None:
@@ -299,7 +299,7 @@ def test_ONE_rotted_source_is_a_recorded_failure_NOT_a_gap_and_NOT_an_exception(
                                    capture_fn=_one_dead, worktree=wt, base="origin/main")
     assert report.captured == 4 and report.failed == [(dead, "ConnectionError: HTTP 404 — the glossary moved")]
     assert report.captured_urls == set(URLS) - {dead}
-    assert "coverage 3/4" in report.as_note() and dead in report.as_note()
+    assert "4 cited URL(s) in the changed papers; 3 source(s) stored" in report.as_note() and dead in report.as_note()
     assert record_capture_gap(report, emitter=emitter, pool_dir=pool) is False
     assert not bag.incomplete
     counts = verify_bag(bag.path).counts()

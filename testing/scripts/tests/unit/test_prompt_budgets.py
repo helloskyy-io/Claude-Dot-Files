@@ -764,7 +764,16 @@ BUDGETS: dict[str, int] = {
     # "only raw/, synthesis.md and topics.md", which FORBADE the file the
     # analyst's own definition told it to write; measured on
     # skyynet-master-planning#36, 28 cited sources and no sidecar.
-    "research/research_draft/prompts/draft.md": 22_434,
+    # +569: the per-analyst citations sidecar. MEASURED 2026-10-02 — a cycle ran
+    # three analysts appending to one `citations.json`, which is a lost-update
+    # race, and the run had to invent a /tmp-fragment workaround mid-flight to
+    # keep its own evidence. The replacement text spells the fragment naming, the
+    # orchestrator's merge step and the pre-dispatch cleanup, because a rule that
+    # says "do not append" without saying what to do instead gets re-invented per
+    # run. 569 bytes against a lost citation set is the trade; the alternative is
+    # a defect that destroys the one machine-readable claim-to-bytes pairing the
+    # content store exists to hold.
+    "research/research_draft/prompts/draft.md": 23_003,
     "build/build_draft_minor/prompts/update_pr.md": 10_675,
     # SHARED FRAGMENTS ARE THE EXPENSIVE ONES — every workflow that includes one
     # pays for it, so a byte here costs more than a byte in any single prompt.

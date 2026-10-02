@@ -126,7 +126,8 @@ def test_a_MALFORMED_sidecar_that_LEAVES_THE_STORE_EMPTY_is_loud_in_the_note(tmp
     note = unparseable.as_note()
     assert note.startswith("⚠ CONTENT STORE EMPTY FOR A CITED PAPER"), note
     assert "INCOMPLETE (gap: sources_uncaptured)" in note and "NOT RUN" in note
-    assert "coverage 0/3" in note
+    assert "3 cited URL(s) in the changed papers; 0 source(s) stored" in note
+    assert "NOT a ratio" in note, "the figure must say it is not a fraction"
     # Malformed over an UNCITED paper is a finding but not a gap — and not loud.
     assert "⚠" not in CaptureReport(parse_error="citations.json is not readable JSON",
                                     cited=0).as_note()
@@ -239,7 +240,7 @@ def test_record_capture_gap_EMITS_the_typed_class_and_MARKS_nothing_otherwise(tm
     assert call["destination"].store == "content_store"
     assert call["destination"].address == str(pool)
     assert call["lost_bytes"] == 0          # UNKNOWN, not zero — nothing was fetched
-    assert "0/3" in call["detail"]
+    assert "3 cited URL(s) in the changed papers; 0 source(s) stored" in call["detail"]
 
     quiet = _Emitter()
     assert record_capture_gap(CaptureReport(cited=3, captured=3), emitter=quiet, pool_dir=pool) is False
@@ -254,7 +255,7 @@ def test_the_note_is_LOUD_when_the_store_is_empty_for_a_cited_paper() -> None:
     silent_before = CaptureReport(cited=28, captured=0).as_note()
     assert silent_before.startswith("⚠ CONTENT STORE EMPTY FOR A CITED PAPER")
     assert "INCOMPLETE" in silent_before and "sources_uncaptured" in silent_before
-    assert "coverage 0/28" in silent_before
+    assert "28 cited URL(s) in the changed papers; 0 source(s) stored" in silent_before
     # And NOT loud when there was nothing to capture, or when something was.
     assert "⚠" not in CaptureReport(cited=0).as_note()
     assert "⚠" not in CaptureReport(cited=2, captured=1, captured_urls={"u"},
@@ -356,7 +357,9 @@ def test_the_helper_ANCHORS_into_the_worktree_and_reports_coverage(tmp_path: Pat
     notes = capture_into_the_run_bag(research_dir=research_dir, repo_root=repo_root,
                                      worktree=wt, bag=object(), emitter=em, base="main",
                                      capture_fn=lambda **kw: None)
-    assert notes == ["source capture: 1 captured. coverage 1/1 cited sources captured."], notes
+    assert notes == ["source capture: 1 captured. 1 cited URL(s) in the changed "
+                     "papers; 1 source(s) stored — NOT a ratio, the two count "
+                     "different addresses for the same sources."], notes
     assert em.calls == []
 
 

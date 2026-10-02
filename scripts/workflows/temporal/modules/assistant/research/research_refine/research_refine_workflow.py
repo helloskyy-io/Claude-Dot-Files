@@ -38,9 +38,10 @@ _HERE = Path(__file__).resolve().parent
 PROMPTS = _HERE / "prompts"
 
 MODEL_KEY = "research"
-# Its own key, not `research` — see research_draft for why the cap is keyed by
-# workflow rather than by model. Measurement lives with the value in config.yaml.
-WORKFLOW_KEY = "research-refine"   # NOT MODEL_KEY -- see run_claude's docstring
+
+# The turn budget is keyed by WORKFLOW, not by model: `max_turns` gives
+# `research-refine` 200 where the model key `research` is the parent's 250.
+WORKFLOW_KEY = "research-refine"
 MAX_TURNS = act.max_turns(WORKFLOW_KEY)
 
 COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE

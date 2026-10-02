@@ -66,34 +66,12 @@ from .. import research_activities as act
 _HERE = Path(__file__).resolve().parent
 PROMPTS = _HERE / "prompts"
 
-# ITS OWN KEY, NOT `research`. The full cycle's `research` key is opus because
-# that run authors a synthesis over a pool it also orchestrated. This run
-# authors nothing: it dispatches ONE research-analyst — which pins opus in its
-# own frontmatter and is unaffected by this key — then commits and opens a PR.
-# That is the same pure-orchestration shape `build-draft-minor` already runs at
-# sonnet. Sharing `research` would tie the cheap shape's cost to the expensive
-# one, which is the entire thing this workflow exists to avoid.
 MODEL_KEY = "research"
 
-# ITS OWN WORKFLOW KEY, NOT THE MODEL KEY. The model is `research`, shared
-# with `research_refine` and the parent — but the turn budgets are measured
-# separately, so the cap is keyed by WORKFLOW. Keying it off the model would
-# silently revert 150 to the parent's 250, a mistake an earlier version of
-# this file made and carried a paragraph warning about.
-#
-# THE MERGED CHILD KEEPS THE FULL TIER'S KEYS, NOT THE MINOR ONE'S. It sizes
-# its own cycle and may dispatch several analysts, so `research-draft-minor`'s
-# sonnet/80 would under-resource the work it now does. Both minor keys are
-# deleted from config.yaml in the same change.
-WORKFLOW_KEY = "research-draft"   # NOT MODEL_KEY — see run_claude's docstring.
-                                       # Added on the merge with Phase 6, which made
-                                       # `workflow_key` a required keyword: this child was
-                                       # written before that gate existed, so the two landed
-                                       # correct in isolation and broken together.
+# The turn budget is keyed by WORKFLOW, not by model: `max_turns` gives
+# `research-draft` 150 where the model key `research` is the parent's 250.
+WORKFLOW_KEY = "research-draft"
 
-# KEYED BY WORKFLOW, NOT BY MODEL — the same discipline `research_draft`
-# documents at length. The value is an ESTIMATE and is labelled as one in
-# config.yaml; nothing has measured this workflow yet.
 MAX_TURNS = act.max_turns(WORKFLOW_KEY)
 
 COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE

@@ -51,6 +51,7 @@ from __future__ import annotations
 
 import ipaddress
 import socket
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -103,6 +104,15 @@ class FetchPolicy:
     max_bytes: int = MAX_SOURCE_BYTES
     max_redirects: int = MAX_REDIRECTS
     allowed_schemes: tuple[str, ...] = ALLOWED_SCHEMES
+    #: Retries for a throttle or a transient read failure, and the first wait.
+    #: MEASURED 2026-10-02: a research cycle citing many arXiv papers lost 31 of
+    #: 167 captures to `HTTP 429` from `export.arxiv.org` plus read timeouts —
+    #: and the failures were on IDs the same run had already fetched minutes
+    #: earlier, so the host was rate-limiting the run against itself. A single
+    #: attempt per URL turns a host's backpressure into permanently missing
+    #: evidence. Only 429, 408, 425 and 5xx are retried: a 404 is an answer.
+    max_retries: int = 3
+    backoff_seconds: float = 2.0
 
 
 @dataclass(frozen=True)
@@ -246,6 +256,28 @@ def _read_capped(response, max_bytes: int, url: str) -> bytes:
     return b"".join(chunks)
 
 
+#: The codes that mean "not now" rather than "no". Everything else is an answer.
+_RETRY_CODES = frozenset({408, 425, 429, 500, 502, 503, 504})
+
+
+def _wait(policy, attempt: int, headers) -> None:
+    """Sleep before the next attempt: the host's `Retry-After`, else doubling.
+
+    CAPPED so one throttling host cannot park a run. A research cycle fetches
+    dozens of sources and an uncapped honour of `Retry-After` hands the run's
+    wall clock to whichever host is angriest.
+    """
+    delay = policy.backoff_seconds * (2 ** attempt)
+    if headers is not None:
+        raw = headers.get("Retry-After")
+        if raw:
+            try:
+                delay = max(delay, float(str(raw).strip()))
+            except ValueError:
+                pass                      # a date-form Retry-After; doubling stands
+    time.sleep(min(delay, 30.0))
+
+
 def fetch_source(url: str, *, policy: FetchPolicy | None = None,
                  opener=None, resolve=socket.getaddrinfo) -> FetchedSource:
     """Fetch one source under the policy. Every hop re-checked; bytes as received.
@@ -271,17 +303,40 @@ def fetch_source(url: str, *, policy: FetchPolicy | None = None,
             # the bytes the server sent" literally true.
             "Accept-Encoding": "identity",
         })
-        try:
-            response = opener.open(request, timeout=policy.timeout_seconds)
-        except urllib.error.HTTPError as exc:
-            location = exc.headers.get("Location") if exc.headers else None
-            if exc.code in (301, 302, 303, 307, 308) and location:
-                current = urljoin(current, location)
-                continue
-            raise FetchRefused(
-                f"fetching {current!r} failed: HTTP {exc.code} {exc.reason}") from exc
-        except urllib.error.URLError as exc:
-            raise FetchRefused(f"fetching {current!r} failed: {exc.reason}") from exc
+        # RETRIED ONLY ON BACKPRESSURE, never on an answer. A 404 or a 403 is the
+        # host telling us the thing is not there or not ours; repeating it wastes
+        # the run's time and the host's. 429/408/425 and 5xx are the host saying
+        # "not now", and those are the ones that cost us 31 of 167 captures on
+        # 2026-10-02. `Retry-After` is honoured when sent, because a host that
+        # names its own interval knows better than our doubling does.
+        response = None
+        for attempt in range(policy.max_retries + 1):
+            try:
+                response = opener.open(request, timeout=policy.timeout_seconds)
+                break
+            except urllib.error.HTTPError as exc:
+                location = exc.headers.get("Location") if exc.headers else None
+                if exc.code in (301, 302, 303, 307, 308) and location:
+                    current = urljoin(current, location)
+                    response = None
+                    break
+                if exc.code in _RETRY_CODES and attempt < policy.max_retries:
+                    _wait(policy, attempt, exc.headers)
+                    continue
+                raise FetchRefused(
+                    f"fetching {current!r} failed: HTTP {exc.code} {exc.reason}"
+                    + (f" (gave up after {attempt + 1} attempts)" if attempt else "")
+                ) from exc
+            except (urllib.error.URLError, TimeoutError) as exc:
+                reason = getattr(exc, "reason", exc)
+                if attempt < policy.max_retries:
+                    _wait(policy, attempt, None)
+                    continue
+                raise FetchRefused(
+                    f"fetching {current!r} failed: {reason} "
+                    f"(gave up after {attempt + 1} attempts)") from exc
+        if response is None:        # a redirect hop — re-check the new URL
+            continue
 
         with response:
             encoding = (response.headers.get("Content-Encoding") or "").strip().lower()
