@@ -106,10 +106,19 @@ The analyst's prompt must include: the question, its `Feeds:` destination, **the
 - **EACH ANALYST WRITES ITS OWN SIDECAR; YOU MERGE THEM. Never have two analysts append to one file.**
   Analysts run in parallel and a concurrent append to one JSON array loses rows — the last writer wins and the
   others' spans vanish silently. Each analyst writes `${RESEARCH_DIR}/citations.<paper-stem>.json`, its own file,
-  named for the paper it wrote. **After the last analyst returns you concatenate every fragment into
-  `${RESEARCH_DIR}/citations.json` as one array, delete the fragments, and confirm the result parses.** Before the
-  first dispatch, delete any `citations.json` AND any `citations.*.json` a previous run left behind — a stale file
-  would make this run claim sources it never verified.
+  named for the paper it wrote. **After the last analyst returns you MERGE every fragment INTO the existing
+  `${RESEARCH_DIR}/citations.json`, then delete the fragments and confirm the result parses.**
+
+  **MERGE MEANS REPLACE-BY-PAPER, AND NEVER DELETE THE FILE.** `citations.json` is CUMULATIVE across runs: it holds
+  the claim-to-bytes pairing for **every paper in the pool**, not only the ones you wrote, and
+  `capture_cited_sources` reads it whole. So: drop the rows whose `paper` names a paper THIS run wrote, append your
+  fragments in their place, and **leave every other row untouched.** Before the first dispatch delete only stale
+  `citations.*.json` FRAGMENTS — never `citations.json` itself.
+
+  **Deleting it is silent data loss and it has happened.** A run that replaced the file whole removed **1,169 lines**
+  of other papers' verified spans on PR #93, and nothing failed: the papers still read fine, their citations simply
+  stopped being re-checkable offline. **The sidecar is the only machine-readable pairing of a claim to its bytes** —
+  once a row is gone the quote cannot be verified without re-deriving it by hand.
 
 **WRITE BOUNDARY (binding).** You write ONLY inside ${RESEARCH_DIR}, and inside it only `raw/`, `synthesis.md`, `topics.md`, `citations.json` and the per-analyst `citations.<paper-stem>.json` fragments. Never edit a roadmap, phase doc, sprint file, or standard; **never write into any of the four `tracked/` stores** — not `issues/`, not `candidates/`, not `standards/`, and never `operations/`, which is human-only; never file a `tracked-intake` issue; never touch `direction.md`. **The researcher researches, the planner plans, the reviewer triages.** Anything your paper surfaces that looks actionable is SURFACED in the paper and goes no further. A research run that surfaces a finding and stops is FINISHED behaviour, not incomplete behaviour.
 

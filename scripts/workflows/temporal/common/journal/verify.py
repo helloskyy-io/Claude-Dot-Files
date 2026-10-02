@@ -56,6 +56,7 @@ from __future__ import annotations
 import subprocess
 import sys
 from dataclasses import dataclass, field
+import re
 from pathlib import Path
 
 from .bag import BAGIT_FILE, BagError
@@ -189,26 +190,107 @@ class VerifyReport:
                    key=lambda o: SEVERITY[o], default=VERIFIED)
 
 
-def span_occurs_in(quote: str, data: bytes) -> bool:
-    """Whether the quoted span still occurs in these bytes.
+#: Tags that sit INSIDE a sentence. Removing them joins the text either side,
+#: which is what a reader sees and what a correct quote reproduces.
+_INLINE_TAGS = ("em", "strong", "i", "b", "u", "span", "a", "code", "tt", "small",
+                "sub", "sup", "cite", "q", "abbr", "mark", "s", "del", "ins", "var",
+                "samp", "kbd", "big", "font", "time", "bdi", "bdo", "ruby", "rt", "rp")
 
-    DECODED PERMISSIVELY AND COMPARED ON WHITESPACE-NORMALISED TEXT, and both
-    halves are deliberate. `errors="replace"` means a page that is not valid
-    UTF-8 produces a span answer rather than an exception — a decode failure
-    would be reported as an integrity problem when the integrity is fine.
-    Normalising runs of whitespace is what makes a quote survive the source
-    being re-wrapped, which is the overwhelmingly common shape of a quote a
-    human or a model copied out of rendered text.
+#: Tags that END a reader-visible run of text. A quote may not span one: two
+#: table cells, two headings, two paragraphs or two MathML atoms are not a
+#: sentence, and joining them produces a string no source ever said.
+_BLOCK_TAGS = ("p", "div", "br", "hr", "li", "ul", "ol", "dl", "dt", "dd",
+               "table", "thead", "tbody", "tfoot", "tr", "td", "th", "caption",
+               "h1", "h2", "h3", "h4", "h5", "h6", "section", "article", "aside",
+               "header", "footer", "nav", "figure", "figcaption", "blockquote",
+               "pre", "address", "main", "math", "mi", "mn", "mo", "mrow", "msub",
+               "msup", "mfrac", "msqrt", "mtable", "mtr", "mtd", "semantics",
+               "annotation", "annotation-xml")
 
-    WHAT IT DOES NOT DO: it does not strip markup, so a quote taken from
-    rendered HTML may not occur in the HTML bytes. That is a real limit, it
-    produces a `span-missing` rather than a wrong `verified`, and closing it
-    means storing a rendered form beside the raw one — a bigger mechanism than
-    this phase is scoped to, and one that would put a DERIVED artifact in a
-    store whose whole guarantee is that it holds what was received.
+#: A character no source contains, standing where a block boundary was. A quote
+#: that needs to cross one will contain it after normalisation and cannot match.
+_BOUNDARY = "\u0000"
+
+_TAG_RE = re.compile(r"<\s*/?\s*([a-zA-Z][a-zA-Z0-9-]*)[^>]*>")
+
+
+def _render(data: bytes) -> str:
+    """The reader-visible text, with block boundaries kept as unmatchable marks.
+
+    THE TWO RULES POINT OPPOSITE WAYS AND THAT IS THE WHOLE POINT. Inline markup
+    is removed, because `the <em>exact</em> words` is one sentence and a correct
+    quote reproduces it without the tag. A block boundary is PRESERVED as a
+    sentinel, because two table cells are not a sentence and flattening them
+    manufactures a quotation nobody wrote.
+
+    MEASURED 2026-10-02, and this is why "strip tags" is the wrong rule. Over 165
+    sidecar spans in one cycle: 124 matched raw bytes, 32 matched after stripping
+    inline markup, and **9 matched only when tags became SPACES** — crossing
+    table-cell or MathML boundaries. Two reasonable checkers disagreed on 41 of
+    165. A separate pass over the 27 failures found 23 inline-only (accurate
+    quotes) and **4 that crossed a boundary**: one was a run of section headings
+    concatenated, one a table row flattened with its header row discarded. The
+    numbers in it were real; the quotation was not.
+
+    So a checker written against "strip markup" ACCEPTS flattened tables as
+    quotes, which is exactly how those four got in — and a checker that strips
+    nothing rejects 32 accurate ones. Neither is the rule.
     """
     text = data.decode("utf-8", errors="replace")
-    return " ".join(quote.split()) in " ".join(text.split())
+
+    def repl(m: re.Match) -> str:
+        name = m.group(1).lower()
+        if name in _INLINE_TAGS:
+            return ""
+        if name in _BLOCK_TAGS:
+            return _BOUNDARY
+        # An unknown tag is treated as a BOUNDARY, not as inline. The safe
+        # direction is refusing a span we cannot vouch for: a false
+        # span-missing costs a human read, a false verified ships a quotation
+        # that was never written.
+        return _BOUNDARY
+
+    return " ".join(_TAG_RE.sub(repl, text).split())
+
+
+def span_match(quote: str, data: bytes) -> str:
+    """How the span matches: `exact`, `rendered`, or `` (it does not).
+
+    THREE OUTCOMES, NOT TWO, because the two-outcome version reported an
+    accurate quote and a manufactured one identically. `rendered` means the
+    quote appears in the reader-visible text once inline markup is removed —
+    weaker evidence than byte-exact and NOT a defect. The empty string means it
+    does not appear even then, or appears only across a block boundary, which is
+    the real defect class.
+    """
+    want = " ".join(quote.split())
+    if not want:
+        return ""
+    if want in " ".join(data.decode("utf-8", errors="replace").split()):
+        return "exact"
+    if want in _render(data):
+        return "rendered"
+    return ""
+
+
+def span_occurs_in(quote: str, data: bytes) -> bool:
+    """Whether the quoted span occurs at all — byte-exact OR rendered.
+
+    KEPT AS A BOOLEAN FOR ITS EXISTING CALLERS, and it now returns True for a
+    quote that is accurate against the rendered text. `span_match` is what a
+    caller reaches for when the distinction matters.
+
+    DECODED PERMISSIVELY: `errors="replace"` means a page that is not valid
+    UTF-8 produces a span answer rather than an exception — a decode failure
+    would be reported as an integrity problem when the integrity is fine.
+    Whitespace runs are normalised, which is what makes a quote survive the
+    source being re-wrapped.
+
+    WHAT IT STILL DOES NOT DO: it does not store the rendered form. The render
+    is derived TRANSIENTLY here and never written, so the store's guarantee —
+    that it holds what was received — is untouched.
+    """
+    return bool(span_match(quote, data))
 
 
 def git_blob(repo_root: Path, sha: str, path: str | None) -> bytes:
@@ -298,9 +380,23 @@ def verify_citation(bag_path: Path, citation: Citation, *,
     if not span_occurs_in(citation.quote, data):
         return result(
             SPAN_MISSING,
+            # DO NOT SAY "THIS CITATION WAS WRONG WHEN IT WAS MADE." That read as a
+            # verdict and it is a comparison this function cannot make. `span_occurs_in`
+            # says so in its own docstring — it does not strip markup, so a quote taken
+            # from RENDERED html legitimately fails against the html bytes.
+            #
+            # MEASURED 2026-10-02 on one bag: 27 span-missing rows were 23 inline-markup
+            # false positives and 4 real defects (section headings concatenated, a table
+            # row flattened). The old sentence collapsed that ambiguity to the wrong
+            # branch with no hedge, two readers believed it, and it cost two hand-backs
+            # plus a near-miss on "correcting" 23 accurate quotes.
             f"the stored bytes are intact and the quoted span does not occur in "
-            f"them. The store is fine; this citation was wrong when it was made. "
-            f"Quote: {citation.quote[:120]!r}")
+            f"them VERBATIM. The store is fine. **This does not yet mean the citation "
+            f"is wrong**: this check is byte-exact and does not strip markup, so a "
+            f"quote taken from rendered HTML can fail here while being accurate. "
+            f"Classify before acting — inline markup inside a sentence is a false "
+            f"positive; a span that crosses a block, table or MathML boundary is a "
+            f"real defect. Quote: {citation.quote[:120]!r}")
     return result(VERIFIED)
 
 

@@ -773,7 +773,14 @@ BUDGETS: dict[str, int] = {
     # run. 569 bytes against a lost citation set is the trade; the alternative is
     # a defect that destroys the one machine-readable claim-to-bytes pairing the
     # content store exists to hold.
-    "research/research_draft/prompts/draft.md": 23_003,
+    # +758 on top of the +569 above: the sidecar MERGE rule. The previous text
+    # said to delete `citations.json` before the first dispatch, which is silent
+    # data loss -- the file is CUMULATIVE across runs and `capture_cited_sources`
+    # reads it whole, so a run that replaced it removed 1,169 lines of other
+    # papers' verified spans on PR #93 and nothing failed. The replacement spells
+    # replace-by-paper, never-delete, and why, because a one-line prohibition
+    # with no stated mechanism is what the deleted version already was.
+    "research/research_draft/prompts/draft.md": 23_761,
     "build/build_draft_minor/prompts/update_pr.md": 10_675,
     # SHARED FRAGMENTS ARE THE EXPENSIVE ONES — every workflow that includes one
     # pays for it, so a byte here costs more than a byte in any single prompt.

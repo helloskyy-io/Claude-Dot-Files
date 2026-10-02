@@ -218,13 +218,21 @@ DECLARED_SPLITS = {
     # on a URL has no equivalent of. The maxsplit of 1 is load-bearing — a
     # payload path may legitimately contain spaces.
     ("validate.py", "_parse_manifest"),
-    # `span_occurs_in` splits a QUOTE and a stored SOURCE on whitespace and
+    # The span checker splits a QUOTE and a stored SOURCE on whitespace and
     # rejoins both with single spaces, so a quote survives its source being
     # re-wrapped. Not a URL and not a path: the split yields no segment that is
     # used to address anything — the result is compared for containment and
     # then discarded. The failure mode this gate exists for, a segment that
     # looks right and points elsewhere, has no analogue in a substring test.
-    ("verify.py", "span_occurs_in"),
+    #
+    # TWO SITES, NOT ONE, SINCE 2026-10-02. `span_occurs_in` became a thin
+    # boolean over `span_match`, which reports `exact` / `rendered` / no-match,
+    # and `_render` derives the reader-visible text so an inline tag inside a
+    # sentence stops reading as a defect while a span crossing a table or
+    # MathML boundary still does. Same argument covers both: the split feeds a
+    # containment test and addresses nothing.
+    ("verify.py", "span_match"),
+    ("verify.py", "_render"),
 }
 
 

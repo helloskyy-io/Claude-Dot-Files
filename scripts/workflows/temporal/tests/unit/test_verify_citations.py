@@ -506,3 +506,61 @@ def test_a_target_that_is_NOT_THERE_is_USAGE_and_not_a_structural_finding(tmp_pa
     splitting the code without splitting these would just move the collapse.
     """
     assert verifymod.main([str(tmp_path / "no-such-directory")]) == EXIT_USAGE
+
+
+# --------------------------------------------------------------------------
+# The span convention: strip INLINE markup, REFUSE across a BLOCK boundary.
+# Measured 2026-10-02 over 165 sidecar spans — 124 byte-exact, 32 inline-only,
+# 9 matching only when tags became spaces (table cells, MathML). Two reasonable
+# checkers disagreed on 41 of 165. "Strip tags" accepts flattened tables as
+# quotes; stripping nothing rejects 32 accurate ones. Neither is the rule.
+# --------------------------------------------------------------------------
+
+import pytest as _pytest
+from common.journal.verify import span_match as _span_match
+
+
+@_pytest.mark.parametrize("label,data,quote,want", [
+    # Byte-exact is still byte-exact and still reported as such.
+    ("plain text", b"the exact words here", "the exact words here", "exact"),
+    # INLINE markup sits inside a sentence. A correct quote reproduces the
+    # sentence without it, so these are accurate and must NOT read as defects.
+    ("inline em", b"the <em>exact</em> words here", "the exact words here", "rendered"),
+    ("inline span", b'a <span class="ltx_font_italic">mid</span> sentence',
+     "a mid sentence", "rendered"),
+    ("inline anchor", b'see <a href="#x">figure 2</a> for this', "see figure 2 for this",
+     "rendered"),
+    # BLOCK boundaries end a reader-visible run. A span crossing one is a string
+    # no source ever said. These four are the real defect class, and the first
+    # two are verbatim shapes found in a live bag.
+    ("table row flattened", b"<tr><td>MBPP 67.7</td><td>80.1</td></tr>",
+     "MBPP 67.7 80.1", ""),
+    ("headings concatenated", b"<h2>Limitations</h2><h2>Future Work</h2>",
+     "Limitations Future Work", ""),
+    ("MathML atoms joined", b"<math><mi>x</mi><mo>+</mo><mi>y</mi></math>", "x + y", ""),
+    ("paragraphs joined", b"<p>First claim.</p><p>Second claim.</p>",
+     "First claim. Second claim.", ""),
+    # Absent is absent.
+    ("absent entirely", b"nothing like it", "a quote that is absent", ""),
+    ("empty quote", b"anything", "   ", ""),
+])
+def test_the_span_convention_SEPARATES_inline_markup_from_a_block_boundary(
+        label: str, data: bytes, quote: str, want: str) -> None:
+    """POSITIVE CONTROLS IN BOTH DIRECTIONS, which is the whole point.
+
+    A fix that simply stripped all markup passes every `rendered` row above and
+    FAILS all four boundary rows — which is exactly the defect that shipped four
+    manufactured quotations into a pool. A fix that stripped nothing passes the
+    boundary rows and fails the inline ones, rejecting accurate work. Only the
+    two-rule convention passes both halves.
+    """
+    assert _span_match(quote, data) == want, label
+
+
+def test_an_UNKNOWN_tag_is_treated_as_a_BOUNDARY_not_as_inline() -> None:
+    """The safe direction is refusing a span we cannot vouch for.
+
+    A false `span-missing` costs a human read. A false `verified` ships a
+    quotation that was never written.
+    """
+    assert _span_match("left right", b"<weirdtag>left</weirdtag><weirdtag>right</weirdtag>") == ""
