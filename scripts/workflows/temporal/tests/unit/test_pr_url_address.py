@@ -158,6 +158,8 @@ def test_every_consumer_of_the_pr_url_address_holds_the_OWNING_object() -> None:
 # listed one goes away — a list that only grows is a gate that widens itself.
 DECLARED_SPLITS = {
     ("resource_telemetry.py", "_read_anon"),         # a /proc line, not a URL
+    # `git diff --name-only -z` output: NUL-separated repo paths, not a URL.
+    ("merge_pr.py", "_merge_regenerate_push"),
     # ⚠ `parse_symlink_targets` WAS DECLARED HERE AND IS NOT ANY MORE, and the
     # removal came through this gate rather than around it. It split the bash
     # array body on "#" to drop trailing comments, which diverged from bash: a
