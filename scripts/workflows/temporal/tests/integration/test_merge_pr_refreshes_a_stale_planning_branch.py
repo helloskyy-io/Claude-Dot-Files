@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import types
 from pathlib import Path
 
 import pytest
@@ -143,10 +144,15 @@ def _remote(repo: Path, ref: str) -> str:
 
 def _no_wait(monkeypatch: pytest.MonkeyPatch) -> None:
     """THE NO-WAIT PROPERTY, DRIVEN. `test_the_merge_path_does_NOT_wait_for_CI`
-    pins the module's sleep sites; this proves the refresh path reaches none."""
+    pins the module's sleep sites; this proves the refresh path reaches none.
+
+    SCOPED TO `merge_pr`'S OWN `time` NAME, NOT THE GLOBAL `time.sleep`:
+    `run_bounded` polls with `time.sleep(0.05)` while a child joins its systemd
+    cgroup, which is host-timing dependent and is not the refresh waiting. The
+    global patch made this test fail intermittently on exactly that poll."""
     def boom(*a, **k):
         raise AssertionError("the refresh path waited")
-    monkeypatch.setattr(merge_pr.time, "sleep", boom)
+    monkeypatch.setattr(merge_pr, "time", types.SimpleNamespace(sleep=boom))
     monkeypatch.setattr(merge_pr.act, "wait_for_ci", boom)
 
 
@@ -301,3 +307,72 @@ def test_a_PR_that_is_not_OPEN_is_never_refreshed(repos, monkeypatch) -> None:
         "isCrossRepository": False, "state": "MERGED"})
     assert merge_pr.refresh_against_base("1", repos["local"]) is None
     assert _remote(repos["local"], "lane") == before
+
+
+# --- the failure branches of the push path: each ends in "nothing wrong pushed" ---
+
+
+def _worktrees(repo: Path) -> int:
+    return len(_git(repo, "worktree", "list").stdout.splitlines())
+
+
+def _leaked_tempdirs() -> set[str]:
+    import tempfile
+    return {p.name for p in Path(tempfile.gettempdir()).glob("merge-pr-1-*")}
+
+
+def test_a_REJECTED_push_is_reported_and_leaves_no_worktree(repos, gh, monkeypatch) -> None:
+    """Someone else pushes to the branch after our fetch: the push is refused,
+    the refusal says so, and the throwaway worktree is still cleaned up."""
+    _land(repos["seed"], "beta", "moved on main", "main moves")
+    _register(repos["local"])
+    real = merge_pr._merge_regenerate_push
+
+    def rival_pushes_first(head, base, wt, git):
+        seed = repos["seed"]
+        _git(seed, "checkout", "-q", "lane")
+        _git(seed, "pull", "-q", "origin", "lane")
+        (seed / "rival.txt").write_text("someone else's commit\n")
+        _git(seed, "add", "-A")
+        _git(seed, "commit", "-qm", "rival push to the PR branch")
+        _git(seed, "push", "-q", "origin", "lane")
+        _git(seed, "checkout", "-q", "main")
+        return real(head, base, wt, git)
+    monkeypatch.setattr(merge_pr, "_merge_regenerate_push", rival_pushes_first)
+    why = merge_pr.refresh_against_base("1", repos["local"])
+
+    assert why and "push was refused" in why, why
+    assert _worktrees(repos["local"]) == 1
+    # The remote still holds the rival's commit: ours did not overwrite it.
+    assert _git(repos["seed"], "log", "-1", "--format=%s", "origin/lane").stdout.strip() \
+        == "rival push to the PR branch"
+
+
+def test_a_derived_file_DELETED_on_the_base_is_named_and_pushes_nothing(repos, gh) -> None:
+    """`--theirs` cannot be taken for a path the base deleted: the refusal says
+    so and the remote head is unchanged."""
+    seed = repos["seed"]
+    _git(seed, "rm", "-q", "development/derived/decisions.md")
+    _git(seed, "commit", "-qm", "main deletes a derived file")
+    _git(seed, "push", "-q", "origin", "main")
+    _register(repos["local"], driver=False)
+    before = _remote(repos["local"], "lane")
+
+    why = merge_pr.refresh_against_base("1", repos["local"])
+
+    assert why and "could not be taken" in why and "nothing was pushed" in why, why
+    assert _remote(repos["local"], "lane") == before
+    assert _worktrees(repos["local"]) == 1
+
+
+def test_the_worktree_and_tempdir_are_CLEANED_UP_after_a_failed_refresh(repos, gh) -> None:
+    """The outside-derived/ conflict returns early; nothing may leak."""
+    _land(repos["seed"], "alpha", "a rival edit on main", "main edits the same roadmap")
+    _register(repos["local"])
+    already = _leaked_tempdirs()
+
+    why = merge_pr.refresh_against_base("1", repos["local"])
+
+    assert why and "nothing was pushed" in why, why
+    assert _worktrees(repos["local"]) == 1
+    assert _leaked_tempdirs() == already

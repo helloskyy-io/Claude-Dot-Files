@@ -160,7 +160,7 @@ def test_GATE_DID_NOT_RUN_still_carries_the_account_clause_and_LABELS_the_absent
 def test_the_merge_path_does_NOT_wait_for_CI(clear, monkeypatch) -> None:
     """NO WAIT, SLEEP OR POLL ON THE NOT-YET-RUN PATH. A merge path that waits is
     one that can hang; a wait here is ruled into its own sitting with
-    Skyy-Command #338, and `wait_for_ci` keeps its own deadline semantics.
+    MDC-Master-Planning #338, and `wait_for_ci` keeps its own deadline semantics.
 
     Driven, then inventoried: the refusal is produced with `sleep` and
     `wait_for_ci` both rigged to explode, and the module's `time.sleep` call
