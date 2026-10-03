@@ -68,6 +68,8 @@ def test_EVERY_non_green_CI_state_refuses(clear, monkeypatch, state) -> None:
     """
     monkeypatch.setattr(merge_pr, "ci_verdict",
                         lambda pr, repo_root: (state, []))
+    # `GATE_NOT_YET_RUN` names the head, which is a real `gh` read against REPO.
+    monkeypatch.setattr(merge_pr.act, "pr_head", lambda pr, root: "e6704875aabbccdd")
     assert any("not green" in w for w in merge_pr.refusals("1", REPO)), state
 
 
@@ -94,6 +96,121 @@ def test_EVERY_reason_is_reported_not_just_the_first(clear, monkeypatch) -> None
                         lambda args, root: {"state": "CLOSED",
                                             "mergeStateStatus": "DIRTY"})
     assert len(merge_pr.refusals("1", REPO)) == 3
+
+
+# --- CI not started yet is transient, and the refusal must say so -------------
+#
+# Skyy-Command #337, head `e6704875`, 2026-10-03: refused listing all seven
+# declared checks and "this account cannot buy"; MDC-PM1 concluded the gate was
+# defective; the same command minutes later merged. Zero runs existed yet.
+
+_PM1_POLICY = ["bake-agreement", "bash-tier", "chart-verify", "constraints-authority",
+               "master-test-tier", "schema-validate", "test-helm-charts"]
+
+
+def _ci_not_yet_run(monkeypatch, *, head="e6704875aabbccdd", extra=None) -> None:
+    """`extra` defaults to `[]`, which is what `ci_verdict` really returns. The
+    absence test passes the whole declared policy instead, so it bites if the
+    formatter ever starts listing `extra` for this state."""
+    monkeypatch.setattr(merge_pr, "ci_verdict",
+                        lambda pr, repo_root: (routing.CiVerdict.GATE_NOT_YET_RUN, extra or []))
+    monkeypatch.setattr(merge_pr.act, "pr_head", lambda pr, root: head)
+    monkeypatch.setattr(merge_pr, "_gh_json",
+                        lambda args, root: {"state": "OPEN", "mergeStateStatus": "CLEAN"})
+
+
+def test_the_NOT_YET_RUN_refusal_says_what_it_READ(clear, monkeypatch) -> None:
+    """PM1: "'0 workflow runs found for `e6704875`' would have ended the
+    investigation in one line." The count and the short sha are the line."""
+    _ci_not_yet_run(monkeypatch)
+    [ci] = [w for w in merge_pr.refusals("337", REPO) if "not green" in w]
+    assert "0 check jobs" in ci and "`e6704875`" in ci, ci
+    assert "Transient" in ci and "re-run" in ci, ci
+
+
+def test_the_NOT_YET_RUN_refusal_carries_NOTHING_misleading(clear, monkeypatch) -> None:
+    """THE ABSENCE HALF. A test that checked only the added text would pass with
+    the permanent-property clause and the full policy still sitting beside it."""
+    _ci_not_yet_run(monkeypatch, extra=_PM1_POLICY)
+    [ci] = [w for w in merge_pr.refusals("337", REPO) if "not green" in w]
+    assert "cannot buy" not in ci, ci
+    assert not [n for n in _PM1_POLICY if n in ci], ci
+
+
+def test_an_UNREAD_head_is_said_not_guessed(clear, monkeypatch) -> None:
+    monkeypatch.setattr(merge_pr, "ci_verdict",
+                        lambda pr, repo_root: (routing.CiVerdict.GATE_NOT_YET_RUN, []))
+    monkeypatch.setattr(merge_pr.act, "pr_head", lambda pr, root: None)
+    monkeypatch.setattr(merge_pr, "_gh_json",
+                        lambda args, root: {"state": "OPEN", "mergeStateStatus": "CLEAN"})
+    [ci] = [w for w in merge_pr.refusals("337", REPO) if "not green" in w]
+    assert "head unread" in ci, ci
+
+
+def test_GATE_DID_NOT_RUN_still_carries_the_account_clause_and_LABELS_the_absent_gate(
+        clear, monkeypatch) -> None:
+    """THE CONTROL: the other states' message is not quietly softened, and the
+    names it lists say they are ABSENT rather than reading as failures."""
+    monkeypatch.setattr(merge_pr, "ci_verdict",
+                        lambda pr, repo_root: (routing.CiVerdict.GATE_DID_NOT_RUN, ["suite"]))
+    [ci] = [w for w in merge_pr.refusals("1", REPO) if "not green" in w]
+    assert "cannot buy" in ci and "declared blocking, none reported: suite" in ci, ci
+
+
+def test_the_merge_path_does_NOT_wait_for_CI(clear, monkeypatch) -> None:
+    """NO WAIT, SLEEP OR POLL ON THE NOT-YET-RUN PATH. A merge path that waits is
+    one that can hang; a wait here is ruled into its own sitting with
+    Skyy-Command #338, and `wait_for_ci` keeps its own deadline semantics.
+
+    Driven, then inventoried: the refusal is produced with `sleep` and
+    `wait_for_ci` both rigged to explode, and the module's `time.sleep` call
+    sites are pinned to the two bounded re-asks that predate this rule."""
+    import ast
+    _ci_not_yet_run(monkeypatch)
+
+    def boom(*a, **k):
+        raise AssertionError("the merge path waited")
+    monkeypatch.setattr(merge_pr.time, "sleep", boom)
+    monkeypatch.setattr(merge_pr.act, "wait_for_ci", boom)
+    assert merge_pr.refusals("337", REPO)
+
+    tree = ast.parse(Path(merge_pr.__file__).read_text())
+    assert _sleep_sites(tree) == ["_merge_state", "pr_view"], _sleep_sites(tree)
+    named = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)} | {
+        n.attr for n in ast.walk(tree) if isinstance(n, ast.Attribute)}
+    assert "wait_for_ci" not in named, "the merge path names wait_for_ci"
+
+
+def _sleep_sites(tree) -> list[str]:
+    """The innermost function of every `time.sleep` / bare `sleep` call, sorted.
+
+    Innermost, so a nested def is not double-counted; bare `sleep` so
+    `from time import sleep` is seen."""
+    import ast
+    found: list[str] = []
+
+    def visit(node, owner):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            owner = node.name
+        if isinstance(node, ast.Call) and ast.unparse(node.func) in ("time.sleep", "sleep"):
+            found.append(owner)
+        for child in ast.iter_child_nodes(node):
+            visit(child, owner)
+    visit(tree, "<module>")
+    return sorted(found)
+
+
+@pytest.mark.parametrize("snippet, expected", [
+    ("import time\ndef refusals():\n    time.sleep(5)\n", ["refusals"]),
+    ("import time\ndef refusals():\n    return time.monotonic()\n", []),
+    ("from time import sleep\ndef refusals():\n    sleep(5)\n", ["refusals"]),
+    ("import time\ndef outer():\n    def inner():\n        time.sleep(5)\n", ["inner"]),
+])
+def test_the_sleep_inventory_SEES_a_sleep(snippet, expected) -> None:
+    """THE PREDICATE'S OWN CONTROL: a sleep added to the refusal path must be
+    counted, or the pin above stays green while the merge path waits."""
+    import ast
+    assert _sleep_sites(ast.parse(snippet)) == expected
 
 
 # --- `UNKNOWN` is transient, and that is not the same as clean ----------------

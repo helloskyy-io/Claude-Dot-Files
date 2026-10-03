@@ -19,6 +19,7 @@ from __future__ import annotations
 import ast
 import inspect
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -172,9 +173,26 @@ def test_an_advisory_check_alone_is_GATE_DID_NOT_RUN(monkeypatch, repo):
     assert missing == ["suite"], "the runway must name which declared gate is absent"
 
 
-def test_no_gating_check_reported_is_GATE_DID_NOT_RUN(monkeypatch, repo):
+def test_ZERO_runs_for_the_head_is_GATE_NOT_YET_RUN_not_an_absent_gate(monkeypatch, repo):
+    """Skyy-Command #337, 2026-10-03: `merge-pr` refused, the same command minutes
+    later merged, and nothing changed but GitHub creating the runs for the head.
+    This test asserted GATE_DID_NOT_RUN until then — zero runs and "runs exist,
+    none is a gate" were one state, and the first is the one that needs nobody."""
     _gh(monkeypatch, [])
-    assert act.ci_verdict("1", repo_root=repo)[0] is CiVerdict.GATE_DID_NOT_RUN
+    verdict, extra = act.ci_verdict("1", repo_root=repo)
+    assert verdict is CiVerdict.GATE_NOT_YET_RUN
+    assert extra == [], "nothing reported, so nothing may be named as if it had"
+
+
+def test_runs_present_but_NONE_blocking_stays_GATE_DID_NOT_RUN(monkeypatch, repo):
+    """THE POSITIVE CONTROL FOR THE SPLIT. If this became GATE_NOT_YET_RUN the
+    split would be cosmetic: a gate genuinely absent from runs that DID report
+    would be told to just re-run, and the investigation it needs would never
+    start."""
+    _gh(monkeypatch, [{"name": "lint", "state": "SUCCESS"}])
+    verdict, extra = act.ci_verdict("1", repo_root=repo)
+    assert verdict is CiVerdict.GATE_DID_NOT_RUN
+    assert extra == ["suite"]
 
 
 def test_empty_output_is_UNREADABLE_CHECKS_not_a_silent_gate(monkeypatch, repo):
@@ -245,10 +263,13 @@ def test_a_DECLARED_gate_that_reports_NOTHING_still_holds(monkeypatch, repo):
     """
     _gh(monkeypatch, None, stdout="", stderr=_NO_CHECKS_STDERR, returncode=1)
     verdict, extra = act.ci_verdict("1", repo_root=repo)
-    assert verdict is CiVerdict.GATE_DID_NOT_RUN, (
-        f"a declared-but-absent gate read as {verdict} — the repo expects `suite` "
-        f"and nothing reported it")
-    assert extra == ["suite"], f"the runway cannot name the absent gate: {extra}"
+    # GATE_NOT_YET_RUN since 2026-10-03 (nothing reported at all); the property
+    # under test — it HOLDS, it is not a pass — is unchanged.
+    assert verdict is CiVerdict.GATE_NOT_YET_RUN, (
+        f"a declared gate with nothing reported read as {verdict} — the repo "
+        f"expects `suite` and nothing reported it")
+    hold, _notes = routing.ci_gate(verdict, extra, pr="1", repo_target=None)
+    assert hold is Verdict.HOLD_NEEDS_ASSISTANCE, "a declared gate that reported nothing must still hold"
 
 
 def test_a_repo_with_NO_CI_stops_polling_on_the_FIRST_reply(monkeypatch, tmp_path):
@@ -528,7 +549,9 @@ def test_GATE_DID_NOT_RUN_does_not_also_report_its_gate_as_UNDECLARED(monkeypatc
     "checks that ran and are unclassified" — so a single run reported `suite`
     as unclassified and as declared-blocking in consecutive lines.
     """
-    _gh(monkeypatch, [])
+    # An advisory check reported, so runs exist and the gate is absent from
+    # them; `[]` here is GATE_NOT_YET_RUN since 2026-10-03.
+    _gh(monkeypatch, [{"name": "CodeQL", "state": "SUCCESS"}])
     verdict, names = act.ci_verdict("1", repo_root=repo)
     assert verdict is CiVerdict.GATE_DID_NOT_RUN
     assert names == ["suite"], "the absent gate must be named for the runway"
@@ -1256,12 +1279,40 @@ def test_a_CONFLICTING_pr_with_no_checks_is_its_own_state_not_an_absent_gate(mon
 
 @pytest.mark.parametrize("view", ['{"mergeable": "UNKNOWN"}', '{"mergeable": "MERGEABLE"}',
                                   "", "not json", "[]"])
-def test_an_absent_gate_that_is_NOT_known_conflicting_stays_GATE_DID_NOT_RUN(monkeypatch, repo, view):
+def test_zero_runs_NOT_known_conflicting_is_GATE_NOT_YET_RUN_never_a_pass(monkeypatch, repo, view):
     """The mergeability read is tolerant in one direction only: it can narrow an
-    absent gate to CONFLICTING, never widen anything toward a pass."""
+    absent gate to CONFLICTING, never widen anything toward a pass. With zero
+    runs and no conflict read, the narrowing that remains is GATE_NOT_YET_RUN —
+    which still holds."""
     _gh_by_command(monkeypatch, checks_stdout="", checks_stderr=_NO_CHECKS_STDERR,
                    view_stdout=view)
-    assert act.ci_verdict("1", repo_root=repo)[0] is CiVerdict.GATE_DID_NOT_RUN
+    verdict, extra = act.ci_verdict("1", repo_root=repo)
+    assert verdict is CiVerdict.GATE_NOT_YET_RUN
+    assert routing.ci_gate(verdict, extra, pr="1", repo_target=None)[0] is not None
+
+
+def test_ZERO_runs_AND_conflicting_is_still_CONFLICTING(monkeypatch, repo):
+    """PRECEDENCE. A conflicted PR also has zero runs; the not-yet-run branch must
+    not steal it, or a conflict is told to wait for CI that can never start."""
+    _gh_by_command(monkeypatch, checks_stdout="[]", checks_stderr="",
+                   view_stdout=json.dumps({"mergeable": "CONFLICTING"}))
+    assert act.ci_verdict("1", repo_root=repo)[0] is CiVerdict.CONFLICTING
+
+
+def test_GATE_NOT_YET_RUN_is_NOT_a_loop_back_and_names_the_post_wait_diagnosis() -> None:
+    """A correction pass cannot make CI start sooner, so a redispatch here is the
+    waste UNREADABLE_CHECKS and CONFLICTING were split out to stop. And its
+    sibling still routes as it did: the split moved one case, not the other."""
+    hold, notes = routing.ci_gate(CiVerdict.GATE_NOT_YET_RUN, [], pr="1", repo_target=None)
+    assert hold is Verdict.HOLD_NEEDS_ASSISTANCE
+    assert hold is not Verdict.HOLD_REDISPATCH
+    assert "NOT looped back" in notes[-1]
+    assert "NOT transient" in notes[-1], "a caller that already waited must not be told zero jobs is a wait"
+    assert "usually transient" not in notes[-1].lower(), "every caller of ci_gate has already waited"
+    assert "refs/pull/<N>/merge" in notes[-1], "the post-wait diagnosis must name the merge-ref check"
+
+    sibling, _ = routing.ci_gate(CiVerdict.GATE_DID_NOT_RUN, ["suite"], pr="1", repo_target=None)
+    assert sibling is Verdict.HOLD_NEEDS_ASSISTANCE
 
 
 # ---------------------------------------------------------------- the stall
@@ -1379,3 +1430,28 @@ def test_an_ABSENT_GATE_is_the_humans_not_a_loop_backs() -> None:
     assert hold is Verdict.HOLD_NEEDS_ASSISTANCE
     assert "NOT looped back" in notes[-1]
 
+
+def test_the_DID_NOT_RUN_note_describes_runs_that_REPORTED_not_a_conflicted_PR() -> None:
+    """review-pr pass 1 on PR #215: the note still said "no run is created at all".
+
+    Since the GATE_NOT_YET_RUN split, GATE_DID_NOT_RUN means jobs DID report and
+    none is a declared gate. A note sending the operator to look for a conflict
+    that cannot exist repeats the misdiagnosis the split was made to remove.
+    """
+    _, notes = routing.ci_gate(CiVerdict.GATE_DID_NOT_RUN, ["suite"], pr="1", repo_target=None)
+    assert "DID report" in notes[-1]
+    assert "compare the policy's blocking names" in notes[-1]
+    assert "no run is created at all" not in notes[-1]
+    # The one conflict that CAN land here: mergeable was UNKNOWN when ci_verdict read it.
+    assert "gh pr view --json mergeable" in notes[-1]
+
+
+@pytest.mark.parametrize("state", [s for s in CiVerdict if s is not CiVerdict.CONFLICTING])
+def test_only_CONFLICTING_may_claim_that_no_run_is_created(state) -> None:
+    """The CLASS check: "no run is created" is true of a conflicted PR and of nothing else.
+
+    A conflicted PR gets no merge ref, so it gets no runs. Any other state's note
+    asserting that is a stale cause carried over from before the states were split.
+    """
+    _, notes = routing.ci_gate(state, ["suite"], pr="1", repo_target=None)
+    assert not re.search(r"no runs? (is|are|was|were) created", " ".join(notes))
