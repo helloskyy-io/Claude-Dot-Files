@@ -352,6 +352,12 @@ def _pointer(number: int) -> str:
     return f"intake `#{number}`"
 
 
+# Prefixes every reason `_uncommitted` returns, so a caller can tell "the record
+# exists, commit it" from "the finding exists only in the issue" without parsing
+# prose. `harvest-intake.py` words its closing summary off it.
+AWAITING_COMMIT_TAG = "[awaiting commit] "
+
+
 def _uncommitted(path: Path, number: int) -> str | None:
     """Why closing intake `#number` would be premature, or None if it is safe.
 
@@ -372,13 +378,13 @@ def _uncommitted(path: Path, number: int) -> str | None:
         # `git` itself unlaunchable. Fail CLOSED into the left-open channel: an
         # exception here would escape `harvest`'s per-intake handler and end the
         # whole drain, which is the 2026-09-10 outage shape.
-        return (f"record `{path.name}` cannot be confirmed committed — git did not "
+        return (f"{AWAITING_COMMIT_TAG}record `{path.name}` cannot be confirmed committed — git did not "
                 f"run ({exc}); leaving the intake open.")
     if done.returncode == 0 and _pointer(number) in done.stdout:
         return None
     detail = done.stderr.strip() if done.returncode != 0 else (
         "the committed copy predates this intake's edit")
-    return (f"record `{path.name}` is written but not committed, or git could not "
+    return (f"{AWAITING_COMMIT_TAG}record `{path.name}` is written but not committed, or git could not "
             f"confirm it ({detail}) — closing would report it filed while the "
             f"only copy is uncommitted. Commit the store and re-run; the next "
             f"pass closes it without filing a second copy.")

@@ -73,7 +73,9 @@ acquire both their retry discipline and their journal emit; the reply is still
 checked, one layer up. It went to nine when the research capture's
 `papers_changed` landed — a `git diff` that names the papers a run wrote, whose
 `returncode` is read so a git that did not answer yields "unknown" rather than
-"no papers". That is the discipline this file exists to demonstrate: a
+"no papers". It went to ten when `intake._uncommitted` landed — a `git show
+HEAD:` whose `returncode` is read before its stdout, the gate that keeps a harvest
+from closing an intake whose record is not yet committed. That is the discipline this file exists to demonstrate: a
 coverage claim is either an assertion that goes red, or it is a hedge.
 """
 

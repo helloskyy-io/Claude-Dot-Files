@@ -549,7 +549,11 @@ def test_a_record_on_disk_but_NOT_IN_HEAD_leaves_the_intake_OPEN_and_exits_non_z
 
     assert rc != 0, "a left-open intake must reach a human through the exit code"
     assert gh.calls.count("close") == 0, "closed on an uncommitted record"
-    assert "not committed" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "not committed" in err
+    # THE SUMMARY MUST NOT CLAIM A WRITTEN RECORD HAS NO COPY. It is in the store.
+    assert "1 awaiting commit: their records are written" in err   # summary-only text
+    assert "no other copy" not in err and "could not be harvested" not in err
     assert len(list((store_repo / "tracked/issues").glob("*.md"))) == 1, (
         "the record must still be written — only the CLOSE waits")
 
@@ -649,7 +653,10 @@ def test_a_MALFORMED_intake_still_exits_non_zero_and_stays_open(
 
     assert _run_helper(["--repo-root", str(store_repo)]) != 0
     assert gh.calls.count("close") == 0
-    assert "LEFT OPEN #18" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "LEFT OPEN #18" in err
+    # The other half of the split: a malformed intake DOES have no other copy.
+    assert "no other copy" in err and "awaiting commit" not in err
 
 
 def test_an_EXPANSION_waits_for_ITS_OWN_append_and_intake_1_is_not_intake_12(
@@ -669,3 +676,36 @@ def test_an_EXPANSION_waits_for_ITS_OWN_append_and_intake_1_is_not_intake_12(
     assert gh.calls.count("close") == 0
     _commit(store_repo)
     assert [n for n, _ in own.harvest(root)[0]] == [19]
+
+
+def test_a_MIXED_pass_splits_the_summary_by_cause(
+        store_repo: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    """One awaiting-commit intake and one malformed: each is counted and worded
+    for ITS cause, and the header counts both."""
+    bad = {"number": 31, "title": "t", "body": "nothing parseable",
+           "createdAt": "2026-08-20T10:00:00Z"}
+    monkeypatch.setattr(own, "_gh", _FakeGh([_issue(30, "issues"), bad]))
+
+    assert _run_helper(["--repo-root", str(store_repo)]) == 1
+    err = capsys.readouterr().err
+    assert "2 intake issue(s) are still open" in err
+    assert "1 awaiting commit: their records are written" in err
+    assert "1 could not be harvested: each carries a finding with no other copy" in err
+
+
+def test_EVERY_reason_the_gate_returns_carries_the_awaiting_commit_tag(
+        store_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The summary split keys on the tag, so an untagged reason would be
+    mis-worded as 'no other copy'. Cover both returns: git answers no, and git
+    cannot launch."""
+    root = store_repo / ti.TRACKED_ROOT
+    item = ti.file_item(root, ti.STORES["issues"], title="i", filed_by="review-pr",
+                        status="open", body="b\n")             # on disk, not committed
+    why = own._uncommitted(item, 5)
+    assert why and why.startswith(own.AWAITING_COMMIT_TAG)
+
+    def _no_git(*_a, **_k):
+        raise OSError("no git here")
+    monkeypatch.setattr(own.shared, "run_bounded", _no_git)
+    why = own._uncommitted(item, 5)
+    assert why and why.startswith(own.AWAITING_COMMIT_TAG)
