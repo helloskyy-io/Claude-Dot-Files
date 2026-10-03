@@ -262,8 +262,8 @@ def harvest(root: Path, *, cwd: Path | None = None,
                     moved.append((number, recurred))
                     continue
                 ti.increment(recurred,
-                             f"{date.today().isoformat()}: reported again via intake "
-                             f"`#{number}` — {issue['title']}")
+                             f"{date.today().isoformat()}: reported again via "
+                             f"{_pointer(number)} — {issue['title']}")
                 path = recurred
             elif expanded is not None:
                 # APPEND, NEVER RE-FILE — see `_EXPANSION`. `count` is untouched.
@@ -271,7 +271,7 @@ def harvest(root: Path, *, cwd: Path | None = None,
                     moved.append((number, expanded))
                     continue
                 ti.expand(expanded,
-                          f"expanded via intake `#{number}` — {issue['title']}",
+                          f"expanded via {_pointer(number)} — {issue['title']}",
                           body)
                 path = expanded
             else:
@@ -300,7 +300,7 @@ def harvest(root: Path, *, cwd: Path | None = None,
                 path = ti.file_item(
                     root, store, title=issue["title"], filed_by=filed_by,
                     status=status, extras=fields,
-                    body=f"{body}\n\n*Filed via intake `#{number}` and harvested "
+                    body=f"{body}\n\n*Filed via {_pointer(number)} and harvested "
                          f"on {date.today().isoformat()}.*\n",
                     today=date.fromisoformat(issue["createdAt"][:10]))
 
@@ -365,16 +365,23 @@ def _uncommitted(path: Path, number: int) -> str | None:
     never the `--issues-repo`, which is a different checkout when the two are
     split. Reads only; this module still makes no git write.
     """
-    done = shared.run_bounded(["git", "show", f"HEAD:./{path.name}"],
-                              cwd=path.parent)
+    try:
+        done = shared.run_bounded(["git", "show", f"HEAD:./{path.name}"],
+                                  cwd=path.parent)
+    except OSError as exc:
+        # `git` itself unlaunchable. Fail CLOSED into the left-open channel: an
+        # exception here would escape `harvest`'s per-intake handler and end the
+        # whole drain, which is the 2026-09-10 outage shape.
+        return (f"record `{path.name}` cannot be confirmed committed — git did not "
+                f"run ({exc}); leaving the intake open.")
     if done.returncode == 0 and _pointer(number) in done.stdout:
         return None
     detail = done.stderr.strip() if done.returncode != 0 else (
         "the committed copy predates this intake's edit")
-    return (f"record `{path.name}` is written but not committed ({detail}) — "
-            f"closing would report it filed while the only copy is uncommitted. "
-            f"Commit the store and re-run; the next pass closes it without "
-            f"filing a second copy.")
+    return (f"record `{path.name}` is written but not committed, or git could not "
+            f"confirm it ({detail}) — closing would report it filed while the "
+            f"only copy is uncommitted. Commit the store and re-run; the next "
+            f"pass closes it without filing a second copy.")
 
 
 def _already_filed(root: Path, number: int) -> Path | None:

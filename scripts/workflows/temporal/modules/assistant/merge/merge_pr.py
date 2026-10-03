@@ -455,8 +455,10 @@ def run_merge(prs: list[str], repo_root: Path, *, stores_root: Path | None = Non
                 drained = [n for n, _ in moved]
                 if failed:
                     drain_error = ("; ".join(f"#{n}: {why}" for n, why in failed)
-                                   + " — left OPEN deliberately; a malformed intake "
-                                     "is a finding, and closing it would lose it")
+                                   + " — left OPEN deliberately: a malformed intake is "
+                                     "a finding, and a record not yet committed "
+                                     "must not be reported filed. Commit the "
+                                     "store and re-run the harvest")
             except Exception as exc:                       # noqa: BLE001
                 drain_error = f"{type(exc).__name__}: {exc}"
 

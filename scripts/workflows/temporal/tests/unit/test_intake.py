@@ -508,7 +508,8 @@ _HELPER = Path(__file__).resolve().parents[4] / "helpers" / "harvest-intake.py"
 
 def _git(repo: Path, *args: str) -> None:
     subprocess.run(["git", "-C", str(repo), "-c", "user.name=t",
-                    "-c", "user.email=t@example.invalid", *args],
+                    "-c", "user.email=t@example.invalid",
+                    "-c", "commit.gpgsign=false", *args],
                    check=True, capture_output=True, text=True, timeout=30)
 
 
@@ -649,3 +650,22 @@ def test_a_MALFORMED_intake_still_exits_non_zero_and_stays_open(
     assert _run_helper(["--repo-root", str(store_repo)]) != 0
     assert gh.calls.count("close") == 0
     assert "LEFT OPEN #18" in capsys.readouterr().err
+
+
+def test_an_EXPANSION_waits_for_ITS_OWN_append_and_intake_1_is_not_intake_12(
+        store_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Expansion edits a committed item too, and `#1` must not match `#12`."""
+    root = store_repo / ti.TRACKED_ROOT
+    item = ti.file_item(root, ti.STORES["candidates"], title="c", filed_by="review-pr",
+                        status="open", body="b\n\n*Filed via intake `#12`.*\n")
+    _commit(store_repo)
+    # Intake #1's pointer is a prefix of #12's text without its closing backtick.
+    assert own._uncommitted(item, 1) is not None
+    assert own._uncommitted(item, 12) is None
+    gh = _FakeGh([_titled(19, "candidates", f"EXPANSION of {item.stem} — more")])
+    monkeypatch.setattr(own, "_gh", gh)
+
+    assert [n for n, _ in own.harvest(root)[1]] == [19]
+    assert gh.calls.count("close") == 0
+    _commit(store_repo)
+    assert [n for n, _ in own.harvest(root)[0]] == [19]
