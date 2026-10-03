@@ -23,7 +23,9 @@ keep them true rather than to assume them:
   2. **The intake is never read as a store.** Nothing cites an intake issue as
      the record; the record is the file the harvest produced. The closing comment
      points AT the file, so a reader who follows the issue lands on the store.
-  3. **It empties.** Every harvested issue is closed in the same pass.
+  3. **It empties.** Every harvested issue is closed once its record is
+     committed — the same pass if it already was, else the pass after the
+     caller commits (see `harvest`).
 
 THE INTAKE BODY *IS* THE ITEM, which is the design decision worth keeping. Rather
 than inventing a transport format that has to be kept in step with §3, the issue
@@ -220,6 +222,17 @@ def harvest(root: Path, *, cwd: Path | None = None,
     IDEMPOTENT BY THE POINTER IT WRITES. Each item records the intake number it
     came from, so a re-run over an issue that was written but not closed finds
     the existing item and closes the issue rather than filing a second copy.
+
+    ⚠ "WRITTEN" IS NOT "DURABLE", SO THE CLOSE WAITS FOR `HEAD`. This module
+    never commits — the caller does — and the ordering note above only covered a
+    crash between write and close. It did not cover both succeeding and nobody
+    committing, which is the direction that LOSES records: the intake reads as
+    filed on GitHub while the only copy is an untracked file on one disk.
+    Measured three times in four days across two repos (sixteen records in one
+    case, five days untracked, a corpus guard red for every session). So an
+    issue is closed only once the record of THIS intake is in `HEAD` of the repo
+    holding the store; otherwise it stays open in `failed`, and the idempotent
+    re-run above is the second phase — write, caller commits, next pass closes.
     """
     moved: list[tuple[int, Path]] = []
     failed: list[tuple[int, str]] = []
@@ -234,6 +247,15 @@ def harvest(root: Path, *, cwd: Path | None = None,
             expanded = _expansion_target(root, issue["title"])
             if existing is not None:
                 path = existing
+                if dry_run:
+                    # A REHEARSAL CLOSES NOTHING. This branch used to fall
+                    # through to the close below, so `--dry-run` closed every
+                    # intake whose record a previous pass had already written.
+                    why = _uncommitted(path, number)
+                    if why:
+                        raise IntakeError(why)
+                    moved.append((number, path))
+                    continue
             elif recurred is not None:
                 # INCREMENT, NEVER RE-FILE — see `_RECURRENCE`.
                 if dry_run:
@@ -290,6 +312,11 @@ def harvest(root: Path, *, cwd: Path | None = None,
                 shown = path.relative_to(root.parent)
             except ValueError:                      # a root outside the repo
                 shown = path
+            # THE CLOSE IS GATED ON `HEAD` — see the docstring. Raised into the
+            # left-open channel below, so the script's non-zero exit fires.
+            why = _uncommitted(path, number)
+            if why:
+                raise IntakeError(why)
             _gh("issue", "close", str(number), "--comment",
                 f"Harvested to `{shown.as_posix()}`. The file is the record; "
                 f"this intake carried it and is now empty, per Tracked Items "
@@ -319,9 +346,40 @@ def harvest(root: Path, *, cwd: Path | None = None,
     return moved, failed
 
 
+def _pointer(number: int) -> str:
+    """The text every harvested record carries for its intake — new item,
+    recurrence line and expansion alike. Both checks below key on it."""
+    return f"intake `#{number}`"
+
+
+def _uncommitted(path: Path, number: int) -> str | None:
+    """Why closing intake `#number` would be premature, or None if it is safe.
+
+    THE QUESTION IS WHETHER THIS INTAKE'S RECORD IS IN `HEAD`, not whether the
+    file is. A recurrence or expansion edits an item that is ALREADY committed,
+    so "the path is in `HEAD`" would pass while the increment it just wrote is
+    still only on disk. Reading the committed blob for the pointer covers all
+    three paths with one predicate.
+
+    ASKED OF THE REPO THAT HOLDS THE STORE, via the record's own directory —
+    never the `--issues-repo`, which is a different checkout when the two are
+    split. Reads only; this module still makes no git write.
+    """
+    done = shared.run_bounded(["git", "show", f"HEAD:./{path.name}"],
+                              cwd=path.parent)
+    if done.returncode == 0 and _pointer(number) in done.stdout:
+        return None
+    detail = done.stderr.strip() if done.returncode != 0 else (
+        "the committed copy predates this intake's edit")
+    return (f"record `{path.name}` is written but not committed ({detail}) — "
+            f"closing would report it filed while the only copy is uncommitted. "
+            f"Commit the store and re-run; the next pass closes it without "
+            f"filing a second copy.")
+
+
 def _already_filed(root: Path, number: int) -> Path | None:
     """The item a previous partial harvest wrote for this intake, if any."""
-    needle = f"intake `#{number}`"
+    needle = _pointer(number)
     for store in ti.STORES.values():
         for path in (root / store.name).glob("*.md"):
             if needle in path.read_text():

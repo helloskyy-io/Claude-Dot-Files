@@ -17,6 +17,12 @@ human running it by hand sees the changes in `git status` like any other edit.
 Committing here would put a git write inside a step that is also called from a
 read-only context, and the surprise is not worth the keystroke.
 
+SO IT CLOSES AN INTAKE ONLY ONCE ITS RECORD IS IN `HEAD`. Closing an issue is a
+less reversible write than a commit, and closing on an uncommitted file reports
+a finding filed while its only copy is untracked on one disk — measured three
+times. A fresh intake is written and left open (exit 1, reason "not
+committed"); commit, re-run, and that pass closes it without a second copy.
+
     python3 scripts/helpers/harvest-intake.py [--repo-root .] [--dry-run]
 """
 from __future__ import annotations
@@ -79,8 +85,9 @@ def main(argv: list[str] | None = None) -> int:
     # told; the well-formed items in the same pass still moved.
     if failed:
         print(f"\n{len(failed)} intake issue(s) could not be harvested and are "
-              f"still open. Each carries a finding with no other copy — fix the "
-              f"body and re-run.", file=sys.stderr)
+              f"still open. Each carries a finding with no other copy — fix what "
+              f"its reason names (a malformed body, or a record not yet "
+              f"committed: commit it) and re-run.", file=sys.stderr)
         return 1
     return 0
 

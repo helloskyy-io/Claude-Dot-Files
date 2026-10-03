@@ -307,8 +307,10 @@ def test_the_census_matches_the_tree() -> None:
     next person to add one is told, here, that they are now in this population.
     """
     _, total = _scan_tree()
-    assert total == 9, (
-        f"the walk found {total} launch-reply binding(s), not the 9 recorded when "
+    # 9 → 10 on 2026-10-03: `intake._uncommitted` binds `git show HEAD:` and
+    # reads `.returncode` before `.stdout` — the harvest's close gate.
+    assert total == 10, (
+        f"the walk found {total} launch-reply binding(s), not the 10 recorded when "
         f"this was written. That is not a failure — it is the census telling you "
         f"the population moved. Confirm the new site reads its outcome, then "
         f"update this number and the docstring's count together."

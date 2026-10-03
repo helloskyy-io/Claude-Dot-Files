@@ -3,7 +3,7 @@ Run a standup: read the operations store, sweep the platform's git-native memory
 **You take exactly THREE kinds of action, and they are the complete list:**
 
 1. **Update the operations store** — edit the item files under `tracked/operations/`
-2. **Drain the intake** — `python3 scripts/helpers/harvest-intake.py --repo-root <repo>`, then commit what it wrote. **This is not optional housekeeping**: `skyynet-master-planning/standards/documentation/tracked_items_standard.md` exempts the intake from the retirement of GitHub Issues *on condition that a named harvest cadence empties it*, and this is that cadence. **An intake nobody drains is a second store, which §8 calls a violation.**
+2. **Drain the intake** — `python3 scripts/helpers/harvest-intake.py --repo-root <repo>`, then commit what it wrote, then **run it again** — it closes an intake only once its record is committed, so the first pass leaves fresh intakes open with "not committed" and exit 1, and the second closes them. **This is not optional housekeeping**: `skyynet-master-planning/standards/documentation/tracked_items_standard.md` exempts the intake from the retirement of GitHub Issues *on condition that a named harvest cadence empties it*, and this is that cadence. **An intake nobody drains is a second store, which §8 calls a violation.**
 3. **Close an issue you verified is done** — `gh issue close <N> --comment <evidence>`
 
 Everything else is read-only: do not merge, do not dispatch, do not comment on an open PR, and **edit no file other than the item files under `tracked/operations/` and whatever the harvest writes into `tracked/`**.
