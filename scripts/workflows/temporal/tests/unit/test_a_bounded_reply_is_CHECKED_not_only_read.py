@@ -75,7 +75,9 @@ checked, one layer up. It went to nine when the research capture's
 `returncode` is read so a git that did not answer yields "unknown" rather than
 "no papers". It went to ten when `intake._uncommitted` landed — a `git show
 HEAD:` whose `returncode` is read before its stdout, the gate that keeps a harvest
-from closing an intake whose record is not yet committed. That is the discipline this file exists to demonstrate: a
+from closing an intake whose record is not yet committed. It went to eleven when
+`merge_pr._merge_regenerate_push` landed — the planning repo's `--check` on a
+locally merged branch, whose `returncode` is the gate on whether it is pushed. That is the discipline this file exists to demonstrate: a
 coverage claim is either an assertion that goes red, or it is a hedge.
 """
 
@@ -311,8 +313,10 @@ def test_the_census_matches_the_tree() -> None:
     _, total = _scan_tree()
     # 9 → 10 on 2026-10-03: `intake._uncommitted` binds `git show HEAD:` and
     # reads `.returncode` before `.stdout` — the harvest's close gate.
-    assert total == 10, (
-        f"the walk found {total} launch-reply binding(s), not the 10 recorded when "
+    # 10 → 11 on 2026-10-03: `merge_pr._merge_regenerate_push` binds
+    # `planning-ui.sh --check` and its `.returncode` decides the push.
+    assert total == 11, (
+        f"the walk found {total} launch-reply binding(s), not the 11 recorded when "
         f"this was written. That is not a failure — it is the census telling you "
         f"the population moved. Confirm the new site reads its outcome, then "
         f"update this number and the docstring's count together."

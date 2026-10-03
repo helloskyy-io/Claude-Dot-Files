@@ -484,6 +484,10 @@ claude-dot-files/
 │               │   │                                #   the surface's own comment count, per_page honoured) re-read from the live API.
 │               │   │                                #   SKIPS — distinctly from passing — where `gh` is not authenticated: CI carries no
 │               │   │                                #   token by design, so this runs for real only on a machine that dispatches
+│               │   ├── test_merge_pr_refreshes_a_stale_planning_branch.py # merge-pr against REAL git, a bare origin, the real
+│               │   │                                #   githook and launcher: an unmoved base does nothing; a moved one is merged,
+│               │   │                                #   regenerated, `--check`ed, pushed and REFUSED; a conflict outside derived/ and a
+│               │   │                                #   failed `--check` both push nothing
 │               │   ├── test_the_journal_rebuilds_the_test_set.py # PMP Phase 4 r4's COMPLETENESS arm: ONE test, TWO inputs, NO SKIP. On the
 │               │   │                                #   merge path (GITHUB_ACTIONS=true — the runner's own declaration, and a runner has no
 │               │   │                                #   journal by Phase 1's ruling) it replays the committed fixture; on a host it replays
