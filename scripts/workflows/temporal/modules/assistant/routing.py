@@ -468,10 +468,12 @@ def ci_gate(state: CiVerdict, extra: list[str], *, pr: str,
     notes: list[str] = []
     # GATE_DID_NOT_RUN — and CONFLICTING, its narrowed sibling — are excluded
     # because their `extra` carries the names of the gate that is ABSENT, not of
-    # checks that ran. Reading it here reported
+    # checks that ran. GATE_NOT_YET_RUN carries `[]` and is excluded by value, so
+    # a future `extra` on it cannot be read as unclassified checks. Reading it here reported
     # `suite` as unclassified in the same breath as the branch below reported it
     # as declared blocking — two contradictory lines from one run, on 2026-08-14.
-    if extra and state not in (CiVerdict.RED, CiVerdict.GATE_DID_NOT_RUN, CiVerdict.CONFLICTING):
+    if extra and state not in (CiVerdict.RED, CiVerdict.GATE_DID_NOT_RUN,
+                               CiVerdict.CONFLICTING, CiVerdict.GATE_NOT_YET_RUN):
         # A check that ran and is declared NEITHER blocking nor advisory is the
         # third state the Testing Standard says does not exist. Reported by name,
         # never silently gated — a check the repo has not classified must not halt
@@ -534,13 +536,15 @@ def ci_gate(state: CiVerdict, extra: list[str], *, pr: str,
         # pass discovering that CI had not started.
         notes.append(
             f"CI GATE: HOLD — no check job has reported for PR {pr}{where}'s head "
-            "commit (0 jobs read). Usually transient: GitHub had not yet created the "
-            "runs, and that is not a defect in the PR or the gate. NOT looped back: a "
-            "correction pass cannot make CI start sooner. Re-run once the workflow "
-            "runs exist; the diff is intact on the branch. This caller waited for CI "
-            "before reading it, so zero jobs AFTER that wait is NOT transient: every "
-            "workflow may be path-filtered out of this commit, or the trigger was "
-            "lost, and no run will ever be created. review-pr was NOT dispatched."
+            "commit (0 jobs read). Not a defect this run can see in the PR or the "
+            "gate. NOT looped back: a correction pass cannot make CI start. A caller "
+            "that waited for CI before reading it (every workflow does) has already "
+            "given GitHub its window, so zero jobs AFTER that wait is NOT transient: "
+            "every workflow may be path-filtered out of this commit, the trigger may "
+            "have been lost, or the PR may be conflicted — check `git ls-remote "
+            "origin refs/pull/<N>/merge` against the current head. Where CI was only "
+            "slow, re-running once the workflow runs exist is enough; the diff is "
+            "intact on the branch. review-pr was NOT dispatched."
         )
         return Verdict.HOLD_NEEDS_ASSISTANCE, notes
 

@@ -186,9 +186,8 @@ def refusals(pr: str, repo_root: Path) -> list[str]:
         # yet for this head — and the same command merged minutes later. The
         # head is re-read for the message only, best-effort: a push between the
         # two reads can name a newer sha, and an unread one is said so.
-        head = (_gh_json(["pr", "view", pr, "--json", "headRefOid"], repo_root)
-                or {}).get("headRefOid")
-        sha = f"`{head[:8]}`" if isinstance(head, str) and head else "its head commit (head unread)"
+        head = act.pr_head(pr, repo_root)
+        sha = f"`{head[:8]}`" if head else "its head commit (head unread)"
         why.append(f"CI is `{state.value}`, not green — 0 check jobs found for "
                    f"{sha}: GitHub has not started CI for this commit yet. "
                    f"Transient; re-run this command once the workflow runs exist "

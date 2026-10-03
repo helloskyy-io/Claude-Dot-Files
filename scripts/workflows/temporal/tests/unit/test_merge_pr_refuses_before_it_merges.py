@@ -68,6 +68,8 @@ def test_EVERY_non_green_CI_state_refuses(clear, monkeypatch, state) -> None:
     """
     monkeypatch.setattr(merge_pr, "ci_verdict",
                         lambda pr, repo_root: (state, []))
+    # `GATE_NOT_YET_RUN` names the head, which is a real `gh` read against REPO.
+    monkeypatch.setattr(merge_pr.act, "pr_head", lambda pr, root: "e6704875aabbccdd")
     assert any("not green" in w for w in merge_pr.refusals("1", REPO)), state
 
 
@@ -106,12 +108,15 @@ _PM1_POLICY = ["bake-agreement", "bash-tier", "chart-verify", "constraints-autho
                "master-test-tier", "schema-validate", "test-helm-charts"]
 
 
-def _ci_not_yet_run(monkeypatch, *, head="e6704875aabbccdd") -> None:
+def _ci_not_yet_run(monkeypatch, *, head="e6704875aabbccdd", extra=None) -> None:
+    """`extra` defaults to `[]`, which is what `ci_verdict` really returns. The
+    absence test passes the whole declared policy instead, so it bites if the
+    formatter ever starts listing `extra` for this state."""
     monkeypatch.setattr(merge_pr, "ci_verdict",
-                        lambda pr, repo_root: (routing.CiVerdict.GATE_NOT_YET_RUN, []))
+                        lambda pr, repo_root: (routing.CiVerdict.GATE_NOT_YET_RUN, extra or []))
+    monkeypatch.setattr(merge_pr.act, "pr_head", lambda pr, root: head)
     monkeypatch.setattr(merge_pr, "_gh_json",
-                        lambda args, root: {"headRefOid": head} if "headRefOid" in args
-                        else {"state": "OPEN", "mergeStateStatus": "CLEAN"})
+                        lambda args, root: {"state": "OPEN", "mergeStateStatus": "CLEAN"})
 
 
 def test_the_NOT_YET_RUN_refusal_says_what_it_READ(clear, monkeypatch) -> None:
@@ -126,7 +131,7 @@ def test_the_NOT_YET_RUN_refusal_says_what_it_READ(clear, monkeypatch) -> None:
 def test_the_NOT_YET_RUN_refusal_carries_NOTHING_misleading(clear, monkeypatch) -> None:
     """THE ABSENCE HALF. A test that checked only the added text would pass with
     the permanent-property clause and the full policy still sitting beside it."""
-    _ci_not_yet_run(monkeypatch)
+    _ci_not_yet_run(monkeypatch, extra=_PM1_POLICY)
     [ci] = [w for w in merge_pr.refusals("337", REPO) if "not green" in w]
     assert "cannot buy" not in ci, ci
     assert not [n for n in _PM1_POLICY if n in ci], ci
@@ -135,9 +140,9 @@ def test_the_NOT_YET_RUN_refusal_carries_NOTHING_misleading(clear, monkeypatch) 
 def test_an_UNREAD_head_is_said_not_guessed(clear, monkeypatch) -> None:
     monkeypatch.setattr(merge_pr, "ci_verdict",
                         lambda pr, repo_root: (routing.CiVerdict.GATE_NOT_YET_RUN, []))
+    monkeypatch.setattr(merge_pr.act, "pr_head", lambda pr, root: None)
     monkeypatch.setattr(merge_pr, "_gh_json",
-                        lambda args, root: None if "headRefOid" in args
-                        else {"state": "OPEN", "mergeStateStatus": "CLEAN"})
+                        lambda args, root: {"state": "OPEN", "mergeStateStatus": "CLEAN"})
     [ci] = [w for w in merge_pr.refusals("337", REPO) if "not green" in w]
     assert "head unread" in ci, ci
 

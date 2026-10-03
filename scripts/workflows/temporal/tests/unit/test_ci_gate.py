@@ -1298,16 +1298,17 @@ def test_ZERO_runs_AND_conflicting_is_still_CONFLICTING(monkeypatch, repo):
     assert act.ci_verdict("1", repo_root=repo)[0] is CiVerdict.CONFLICTING
 
 
-def test_GATE_NOT_YET_RUN_is_NOT_a_loop_back_and_says_it_is_transient() -> None:
+def test_GATE_NOT_YET_RUN_is_NOT_a_loop_back_and_and_names_the_post_wait_diagnosis() -> None:
     """A correction pass cannot make CI start sooner, so a redispatch here is the
     waste UNREADABLE_CHECKS and CONFLICTING were split out to stop. And its
     sibling still routes as it did: the split moved one case, not the other."""
     hold, notes = routing.ci_gate(CiVerdict.GATE_NOT_YET_RUN, [], pr="1", repo_target=None)
     assert hold is Verdict.HOLD_NEEDS_ASSISTANCE
     assert hold is not Verdict.HOLD_REDISPATCH
-    assert "transient" in notes[-1] and "NOT looped back" in notes[-1]
+    assert "NOT looped back" in notes[-1]
     assert "NOT transient" in notes[-1], "a caller that already waited must not be told zero jobs is a wait"
-    assert "CONFLICTED" not in notes[-1], "the not-yet-run note must not send the reader to a merge-ref hunt"
+    assert "usually transient" not in notes[-1].lower(), "every caller of ci_gate has already waited"
+    assert "refs/pull/<N>/merge" in notes[-1], "the post-wait diagnosis must name the merge-ref check"
 
     sibling, _ = routing.ci_gate(CiVerdict.GATE_DID_NOT_RUN, ["suite"], pr="1", repo_target=None)
     assert sibling is Verdict.HOLD_NEEDS_ASSISTANCE
