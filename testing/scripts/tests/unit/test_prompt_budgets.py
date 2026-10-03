@@ -780,7 +780,7 @@ BUDGETS: dict[str, int] = {
     # papers' verified spans on PR #93 and nothing failed. The replacement spells
     # replace-by-paper, never-delete, and why, because a one-line prohibition
     # with no stated mechanism is what the deleted version already was.
-    "research/research_draft/prompts/draft.md": 23_761,
+    "research/research_draft/prompts/draft.md": 24_806,
     "build/build_draft_minor/prompts/update_pr.md": 10_675,
     # SHARED FRAGMENTS ARE THE EXPENSIVE ONES — every workflow that includes one
     # pays for it, so a byte here costs more than a byte in any single prompt.
