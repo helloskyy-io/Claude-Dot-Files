@@ -85,9 +85,19 @@ models:
   # all need judgement. A weak reasoner getting one of those wrong costs a full
   # redispatch, which is strictly more than having run opus once.
   build-draft-minor: opus    # minor tier, child 1: writes the scoped change
-  build-refine-minor: opus   # minor tier, child 2: FRESH context, ONE review lens (code-reviewer)
+  # SONNET, changed 2026-10-03 — cross-model review before cost: this stage READS
+  # what its draft sibling wrote and judges it, and author-and-judge on one model is
+  # the self-preference shape `C-8xglwwds` is filed about. Revert signals and the
+  # measured baselines are in the commit; build-refine owns fidelity and issues the
+  # corrections, plan-refine writes the hour estimates.
+  build-refine-minor: sonnet   # minor tier, child 2: FRESH context, ONE review lens (code-reviewer)
   build-draft: opus          # parent step 1: writes the change, opens an unreviewed PR
-  build-refine: opus         # parent step 2: FRESH context — fidelity, review, corrections
+  # SONNET, changed 2026-10-03 — cross-model review before cost: this stage READS
+  # what its draft sibling wrote and judges it, and author-and-judge on one model is
+  # the self-preference shape `C-8xglwwds` is filed about. Revert signals and the
+  # measured baselines are in the commit; build-refine owns fidelity and issues the
+  # corrections, plan-refine writes the hour estimates.
+  build-refine: sonnet         # parent step 2: FRESH context — fidelity, review, corrections
   plan-new: opus                # 14-stage project planning (was fable — see 2026-07-27 economics retier)
   triage-candidates: opus       # rules every untriaged research candidate — ship / requires review /
                                 #   reject — a `requires review` ruling stays on the candidate. Opus
@@ -123,7 +133,12 @@ models:
                                 #   gap without closing it: a bad boundary is caught one run later
                                 #   and reported rather than prevented, and the tier is what keeps
                                 #   the first draft worth reviewing.
-  plan-refine: opus             # reads ONE component's roadmap.md and phase docs COLD,
+  # SONNET, changed 2026-10-03 — cross-model review before cost: this stage READS
+  # what its draft sibling wrote and judges it, and author-and-judge on one model is
+  # the self-preference shape `C-8xglwwds` is filed about. Revert signals and the
+  # measured baselines are in the commit; build-refine owns fidelity and issues the
+  # corrections, plan-refine writes the hour estimates.
+  plan-refine: sonnet             # reads ONE component's roadmap.md and phase docs COLD,
                                 #   sizes every phase in hours, and answers the question
                                 #   plan-draft's own report is required to ask and
                                 #   structurally cannot answer about itself — where is

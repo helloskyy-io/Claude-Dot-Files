@@ -14,3 +14,22 @@ __pycache__/
 *.pyc
 # Test run output — ephemeral, per Testing Standard § What Does NOT Go in tests/
 testing/logs/
+
+# PLATFORM-WRITTEN, NOT OURS, AND IT WAS NEVER REPRODUCIBLE FROM HERE.
+# `~/.claude/skills/` symlinks to `config/skills/`, so the Claude platform's
+# skill-sync writes INTO version control on every sync round, on every machine,
+# forever. That is a second agent writing the declaration — crosswise to the
+# declarative-convergence position, where `config/` is the declaration and
+# `install.sh` is the only agent that realises it.
+#
+# UNTRACKED 2026-10-03 after SN-PM2 measured the mechanism. 447 files, and the
+# whole git history for the path is TWO commits — both mine, both from the same
+# day, both accidental `git add -A config/` sweeps of platform churn. Nothing
+# here was ever authored by this repo.
+#
+# Reproducibility is not lost because it never existed: a rebuilt box gets these
+# skills from the platform, not from the clone. It is the category CLAUDE.md
+# already carves out as machine-local, beside `projects/`, `sessions/` and
+# `cache/`. Tracking it only generated cross-machine conflicts — it had already
+# latently blocked SN-PM2's checkout from fast-forwarding.
+config/skills/synced/
