@@ -372,6 +372,17 @@ class CiVerdict(str, Enum):
     # resolve with one `is_file()` and was discarding at `read_check_policy`.
     NO_POLICY = "no_policy"
     GATE_DID_NOT_RUN = "gate_did_not_run"
+    # NOTHING HAS REPORTED AT ALL — zero jobs read for the PR's head — so the
+    # question "did the gate run?" has not been asked of anything yet. Split
+    # from GATE_DID_NOT_RUN on 2026-10-03 because the remedies are opposite: a
+    # gate absent from runs that DID report needs a human to find out why; CI
+    # that has not started yet needs nobody, only the same call again in a
+    # minute. Measured on Skyy-Command #337, head `e6704875`: `merge-pr --dry-run`
+    # refused listing all seven declared checks and "this account cannot buy",
+    # MDC-PM1 spent a long investigation concluding the gate was defective, and
+    # the identical command minutes later merged — GitHub had simply created the
+    # runs by then.
+    GATE_NOT_YET_RUN = "gate_not_yet_run"
     # THE GATE DID NOT RUN AND GITHUB SAYS WHY: the PR is CONFLICTING against its
     # base, so no merge ref exists for `pull_request` workflows to run on. Split
     # from GATE_DID_NOT_RUN on 2026-09-14 because the two route OPPOSITELY: an
@@ -512,6 +523,23 @@ def ci_gate(state: CiVerdict, extra: list[str], *, pr: str,
             "fix to this reader can (skyy-command #298 spent two refine passes proving "
             "that). Resolve, push, let the checks run, then redispatch; the diff is intact "
             "on the branch."
+        )
+        return Verdict.HOLD_NEEDS_ASSISTANCE, notes
+
+    if state is CiVerdict.GATE_NOT_YET_RUN:
+        # TRANSIENT, AND SAID SO. Nothing ran, so there is nothing to diagnose and
+        # nothing a correction pass could change — the remedy is the same call
+        # again once GitHub has created the runs. NOT a redispatch for the same
+        # reason as UNREADABLE_CHECKS and CONFLICTING: a loop-back here spends a
+        # pass discovering that CI had not started.
+        notes.append(
+            f"CI GATE: HOLD — no check job has reported for PR {pr}{where}'s head "
+            "commit (0 jobs read): GitHub has not started CI for it yet. This is "
+            "transient, not a defect in the PR or the gate. NOT looped back: a "
+            "correction pass cannot make CI start sooner. Re-run once the workflow "
+            "runs exist; the diff is intact on the branch. Only if it persists: every "
+            "workflow may be path-filtered out of this commit, so no run will ever be "
+            "created. review-pr was NOT dispatched."
         )
         return Verdict.HOLD_NEEDS_ASSISTANCE, notes
 

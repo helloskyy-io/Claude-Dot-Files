@@ -2179,6 +2179,14 @@ def ci_verdict(pr: str, *, repo_root: Path) -> tuple[routing.CiVerdict, list[str
             # pass.
             if pr_mergeable(pr, repo_root) == "CONFLICTING":
                 return routing.CiVerdict.CONFLICTING, sorted(blocking)
+            # NOTHING REPORTED AT ALL is not "the gate is absent from what
+            # reported" — it is CI not having started for this head yet, and its
+            # remedy is to ask again, not to investigate (see
+            # `CiVerdict.GATE_NOT_YET_RUN`). AFTER the conflict read, because a
+            # conflicted PR also has zero runs and has its own state. Nothing is
+            # carried in `extra`: no check reported, so there is none to name.
+            if not checks:
+                return routing.CiVerdict.GATE_NOT_YET_RUN, []
             # The absent gate's names travel here so the runway can name them.
             # The CALLER must not read this as "checks that ran" — the
             # UNDECLARED-CHECKS branch does exactly that on the same value and
