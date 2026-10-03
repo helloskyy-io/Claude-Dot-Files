@@ -53,6 +53,7 @@ merge", which costs one re-run; the other direction costs a merge nobody cleared
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import tempfile
 import time
@@ -464,10 +465,10 @@ def refresh_against_base(pr: str, repo_root: Path, *,
     if not (repo_root / DERIVED_DIR).is_dir():
         return None
     view = _gh_json(["pr", "view", pr, "--json",
-                     "headRefName,baseRefName,isCrossRepository"], repo_root)
-    if not view or view.get("isCrossRepository") is not False:
-        # Unreadable, or a fork we cannot push to: change nothing. The gates
-        # below refuse on their own when the read fails, and CI judges the rest.
+                     "headRefName,baseRefName,isCrossRepository,state"], repo_root)
+    if not view or view.get("isCrossRepository") is not False or view.get("state") != "OPEN":
+        # Unreadable, not open, or a fork we cannot push to: change nothing. The
+        # gates below refuse on their own when the read fails, and CI judges the rest.
         return None
     head, base = view.get("headRefName"), view.get("baseRefName")
     if not head or not base:
@@ -498,20 +499,23 @@ def refresh_against_base(pr: str, repo_root: Path, *,
     wt = Path(tempfile.mkdtemp(prefix=f"merge-pr-{pr}-"))
     added = git("worktree", "add", "--detach", str(wt), f"origin/{head}")
     if added.returncode != 0:
-        wt.rmdir()
+        shutil.rmtree(wt, ignore_errors=True)
+        git("worktree", "prune")
         return f"could not create a worktree to refresh `{head}`: {added.stderr.strip()}"
     try:
-        return _merge_regenerate_push(pr, head, base, wt, git)
+        return _merge_regenerate_push(head, base, wt, git)
     finally:
         git("worktree", "remove", "--force", str(wt))
+        shutil.rmtree(wt, ignore_errors=True)   # a failed remove must not leak the dir
+        git("worktree", "prune")
 
 
-def _merge_regenerate_push(pr: str, head: str, base: str, wt: Path, git) -> str:
+def _merge_regenerate_push(head: str, base: str, wt: Path, git) -> str:
     """The body of `refresh_against_base`, inside its throwaway worktree."""
     merge = git("merge", "--no-edit", f"origin/{base}", cwd=wt)
     if merge.returncode != 0:
-        diff = git("diff", "--name-only", "--diff-filter=U", cwd=wt)
-        unmerged = diff.stdout.split() if diff.returncode == 0 else []
+        diff = git("diff", "--name-only", "-z", "--diff-filter=U", cwd=wt)
+        unmerged = [p for p in diff.stdout.split("\0") if p] if diff.returncode == 0 else []
         outside = [p for p in unmerged if not p.startswith(DERIVED_DIR + "/")]
         in_progress = git("rev-parse", "-q", "--verify", "MERGE_HEAD", cwd=wt).returncode == 0
         if outside or not in_progress or diff.returncode != 0:
@@ -525,8 +529,13 @@ def _merge_regenerate_push(pr: str, head: str, base: str, wt: Path, git) -> str:
             # derived/-only: take the base's side whole, then the pre-commit
             # hook regenerates over it — the githook's rule, "regenerate, never
             # pick hunks". `--theirs` is the base: it is the side being merged in.
-            git("checkout", "--theirs", "--", *unmerged, cwd=wt)
-            git("add", "--", *unmerged, cwd=wt)
+            take = git("checkout", "--theirs", "--", *unmerged, cwd=wt)
+            staged = git("add", "--", *unmerged, cwd=wt) if take.returncode == 0 else take
+            if staged.returncode != 0:
+                git("merge", "--abort", cwd=wt)
+                return (f"`{base}` has moved and its side of {', '.join(unmerged)} "
+                        f"could not be taken (deleted or renamed on `{base}`?): "
+                        f"{(staged.stderr or staged.stdout).strip()}; nothing was pushed")
         # No unmerged paths and MERGE_HEAD present is the pre-merge-commit hook's
         # veto, which asks for exactly this `git commit`.
         commit = git("commit", "--no-edit", cwd=wt)
@@ -543,6 +552,9 @@ def _merge_regenerate_push(pr: str, head: str, base: str, wt: Path, git) -> str:
                 f"regenerate-on-merge hook registered?")
 
     push = git("push", "origin", f"HEAD:refs/heads/{head}", cwd=wt)
+    if isinstance(push, act.TimedOutProcess):
+        return (f"merged and verified `{head}` against `{base}`, but the push timed "
+                f"out: the remote may or may not have it; re-run to find out")
     if push.returncode != 0:
         return (f"merged and verified `{head}` against `{base}`, but the push "
                 f"was refused: {push.stderr.strip()}")
@@ -585,7 +597,11 @@ def run_merge(prs: list[str], repo_root: Path, *, stores_root: Path | None = Non
         # It is listed FIRST so that the gate's `GATE_NOT_YET_RUN` reads as the
         # consequence of the push it follows — and it is kept even if the gate
         # reads GitHub before GitHub has seen the push and finds nothing wrong.
-        refreshed = refresh_against_base(pr, repo_root, dry_run=dry_run)
+        # ONLY A PR THE REVIEWER CLEARED: a push to a REVISE or undisposed PR
+        # resets its CI and races the engineer still working it. CI cannot gate
+        # this — it is red on a stale planning PR by design — the verdict can.
+        cleared = thread_verdict(pr, repo_root) == routing.Verdict.MERGE.value
+        refreshed = refresh_against_base(pr, repo_root, dry_run=dry_run) if cleared else None
         why = ([refreshed] if refreshed else []) + refusals(pr, repo_root)
         if why:
             refused.append((pr, "; ".join(why)))

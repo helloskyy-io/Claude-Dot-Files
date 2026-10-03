@@ -131,7 +131,8 @@ def gh(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
 
     def view(args, root):
         calls.append(args)
-        return {"headRefName": "lane", "baseRefName": "main", "isCrossRepository": False}
+        return {"headRefName": "lane", "baseRefName": "main", "isCrossRepository": False,
+                "state": "OPEN"}
     monkeypatch.setattr(merge_pr, "_gh_json", view)
     return calls
 
@@ -171,6 +172,7 @@ def test_an_UNMOVED_base_lets_run_merge_proceed_to_the_merge(repos, gh, monkeypa
     """…and through `run_merge`, the PR reaches `merge_one` exactly as before."""
     _register(repos["local"])
     monkeypatch.setattr(merge_pr, "refusals", lambda pr, root: [])
+    monkeypatch.setattr(merge_pr, "thread_verdict", lambda pr, root: "MERGE")
     merged: list[str] = []
     monkeypatch.setattr(merge_pr, "merge_one",
                         lambda pr, root, dry_run=False: merged.append(pr))
@@ -226,6 +228,7 @@ def test_a_refresh_REFUSES_even_when_the_gate_has_not_seen_the_push(
     _land(repos["seed"], "beta", "moved on main", "main moves")
     _register(repos["local"])
     monkeypatch.setattr(merge_pr, "refusals", lambda pr, root: [])
+    monkeypatch.setattr(merge_pr, "thread_verdict", lambda pr, root: "MERGE")
 
     def must_not(*a, **k):
         raise AssertionError("merged a freshly pushed head")
@@ -271,4 +274,30 @@ def test_a_FAILED_check_pushes_NOTHING(repos, gh) -> None:
     why = merge_pr.refresh_against_base("1", repos["local"])
 
     assert why and "--check` exited" in why and "NOTHING WAS PUSHED" in why, why
+    assert _remote(repos["local"], "lane") == before
+
+
+def test_a_PR_the_reviewer_did_not_clear_is_NOT_pushed_to(repos, gh, monkeypatch) -> None:
+    """A REVISE PR on a moved base gets no merge commit: the push would reset its
+    CI and race the engineer still working it. The gates still refuse it."""
+    _land(repos["seed"], "beta", "moved on main", "main moves")
+    _register(repos["local"])
+    before = _remote(repos["local"], "lane")
+    monkeypatch.setattr(merge_pr, "thread_verdict", lambda pr, root: "REVISE")
+    monkeypatch.setattr(merge_pr, "refusals", lambda pr, root: ["held"])
+
+    report = merge_pr.run_merge(["1"], repos["local"])
+
+    assert report.merged == () and report.refused == (("1", "held"),), report
+    assert _remote(repos["local"], "lane") == before
+
+
+def test_a_PR_that_is_not_OPEN_is_never_refreshed(repos, monkeypatch) -> None:
+    _land(repos["seed"], "beta", "moved on main", "main moves")
+    _register(repos["local"])
+    before = _remote(repos["local"], "lane")
+    monkeypatch.setattr(merge_pr, "_gh_json", lambda a, r: {
+        "headRefName": "lane", "baseRefName": "main",
+        "isCrossRepository": False, "state": "MERGED"})
+    assert merge_pr.refresh_against_base("1", repos["local"]) is None
     assert _remote(repos["local"], "lane") == before
