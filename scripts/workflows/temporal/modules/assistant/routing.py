@@ -329,7 +329,7 @@ POLICY_PATH = Path("testing") / "check-policy.yaml"
 
 
 class CiVerdict(str, Enum):
-    """Five states, and the last three are the ones that get fudged.
+    """What the CI read for a PR's head commit says — each state split out of one that fudged it.
 
     NO_CHECKS AND GATE_DID_NOT_RUN WERE ONE STATE UNTIL 2026-08-13, AND
     COLLAPSING THEM COST TWO PRs THEIR MERGE GATE. Both mean "no blocking check
@@ -341,9 +341,12 @@ class CiVerdict(str, Enum):
                           reported. The gate exists and produced nothing, which
                           is not a pass and must stop the run.
 
-    The usual cause of the second is a conflicted PR: `pull_request` workflows
+    The cause of the second WAS USUALLY a conflicted PR: `pull_request` workflows
     run against the merge ref, GitHub cannot compute one for a conflicted PR, so
-    no run is created at all. Zero runs render as zero failures.
+    no run is created at all. Zero runs render as zero failures. THAT CASE HAS
+    SINCE BEEN SPLIT OUT (CONFLICTING, 2026-09-14), and so has the other way to
+    get zero runs (GATE_NOT_YET_RUN, 2026-10-03): GATE_DID_NOT_RUN now means runs
+    DID report and none of them is a declared gate.
 
     UNREADABLE_CHECKS IS THE SAME LESSON ONE LAYER OUT, AND IT COST PR #92
     THREE REBUILDS ON 2026-08-14. `UNREADABLE_POLICY` already says that a
@@ -355,10 +358,12 @@ class CiVerdict(str, Enum):
     PR that was OPEN, MERGEABLE and green on all four checks the entire time.
 
     The distinction earns its place because THE REMEDIES ARE OPPOSITE. A gate
-    that did not run is usually a conflicted PR, and redispatching an engineer
-    to resolve it is the right move. A gate that cannot be READ is an
-    environment failure, and redispatching cannot fix it — it can only spend the
-    loop budget discovering that again.
+    that did not run is fixed IN THE PR, the policy or the workflow (a conflicted
+    PR was once the usual cause), and until 65fa641f redispatching one was the
+    route; both absent-gate states now hold for assistance instead, because a
+    correction pass cannot make a check appear. A gate that cannot be READ is an
+    environment failure, fixed in the environment, and a redispatch fixes neither:
+    it can only spend the loop budget discovering that again.
     """
 
     GREEN = "green"
@@ -372,12 +377,28 @@ class CiVerdict(str, Enum):
     # resolve with one `is_file()` and was discarding at `read_check_policy`.
     NO_POLICY = "no_policy"
     GATE_DID_NOT_RUN = "gate_did_not_run"
+    # NOTHING HAS REPORTED AT ALL — zero jobs read for the PR's head — so the
+    # question "did the gate run?" has not been asked of anything yet. Split
+    # from GATE_DID_NOT_RUN on 2026-10-03 because the remedies are opposite: a
+    # gate absent from runs that DID report needs a human to find out why; CI
+    # that has not started yet needs nobody, only the same call again in a
+    # minute. (That last half is what `merge_pr` does with it — it reads
+    # `ci_verdict` directly and refuses with a retry. Through `ci_gate`, whose
+    # callers have all waited already, both states hold for assistance.)
+    # Measured on Skyy-Command #337, head `e6704875`: `merge-pr --dry-run`
+    # refused listing all seven declared checks and "this account cannot buy",
+    # MDC-PM1 spent a long investigation concluding the gate was defective, and
+    # the identical command minutes later merged — GitHub had simply created the
+    # runs by then.
+    GATE_NOT_YET_RUN = "gate_not_yet_run"
     # THE GATE DID NOT RUN AND GITHUB SAYS WHY: the PR is CONFLICTING against its
     # base, so no merge ref exists for `pull_request` workflows to run on. Split
-    # from GATE_DID_NOT_RUN on 2026-09-14 because the two route OPPOSITELY: an
-    # absent gate with an unknown cause is worth one redispatch; a conflict is
-    # not, because the correction child is handed a runway about findings and
-    # never learns main moved. Measured on MDC #267: three loop-backs, each
+    # from GATE_DID_NOT_RUN on 2026-09-14 when the two routed oppositely
+    # (redispatch vs hold). Since 65fa641f, after skyy-command #298 showed a
+    # correction pass cannot make a check appear, both hold for assistance; the
+    # split survives for the REMEDY and the note text — a conflict is cured by
+    # merging the base, which a correction child, briefed on findings, never
+    # learns it needs. Measured on MDC #267: three loop-backs, each
     # "nothing to change", ~$60, before a human ran `git merge origin/main`.
     CONFLICTING = "conflicting"
     UNREADABLE_POLICY = "unreadable_policy"
@@ -430,10 +451,11 @@ def ci_gate(state: CiVerdict, extra: list[str], *, pr: str,
     where = f" in {repo_target}" if repo_target else ""
     if state is CiVerdict.UNREADABLE_CHECKS:
         # NEEDS_ASSISTANCE, NOT REDISPATCH, AND THE DIFFERENCE IS THE WHOLE
-        # POINT. A gate that did not RUN is usually a conflicted PR, and sending
-        # an engineer back to resolve it is right. CI that cannot be READ is an
-        # environment failure — a redispatch cannot fix it and can only spend the
-        # loop budget rediscovering that. Which is exactly what happened: a failed
+        # POINT. The difference is the DIAGNOSIS. A gate that did not RUN (an
+        # absent gate, a conflicted PR) is fixed in the PR, policy or workflow;
+        # CI that cannot be READ is an environment failure, fixed in the
+        # environment. A redispatch fixes neither and can only spend the loop
+        # budget rediscovering that. Which is exactly what happened: a failed
         # `gh pr checks` read as GATE_DID_NOT_RUN and PR #92 rebuilt three times
         # while it was OPEN, MERGEABLE and green throughout.
         return Verdict.HOLD_NEEDS_ASSISTANCE, [
@@ -457,10 +479,13 @@ def ci_gate(state: CiVerdict, extra: list[str], *, pr: str,
     notes: list[str] = []
     # GATE_DID_NOT_RUN — and CONFLICTING, its narrowed sibling — are excluded
     # because their `extra` carries the names of the gate that is ABSENT, not of
-    # checks that ran. Reading it here reported
-    # `suite` as unclassified in the same breath as the branch below reported it
-    # as declared blocking — two contradictory lines from one run, on 2026-08-14.
-    if extra and state not in (CiVerdict.RED, CiVerdict.GATE_DID_NOT_RUN, CiVerdict.CONFLICTING):
+    # checks that ran. GATE_NOT_YET_RUN carries `[]` and is excluded by value, so
+    # a future `extra` on it cannot be read as unclassified checks. Reading it
+    # here reported `suite` as unclassified in the same breath as the branch
+    # below reported it as declared blocking — two contradictory lines from one
+    # run, on 2026-08-14.
+    if extra and state not in (CiVerdict.RED, CiVerdict.GATE_DID_NOT_RUN,
+                               CiVerdict.CONFLICTING, CiVerdict.GATE_NOT_YET_RUN):
         # A check that ran and is declared NEITHER blocking nor advisory is the
         # third state the Testing Standard says does not exist. Reported by name,
         # never silently gated — a check the repo has not classified must not halt
@@ -502,16 +527,42 @@ def ci_gate(state: CiVerdict, extra: list[str], *, pr: str,
     if state is CiVerdict.GATE_DID_NOT_RUN:
         notes.append(
             f"CI GATE: HOLD — {POLICY_PATH} declares {', '.join(extra)} blocking, and "
-            f"NONE of them reported on PR {pr}{where}. The gate exists and produced "
-            "nothing, which is not a pass. review-pr was NOT dispatched. The usual "
-            "cause is a CONFLICTED PR: `pull_request` workflows run against the merge "
-            "ref, GitHub cannot compute one for a conflicted PR, so no run is created "
-            "at all — check `git ls-remote origin refs/pull/<N>/merge` against the "
-            "current head. NOT looped back: a correction pass cannot make an absent check "
-            "appear — only a push that triggers CI, a merge ref GitHub can compute, or a "
-            "fix to this reader can (skyy-command #298 spent two refine passes proving "
-            "that). Resolve, push, let the checks run, then redispatch; the diff is intact "
-            "on the branch."
+            f"NONE of them reported on PR {pr}{where}. Other checks DID report on the "
+            "head commit, and none of them carries a declared blocking name, so the "
+            "gate exists and produced nothing, which is not a pass. review-pr was NOT "
+            "dispatched. The likely causes are a declared name that does not match the "
+            "job name that ran (a renamed job, or policy drift), or the gating workflow "
+            "alone being filtered out or not triggered; compare the policy's blocking "
+            "names against the jobs that reported. NOT looped back: a correction pass "
+            "cannot make an absent check appear — only a fix to the policy or workflow, "
+            "a push that triggers the gating workflow, or a fix to this reader can "
+            "(skyy-command #298 spent two refine passes proving that). Resolve, push, "
+            "let the checks run, then redispatch; the diff is intact on the branch. If "
+            "the policy and job names agree, check `gh pr view --json mergeable`: a "
+            "conflict GitHub had not yet reported at read time lands here too."
+        )
+        return Verdict.HOLD_NEEDS_ASSISTANCE, notes
+
+    if state is CiVerdict.GATE_NOT_YET_RUN:
+        # TRANSIENT ONLY BEFORE A CI WAIT, AND THE NOTE SAYS BOTH. Nothing ran, so
+        # there is nothing a correction pass could change. For a caller that has
+        # not waited the remedy would be the same call again once GitHub has
+        # created the runs — that is `merge_pr`, which handles this state itself
+        # and never reaches here. Every ci_gate caller DID wait first, so here
+        # zero jobs is NOT transient and the note says what to check instead.
+        # NOT a redispatch, for the same reason as UNREADABLE_CHECKS and
+        # CONFLICTING: a loop-back cannot make CI start or un-filter a workflow.
+        notes.append(
+            f"CI GATE: HOLD — no check job has reported for PR {pr}{where}'s head "
+            "commit (0 jobs read). Not a defect this run can see in the PR or the "
+            "gate. NOT looped back: a correction pass cannot make CI start. A caller "
+            "that waited for CI before reading it (every workflow does) has already "
+            "given GitHub its window, so zero jobs AFTER that wait is NOT transient: "
+            "every workflow may be path-filtered out of this commit, the trigger may "
+            "have been lost, or the PR may be conflicted — check `git ls-remote "
+            "origin refs/pull/<N>/merge` against the current head. Where CI was only "
+            "slow, re-running once the workflow runs exist is enough; the diff is "
+            "intact on the branch. review-pr was NOT dispatched."
         )
         return Verdict.HOLD_NEEDS_ASSISTANCE, notes
 

@@ -27,8 +27,10 @@ states the input that would break it:
 from __future__ import annotations
 
 import ast
+import datetime as _dt
 import hashlib
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -133,6 +135,12 @@ def _bag(root: Path, run_id: str, *, repo="alpha", workflow="build", children=()
             lines.append(_journal_line(run_id, "tracked:issues:file", "", kind="gap", seq=9,
                                 gap_class="write_failed", recorded_at=f"{day}T00:00:00Z"))
         (bag / "data" / "events.jsonl").write_text("\n".join(lines) + ("\n" if lines else ""))
+    # A bag with no dated event is dated by its directory's mtime
+    # (`journal_evidence`), i.e. the REAL clock — while these tests pin TODAY.
+    # Left alone, such a bag fell out of the fixed window the day the real date
+    # passed 2026-09-24 and two tests went red. Pin it to the fixture day.
+    day_epoch = _dt.datetime.fromisoformat(f"{day}T00:00:00+00:00").timestamp()
+    os.utime(bag, (day_epoch, day_epoch))
     return bag
 
 

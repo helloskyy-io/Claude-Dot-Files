@@ -179,8 +179,25 @@ def refusals(pr: str, repo_root: Path) -> list[str]:
         why.append(f"the latest review pass returned `{verdict}`, not MERGE")
 
     state, extra = ci_verdict(pr, repo_root=repo_root)
-    if state is not routing.CiVerdict.GREEN:
-        detail = f" ({', '.join(extra)})" if extra else ""
+    if state is routing.CiVerdict.GATE_NOT_YET_RUN:
+        # SAYS WHAT WAS READ, AND NOTHING PERMANENT. Skyy-Command #337 was refused
+        # with the whole declared policy listed and "this account cannot buy"
+        # attached, which read as a broken gate; the truth was one line — no jobs
+        # yet for this head — and the same command merged minutes later. The
+        # head is re-read for the message only, best-effort: a push between the
+        # two reads can name a newer sha, and an unread one is said so.
+        head = act.pr_head(pr, repo_root)
+        sha = f"`{head[:8]}`" if head else "its head commit (head unread)"
+        why.append(f"CI is `{state.value}`, not green — 0 check jobs found for "
+                   f"{sha}: GitHub has not started CI for this commit yet. "
+                   f"Transient; re-run this command once the workflow runs exist "
+                   f"(if it persists, every workflow may be path-filtered out of it)")
+    elif state is not routing.CiVerdict.GREEN:
+        # For these two `extra` is the declared gate that is ABSENT, not checks
+        # that ran — labelled, so seven names do not read as seven failures.
+        absent = state in (routing.CiVerdict.GATE_DID_NOT_RUN, routing.CiVerdict.CONFLICTING)
+        label = "declared blocking, none reported: " if absent else ""
+        detail = f" ({label}{', '.join(extra)})" if extra else ""
         why.append(f"CI is `{state.value}`, not green{detail} — this check IS the "
                    f"required-status-check this account cannot buy")
 
