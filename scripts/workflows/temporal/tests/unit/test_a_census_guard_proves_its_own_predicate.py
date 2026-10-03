@@ -256,7 +256,7 @@ _HERE = Path(__file__).resolve().parent
 # and a sibling tree without a reviewer is not reached into, plus four literal
 # snippets on the call predicate (an attribute call, a bare call, a `def` and an
 # `import` — the last two bind the name and run nothing).
-_PINNED = (48, 38)
+_PINNED = (49, 39)
 
 
 # GRANDFATHERED — walks the tree, has no literal control, PREDATES this rule.

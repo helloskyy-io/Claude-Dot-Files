@@ -169,12 +169,28 @@ def test_the_merge_path_does_NOT_wait_for_CI(clear, monkeypatch) -> None:
     monkeypatch.setattr(merge_pr.act, "wait_for_ci", boom)
     assert merge_pr.refusals("337", REPO)
 
-    tree = ast.parse(Path(merge_pr.__file__).read_text())
-    sleeps = sorted(fn.name for fn in ast.walk(tree) if isinstance(fn, ast.FunctionDef)
-                    for node in ast.walk(fn)
-                    if isinstance(node, ast.Call) and ast.unparse(node.func) == "time.sleep")
+    sleeps = _sleep_sites(ast.parse(Path(merge_pr.__file__).read_text()))
     assert sleeps == ["_merge_state", "pr_view"], sleeps
     assert "wait_for_ci" not in Path(merge_pr.__file__).read_text()
+
+
+def _sleep_sites(tree) -> list[str]:
+    """The functions that call `time.sleep`, sorted, one entry per call."""
+    import ast
+    return sorted(fn.name for fn in ast.walk(tree) if isinstance(fn, ast.FunctionDef)
+                  for node in ast.walk(fn)
+                  if isinstance(node, ast.Call) and ast.unparse(node.func) == "time.sleep")
+
+
+@pytest.mark.parametrize("snippet, expected", [
+    ("import time\ndef refusals():\n    time.sleep(5)\n", ["refusals"]),
+    ("import time\ndef refusals():\n    return time.monotonic()\n", []),
+])
+def test_the_sleep_inventory_SEES_a_sleep(snippet, expected) -> None:
+    """THE PREDICATE'S OWN CONTROL: a sleep added to the refusal path must be
+    counted, or the pin above stays green while the merge path waits."""
+    import ast
+    assert _sleep_sites(ast.parse(snippet)) == expected
 
 
 # --- `UNKNOWN` is transient, and that is not the same as clean ----------------
