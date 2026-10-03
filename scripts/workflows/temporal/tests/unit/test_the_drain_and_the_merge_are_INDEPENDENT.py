@@ -106,3 +106,17 @@ def test_a_MALFORMED_intake_is_left_OPEN_and_reported(merges, monkeypatch, tmp_p
                         lambda root, cwd=None, dry_run=False: ([], [(9, "no store key")]))
     report = merge_pr.run_merge(["1"], REPO, stores_root=tmp_path)
     assert "#9" in report.drain_error and "left OPEN" in report.drain_error
+
+
+def test_the_drain_advice_follows_the_CAUSE_not_one_fixed_sentence(
+        merges, monkeypatch, tmp_path) -> None:
+    """A failed close leaves a COMMITTED record, so 'commit the store' is the
+    wrong advice for it; a malformed one must not be told to commit."""
+    for store in ("issues", "candidates", "operations", "standards"):
+        (tmp_path / "tracked" / store).mkdir(parents=True)
+    failed = [(9, merge_pr.intake.CLOSE_FAILED_TAG + "rate limited")]
+    monkeypatch.setattr(merge_pr.intake, "harvest",
+                        lambda root, cwd=None, dry_run=False: ([], failed))
+    err = merge_pr.run_merge(["1"], REPO, stores_root=tmp_path).drain_error
+    assert "fix the gh error" in err
+    assert "commit the store" not in err and "malformed" not in err

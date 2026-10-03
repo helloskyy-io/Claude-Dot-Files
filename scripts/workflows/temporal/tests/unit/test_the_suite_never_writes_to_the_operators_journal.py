@@ -202,9 +202,16 @@ def test_the_population_this_sweeps_MATCHES_THE_TREE() -> None:
     # takes the redirect fixture by name and asserts the bag it reads is under
     # the sandbox root that fixture yields, so a redirect not in force is a red
     # test there before it is a stray bag here.
-    assert len(modules) == 8, (
+    #
+    # 8 → 9 on 2026-10-03: `test_intake.py` drives `harvest-intake.py`'s `main()`
+    # in-process to pin that a record not yet in `HEAD` leaves its intake open
+    # with a non-zero exit. Confirmed it cannot litter the operator's root:
+    # `intake._gh` is faked, the `HEAD` check is a bare `git show` through
+    # `run_bounded`, and no intake carries `repo:`, so `gh_attempt` — the only
+    # path to a journal emit — is never reached.
+    assert len(modules) == 9, (
         f"{len(modules)} test module(s) under {UNIT_DIR} drive an entrypoint "
-        f"`main()`; it was 8 when this was pinned. Found: "
+        f"`main()`; it was 9 when this was pinned. Found: "
         f"{[m.name for m in modules]}.\n"
         f"If a module was ADDED, it now runs inside the subprocess sweep below "
         f"and this number goes up. If the count DROPPED, the discovery "

@@ -28,6 +28,22 @@ def root(tmp_path: Path) -> Path:
     return tmp_path
 
 
+#: The real `HEAD` gate, kept so the tests that pin it can restore it.
+_REAL_UNCOMMITTED = own._uncommitted
+
+
+@pytest.fixture(autouse=True)
+def _record_is_committed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every test here except the `HEAD`-gate section treats records as committed.
+
+    Those tests pin ordering, idempotence, malformation and routing on a plain
+    `tmp_path` with no git repo, and the gate would leave every intake open for
+    a reason none of them is about. The gate gets its own section below, against
+    a REAL repository, which restores `_REAL_UNCOMMITTED`.
+    """
+    monkeypatch.setattr(own, "_uncommitted", lambda path, number: None)
+
+
 # --------------------------------------------------------------- round trip
 
 def test_what_a_filer_writes_is_what_the_harvest_reads() -> None:
@@ -473,3 +489,248 @@ def test_a_REAL_repo_NOT_CHECKED_OUT_here_is_accepted_via_the_org(
     assert not failed and [n for n, _ in moved] == [9]
     assert ["repo", "view", "helloskyy-io/real-but-not-checked-out-here", "--json", "name"] in asked, asked
 
+
+
+# ------------------------------------------------- the close waits for HEAD
+#
+# `harvest` wrote the record to the working tree and closed the intake on
+# GitHub in one pass, treating "file written" as durable. Measured three times
+# in four days across two repos: records written, intakes CLOSED, nobody
+# committed — sixteen in one case, five days untracked on one disk. These run
+# against a REAL git repository, because a stubbed `HEAD` is the belief this
+# section exists to test.
+
+import importlib.util
+import subprocess
+
+_HELPER = Path(__file__).resolve().parents[4] / "helpers" / "harvest-intake.py"
+
+
+def _git(repo: Path, *args: str) -> None:
+    subprocess.run(["git", "-C", str(repo), "-c", "user.name=t",
+                    "-c", "user.email=t@example.invalid",
+                    "-c", "commit.gpgsign=false", *args],
+                   check=True, capture_output=True, text=True, timeout=30)
+
+
+def _commit(repo: Path) -> None:
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "--allow-empty", "-m", "store")
+
+
+@pytest.fixture()
+def store_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A git repo holding the four stores, with one commit so `HEAD` exists."""
+    monkeypatch.setattr(own, "_uncommitted", _REAL_UNCOMMITTED)
+    repo = tmp_path / "planning"
+    for store in ti.STORES.values():
+        (repo / ti.TRACKED_ROOT / store.name).mkdir(parents=True)
+        (repo / ti.TRACKED_ROOT / store.name / ".gitkeep").touch()
+    _git(repo, "init", "-q")
+    _commit(repo)
+    return repo
+
+
+def _run_helper(argv: list[str]) -> int:
+    spec = importlib.util.spec_from_file_location("harvest_intake", _HELPER)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert mod.intake is own, "the helper must drive the module under test"
+    return mod.main(argv)
+
+
+def test_a_record_on_disk_but_NOT_IN_HEAD_leaves_the_intake_OPEN_and_exits_non_zero(
+        store_repo: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    """THE DEFECT. Written, not committed -> closing would lie about durability."""
+    gh = _FakeGh([_issue(11, "issues")])
+    monkeypatch.setattr(own, "_gh", gh)
+
+    rc = _run_helper(["--repo-root", str(store_repo)])
+
+    assert rc != 0, "a left-open intake must reach a human through the exit code"
+    assert gh.calls.count("close") == 0, "closed on an uncommitted record"
+    err = capsys.readouterr().err
+    assert "not committed" in err
+    # THE SUMMARY MUST NOT CLAIM A WRITTEN RECORD HAS NO COPY. It is in the store.
+    assert "1 awaiting commit: their records are written" in err   # summary-only text
+    assert "no other copy" not in err and "could not be harvested" not in err
+    assert len(list((store_repo / "tracked/issues").glob("*.md"))) == 1, (
+        "the record must still be written — only the CLOSE waits")
+
+
+def test_a_record_COMMITTED_in_HEAD_is_closed(
+        store_repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """THE POSITIVE CONTROL. Without it the gate could close nothing and pass.
+
+    And it reads `HEAD` of the repo holding the STORE: the issues repo here is a
+    different directory that is not a git repo at all, as with `--issues-repo`.
+    """
+    root = store_repo / ti.TRACKED_ROOT
+    ti.file_item(root, ti.STORES["issues"], title="t", filed_by="review-pr",
+                 status="open", body="b\n\n*Filed via intake `#12` and harvested.*\n")
+    _commit(store_repo)
+    gh = _FakeGh([_issue(12, "issues")])
+    monkeypatch.setattr(own, "_gh", gh)
+    elsewhere = tmp_path / "issues-repo"
+    elsewhere.mkdir()
+
+    moved, failed = own.harvest(root, cwd=elsewhere)
+
+    assert failed == [] and [n for n, _ in moved] == [12]
+    assert gh.calls.count("close") == 1
+
+
+def test_the_RE_RUN_after_a_commit_closes_and_files_NO_SECOND_COPY(
+        store_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """THE SECOND PHASE THE FIX DEPENDS ON: write, caller commits, next pass closes."""
+    root = store_repo / ti.TRACKED_ROOT
+    gh = _FakeGh([_issue(13, "candidates")])
+    monkeypatch.setattr(own, "_gh", gh)
+
+    moved, failed = own.harvest(root)
+    assert moved == [] and [n for n, _ in failed] == [13]
+    assert own.harvest(root)[1], "an uncommitted re-run must still not close"
+    _commit(store_repo)
+    moved, failed = own.harvest(root)
+
+    assert failed == [] and [n for n, _ in moved] == [13]
+    assert gh.calls.count("close") == 1
+    assert len(list((root / "candidates").glob("*.md"))) == 1, "a second copy was filed"
+
+
+def test_a_RECURRENCE_on_a_committed_item_waits_for_ITS_OWN_increment(
+        store_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The item's FILE is in `HEAD`; the increment this intake wrote is not.
+
+    A path-only check passes here and closes on an increment that may never be
+    committed. The gate reads the committed blob for THIS intake's pointer.
+    """
+    root = store_repo / ti.TRACKED_ROOT
+    item = ti.file_item(root, ti.STORES["issues"], title="again", filed_by="review-pr",
+                        status="open", body="b")
+    _commit(store_repo)
+    gh = _FakeGh([_titled(14, "issues", f"RECURRENCE on {item.stem} — again")])
+    monkeypatch.setattr(own, "_gh", gh)
+
+    assert [n for n, _ in own.harvest(root)[1]] == [14]
+    assert gh.calls.count("close") == 0
+    count = ti.parse(item)[0]["count"]
+    own.harvest(root)
+    assert ti.parse(item)[0]["count"] == count, "a re-run incremented twice"
+    _commit(store_repo)
+    assert [n for n, _ in own.harvest(root)[0]] == [14]
+
+
+def test_the_DRY_RUN_closes_nothing_and_writes_nothing(
+        store_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Including an intake whose record a previous pass already wrote — that
+    branch used to fall through to the close, so a rehearsal closed issues."""
+    root = store_repo / ti.TRACKED_ROOT
+    ti.file_item(root, ti.STORES["issues"], title="t", filed_by="review-pr",
+                 status="open", body="b\n\n*Filed via intake `#15`.*\n")
+    _commit(store_repo)
+    ti.file_item(root, ti.STORES["issues"], title="t", filed_by="review-pr",
+                 status="open", body="b\n\n*Filed via intake `#16`.*\n")
+    before = sorted(p.name for p in root.rglob("*.md"))
+    gh = _FakeGh([_issue(15, "issues"), _issue(16, "issues"), _issue(17, "candidates")])
+    monkeypatch.setattr(own, "_gh", gh)
+
+    moved, failed = own.harvest(root, dry_run=True)
+
+    assert gh.calls.count("close") == 0, "a dry run must close nothing"
+    assert sorted(p.name for p in root.rglob("*.md")) == before, "a dry run wrote"
+    assert [n for n, _ in moved] == [15, 17]
+    assert [n for n, _ in failed] == [16] and "not committed" in failed[0][1], (
+        "the rehearsal must predict the left-open intake, not report it movable")
+
+
+def test_a_MALFORMED_intake_still_exits_non_zero_and_stays_open(
+        store_repo: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    bad = {"number": 18, "title": "t", "body": "nothing parseable",
+           "createdAt": "2026-08-20T10:00:00Z"}
+    gh = _FakeGh([bad])
+    monkeypatch.setattr(own, "_gh", gh)
+
+    assert _run_helper(["--repo-root", str(store_repo)]) != 0
+    assert gh.calls.count("close") == 0
+    err = capsys.readouterr().err
+    assert "LEFT OPEN #18" in err
+    # The other half of the split: a malformed intake DOES have no other copy.
+    assert "no other copy" in err and "awaiting commit" not in err
+
+
+def test_an_EXPANSION_waits_for_ITS_OWN_append_and_intake_1_is_not_intake_12(
+        store_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Expansion edits a committed item too, and `#1` must not match `#12`."""
+    root = store_repo / ti.TRACKED_ROOT
+    item = ti.file_item(root, ti.STORES["candidates"], title="c", filed_by="review-pr",
+                        status="open", body="b\n\n*Filed via intake `#12`.*\n")
+    _commit(store_repo)
+    # Intake #1's pointer is a prefix of #12's text without its closing backtick.
+    assert own._uncommitted(item, 1) is not None
+    assert own._uncommitted(item, 12) is None
+    gh = _FakeGh([_titled(19, "candidates", f"EXPANSION of {item.stem} — more")])
+    monkeypatch.setattr(own, "_gh", gh)
+
+    assert [n for n, _ in own.harvest(root)[1]] == [19]
+    assert gh.calls.count("close") == 0
+    _commit(store_repo)
+    assert [n for n, _ in own.harvest(root)[0]] == [19]
+
+
+def test_a_MIXED_pass_splits_the_summary_by_cause(
+        store_repo: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    """One awaiting-commit intake and one malformed: each is counted and worded
+    for ITS cause, and the header counts both."""
+    bad = {"number": 31, "title": "t", "body": "nothing parseable",
+           "createdAt": "2026-08-20T10:00:00Z"}
+    monkeypatch.setattr(own, "_gh", _FakeGh([_issue(30, "issues"), bad]))
+
+    assert _run_helper(["--repo-root", str(store_repo)]) == 1
+    err = capsys.readouterr().err
+    assert "2 intake issue(s) are still open" in err
+    assert "1 awaiting commit: their records are written" in err
+    assert "1 could not be harvested: each carries a finding with no other copy" in err
+
+
+def test_EVERY_reason_the_gate_returns_carries_the_awaiting_commit_tag(
+        store_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The summary split keys on the tag, so an untagged reason would be
+    mis-worded as 'no other copy'. Cover both returns: git answers no, and git
+    cannot launch."""
+    root = store_repo / ti.TRACKED_ROOT
+    item = ti.file_item(root, ti.STORES["issues"], title="i", filed_by="review-pr",
+                        status="open", body="b\n")             # on disk, not committed
+    why = own._uncommitted(item, 5)
+    assert why and why.startswith(own.AWAITING_COMMIT_TAG)
+
+    def _no_git(*_a, **_k):
+        raise OSError("no git here")
+    monkeypatch.setattr(own.shared, "run_bounded", _no_git)
+    why = own._uncommitted(item, 5)
+    assert why and why.startswith(own.AWAITING_COMMIT_TAG)
+
+
+def test_a_FAILED_CLOSE_on_a_committed_record_is_not_described_as_no_other_copy(
+        store_repo: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    """The third cause: the record is in `HEAD` and only `gh issue close` errored
+    (auth, rate limit, network). The summary must say so — and must not claim
+    'no other copy', which was false for exactly this path. The malformed intake
+    in the same pass keeps its own, true, wording."""
+    gh = _FakeGh([_issue(40, "issues")])
+    monkeypatch.setattr(own, "_gh", gh)
+    assert _run_helper(["--repo-root", str(store_repo)]) == 1        # written, awaiting
+    _commit(store_repo)
+    bad = {"number": 41, "title": "t", "body": "nothing parseable",
+           "createdAt": "2026-08-20T10:00:00Z"}
+    gh.issues.append(bad)
+    gh.fail_close = True
+    capsys.readouterr()
+
+    assert _run_helper(["--repo-root", str(store_repo)]) == 1
+    err = capsys.readouterr().err
+    assert "LEFT OPEN #40: [close failed]" in err
+    assert "1 could not be closed on GitHub: their records are committed" in err
+    assert "1 could not be harvested: each carries a finding with no other copy" in err
+    assert "awaiting commit" not in err
+    assert len(list((store_repo / "tracked/issues").glob("*.md"))) == 1, "no second copy"

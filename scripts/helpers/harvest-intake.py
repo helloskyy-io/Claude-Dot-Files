@@ -17,6 +17,12 @@ human running it by hand sees the changes in `git status` like any other edit.
 Committing here would put a git write inside a step that is also called from a
 read-only context, and the surprise is not worth the keystroke.
 
+SO IT CLOSES AN INTAKE ONLY ONCE ITS RECORD IS IN `HEAD`. Closing an issue is a
+less reversible write than a commit, and closing on an uncommitted file reports
+a finding filed while its only copy is untracked on one disk — measured three
+times. A fresh intake is written and left open (exit 1, reason "not
+committed"); commit, re-run, and that pass closes it without a second copy.
+
     python3 scripts/helpers/harvest-intake.py [--repo-root .] [--dry-run]
 """
 from __future__ import annotations
@@ -73,14 +79,32 @@ def main(argv: list[str] | None = None) -> int:
     if not moved and not failed:
         print("  intake is empty.")
 
-    # A MALFORMED INTAKE IS A NON-ZERO EXIT, deliberately. It carries a finding
-    # that has already left the run that produced it, so there is no second copy
-    # anywhere and a quiet skip loses it. The issue stays OPEN and a human is
-    # told; the well-formed items in the same pass still moved.
+    # A LEFT-OPEN INTAKE IS A NON-ZERO EXIT, deliberately, and it has THREE causes
+    # that must not be described as one. MALFORMED: the finding has already left
+    # the run that produced it and no record was written, so there is no second
+    # copy anywhere and a quiet skip loses it. AWAITING COMMIT: the record IS
+    # written and sits in the store, and the only thing missing is the commit
+    # that makes it durable. CLOSE FAILED: the record is committed and only the
+    # GitHub close errored. The issue stays OPEN in all three and a human is
+    # told; the well-formed items in the same pass still moved. "No other copy"
+    # is claimed only for the untagged residual, never by default for a tagged one.
     if failed:
-        print(f"\n{len(failed)} intake issue(s) could not be harvested and are "
-              f"still open. Each carries a finding with no other copy — fix the "
-              f"body and re-run.", file=sys.stderr)
+        awaiting, close_failed, malformed_ids = intake.classify(failed)
+        malformed = len(malformed_ids)
+        print(f"\n{len(failed)} intake issue(s) are still open.", file=sys.stderr)
+        if awaiting:
+            print(f"  {len(awaiting)} awaiting commit: their records are written "
+                  f"in the store. Commit it and re-run; the next pass closes them "
+                  f"without filing a second copy.", file=sys.stderr)
+        if close_failed:
+            print(f"  {len(close_failed)} could not be closed on GitHub: their "
+                  f"records are committed. Fix what the reason names and re-run; "
+                  f"the next pass closes them without filing a second copy.",
+                  file=sys.stderr)
+        if malformed:
+            print(f"  {malformed} could not be harvested: each carries a finding "
+                  f"with no other copy. Fix what its reason names and re-run.",
+                  file=sys.stderr)
         return 1
     return 0
 
