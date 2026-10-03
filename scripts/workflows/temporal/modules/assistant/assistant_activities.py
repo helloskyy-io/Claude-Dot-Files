@@ -1989,8 +1989,8 @@ def parse_checks(result: subprocess.CompletedProcess) -> list | None:
 
     AN EMPTY LIST IS THE HONEST ANSWER AND THE CALLERS ALREADY HANDLE IT. Neither
     reader needed a new state: `ci_verdict` takes an empty list to `NO_CHECKS`
-    when the repo declares no gate and to `GATE_DID_NOT_RUN` when it declares one
-    that has not reported, which are the two right answers. The gate is not
+    when the repo declares no gate and, when it declares one, to `CONFLICTING` or
+    `GATE_NOT_YET_RUN`, which are the right answers. The gate is not
     weakened for repos that DO have CI — `testing/check-policy.yaml` is still what
     says a gate is expected, and a declared gate that never appears still holds.
 
@@ -2153,7 +2153,8 @@ def ci_verdict(pr: str, *, repo_root: Path) -> tuple[routing.CiVerdict, list[str
     # `parse_checks` OWNS THE NO-CHECKS CASE, and it returns `[]` rather than
     # None for it. An empty list falls through to the `not gating` branch below,
     # which is already the correct split: NO_CHECKS where the repo declares no
-    # gate, GATE_DID_NOT_RUN where it declares one that has not reported.
+    # gate, CONFLICTING or GATE_NOT_YET_RUN where it declares one (and runs that
+    # reported, none of them the gate, are GATE_DID_NOT_RUN).
     checks = parse_checks(result)
     if checks is None:
         return routing.CiVerdict.UNREADABLE_CHECKS, []

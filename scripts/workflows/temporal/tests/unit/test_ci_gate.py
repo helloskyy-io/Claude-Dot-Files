@@ -268,7 +268,7 @@ def test_a_DECLARED_gate_that_reports_NOTHING_still_holds(monkeypatch, repo):
         f"a declared gate with nothing reported read as {verdict} — the repo "
         f"expects `suite` and nothing reported it")
     hold, _notes = routing.ci_gate(verdict, extra, pr="1", repo_target=None)
-    assert hold is not None, "a declared gate that reported nothing must still hold"
+    assert hold is Verdict.HOLD_NEEDS_ASSISTANCE, "a declared gate that reported nothing must still hold"
 
 
 def test_a_repo_with_NO_CI_stops_polling_on_the_FIRST_reply(monkeypatch, tmp_path):
@@ -1306,6 +1306,7 @@ def test_GATE_NOT_YET_RUN_is_NOT_a_loop_back_and_says_it_is_transient() -> None:
     assert hold is Verdict.HOLD_NEEDS_ASSISTANCE
     assert hold is not Verdict.HOLD_REDISPATCH
     assert "transient" in notes[-1] and "NOT looped back" in notes[-1]
+    assert "NOT transient" in notes[-1], "a caller that already waited must not be told zero jobs is a wait"
     assert "CONFLICTED" not in notes[-1], "the not-yet-run note must not send the reader to a merge-ref hunt"
 
     sibling, _ = routing.ci_gate(CiVerdict.GATE_DID_NOT_RUN, ["suite"], pr="1", repo_target=None)

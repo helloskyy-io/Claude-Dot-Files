@@ -184,7 +184,8 @@ def refusals(pr: str, repo_root: Path) -> list[str]:
         # with the whole declared policy listed and "this account cannot buy"
         # attached, which read as a broken gate; the truth was one line — no jobs
         # yet for this head — and the same command merged minutes later. The
-        # head is re-read for the message only; an unread one is said so.
+        # head is re-read for the message only, best-effort: a push between the
+        # two reads can name a newer sha, and an unread one is said so.
         head = (_gh_json(["pr", "view", pr, "--json", "headRefOid"], repo_root)
                 or {}).get("headRefOid")
         sha = f"`{head[:8]}`" if isinstance(head, str) and head else "its head commit (head unread)"

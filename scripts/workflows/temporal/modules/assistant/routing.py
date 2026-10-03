@@ -329,7 +329,7 @@ POLICY_PATH = Path("testing") / "check-policy.yaml"
 
 
 class CiVerdict(str, Enum):
-    """Five states, and the last three are the ones that get fudged.
+    """The states that were split out of one another are the ones that get fudged.
 
     NO_CHECKS AND GATE_DID_NOT_RUN WERE ONE STATE UNTIL 2026-08-13, AND
     COLLAPSING THEM COST TWO PRs THEIR MERGE GATE. Both mean "no blocking check
@@ -534,12 +534,13 @@ def ci_gate(state: CiVerdict, extra: list[str], *, pr: str,
         # pass discovering that CI had not started.
         notes.append(
             f"CI GATE: HOLD — no check job has reported for PR {pr}{where}'s head "
-            "commit (0 jobs read): GitHub has not started CI for it yet. This is "
-            "transient, not a defect in the PR or the gate. NOT looped back: a "
+            "commit (0 jobs read). Usually transient: GitHub had not yet created the "
+            "runs, and that is not a defect in the PR or the gate. NOT looped back: a "
             "correction pass cannot make CI start sooner. Re-run once the workflow "
-            "runs exist; the diff is intact on the branch. Only if it persists: every "
-            "workflow may be path-filtered out of this commit, so no run will ever be "
-            "created. review-pr was NOT dispatched."
+            "runs exist; the diff is intact on the branch. This caller waited for CI "
+            "before reading it, so zero jobs AFTER that wait is NOT transient: every "
+            "workflow may be path-filtered out of this commit, or the trigger was "
+            "lost, and no run will ever be created. review-pr was NOT dispatched."
         )
         return Verdict.HOLD_NEEDS_ASSISTANCE, notes
 

@@ -169,22 +169,37 @@ def test_the_merge_path_does_NOT_wait_for_CI(clear, monkeypatch) -> None:
     monkeypatch.setattr(merge_pr.act, "wait_for_ci", boom)
     assert merge_pr.refusals("337", REPO)
 
-    sleeps = _sleep_sites(ast.parse(Path(merge_pr.__file__).read_text()))
-    assert sleeps == ["_merge_state", "pr_view"], sleeps
-    assert "wait_for_ci" not in Path(merge_pr.__file__).read_text()
+    tree = ast.parse(Path(merge_pr.__file__).read_text())
+    assert _sleep_sites(tree) == ["_merge_state", "pr_view"], _sleep_sites(tree)
+    named = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)} | {
+        n.attr for n in ast.walk(tree) if isinstance(n, ast.Attribute)}
+    assert "wait_for_ci" not in named, "the merge path names wait_for_ci"
 
 
 def _sleep_sites(tree) -> list[str]:
-    """The functions that call `time.sleep`, sorted, one entry per call."""
+    """The innermost function of every `time.sleep` / bare `sleep` call, sorted.
+
+    Innermost, so a nested def is not double-counted; bare `sleep` so
+    `from time import sleep` is seen."""
     import ast
-    return sorted(fn.name for fn in ast.walk(tree) if isinstance(fn, ast.FunctionDef)
-                  for node in ast.walk(fn)
-                  if isinstance(node, ast.Call) and ast.unparse(node.func) == "time.sleep")
+    found: list[str] = []
+
+    def visit(node, owner):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            owner = node.name
+        if isinstance(node, ast.Call) and ast.unparse(node.func) in ("time.sleep", "sleep"):
+            found.append(owner)
+        for child in ast.iter_child_nodes(node):
+            visit(child, owner)
+    visit(tree, "<module>")
+    return sorted(found)
 
 
 @pytest.mark.parametrize("snippet, expected", [
     ("import time\ndef refusals():\n    time.sleep(5)\n", ["refusals"]),
     ("import time\ndef refusals():\n    return time.monotonic()\n", []),
+    ("from time import sleep\ndef refusals():\n    sleep(5)\n", ["refusals"]),
+    ("import time\ndef outer():\n    def inner():\n        time.sleep(5)\n", ["inner"]),
 ])
 def test_the_sleep_inventory_SEES_a_sleep(snippet, expected) -> None:
     """THE PREDICATE'S OWN CONTROL: a sleep added to the refusal path must be
