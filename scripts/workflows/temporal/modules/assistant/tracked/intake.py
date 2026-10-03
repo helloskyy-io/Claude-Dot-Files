@@ -317,10 +317,16 @@ def harvest(root: Path, *, cwd: Path | None = None,
             why = _uncommitted(path, number)
             if why:
                 raise IntakeError(why)
-            _gh("issue", "close", str(number), "--comment",
-                f"Harvested to `{shown.as_posix()}`. The file is the record; "
-                f"this intake carried it and is now empty, per Tracked Items "
-                f"Standard §5.0.", cwd=cwd)
+            try:
+                _gh("issue", "close", str(number), "--comment",
+                    f"Harvested to `{shown.as_posix()}`. The file is the record; "
+                    f"this intake carried it and is now empty, per Tracked Items "
+                    f"Standard §5.0.", cwd=cwd)
+            except IntakeError as exc:
+                # The gate above passed, so the record IS in `HEAD`: the item
+                # survives a failed close by design (record written first). Tag
+                # it so the summary never calls this "no other copy".
+                raise IntakeError(f"{CLOSE_FAILED_TAG}{exc}") from exc
             moved.append((number, path))
         except (IntakeError, ValueError) as exc:
             # LEFT OPEN DELIBERATELY. A malformed intake is a finding that has
@@ -354,8 +360,25 @@ def _pointer(number: int) -> str:
 
 # Prefixes every reason `_uncommitted` returns, so a caller can tell "the record
 # exists, commit it" from "the finding exists only in the issue" without parsing
-# prose. `harvest-intake.py` words its closing summary off it.
+# prose. `classify` is the one reader of both tags.
 AWAITING_COMMIT_TAG = "[awaiting commit] "
+
+# Prefixes the reason when the record IS committed and only `gh issue close`
+# failed (auth, rate limit, network). The record is durable; a re-run closes it.
+CLOSE_FAILED_TAG = "[close failed] "
+
+
+def classify(failed: list[tuple[int, str]]
+             ) -> tuple[list[int], list[int], list[int]]:
+    """Split `harvest`'s left-open list by cause: (awaiting commit, close
+    failed, malformed). "Malformed" is the UNTAGGED RESIDUAL, the only group for
+    which no record was written — so a new cause must be tagged to leave it, and
+    cannot silently inherit its "no other copy" wording. Both callers
+    (`harvest-intake.py`, `merge_pr`) word their output off this one function."""
+    awaiting = [n for n, why in failed if why.startswith(AWAITING_COMMIT_TAG)]
+    close_failed = [n for n, why in failed if why.startswith(CLOSE_FAILED_TAG)]
+    tagged = set(awaiting) | set(close_failed)
+    return awaiting, close_failed, [n for n, _ in failed if n not in tagged]
 
 
 def _uncommitted(path: Path, number: int) -> str | None:

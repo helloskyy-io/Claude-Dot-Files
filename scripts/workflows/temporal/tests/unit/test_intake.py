@@ -709,3 +709,28 @@ def test_EVERY_reason_the_gate_returns_carries_the_awaiting_commit_tag(
     monkeypatch.setattr(own.shared, "run_bounded", _no_git)
     why = own._uncommitted(item, 5)
     assert why and why.startswith(own.AWAITING_COMMIT_TAG)
+
+
+def test_a_FAILED_CLOSE_on_a_committed_record_is_not_described_as_no_other_copy(
+        store_repo: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    """The third cause: the record is in `HEAD` and only `gh issue close` errored
+    (auth, rate limit, network). The summary must say so — and must not claim
+    'no other copy', which was false for exactly this path. The malformed intake
+    in the same pass keeps its own, true, wording."""
+    gh = _FakeGh([_issue(40, "issues")])
+    monkeypatch.setattr(own, "_gh", gh)
+    assert _run_helper(["--repo-root", str(store_repo)]) == 1        # written, awaiting
+    _commit(store_repo)
+    bad = {"number": 41, "title": "t", "body": "nothing parseable",
+           "createdAt": "2026-08-20T10:00:00Z"}
+    gh.issues.append(bad)
+    gh.fail_close = True
+    capsys.readouterr()
+
+    assert _run_helper(["--repo-root", str(store_repo)]) == 1
+    err = capsys.readouterr().err
+    assert "LEFT OPEN #40: [close failed]" in err
+    assert "1 could not be closed on GitHub: their records are committed" in err
+    assert "1 could not be harvested: each carries a finding with no other copy" in err
+    assert "awaiting commit" not in err
+    assert len(list((store_repo / "tracked/issues").glob("*.md"))) == 1, "no second copy"
