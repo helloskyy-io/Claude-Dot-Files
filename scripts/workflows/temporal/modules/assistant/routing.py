@@ -329,7 +329,7 @@ POLICY_PATH = Path("testing") / "check-policy.yaml"
 
 
 class CiVerdict(str, Enum):
-    """The states that were split out of one another are the ones that get fudged.
+    """What the CI read for a PR's head commit says — each state split out of one that fudged it.
 
     NO_CHECKS AND GATE_DID_NOT_RUN WERE ONE STATE UNTIL 2026-08-13, AND
     COLLAPSING THEM COST TWO PRs THEIR MERGE GATE. Both mean "no blocking check
@@ -341,9 +341,12 @@ class CiVerdict(str, Enum):
                           reported. The gate exists and produced nothing, which
                           is not a pass and must stop the run.
 
-    The usual cause of the second is a conflicted PR: `pull_request` workflows
+    The cause of the second WAS USUALLY a conflicted PR: `pull_request` workflows
     run against the merge ref, GitHub cannot compute one for a conflicted PR, so
-    no run is created at all. Zero runs render as zero failures.
+    no run is created at all. Zero runs render as zero failures. THAT CASE HAS
+    SINCE BEEN SPLIT OUT (CONFLICTING, 2026-09-14), and so has the other way to
+    get zero runs (GATE_NOT_YET_RUN, 2026-10-03): GATE_DID_NOT_RUN now means runs
+    DID report and none of them is a declared gate.
 
     UNREADABLE_CHECKS IS THE SAME LESSON ONE LAYER OUT, AND IT COST PR #92
     THREE REBUILDS ON 2026-08-14. `UNREADABLE_POLICY` already says that a
@@ -355,8 +358,8 @@ class CiVerdict(str, Enum):
     PR that was OPEN, MERGEABLE and green on all four checks the entire time.
 
     The distinction earns its place because THE REMEDIES ARE OPPOSITE. A gate
-    that did not run is usually a conflicted PR, and redispatching an engineer
-    to resolve it is the right move. A gate that cannot be READ is an
+    that did not run (then usually a conflicted PR) is something an engineer can
+    resolve, and redispatching one was the right move. A gate that cannot be READ is an
     environment failure, and redispatching cannot fix it — it can only spend the
     loop budget discovering that again.
     """
@@ -469,9 +472,10 @@ def ci_gate(state: CiVerdict, extra: list[str], *, pr: str,
     # GATE_DID_NOT_RUN — and CONFLICTING, its narrowed sibling — are excluded
     # because their `extra` carries the names of the gate that is ABSENT, not of
     # checks that ran. GATE_NOT_YET_RUN carries `[]` and is excluded by value, so
-    # a future `extra` on it cannot be read as unclassified checks. Reading it here reported
-    # `suite` as unclassified in the same breath as the branch below reported it
-    # as declared blocking — two contradictory lines from one run, on 2026-08-14.
+    # a future `extra` on it cannot be read as unclassified checks. Reading it
+    # here reported `suite` as unclassified in the same breath as the branch
+    # below reported it as declared blocking — two contradictory lines from one
+    # run, on 2026-08-14.
     if extra and state not in (CiVerdict.RED, CiVerdict.GATE_DID_NOT_RUN,
                                CiVerdict.CONFLICTING, CiVerdict.GATE_NOT_YET_RUN):
         # A check that ran and is declared NEITHER blocking nor advisory is the

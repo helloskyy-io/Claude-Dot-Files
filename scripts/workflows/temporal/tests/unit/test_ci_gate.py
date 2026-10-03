@@ -1298,7 +1298,7 @@ def test_ZERO_runs_AND_conflicting_is_still_CONFLICTING(monkeypatch, repo):
     assert act.ci_verdict("1", repo_root=repo)[0] is CiVerdict.CONFLICTING
 
 
-def test_GATE_NOT_YET_RUN_is_NOT_a_loop_back_and_and_names_the_post_wait_diagnosis() -> None:
+def test_GATE_NOT_YET_RUN_is_NOT_a_loop_back_and_names_the_post_wait_diagnosis() -> None:
     """A correction pass cannot make CI start sooner, so a redispatch here is the
     waste UNREADABLE_CHECKS and CONFLICTING were split out to stop. And its
     sibling still routes as it did: the split moved one case, not the other."""
