@@ -19,6 +19,7 @@ from __future__ import annotations
 import ast
 import inspect
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -1429,3 +1430,28 @@ def test_an_ABSENT_GATE_is_the_humans_not_a_loop_backs() -> None:
     assert hold is Verdict.HOLD_NEEDS_ASSISTANCE
     assert "NOT looped back" in notes[-1]
 
+
+def test_the_DID_NOT_RUN_note_describes_runs_that_REPORTED_not_a_conflicted_PR() -> None:
+    """review-pr pass 1 on PR #215: the note still said "no run is created at all".
+
+    Since the GATE_NOT_YET_RUN split, GATE_DID_NOT_RUN means jobs DID report and
+    none is a declared gate. A note sending the operator to look for a conflict
+    that cannot exist repeats the misdiagnosis the split was made to remove.
+    """
+    _, notes = routing.ci_gate(CiVerdict.GATE_DID_NOT_RUN, ["suite"], pr="1", repo_target=None)
+    assert "DID report" in notes[-1]
+    assert "compare the policy's blocking names" in notes[-1]
+    assert "no run is created at all" not in notes[-1]
+    # The one conflict that CAN land here: mergeable was UNKNOWN when ci_verdict read it.
+    assert "gh pr view --json mergeable" in notes[-1]
+
+
+@pytest.mark.parametrize("state", [s for s in CiVerdict if s is not CiVerdict.CONFLICTING])
+def test_only_CONFLICTING_may_claim_that_no_run_is_created(state) -> None:
+    """The CLASS check: "no run is created" is true of a conflicted PR and of nothing else.
+
+    A conflicted PR gets no merge ref, so it gets no runs. Any other state's note
+    asserting that is a stale cause carried over from before the states were split.
+    """
+    _, notes = routing.ci_gate(state, ["suite"], pr="1", repo_target=None)
+    assert not re.search(r"no runs? (is|are|was|were) created", " ".join(notes))
